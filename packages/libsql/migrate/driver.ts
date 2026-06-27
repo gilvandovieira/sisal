@@ -1,4 +1,8 @@
-import type { MigrationDriver } from "@sisal/migrate";
+import type {
+  MigrationDriver,
+  MigrationStore,
+  MigrationTransaction,
+} from "@sisal/migrate";
 
 import {
   createLibsqlExecutor,
@@ -8,7 +12,9 @@ import {
 import { toLibsqlMigrationError } from "./errors.ts";
 
 /** Options for creating a libSQL-backed migration driver. */
-export type LibsqlMigrationDriverOptions = LibsqlExecutorOptions;
+export interface LibsqlMigrationDriverOptions extends LibsqlExecutorOptions {
+  readonly transactionStoreFactory?: (executor: SqlExecutor) => MigrationStore;
+}
 
 /** Creates a core migration driver backed by libSQL SQL execution. */
 export function createLibsqlMigrationDriver(
@@ -16,7 +22,22 @@ export function createLibsqlMigrationDriver(
 ): MigrationDriver {
   const executor = createLibsqlExecutor(options);
 
-  return {
+  return createLibsqlMigrationDriverFromExecutor(executor, {
+    closeExecutor: true,
+    transactionStoreFactory: options.transactionStoreFactory,
+  });
+}
+
+function createLibsqlMigrationDriverFromExecutor(
+  executor: SqlExecutor,
+  options: {
+    readonly closeExecutor: boolean;
+    readonly transactionStoreFactory?: (
+      executor: SqlExecutor,
+    ) => MigrationStore;
+  },
+): MigrationDriver {
+  const driver: MigrationDriver = {
     async execute(sql: string): Promise<void> {
       try {
         await executor.execute(sql);
@@ -28,14 +49,22 @@ export function createLibsqlMigrationDriver(
       }
     },
 
-    transaction<T>(fn: () => Promise<T>): Promise<T> {
+    transaction<T>(fn: (tx: MigrationTransaction) => Promise<T>): Promise<T> {
       if (executor.transaction === undefined) {
-        return fn();
+        return fn({ driver });
       }
 
-      return executor.transaction(async () => {
+      return executor.transaction(async (txExecutor) => {
+        const txDriver = createLibsqlMigrationDriverFromExecutor(txExecutor, {
+          closeExecutor: false,
+        });
+        const store = options.transactionStoreFactory?.(txExecutor);
+
         try {
-          return await fn();
+          return await fn({
+            driver: txDriver,
+            ...(store === undefined ? {} : { store }),
+          });
         } catch (error) {
           throw toLibsqlMigrationError(error, "libSQL query failed", {
             code: "MIGRATION_EXECUTE_FAILED",
@@ -45,9 +74,15 @@ export function createLibsqlMigrationDriver(
     },
 
     async close(): Promise<void> {
+      if (!options.closeExecutor) {
+        return;
+      }
+
       await executor.close?.();
     },
   };
+
+  return driver;
 }
 
 export type { SqlExecutor };

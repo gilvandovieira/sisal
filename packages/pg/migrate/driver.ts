@@ -1,4 +1,8 @@
-import type { MigrationDriver } from "@sisal/migrate";
+import type {
+  MigrationDriver,
+  MigrationStore,
+  MigrationTransaction,
+} from "@sisal/migrate";
 
 import { createPgExecutor, type SqlExecutor } from "./executor.ts";
 import { toPgMigrationError } from "./errors.ts";
@@ -7,6 +11,7 @@ import type { PgConnectionOptions } from "./pool.ts";
 /** Options for creating a PostgreSQL-backed migration driver. */
 export interface PgMigrationDriverOptions extends PgConnectionOptions {
   readonly executor?: SqlExecutor;
+  readonly transactionStoreFactory?: (executor: SqlExecutor) => MigrationStore;
 }
 
 /** Creates a core migration driver backed by PostgreSQL SQL execution. */
@@ -15,7 +20,22 @@ export function createPgMigrationDriver(
 ): MigrationDriver {
   const executor = createPgExecutor(options);
 
-  return {
+  return createPgMigrationDriverFromExecutor(executor, {
+    closeExecutor: true,
+    transactionStoreFactory: options.transactionStoreFactory,
+  });
+}
+
+function createPgMigrationDriverFromExecutor(
+  executor: SqlExecutor,
+  options: {
+    readonly closeExecutor: boolean;
+    readonly transactionStoreFactory?: (
+      executor: SqlExecutor,
+    ) => MigrationStore;
+  },
+): MigrationDriver {
+  const driver: MigrationDriver = {
     async execute(sql: string): Promise<void> {
       try {
         await executor.execute(sql);
@@ -27,14 +47,22 @@ export function createPgMigrationDriver(
       }
     },
 
-    transaction<T>(fn: () => Promise<T>): Promise<T> {
+    transaction<T>(fn: (tx: MigrationTransaction) => Promise<T>): Promise<T> {
       if (executor.transaction === undefined) {
-        return fn();
+        return fn({ driver });
       }
 
-      return executor.transaction(async () => {
+      return executor.transaction(async (txExecutor) => {
+        const driver = createPgMigrationDriverFromExecutor(txExecutor, {
+          closeExecutor: false,
+        });
+        const store = options.transactionStoreFactory?.(txExecutor);
+
         try {
-          return await fn();
+          return await fn({
+            driver,
+            ...(store === undefined ? {} : { store }),
+          });
         } catch (error) {
           throw toPgMigrationError(error, "PostgreSQL query failed", {
             code: "MIGRATION_EXECUTE_FAILED",
@@ -44,7 +72,13 @@ export function createPgMigrationDriver(
     },
 
     async close(): Promise<void> {
+      if (!options.closeExecutor) {
+        return;
+      }
+
       await executor.close?.();
     },
   };
+
+  return driver;
 }

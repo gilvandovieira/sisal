@@ -70,7 +70,14 @@ export function createPgMigrator(
     executor,
     tableName: options.historyTable,
   });
-  const driver = createPgMigrationDriver({ executor });
+  const driver = createPgMigrationDriver({
+    executor,
+    transactionStoreFactory: (txExecutor) =>
+      createPgMigrationHistoryStore({
+        executor: txExecutor,
+        tableName: options.historyTable,
+      }),
+  });
 
   return Promise.resolve(
     new SisalPgMigrator({

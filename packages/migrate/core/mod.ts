@@ -68,10 +68,16 @@ export interface MigrationDriver {
   execute(sql: string): Promise<void>;
 
   transaction?<T>(
-    fn: () => Promise<T>,
+    fn: (tx: MigrationTransaction) => Promise<T>,
   ): Promise<T>;
 
   close?(): Promise<void>;
+}
+
+/** Driver/store scope exposed to migration transaction callbacks. */
+export interface MigrationTransaction {
+  readonly driver: MigrationDriver;
+  readonly store?: MigrationStore;
 }
 
 /** Executable migration step, either SQL text or a programmatic callback. */
@@ -777,19 +783,21 @@ export function getRollbackMigrations(
  * tests, and scaffolding only.
  */
 export function noopMigrationDriver(): MigrationDriver {
-  return {
+  const driver: MigrationDriver = {
     execute(_sql: string): Promise<void> {
       return Promise.resolve();
     },
 
-    transaction<T>(fn: () => Promise<T>): Promise<T> {
-      return fn();
+    transaction<T>(fn: (tx: MigrationTransaction) => Promise<T>): Promise<T> {
+      return fn({ driver });
     },
 
     close(): Promise<void> {
       return Promise.resolve();
     },
   };
+
+  return driver;
 }
 
 /** Creates a migrator that reports no migrations and executes nothing. */
@@ -1010,9 +1018,9 @@ class SisalMigrator implements Migrator {
     const startedAt = performance.now();
 
     try {
-      const applied = await this.#runInTransaction(async () => {
+      const applied = await this.#runInTransaction(async (scope) => {
         await executeMigrationStep(migration.up, {
-          driver: this.#driver,
+          driver: scope.driver,
           logger: this.#logger,
           dryRun: false,
           direction: "up",
@@ -1023,7 +1031,7 @@ class SisalMigrator implements Migrator {
         });
 
         try {
-          await this.#store.markApplied(applied);
+          await scope.store.markApplied(applied);
         } catch (error) {
           throw new MigrationError("Failed to mark migration as applied", {
             code: "MIGRATION_MARK_APPLIED_FAILED",
@@ -1061,16 +1069,16 @@ class SisalMigrator implements Migrator {
     const startedAt = performance.now();
 
     try {
-      const rolledBack = await this.#runInTransaction(async () => {
+      const rolledBack = await this.#runInTransaction(async (scope) => {
         await executeMigrationStep(migration.down!, {
-          driver: this.#driver,
+          driver: scope.driver,
           logger: this.#logger,
           dryRun: false,
           direction: "down",
         });
 
         try {
-          await this.#store.unmarkApplied(migration.id);
+          await scope.store.unmarkApplied(migration.id);
         } catch (error) {
           throw new MigrationError(
             "Failed to remove applied migration record",
@@ -1106,12 +1114,24 @@ class SisalMigrator implements Migrator {
     }
   }
 
-  async #runInTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  async #runInTransaction<T>(
+    fn: (
+      scope: {
+        readonly driver: MigrationDriver;
+        readonly store: MigrationStore;
+      },
+    ) => Promise<T>,
+  ): Promise<T> {
     if (this.#useTransaction && this.#driver.transaction !== undefined) {
-      return await this.#driver.transaction(fn);
+      return await this.#driver.transaction((tx) =>
+        fn({
+          driver: tx.driver,
+          store: tx.store ?? this.#store,
+        })
+      );
     }
 
-    return await fn();
+    return await fn({ driver: this.#driver, store: this.#store });
   }
 
   #assertCleanPlan(plan: MigrationPlan, allowDirty: boolean | undefined): void {

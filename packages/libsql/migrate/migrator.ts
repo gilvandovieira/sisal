@@ -86,7 +86,14 @@ export async function createLibsqlMigrator(
     executor,
     tableName: options.historyTable,
   });
-  const driver = createLibsqlMigrationDriver({ executor });
+  const driver = createLibsqlMigrationDriver({
+    executor,
+    transactionStoreFactory: (txExecutor) =>
+      createLibsqlMigrationHistoryStore({
+        executor: txExecutor,
+        tableName: options.historyTable,
+      }),
+  });
 
   return new SisalLibsqlMigrator({
     driver,
