@@ -24,17 +24,19 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
+      # Brand assets live outside ./docs in the repository, so stage them
+      # before the Jekyll container writes the root-owned _site directory.
+      - name: Stage brand assets
+        run: |
+          mkdir -p docs/assets
+          cp -R assets/. docs/assets/
+
       # Renders docs/*.md and serves docs/index.html as the site root.
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./docs
           destination: ./_site
-
-      # Brand assets live outside ./docs, so copy them into the built site
-      # for the landing page's logo, favicons, manifest, and OG image.
-      - name: Add brand assets
-        run: cp -r assets _site/assets
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

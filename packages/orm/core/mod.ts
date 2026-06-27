@@ -152,6 +152,7 @@ export interface TableDefinition<
 }
 
 /** Any Sisal table definition, regardless of its column map. */
+// deno-lint-ignore no-explicit-any -- This alias intentionally erases table column specifics.
 export type AnyTableDefinition = TableDefinition<any>;
 
 type ColumnValueFromBuilder<TBuilder> = TBuilder extends
@@ -418,6 +419,7 @@ export interface RelationDefinition<
 /** Relation map returned from a `relations(table, ...)` callback. */
 export type RelationDefinitionMap = Record<
   string,
+  // deno-lint-ignore no-explicit-any -- Relation maps need to preserve any source/target table pair.
   RelationDefinition<any, any>
 >;
 

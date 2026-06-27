@@ -1,0 +1,53 @@
+# PostgreSQL compatibility matrix for Sisal.
+#
+# Brings up PostgreSQL 16, 17, and 18 and (optionally) a Deno runner that
+# executes the feature suite against one of them.
+#
+#   # bring up the three servers
+#   docker compose -f docker/compose.yaml up -d pg16 pg17 pg18
+#
+#   # run the suite against one server (host Deno):
+#   DATABASE_URL=postgres://postgres:postgres@localhost:55418/sisal \
+#     deno test --allow-net --allow-env --allow-read integration/pg_features_test.ts
+#
+#   # or fully in Docker, against a chosen server:
+#   DATABASE_URL=postgres://postgres:postgres@pg18:5432/sisal \
+#     docker compose -f docker/compose.yaml run --rm runner
+#
+# `scripts/pg-matrix.sh` drives all three versions and prints a summary.
+name: sisal-pg-matrix
+
+x-pg: &pg
+  environment:
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_DB: sisal
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U postgres -d sisal"]
+    interval: 2s
+    timeout: 3s
+    retries: 40
+
+services:
+  pg16:
+    <<: *pg
+    image: postgres:16
+    ports: ["55416:5432"]
+
+  pg17:
+    <<: *pg
+    image: postgres:17
+    ports: ["55417:5432"]
+
+  pg18:
+    <<: *pg
+    image: postgres:18
+    ports: ["55418:5432"]
+
+  runner:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    profiles: ["runner"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@pg18:5432/sisal}

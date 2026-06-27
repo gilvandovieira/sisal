@@ -29,7 +29,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.x
+          deno-version: v2.8.3
 
       - name: Install dependencies
         run: deno install --frozen
@@ -52,15 +52,17 @@ jobs:
       - name: Dry run package publish
         if: inputs.dry_run
         run: |
-          deno publish --dry-run --allow-dirty --config packages/orm/deno.json
-          deno publish --dry-run --allow-dirty --config packages/migrate/deno.json
-          deno publish --dry-run --allow-dirty --config packages/pg/deno.json
-          deno publish --dry-run --allow-dirty --config packages/sqlite/deno.json
+          deno run --allow-read tools/workspace_packages.ts paths | while IFS= read -r package_path; do
+            echo "::group::Dry run ${package_path}"
+            deno publish --dry-run --allow-dirty --config "${package_path}/deno.json"
+            echo "::endgroup::"
+          done
 
       - name: Publish packages
         if: ${{ !inputs.dry_run }}
         run: |
-          deno publish --config packages/orm/deno.json
-          deno publish --config packages/migrate/deno.json
-          deno publish --config packages/pg/deno.json
-          deno publish --config packages/sqlite/deno.json
+          deno run --allow-read tools/workspace_packages.ts paths | while IFS= read -r package_path; do
+            echo "::group::Publish ${package_path}"
+            deno publish --config "${package_path}/deno.json"
+            echo "::endgroup::"
+          done

@@ -26,9 +26,11 @@ Sisal keeps the useful database pieces and drops the broader framework shape:
   generation.
 - `@sisal/sqlite` owns SQLite execution, history storage, migrators, and DDL
   generation.
+- `@sisal/libsql` owns libSQL/Turso execution, history storage, migrators, and
+  SQLite-compatible DDL aliases.
 
-The ORM does not import PostgreSQL, SQLite, Pequi Logger, or any legacy package.
-Adapters depend on `@sisal/orm`; the ORM never depends on adapters.
+The ORM does not import PostgreSQL, SQLite, libSQL, Pequi Logger, or any legacy
+package. Adapters depend on `@sisal/orm`; the ORM never depends on adapters.
 
 ## Packages
 
@@ -37,6 +39,7 @@ packages/orm       Driverless ORM, schema, SQL, snapshots
 packages/migrate   Adapter-neutral migration planning and running
 packages/pg        PostgreSQL ORM and migration adapter boundary
 packages/sqlite    SQLite ORM and migration adapter boundary
+packages/libsql    libSQL/Turso ORM and migration adapter boundary
 ```
 
 Supporting directories:
@@ -44,6 +47,7 @@ Supporting directories:
 ```text
 examples/basic-postgres
 examples/basic-sqlite
+examples/basic-libsql
 benchmarks
 docs
 ```
@@ -82,7 +86,9 @@ It loads `sisal.migrate.ts` by default. Export
 `defineConfig({ dir, dialect,
 snapshot, databaseUrl })` for PostgreSQL or
 `defineConfig({ dir, dialect,
-snapshot, databasePath })` for SQLite.
+snapshot, databasePath })` for SQLite. For
+Turso/libSQL, keep `dialect: "sqlite"` and use `databaseUrl` plus
+`databaseAuthToken` (or `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`).
 
 ## Logging
 

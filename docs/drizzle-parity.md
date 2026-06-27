@@ -242,12 +242,13 @@ runs, and `down`/`to` rollback — all adapter-neutral.
 
 ## 6. Adapters / connection
 
-| Drizzle 0.45.2                         | Sisal                                                  | Status |
-| -------------------------------------- | ------------------------------------------------------ | ------ |
-| `drizzle(client)` (per driver package) | `createPgDb` / `connect`, `createSqliteDb` / `connect` | 🔷     |
-| `node-postgres` / `postgres-js` / etc. | `@db/postgres`-compatible client                       | 🟡     |
-| `better-sqlite3` / `libsql` / `d1`     | `@db/sqlite` (lazy)                                    | 🟡     |
-| `mysql2`                               | — (snapshot/dialect aware, no adapter)                 | ❌     |
+| Drizzle 0.45.2                         | Sisal                                              | Status |
+| -------------------------------------- | -------------------------------------------------- | ------ |
+| `drizzle(client)` (per driver package) | `createPgDb` / `createSqliteDb` / `createLibsqlDb` | 🔷     |
+| `node-postgres` / `postgres-js` / etc. | `@db/postgres`-compatible client                   | 🟡     |
+| `better-sqlite3` / `d1`                | `@db/sqlite` (lazy)                                | 🟡     |
+| `libsql` / Turso                       | `@libsql/client` via `@sisal/libsql`               | ✅     |
+| `mysql2`                               | — (snapshot/dialect aware, no adapter)             | ❌     |
 
 ---
 

@@ -685,6 +685,102 @@
         color: var(--raffia);
       }
 
+      /* ---------- Compatibility ---------- */
+      .compat {
+        display: grid;
+        gap: 26px;
+      }
+
+      .compat__versions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+
+      .pg-badge {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 3px;
+        background: var(--ink-3);
+        border: 1px solid var(--line-strong);
+        border-radius: 12px;
+        padding: 14px 22px;
+        min-width: 160px;
+      }
+
+      .pg-badge b {
+        font-family: var(--mono);
+        font-size: 1.02rem;
+        font-weight: 600;
+        color: var(--raffia-light);
+      }
+
+      .pg-badge small {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--paper-faint);
+      }
+
+      .compat__features {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+        gap: 8px;
+      }
+
+      .compat__features li {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        color: var(--paper-dim);
+        background: var(--ink-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 12px;
+      }
+
+      .compat__features li::before {
+        content: "✓";
+        color: var(--sage);
+        font-weight: 700;
+      }
+
+      .pg-badge--sqlite b {
+        color: var(--sage);
+      }
+
+      .pg-badge--libsql b {
+        color: var(--olive);
+      }
+
+      .compat__note {
+        margin: 0;
+        color: var(--paper-dim);
+        font-size: 0.92rem;
+      }
+
+      .compat__note code {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        color: var(--raffia-light);
+      }
+
+      .compat__links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+      }
+
+      .compat__more {
+        font-weight: 600;
+      }
+
       /* ---------- Footer ---------- */
       .site-footer {
         border-top: 1px solid var(--line);
@@ -867,7 +963,7 @@
         </a>
         <nav class="site-nav" aria-label="Primary">
           <a class="nav-collapse" href="api.html">Docs</a>
-          <a class="nav-collapse" href="migration-notes.html">Migration</a>
+          <a class="nav-collapse" href="#compat">Compatibility</a>
           <a class="nav-collapse" href="drizzle-parity.html">Drizzle parity</a>
           <a class="nav-cta" href="https://github.com/gilvandovieira/sisal"
           >GitHub</a>
@@ -1112,6 +1208,80 @@
           </div>
         </div>
       </section>
+
+      <hr class="weave-rule">
+
+      <!-- ───────── Compatibility ───────── -->
+      <section class="section" id="compat">
+        <div class="wrap">
+          <div class="section__head">
+            <span class="section-eyebrow">Proven on real engines</span>
+            <h2 class="h-display">
+              Every adapter, verified on a real engine
+            </h2>
+            <p>
+              Each adapter is verified end-to-end against a real database:
+              generated DDL is executed, then every feature is exercised through
+              the public API — and the list of supported engines keeps
+              growing.
+            </p>
+          </div>
+
+          <div class="compat">
+            <div class="compat__versions" aria-label="Tested database engines">
+              <div class="pg-badge">
+                <b>PostgreSQL&nbsp;16</b><small>16.14 · 16/16</small>
+              </div>
+              <div class="pg-badge">
+                <b>PostgreSQL&nbsp;17</b><small>17.10 · 16/16</small>
+              </div>
+              <div class="pg-badge">
+                <b>PostgreSQL&nbsp;18</b><small>18.4 · 16/16</small>
+              </div>
+              <div class="pg-badge pg-badge--sqlite">
+                <b>SQLite&nbsp;3.46</b><small>20/20 green</small>
+              </div>
+              <div class="pg-badge pg-badge--libsql">
+                <b>libSQL / Turso</b><small>3.45 · 20/20 green</small>
+              </div>
+            </div>
+
+            <ul class="compat__features">
+              <li>Connection &amp; parameterized SQL</li>
+              <li>Generated DDL applies</li>
+              <li>Insert &amp; returning</li>
+              <li>Comparison &amp; range ops</li>
+              <li>like / inArray / isNull</li>
+              <li>and / or / not</li>
+              <li>asc / desc ordering</li>
+              <li>distinct</li>
+              <li>inner / left / right / full joins</li>
+              <li>count / sum / avg / min / max</li>
+              <li>groupBy &amp; having</li>
+              <li>update &amp; $onUpdate</li>
+              <li>delete &amp; returning</li>
+              <li>onConflict upserts</li>
+              <li>transactions &amp; rollback</li>
+              <li>migrator &amp; history</li>
+            </ul>
+
+            <p class="compat__note">
+              Most features behave identically across engines; the few
+              per-engine differences (e.g. SQLite has no <code>ilike</code>) are
+              noted in each matrix.
+            </p>
+
+            <div class="compat__links">
+              <a class="compat__more" href="pg-compatibility.html"
+              >PostgreSQL matrix&nbsp;→</a>
+              <a class="compat__more" href="sqlite-compatibility.html"
+              >SQLite matrix&nbsp;→</a>
+              <a class="compat__more" href="libsql-compatibility.html"
+              >libSQL / Turso matrix&nbsp;→</a>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <hr class="weave-rule">
@@ -1135,6 +1305,10 @@
             <div class="footer__col">
               <h4>Docs</h4>
               <a href="api.html">API reference</a>
+              <a href="pg-compatibility.html">Postgres compatibility</a>
+              <a href="sqlite-compatibility.html">SQLite compatibility</a>
+              <a href="libsql-compatibility.html"
+              >libSQL / Turso compatibility</a>
               <a href="migration-notes.html">Migration notes</a>
               <a href="drizzle-parity.html">Drizzle parity</a>
             </div>

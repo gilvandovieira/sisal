@@ -50,4 +50,6 @@ deno run --allow-read --allow-env --allow-net --allow-ffi \
 
 By default it loads `sisal.migrate.ts`, which should export `default` or
 `config` from `defineConfig({ dir, dialect, snapshot, ... })`. SQLite uses
-`databasePath`; PostgreSQL uses `databaseUrl`.
+`databasePath`; PostgreSQL uses `databaseUrl`; Turso/libSQL uses
+`dialect: "sqlite"` with a libSQL `databaseUrl` and optional
+`databaseAuthToken`.

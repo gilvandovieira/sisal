@@ -6,7 +6,7 @@ title: API Reference
 
 Complete reference for the public API of every Sisal package, generated from a
 full read of the source. Sisal is a Deno-first, JSR-native database toolkit made
-of four packages with strict boundaries:
+of five packages with strict boundaries:
 
 | Package          | Import root      | Responsibility                                          |
 | ---------------- | ---------------- | ------------------------------------------------------- |
@@ -14,6 +14,7 @@ of four packages with strict boundaries:
 | `@sisal/migrate` | `@sisal/migrate` | Adapter-neutral migration planning, running, workflow   |
 | `@sisal/pg`      | `@sisal/pg`      | PostgreSQL execution, history, migrator, DDL            |
 | `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite execution, history, migrator, DDL                |
+| `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso execution, history, migrator, SQLite DDL   |
 
 The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
 [`drizzle-parity.md`](./drizzle-parity.md) for how this surface maps to Drizzle
@@ -30,11 +31,11 @@ Each package exposes narrower entry points so an app can import the smallest
 boundary it needs.
 
 ```text
-@sisal/orm            @sisal/migrate          @sisal/pg               @sisal/sqlite
-  .   -> mod.ts         .        -> mod.ts       .       -> mod.ts       .       -> mod.ts
-  ./core                ./cli                    ./orm                   ./orm
-  ./error               ./core                   ./migrate               ./migrate
-  ./logger                                       ./ddl                   ./ddl
+@sisal/orm            @sisal/migrate          @sisal/pg               @sisal/sqlite           @sisal/libsql
+  .   -> mod.ts         .        -> mod.ts       .       -> mod.ts       .       -> mod.ts       .       -> mod.ts
+  ./core                ./cli                    ./orm                   ./orm                   ./orm
+  ./error               ./core                   ./migrate               ./migrate               ./migrate
+  ./logger                                       ./ddl                   ./ddl                   ./ddl
   ./schema              ./workflow
 ```
 
@@ -405,16 +406,16 @@ mismatch unless `allowDirty: true`.
 A SQL-first workflow with an **injectable filesystem** so writers/readers are
 unit-testable.
 
-| Symbol                                                         | Purpose                                                                                       |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `MigrationFileSystem`                                          | Interface: `readDir`, `readFile`, `writeFile`, `mkdir`                                        |
-| `denoMigrationFileSystem()`                                    | Deno-backed implementation (needs `--allow-read/-write`)                                      |
-| `buildMigrationFile({ sequence, name, statements, snapshot })` | Pure: build `.sql` + `.snapshot.json` contents                                                |
-| `writeMigrationFile(fs, dir, file)`                            | Write the generated pair                                                                      |
-| `readMigrationsDir(fs, dir)`                                   | Read + order discovered migrations (with snapshots)                                           |
-| `parseMigrationSequence(id)` / `nextMigrationSequence(list)`   | Sequence helpers                                                                              |
-| `defineConfig(config)`                                         | Validate `MigrateConfig` (`dir`, `dialect?`, `snapshot?`, `databaseUrl?`, `databasePath?`, …) |
-| `checkDrift(input)`                                            | Pure drift check → `DriftReport`                                                              |
+| Symbol                                                         | Purpose                                                                                                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `MigrationFileSystem`                                          | Interface: `readDir`, `readFile`, `writeFile`, `mkdir`                                                              |
+| `denoMigrationFileSystem()`                                    | Deno-backed implementation (needs `--allow-read/-write`)                                                            |
+| `buildMigrationFile({ sequence, name, statements, snapshot })` | Pure: build `.sql` + `.snapshot.json` contents                                                                      |
+| `writeMigrationFile(fs, dir, file)`                            | Write the generated pair                                                                                            |
+| `readMigrationsDir(fs, dir)`                                   | Read + order discovered migrations (with snapshots)                                                                 |
+| `parseMigrationSequence(id)` / `nextMigrationSequence(list)`   | Sequence helpers                                                                                                    |
+| `defineConfig(config)`                                         | Validate `MigrateConfig` (`dir`, `dialect?`, `snapshot?`, `databaseUrl?`, `databaseAuthToken?`, `databasePath?`, …) |
+| `checkDrift(input)`                                            | Pure drift check → `DriftReport`                                                                                    |
 
 `checkDrift` reports `schema_changed` (live schema differs from the newest
 captured snapshot), `pending_migrations`, and `missing_snapshot`.
@@ -447,6 +448,9 @@ export default defineConfig({
   snapshot,
 });
 ```
+
+For Turso/libSQL migrations, keep `dialect: "sqlite"` and set `databaseUrl` plus
+`databaseAuthToken` (or use `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`).
 
 `generate` emits only non-destructive SQL. Drop/alter changes are reported and
 withheld so the captured snapshot cannot get ahead of the SQL that was written.
@@ -559,3 +563,43 @@ import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
 
 const { statements } = generateSqliteUpStatements(snapshot);
 ```
+
+---
+
+# @sisal/libsql
+
+libSQL/Turso adapter, structured like `@sisal/sqlite` but backed by
+`@libsql/client`. It uses the SQLite SQL dialect for rendering and DDL.
+
+## ORM execution (`@sisal/libsql/orm`)
+
+`createLibsqlDb(options)` / `connect(options)` open a `LibsqlDatabase`. Options
+accept a Turso/libSQL `url`, optional `authToken`, or an already-open `client`.
+Also: `createLibsqlOrmDriver`, `createLibsqlExecutor`, `openLibsqlClient`,
+`LIBSQL_DIALECT`.
+
+Types: `LibsqlDatabase`, `CreateLibsqlDbOptions`, `LibsqlConnectionOptions`,
+`LibsqlClient`, `LibsqlOrmDriverOptions`, `LibsqlExecutorOptions`,
+`LibsqlQueryResult`, `LibsqlSqlExecutor`.
+
+```ts
+import { connect } from "@sisal/libsql";
+
+const db = await connect({
+  url: Deno.env.get("TURSO_DATABASE_URL")!,
+  authToken: Deno.env.get("TURSO_AUTH_TOKEN"),
+});
+```
+
+## Migrations (`@sisal/libsql/migrate`)
+
+`createLibsqlMigrator(options)` -> `LibsqlMigrator`. Also
+`createLibsqlMigrationDriver`, `createLibsqlMigrationHistoryStore`,
+`DEFAULT_LIBSQL_MIGRATION_TABLE`.
+
+## DDL generation (`@sisal/libsql/ddl`)
+
+libSQL uses SQLite syntax, so DDL helpers are SQLite-compatible aliases:
+`generateLibsqlUpStatements(to, from?)`, `generateLibsqlCreateTable`,
+`generateLibsqlAddColumn`, `generateLibsqlColumnDefinition`,
+`generateLibsqlColumnType`, `quoteLibsqlIdent`.
