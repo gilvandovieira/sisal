@@ -31,17 +31,17 @@ x-pg: &pg
 services:
   pg16:
     <<: *pg
-    image: postgres:16
+    image: postgres:16@sha256:fe03a7605299a34ddf5e4f285dff78c3d7190a576b3c6b46f2fcff69f4bffd54
     ports: ["55416:5432"]
 
   pg17:
     <<: *pg
-    image: postgres:17
+    image: postgres:17@sha256:5c855ad7b85e68e48a62f34662853f38b57c1c1d80f3a927ab58034fd6d31c5e
     ports: ["55417:5432"]
 
   pg18:
     <<: *pg
-    image: postgres:18
+    image: postgres:18@sha256:4aabea78cf39b90e834caf3af7d602a18565f6fe2508705c8d01aa63245c2e20
     ports: ["55418:5432"]
 
   # Neon's serverless driver speaks Postgres over a WebSocket. `neon-proxy`
@@ -49,10 +49,10 @@ services:
   # exercised locally exactly as it would against neon.tech.
   neon-pg:
     <<: *pg
-    image: postgres:17
+    image: postgres:17@sha256:5c855ad7b85e68e48a62f34662853f38b57c1c1d80f3a927ab58034fd6d31c5e
 
   neon-proxy:
-    image: ghcr.io/neondatabase/wsproxy:latest
+    image: ghcr.io/neondatabase/wsproxy:latest@sha256:7f2e2149aa6a57ba382a140102fba44f5053f3e44389ccc18adcecf896054efb
     environment:
       APPEND_PORT: "neon-pg:5432"
       ALLOW_ADDR_REGEX: ".*"

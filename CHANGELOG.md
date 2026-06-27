@@ -17,11 +17,14 @@ Sisal-specific history after that baseline through `1f05448`.
   credential redaction.
 - Added the `sisal/no-raw-interpolation` Deno lint plugin and a
   `deno task audit` OSV advisory/SBOM check.
+- Added a scheduled/manual dependency advisory workflow.
 
 ### Changed
 
 - Generated PostgreSQL, SQLite, and libSQL DDL now emits column-level `UNIQUE`
   and `FOREIGN KEY` constraints, including referential actions.
+- Pinned GitHub Actions and Docker integration images to immutable SHAs/digests,
+  with Dependabot coverage for updates.
 
 ### Fixed
 
