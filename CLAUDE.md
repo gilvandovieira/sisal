@@ -3,8 +3,11 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository.
 
-Sisal is a Deno-first, JSR-native database toolkit: a driverless ORM, migration
-tooling, and small database adapters. It is a Deno workspace with no build step.
+Sisal is a Deno-first database toolkit published to JSR: a driverless ORM,
+migration tooling, and small database adapters. It is a Deno workspace with no
+build step. The `@sisal/orm` + `@sisal/migrate` core is pure JSR; npm appears
+only at explicit adapter/benchmark boundaries (`npm:@libsql/client`, Neon's
+transitive deps, `npm:drizzle-orm` in benchmarks).
 
 ## Commands
 
@@ -44,6 +47,18 @@ SISAL_LIBSQL_IT=1 deno test -A integration/libsql_features_test.ts
 `deno task docs:check` (`tools/check_docs.ts`) requires **100% module docs** and
 **≥80% JSDoc** on every package's export modules — a new public export without a
 `/** … */` doc comment fails it.
+
+## Changelog Discipline
+
+`CHANGELOG.md` is the canonical workspace changelog. Keep it current whenever a
+change affects public APIs, package exports, adapter behavior, migration
+behavior, CLI behavior, documentation, examples, benchmarks, CI, release
+workflows, or package metadata.
+
+Use an `Unreleased` section for ongoing work unless the change is part of a
+specific version bump. When preparing a release, move relevant entries under the
+release version and date. Do not leave user-visible or release-relevant changes
+untracked in the changelog.
 
 ## Architecture
 
