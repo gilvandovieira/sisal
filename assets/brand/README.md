@@ -9,14 +9,14 @@ dark surfaces, so only the `sisal` wordmark needs the two variants.
 
 ## Palette
 
-| Token        | Hex       | Use                          |
-| ------------ | --------- | ---------------------------- |
-| Ink          | `#0E0E0F` | background, dark wordmark     |
-| Sage         | `#90956A` | agave (light leaves)          |
-| Olive        | `#5F6B49` | agave (deep leaves)           |
-| Raffia       | `#B9A885` | woven mat, accents            |
-| Raffia light | `#C2AA7E` | woven mat highlight           |
-| Paper        | `#E8E7DC` | wordmark on dark              |
+| Token        | Hex       | Use                       |
+| ------------ | --------- | ------------------------- |
+| Ink          | `#0E0E0F` | background, dark wordmark |
+| Sage         | `#90956A` | agave (light leaves)      |
+| Olive        | `#5F6B49` | agave (deep leaves)       |
+| Raffia       | `#B9A885` | woven mat, accents        |
+| Raffia light | `#C2AA7E` | woven mat highlight       |
+| Paper        | `#E8E7DC` | wordmark on dark          |
 
 ## Files
 
@@ -38,7 +38,10 @@ favicon/                    Favicon, PWA, and apple-touch icons + manifest
 
 ```html
 <picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="./assets/brand/logo-horizontal-dark.png">
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="./assets/brand/logo-horizontal-dark.png"
+  >
   <img alt="Sisal" src="./assets/brand/logo-horizontal-light.png" width="360">
 </picture>
 ```
@@ -47,8 +50,18 @@ favicon/                    Favicon, PWA, and apple-touch icons + manifest
 
 ```html
 <link rel="icon" href="/assets/brand/favicon/favicon.ico" sizes="any">
-<link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon/icon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon/icon-16.png">
+<link
+  rel="icon"
+  type="image/png"
+  sizes="32x32"
+  href="/assets/brand/favicon/icon-32.png"
+>
+<link
+  rel="icon"
+  type="image/png"
+  sizes="16x16"
+  href="/assets/brand/favicon/icon-16.png"
+>
 <link rel="apple-touch-icon" href="/assets/brand/favicon/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/favicon/site.webmanifest">
 <meta name="theme-color" content="#0E0E0F">
@@ -57,9 +70,12 @@ favicon/                    Favicon, PWA, and apple-touch icons + manifest
 ### Social / link preview (`<head>`)
 
 ```html
-<meta property="og:image" content="https://<your-pages-url>/assets/brand/og-image.png">
+<meta
+  property="og:image"
+  content="https://<your-pages-url>/assets/brand/og-image.png"
+>
 <meta name="twitter:card" content="summary_large_image">
 ```
 
-For the GitHub repo's own link unfurl, upload `og-image.png` under
-**Settings → General → Social preview**.
+For the GitHub repo's own link unfurl, upload `og-image.png` under **Settings →
+General → Social preview**.

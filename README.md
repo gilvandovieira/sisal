@@ -86,8 +86,13 @@ required dependency of `@sisal/orm`.
 ## Development
 
 ```sh
+deno task hooks:install
+deno task fmt
 deno task check
 deno task test
 ```
+
+The installed pre-commit hook runs `deno fmt --check` and blocks commits until
+formatting is clean.
 
 See [migration notes](./docs/migration-notes.md) for transition guidance.
