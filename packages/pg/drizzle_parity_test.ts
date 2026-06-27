@@ -50,7 +50,29 @@ Deno.test("parity: defineTable -> Postgres CREATE TABLE", () => {
     'CREATE TABLE "users" (\n' +
     '  "id" uuid NOT NULL,\n' +
     '  "email" varchar(255) NOT NULL,\n' +
-    '  PRIMARY KEY ("id")\n' +
+    '  PRIMARY KEY ("id"),\n' +
+    '  UNIQUE ("email")\n' +
     ");",
   ]);
+});
+
+Deno.test("parity: foreign keys + actions emit as ALTER after CREATE", () => {
+  const orgs = defineTable("orgs", { id: columns.uuid().primaryKey() });
+  const users = defineTable("users", {
+    id: columns.uuid().primaryKey(),
+    orgId: columns.uuid().references("orgs", "id", {
+      onDelete: "cascade",
+      onUpdate: "restrict",
+    }),
+  });
+  const { statements } = generatePostgresUpStatements(
+    createSchemaSnapshot({ dialect: "postgres", tables: [orgs, users] }),
+  );
+
+  // Foreign keys are added after every CREATE TABLE (forward-reference safe).
+  assertEquals(
+    statements.at(-1),
+    'ALTER TABLE "users" ADD FOREIGN KEY ("orgId") REFERENCES "orgs" ("id") ' +
+      "ON DELETE CASCADE ON UPDATE RESTRICT;",
+  );
 });

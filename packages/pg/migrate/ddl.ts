@@ -116,7 +116,55 @@ export function generatePostgresCreateTable(
     lines.push(`  PRIMARY KEY (${columns})`);
   }
 
+  for (const unique of table.uniqueConstraints ?? []) {
+    if (unique.columns.length === 0) continue;
+    const columns = unique.columns.map(quotePgIdent).join(", ");
+    const name = unique.name === undefined
+      ? ""
+      : `CONSTRAINT ${quotePgIdent(unique.name)} `;
+    lines.push(`  ${name}UNIQUE (${columns})`);
+  }
+
   return `CREATE TABLE ${pgQualifiedName(table)} (\n${lines.join(",\n")}\n);`;
+}
+
+/** Maps a referential action to its SQL keyword (`cascade` → `CASCADE`). */
+function pgReferentialAction(action: string): string {
+  return action.toUpperCase();
+}
+
+/**
+ * Generates `ALTER TABLE … ADD … FOREIGN KEY` statements for a table. Foreign
+ * keys are emitted *after* every `CREATE TABLE` so the alphabetical table order
+ * in a snapshot never produces a forward-reference error on Postgres.
+ */
+export function generatePostgresForeignKeys(
+  table: SisalTableSnapshot,
+): string[] {
+  return (table.foreignKeys ?? [])
+    .filter((fk) => fk.columns.length > 0)
+    .map((fk) => {
+      const columns = fk.columns.map(quotePgIdent).join(", ");
+      const refTable = pgQualifiedName({
+        name: fk.references.table,
+        ...(fk.references.schema === undefined
+          ? {}
+          : { schema: fk.references.schema }),
+      });
+      const refColumns = fk.references.columns.map(quotePgIdent).join(", ");
+      const name = fk.name === undefined
+        ? ""
+        : `CONSTRAINT ${quotePgIdent(fk.name)} `;
+      let clause =
+        `${name}FOREIGN KEY (${columns}) REFERENCES ${refTable} (${refColumns})`;
+      if (fk.onDelete !== undefined) {
+        clause += ` ON DELETE ${pgReferentialAction(fk.onDelete)}`;
+      }
+      if (fk.onUpdate !== undefined) {
+        clause += ` ON UPDATE ${pgReferentialAction(fk.onUpdate)}`;
+      }
+      return `ALTER TABLE ${pgQualifiedName(table)} ADD ${clause};`;
+    });
 }
 
 /** Generates an `ALTER TABLE ... ADD COLUMN` statement. */
@@ -160,6 +208,11 @@ export function generatePostgresUpStatements(
     for (const column of table.columns.added) {
       statements.push(generatePostgresAddColumn(table, column));
     }
+  }
+
+  // Foreign keys come after every CREATE TABLE so forward references resolve.
+  for (const table of diff.addedTables) {
+    statements.push(...generatePostgresForeignKeys(table));
   }
 
   const { destructive } = planSchemaChangesFromDiff(diff);

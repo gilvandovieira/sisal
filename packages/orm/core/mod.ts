@@ -66,6 +66,20 @@ export type ColumnRuntimeType =
   | Record<string, unknown>
   | unknown[];
 
+/** A foreign-key referential action for `ON DELETE` / `ON UPDATE`. */
+export type ReferentialAction =
+  | "cascade"
+  | "restrict"
+  | "no action"
+  | "set null"
+  | "set default";
+
+/** Options accepted by {@link ColumnBuilder.references}. */
+export interface ReferentialOptions {
+  readonly onDelete?: ReferentialAction;
+  readonly onUpdate?: ReferentialAction;
+}
+
 /** Column metadata used by table definitions and future adapters. */
 export interface ColumnDefinition<T> {
   readonly name?: ColumnName;
@@ -81,6 +95,8 @@ export interface ColumnDefinition<T> {
   readonly references?: {
     readonly table: string;
     readonly column: string;
+    readonly onDelete?: ReferentialAction;
+    readonly onUpdate?: ReferentialAction;
   };
   readonly defaultValue?: T | (() => T);
   readonly onUpdate?: () => unknown;
@@ -107,6 +123,7 @@ export interface ColumnBuilder<
   references(
     table: string,
     column: string,
+    options?: ReferentialOptions,
   ): ColumnBuilder<T, TOptional, THasDefault>;
   /** Makes the column an array of its element type (Postgres `type[]`). */
   array(): ColumnBuilder<ColumnArray<T>, TOptional, THasDefault>;
@@ -1787,6 +1804,7 @@ class SisalColumnBuilder<
   references(
     table: string,
     column: string,
+    options: ReferentialOptions = {},
   ): ColumnBuilder<T, TOptional, THasDefault> {
     return new SisalColumnBuilder(
       {
@@ -1794,6 +1812,12 @@ class SisalColumnBuilder<
         references: {
           table: normalizeTableName(table),
           column: normalizeColumnName(column),
+          ...(options.onDelete === undefined
+            ? {}
+            : { onDelete: options.onDelete }),
+          ...(options.onUpdate === undefined
+            ? {}
+            : { onUpdate: options.onUpdate }),
         },
       },
       this.optionalInsert,
@@ -3694,6 +3718,12 @@ function tableToSnapshot(
         table: column.references!.table,
         columns: [column.references!.column],
       },
+      ...(column.references!.onDelete === undefined
+        ? {}
+        : { onDelete: column.references!.onDelete }),
+      ...(column.references!.onUpdate === undefined
+        ? {}
+        : { onUpdate: column.references!.onUpdate }),
     }));
 
   return {
@@ -3772,6 +3802,12 @@ function cloneColumnDefinition<T>(
       references: {
         table: definition.references.table,
         column: definition.references.column,
+        ...(definition.references.onDelete === undefined
+          ? {}
+          : { onDelete: definition.references.onDelete }),
+        ...(definition.references.onUpdate === undefined
+          ? {}
+          : { onUpdate: definition.references.onUpdate }),
       },
     }),
     ...(definition.defaultValue === undefined

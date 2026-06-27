@@ -13,6 +13,11 @@ Sisal-specific history after that baseline through `1f05448`.
 
 - Added the root MIT license file for the workspace.
 
+### Changed
+
+- Generated PostgreSQL, SQLite, and libSQL DDL now emits column-level `UNIQUE`
+  and `FOREIGN KEY` constraints, including referential actions.
+
 ## 0.2.0 - 2026-06-27
 
 ### Added

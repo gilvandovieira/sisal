@@ -110,6 +110,30 @@ export function generateSqliteCreateTable(
     lines.push(`  PRIMARY KEY (${columns})`);
   }
 
+  for (const unique of table.uniqueConstraints ?? []) {
+    if (unique.columns.length === 0) continue;
+    const columns = unique.columns.map(quoteSqliteIdent).join(", ");
+    lines.push(`  UNIQUE (${columns})`);
+  }
+
+  // SQLite accepts forward references, so foreign keys can stay inline in the
+  // CREATE TABLE (unlike Postgres, where they are added afterwards).
+  for (const fk of table.foreignKeys ?? []) {
+    if (fk.columns.length === 0) continue;
+    const columns = fk.columns.map(quoteSqliteIdent).join(", ");
+    const refColumns = fk.references.columns.map(quoteSqliteIdent).join(", ");
+    let clause = `  FOREIGN KEY (${columns}) REFERENCES ${
+      quoteSqliteIdent(fk.references.table)
+    } (${refColumns})`;
+    if (fk.onDelete !== undefined) {
+      clause += ` ON DELETE ${fk.onDelete.toUpperCase()}`;
+    }
+    if (fk.onUpdate !== undefined) {
+      clause += ` ON UPDATE ${fk.onUpdate.toUpperCase()}`;
+    }
+    lines.push(clause);
+  }
+
   // SQLite ignores any schema qualifier; tables live in one namespace.
   return `CREATE TABLE ${quoteSqliteIdent(table.name)} (\n${
     lines.join(",\n")
