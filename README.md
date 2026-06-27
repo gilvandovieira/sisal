@@ -67,6 +67,23 @@ const snapshot = createSchemaSnapshot({
 const { statements } = generatePostgresUpStatements(snapshot);
 ```
 
+## CLI
+
+The migration CLI wraps the same snapshot workflow:
+
+```sh
+deno task sisal generate initial
+deno task sisal migrate
+deno task sisal status
+deno task sisal drift
+```
+
+It loads `sisal.migrate.ts` by default. Export
+`defineConfig({ dir, dialect,
+snapshot, databaseUrl })` for PostgreSQL or
+`defineConfig({ dir, dialect,
+snapshot, databasePath })` for SQLite.
+
 ## Logging
 
 Sisal accepts a small generic logger interface:
@@ -86,8 +103,13 @@ required dependency of `@sisal/orm`.
 ## Development
 
 ```sh
+deno task hooks:install
+deno task fmt
 deno task check
 deno task test
 ```
+
+The installed pre-commit hook runs `deno fmt --check` and blocks commits until
+formatting is clean.
 
 See [migration notes](./docs/migration-notes.md) for transition guidance.

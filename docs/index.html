@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sisal — a Deno-first, JSR-native database toolkit</title>
+    <meta
+      name="description"
+      content="Sisal is a Deno-first, JSR-native database toolkit: typed schemas, planned migrations, and small Postgres & SQLite adapters. The ORM is driverless and never imports an adapter."
+    >
+    <link rel="canonical" href="https://gilvandovieira.github.io/sisal/">
+
+    <!-- Brand icons & PWA -->
+    <link rel="icon" href="assets/brand/favicon/favicon.ico" sizes="any">
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="assets/brand/favicon/icon-32.png"
+    >
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="assets/brand/favicon/icon-16.png"
+    >
+    <link
+      rel="apple-touch-icon"
+      href="assets/brand/favicon/apple-touch-icon.png"
+    >
+    <link rel="manifest" href="assets/brand/favicon/site.webmanifest">
+    <meta name="theme-color" content="#0E0E0F">
+
+    <!-- Social / link preview -->
+    <meta property="og:type" content="website">
+    <meta
+      property="og:title"
+      content="Sisal — a Deno-first, JSR-native database toolkit"
+    >
+    <meta
+      property="og:description"
+      content="Typed schemas, planned migrations, and small Postgres & SQLite adapters — woven from four clean packages with strict boundaries."
+    >
+    <meta property="og:url" content="https://gilvandovieira.github.io/sisal/">
+    <meta
+      property="og:image"
+      content="https://gilvandovieira.github.io/sisal/assets/brand/og-image.png"
+    >
+    <meta name="twitter:card" content="summary_large_image">
+    <meta
+      name="twitter:title"
+      content="Sisal — a Deno-first, JSR-native database toolkit"
+    >
+    <meta
+      name="twitter:image"
+      content="https://gilvandovieira.github.io/sisal/assets/brand/og-image.png"
+    >
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    >
+
+    <style>
+      :root {
+        color-scheme: dark;
+
+        --ink: #0e0e0f;
+        --ink-2: #141417;
+        --ink-3: #18181c;
+        --line: rgba(232, 231, 220, 0.1);
+        --line-strong: rgba(232, 231, 220, 0.18);
+
+        --paper: #e8e7dc;
+        --paper-dim: rgba(232, 231, 220, 0.66);
+        --paper-faint: rgba(232, 231, 220, 0.4);
+
+        --sage: #90956a;
+        --olive: #5f6b49;
+        --raffia: #b9a885;
+        --raffia-light: #c2aa7e;
+
+        --display: "Fraunces", Georgia, "Times New Roman", serif;
+        --body:
+          "Inter",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        --mono:
+          "JetBrains Mono",
+          ui-monospace,
+          "SFMono-Regular",
+          Menlo,
+          monospace;
+
+        --wrap: 1120px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--ink);
+        color: var(--paper);
+        font-family: var(--body);
+        font-size: 17px;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      a {
+        color: var(--raffia-light);
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: var(--paper);
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--raffia-light);
+        outline-offset: 3px;
+        border-radius: 3px;
+      }
+
+      .wrap {
+        width: min(var(--wrap), calc(100% - 48px));
+        margin-inline: auto;
+      }
+
+      .skip-link {
+        position: absolute;
+        left: 16px;
+        top: -64px;
+        background: var(--raffia);
+        color: var(--ink);
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: top 0.18s ease;
+        z-index: 20;
+      }
+
+      .skip-link:focus {
+        top: 16px;
+        color: var(--ink);
+      }
+
+      /* The signature thread: a woven hairline used at section seams. */
+      .weave-rule {
+        height: 1px;
+        border: 0;
+        margin: 0;
+        background: repeating-linear-gradient(
+          90deg,
+          var(--raffia) 0 11px,
+          transparent 11px 20px
+        );
+        opacity: 0.22;
+      }
+
+      /* ---------- Header ---------- */
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: rgba(14, 14, 15, 0.78);
+        backdrop-filter: saturate(140%) blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .site-header__inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 14px 0;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+      }
+
+      .brand img {
+        height: 30px;
+        width: auto;
+        display: block;
+      }
+
+      .site-nav {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+      }
+
+      .site-nav a {
+        color: var(--paper-dim);
+        font-size: 0.95rem;
+        font-weight: 500;
+      }
+
+      .site-nav a:hover {
+        color: var(--paper);
+      }
+
+      .site-nav .nav-cta {
+        color: var(--ink);
+        background: var(--raffia);
+        padding: 7px 15px;
+        border-radius: 8px;
+        font-weight: 600;
+      }
+
+      .site-nav .nav-cta:hover {
+        background: var(--raffia-light);
+        color: var(--ink);
+      }
+
+      /* ---------- Hero ---------- */
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: clamp(56px, 10vw, 120px) 0 clamp(48px, 7vw, 96px);
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(
+            900px 480px at 12% -10%,
+            rgba(95, 107, 73, 0.22),
+            transparent 60%
+          ),
+          radial-gradient(
+          700px 520px at 110% 30%,
+          rgba(185, 168, 133, 0.1),
+          transparent 55%
+        );
+        pointer-events: none;
+      }
+
+      /* Faint agave mark, ambient brand presence behind the fold. */
+      .hero__mark {
+        position: absolute;
+        right: -80px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: min(620px, 60vw);
+        opacity: 0.05;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .hero__inner {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        gap: clamp(32px, 5vw, 72px);
+        align-items: center;
+      }
+
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--raffia);
+        margin: 0 0 22px;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 26px;
+        height: 1px;
+        background: var(--raffia);
+        opacity: 0.7;
+      }
+
+      h1 {
+        font-family: var(--display);
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-size: clamp(2.7rem, 6.2vw, 4.6rem);
+        line-height: 1.03;
+        letter-spacing: -0.015em;
+        margin: 0 0 24px;
+      }
+
+      h1 .accent {
+        font-style: italic;
+        font-weight: 500;
+        color: var(--raffia-light);
+      }
+
+      .lede {
+        font-size: clamp(1.05rem, 1.7vw, 1.22rem);
+        color: var(--paper-dim);
+        max-width: 34ch;
+        margin: 0 0 36px;
+      }
+
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        font-family: var(--body);
+        font-size: 0.98rem;
+        font-weight: 600;
+        padding: 12px 22px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        transition:
+          transform 0.15s ease,
+          background 0.15s ease,
+          border-color 0.15s ease,
+          color 0.15s ease;
+      }
+
+      .btn-primary {
+        background: var(--raffia);
+        color: var(--ink);
+      }
+
+      .btn-primary:hover {
+        background: var(--raffia-light);
+        color: var(--ink);
+        transform: translateY(-2px);
+      }
+
+      .btn-ghost {
+        border-color: var(--line-strong);
+        color: var(--paper);
+      }
+
+      .btn-ghost:hover {
+        border-color: var(--raffia);
+        color: var(--paper);
+        transform: translateY(-2px);
+      }
+
+      .jsr-link {
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        color: var(--paper-dim);
+      }
+
+      .jsr-link:hover {
+        color: var(--raffia-light);
+      }
+
+      /* ---------- Code card ---------- */
+      .code-card {
+        background: var(--ink-2);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.9);
+      }
+
+      .code-card__bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 11px 16px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.015);
+      }
+
+      .code-card__name {
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        color: var(--paper-dim);
+      }
+
+      .tag {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--olive);
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        padding: 3px 9px;
+      }
+
+      pre {
+        margin: 0;
+        padding: 20px 22px;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 0.86rem;
+        line-height: 1.75;
+        tab-size: 2;
+      }
+
+      pre code {
+        font-family: inherit;
+      }
+
+      .tok-key {
+        color: var(--raffia-light);
+      }
+
+      .tok-str {
+        color: var(--sage);
+      }
+
+      .tok-fn {
+        color: var(--paper);
+      }
+
+      .tok-com {
+        color: var(--paper-faint);
+        font-style: italic;
+      }
+
+      /* ---------- Generic section ---------- */
+      .section {
+        padding: clamp(60px, 9vw, 110px) 0;
+      }
+
+      .section__head {
+        max-width: 56ch;
+        margin-bottom: 48px;
+      }
+
+      .h-display {
+        font-family: var(--display);
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-size: clamp(1.9rem, 3.6vw, 2.7rem);
+        line-height: 1.1;
+        letter-spacing: -0.01em;
+        margin: 14px 0 16px;
+      }
+
+      .section__head p {
+        color: var(--paper-dim);
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .section-eyebrow {
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--raffia);
+      }
+
+      /* ---------- Packages weave ---------- */
+      .threads {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+
+      .pkg {
+        position: relative;
+        background: var(--ink-3);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 26px 24px;
+        transition: transform 0.16s ease, border-color 0.16s ease;
+      }
+
+      .pkg:hover {
+        transform: translateY(-4px);
+        border-color: var(--line-strong);
+      }
+
+      .pkg::before {
+        content: "";
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        top: 0;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--thread, var(--raffia));
+        opacity: 0.85;
+      }
+
+      .pkg--migrate {
+        --thread: var(--sage);
+      }
+
+      .pkg--pg {
+        --thread: var(--raffia);
+      }
+
+      .pkg--sqlite {
+        --thread: var(--olive);
+      }
+
+      .pkg__name {
+        font-family: var(--mono);
+        font-size: 1.02rem;
+        font-weight: 500;
+        color: var(--paper);
+        margin: 4px 0 4px;
+      }
+
+      .pkg__role {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--paper-faint);
+      }
+
+      .pkg__desc {
+        color: var(--paper-dim);
+        font-size: 0.97rem;
+        margin: 14px 0 18px;
+      }
+
+      .pkg__paths {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .pkg__paths span {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--paper-dim);
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 2px 8px;
+      }
+
+      /* Foundation card = the warp thread the others rest on. */
+      .foundation {
+        position: relative;
+        margin-top: 18px;
+        background: linear-gradient(
+          180deg,
+          rgba(185, 168, 133, 0.08),
+          rgba(185, 168, 133, 0.02)
+        );
+        border: 1px solid var(--line-strong);
+        border-radius: 14px;
+        padding: 28px 26px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 22px;
+        align-items: center;
+      }
+
+      .foundation::before {
+        content: "";
+        position: absolute;
+        left: 26px;
+        right: 26px;
+        top: 0;
+        height: 3px;
+        border-radius: 3px;
+        background: linear-gradient(
+          90deg,
+          var(--sage),
+          var(--raffia),
+          var(--olive)
+        );
+      }
+
+      .foundation__name {
+        font-family: var(--mono);
+        font-size: 1.1rem;
+        color: var(--paper);
+        margin: 0 0 6px;
+      }
+
+      .foundation__desc {
+        color: var(--paper-dim);
+        font-size: 0.97rem;
+        margin: 0;
+        max-width: 62ch;
+      }
+
+      .foundation__rule {
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        line-height: 1.6;
+        color: var(--paper-dim);
+        border-left: 2px solid var(--raffia);
+        padding-left: 16px;
+      }
+
+      .foundation__rule b {
+        color: var(--paper);
+        font-weight: 500;
+      }
+
+      /* ---------- Principles ---------- */
+      .principles {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .principle {
+        background: var(--ink);
+        padding: 28px 26px;
+      }
+
+      .principle h3 {
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: 1.2rem;
+        margin: 0 0 10px;
+        color: var(--paper);
+      }
+
+      .principle p {
+        margin: 0;
+        color: var(--paper-dim);
+        font-size: 0.96rem;
+      }
+
+      .principle code {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        color: var(--raffia-light);
+      }
+
+      /* ---------- Example ---------- */
+      .example__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        gap: clamp(28px, 4vw, 56px);
+        align-items: start;
+      }
+
+      .example__copy p {
+        color: var(--paper-dim);
+      }
+
+      .example__copy .docs-links {
+        list-style: none;
+        padding: 0;
+        margin: 24px 0 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .example__copy .docs-links a {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 10px;
+        font-weight: 500;
+      }
+
+      .example__copy .docs-links a::before {
+        content: "→";
+        color: var(--raffia);
+      }
+
+      /* ---------- Footer ---------- */
+      .site-footer {
+        border-top: 1px solid var(--line);
+        padding: 56px 0 64px;
+      }
+
+      .footer__top {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 32px;
+        align-items: flex-start;
+      }
+
+      .footer__brand img {
+        height: 28px;
+        width: auto;
+        margin-bottom: 14px;
+      }
+
+      .footer__brand p {
+        margin: 0;
+        color: var(--paper-faint);
+        font-size: 0.9rem;
+        max-width: 34ch;
+      }
+
+      .footer__cols {
+        display: flex;
+        gap: 56px;
+        flex-wrap: wrap;
+      }
+
+      .footer__col h4 {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--paper-faint);
+        margin: 0 0 14px;
+      }
+
+      .footer__col a {
+        display: block;
+        color: var(--paper-dim);
+        font-size: 0.92rem;
+        margin-bottom: 9px;
+      }
+
+      .footer__col a:hover {
+        color: var(--paper);
+      }
+
+      .footer__bottom {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 44px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+      }
+
+      .footer__bottom small {
+        color: var(--paper-faint);
+        font-size: 0.84rem;
+      }
+
+      /* Palette nod — the brand's own fibers. */
+      .swatches {
+        display: flex;
+        gap: 6px;
+      }
+
+      .swatches span {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      /* ---------- Motion ---------- */
+      .reveal {
+        opacity: 0;
+        transform: translateY(14px);
+        animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+      }
+
+      .reveal.d1 {
+        animation-delay: 0.06s;
+      }
+
+      .reveal.d2 {
+        animation-delay: 0.14s;
+      }
+
+      .reveal.d3 {
+        animation-delay: 0.22s;
+      }
+
+      .reveal.d4 {
+        animation-delay: 0.3s;
+      }
+
+      @keyframes rise {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ---------- Responsive ---------- */
+      @media (max-width: 880px) {
+        .hero__inner {
+          grid-template-columns: 1fr;
+        }
+
+        .threads {
+          grid-template-columns: 1fr;
+        }
+
+        .foundation {
+          grid-template-columns: 1fr;
+        }
+
+        .principles {
+          grid-template-columns: 1fr;
+        }
+
+        .example__grid {
+          grid-template-columns: 1fr;
+        }
+
+        .nav-collapse {
+          display: none;
+        }
+      }
+
+      @media (max-width: 620px) {
+        body {
+          font-size: 16px;
+        }
+
+        .wrap {
+          width: calc(100% - 32px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .reveal {
+          opacity: 1;
+          transform: none;
+          animation: none;
+        }
+
+        .btn,
+        .pkg {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap site-header__inner">
+        <a class="brand" href="./" aria-label="Sisal home">
+          <img
+            src="assets/brand/logo-horizontal-dark.png"
+            alt="Sisal"
+            width="813"
+            height="388"
+          >
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="nav-collapse" href="api.html">Docs</a>
+          <a class="nav-collapse" href="migration-notes.html">Migration</a>
+          <a class="nav-collapse" href="drizzle-parity.html">Drizzle parity</a>
+          <a class="nav-cta" href="https://github.com/gilvandovieira/sisal"
+          >GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ───────── Hero ───────── -->
+      <section class="hero">
+        <img
+          class="hero__mark"
+          src="assets/brand/mark.png"
+          alt=""
+          aria-hidden="true"
+        >
+        <div class="wrap hero__inner">
+          <div class="hero__copy">
+            <p class="eyebrow reveal">Deno-first · JSR-native · pre-1.0</p>
+            <h1 class="reveal d1">
+              Database tooling,<br>
+              woven from four<br>
+              <span class="accent">clean threads.</span>
+            </h1>
+            <p class="lede reveal d2">
+              Sisal is a Deno-first, JSR-native toolkit for typed schemas,
+              planned migrations, and small Postgres &amp; SQLite adapters. The
+              ORM is driverless and never imports an adapter.
+            </p>
+            <div class="cta-row reveal d3">
+              <a class="btn btn-primary" href="api.html">Read the docs</a>
+              <a
+                class="btn btn-ghost"
+                href="https://github.com/gilvandovieira/sisal"
+              >
+                View on GitHub
+              </a>
+              <a class="jsr-link" href="https://jsr.io/@sisal"
+              >Browse on JSR&nbsp;→</a>
+            </div>
+          </div>
+
+          <div
+            class="code-card reveal d4"
+            aria-label="Schema definition example"
+          >
+            <div class="code-card__bar">
+              <span class="code-card__name">schema.ts</span>
+              <span class="tag">@sisal/orm</span>
+            </div>
+            <pre><code><span class="tok-key">import</span> { columns, defineTable } <span class="tok-key">from</span> <span class="tok-str">"@sisal/orm"</span>;
+
+<span class="tok-key">const</span> users = <span class="tok-fn">defineTable</span>(<span class="tok-str">"users"</span>, {
+  id: columns.<span class="tok-fn">uuid</span>().<span class="tok-fn">primaryKey</span>(),
+  email: columns.<span class="tok-fn">text</span>().<span class="tok-fn">notNull</span>().<span class="tok-fn">unique</span>(),
+  name: columns.<span class="tok-fn">text</span>().<span class="tok-fn">notNull</span>(),
+  createdAt: columns.<span class="tok-fn">timestamp</span>({ withTimezone: <span class="tok-key">true</span> }),
+});
+
+<span class="tok-com">// Row + insert shapes are inferred, no codegen step.</span>
+<span class="tok-key">type</span> User = <span class="tok-fn">InferSelect</span>&lt;<span class="tok-key">typeof</span> users&gt;;</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <hr class="weave-rule">
+
+      <!-- ───────── The four threads ───────── -->
+      <section class="section" id="packages">
+        <div class="wrap">
+          <div class="section__head">
+            <span class="section-eyebrow">Four packages, one weave</span>
+            <h2 class="h-display">Threads that never tangle</h2>
+            <p>
+              Each package owns one boundary and depends only on what it must.
+              Import the smallest surface your app needs.
+            </p>
+          </div>
+
+          <div class="threads">
+            <article class="pkg pkg--migrate">
+              <p class="pkg__role">Adapter-neutral</p>
+              <p class="pkg__name">@sisal/migrate</p>
+              <p class="pkg__desc">
+                Migration definitions, checksums, planning, drift checks, the
+                file workflow, and a generic runner.
+              </p>
+              <div class="pkg__paths">
+                <span>./core</span>
+                <span>./workflow</span>
+              </div>
+            </article>
+
+            <article class="pkg pkg--pg">
+              <p class="pkg__role">PostgreSQL</p>
+              <p class="pkg__name">@sisal/pg</p>
+              <p class="pkg__desc">
+                Postgres execution, advisory-locked history, a migrator, and
+                additive DDL generation.
+              </p>
+              <div class="pkg__paths">
+                <span>./orm</span>
+                <span>./migrate</span>
+                <span>./ddl</span>
+              </div>
+            </article>
+
+            <article class="pkg pkg--sqlite">
+              <p class="pkg__role">SQLite</p>
+              <p class="pkg__name">@sisal/sqlite</p>
+              <p class="pkg__desc">
+                SQLite execution with a lazily-opened database, history storage,
+                a migrator, and DDL.
+              </p>
+              <div class="pkg__paths">
+                <span>./orm</span>
+                <span>./migrate</span>
+                <span>./ddl</span>
+              </div>
+            </article>
+          </div>
+
+          <div class="foundation">
+            <div>
+              <p class="foundation__name">@sisal/orm</p>
+              <p class="foundation__desc">
+                The driverless core: schema definitions, typed SQL fragments,
+                predicates, immutable query builders, structured errors, and
+                serializable schema snapshots.
+              </p>
+            </div>
+            <p class="foundation__rule">
+              Adapters depend on <b>@sisal/orm</b>.<br>
+              The ORM never depends on an adapter.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="weave-rule">
+
+      <!-- ───────── Principles ───────── -->
+      <section class="section" id="why">
+        <div class="wrap">
+          <div class="section__head">
+            <span class="section-eyebrow">Why Sisal</span>
+            <h2 class="h-display">Small surface, strong guarantees</h2>
+            <p>
+              Database tooling deserves clear boundaries and predictable
+              behaviour over a sprawling framework.
+            </p>
+          </div>
+
+          <div class="principles">
+            <div class="principle">
+              <h3>Strict boundaries</h3>
+              <p>
+                The ORM imports no adapter and no legacy namespace. Adapters
+                build on the ORM, never the other way around.
+              </p>
+            </div>
+            <div class="principle">
+              <h3>Immutable by design</h3>
+              <p>
+                Column modifiers and query builders return new instances, so a
+                fragment is safe to share and compose.
+              </p>
+            </div>
+            <div class="principle">
+              <h3>Safety rails</h3>
+              <p>
+                <code>update</code> and <code>delete</code> without a
+                <code>where</code> throw, unless you opt in with
+                <code>unsafeAllowAllRows()</code>.
+              </p>
+            </div>
+            <div class="principle">
+              <h3>Planned migrations</h3>
+              <p>
+                Checksums, drift checks, and advisory-locked, transactional
+                runs. Destructive changes are withheld for explicit handling.
+              </p>
+            </div>
+            <div class="principle">
+              <h3>Dialect-aware SQL</h3>
+              <p>
+                Parameters render as <code>$1, $2</code> for Postgres and
+                <code>?</code> elsewhere; identifiers are quoted per dialect.
+              </p>
+            </div>
+            <div class="principle">
+              <h3>Drizzle parity</h3>
+              <p>
+                A compatibility map against Drizzle ORM 0.45.2, with the few
+                Sisal divergences documented on purpose.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="weave-rule">
+
+      <!-- ───────── Example ───────── -->
+      <section class="section" id="example">
+        <div class="wrap example__grid">
+          <div class="example__copy">
+            <span class="section-eyebrow">From schema to SQL</span>
+            <h2 class="h-display">Snapshot it, diff it, ship it</h2>
+            <p>
+              Build a normalized snapshot from your tables, then let the adapter
+              emit the DDL. Only additive changes are generated — destructive
+              ones come back for you to decide.
+            </p>
+            <ul class="docs-links">
+              <li><a href="api.html">API reference</a></li>
+              <li><a href="migration-notes.html">Migration notes</a></li>
+              <li><a href="drizzle-parity.html">Drizzle parity</a></li>
+            </ul>
+          </div>
+
+          <div class="code-card" aria-label="Generate DDL example">
+            <div class="code-card__bar">
+              <span class="code-card__name">migrate.ts</span>
+              <span class="tag">@sisal/pg</span>
+            </div>
+            <pre><code><span class="tok-key">import</span> { columns, createSchemaSnapshot, defineTable } <span class="tok-key">from</span> <span class="tok-str">"@sisal/orm"</span>;
+<span class="tok-key">import</span> { generatePostgresUpStatements } <span class="tok-key">from</span> <span class="tok-str">"@sisal/pg/ddl"</span>;
+
+<span class="tok-key">const</span> users = <span class="tok-fn">defineTable</span>(<span class="tok-str">"users"</span>, {
+  id: columns.<span class="tok-fn">uuid</span>().<span class="tok-fn">primaryKey</span>(),
+  email: columns.<span class="tok-fn">text</span>().<span class="tok-fn">notNull</span>().<span class="tok-fn">unique</span>(),
+});
+
+<span class="tok-key">const</span> snapshot = <span class="tok-fn">createSchemaSnapshot</span>({
+  dialect: <span class="tok-str">"postgres"</span>,
+  tables: [users],
+});
+
+<span class="tok-com">// Additive DDL only; destructive changes are returned separately.</span>
+<span class="tok-key">const</span> { statements, destructive } = <span class="tok-fn">generatePostgresUpStatements</span>(snapshot);</code></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <hr class="weave-rule">
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <div class="footer__top">
+          <div class="footer__brand">
+            <img
+              src="assets/brand/logo-horizontal-dark.png"
+              alt="Sisal"
+              width="813"
+              height="388"
+            >
+            <p>
+              A focused, Deno-first database toolkit. Useful database pieces,
+              none of the broader framework shape.
+            </p>
+          </div>
+          <div class="footer__cols">
+            <div class="footer__col">
+              <h4>Docs</h4>
+              <a href="api.html">API reference</a>
+              <a href="migration-notes.html">Migration notes</a>
+              <a href="drizzle-parity.html">Drizzle parity</a>
+            </div>
+            <div class="footer__col">
+              <h4>Project</h4>
+              <a href="https://github.com/gilvandovieira/sisal">GitHub</a>
+              <a href="https://jsr.io/@sisal">JSR scope</a>
+              <a href="https://github.com/gilvandovieira/sisal/issues"
+              >Issues</a>
+            </div>
+          </div>
+        </div>
+        <div class="footer__bottom">
+          <small>© 2026 Sisal · Built for Deno &amp; JSR</small>
+          <div class="swatches" aria-hidden="true">
+            <span style="background: #0e0e0f" title="Ink #0E0E0F"></span>
+            <span style="background: #5f6b49" title="Olive #5F6B49"></span>
+            <span style="background: #90956a" title="Sage #90956A"></span>
+            <span style="background: #b9a885" title="Raffia #B9A885"></span>
+            <span
+              style="background: #c2aa7e"
+              title="Raffia light #C2AA7E"
+            ></span>
+            <span style="background: #e8e7dc" title="Paper #E8E7DC"></span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

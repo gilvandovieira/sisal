@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+set -eu
+
+if ! command -v deno >/dev/null 2>&1; then
+  echo "deno is required to run pre-commit formatting checks." >&2
+  exit 1
+fi
+
+echo "Running deno fmt --check..."
+deno fmt --check

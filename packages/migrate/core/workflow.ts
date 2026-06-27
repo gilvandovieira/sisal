@@ -6,6 +6,8 @@
  * unit-testable with an in-memory fake; the default Deno-backed implementation
  * needs `--allow-read`/`--allow-write`. The config, drift, and file-name logic
  * are pure.
+ *
+ * @module
  */
 
 import {
@@ -148,7 +150,10 @@ export interface MigrateConfig {
   readonly dialect?: SisalDialectName;
   /** Prebuilt snapshot from the app (via `@sisal/orm`); omit for SQL-first. */
   readonly snapshot?: SisalSchemaSnapshot;
+  /** PostgreSQL connection URL. Also accepted as a SQLite path fallback. */
   readonly databaseUrl?: string;
+  /** SQLite database file path (`:memory:` is accepted for tests/scaffolds). */
+  readonly databasePath?: string;
   readonly historyTable?: string;
 }
 
@@ -170,6 +175,9 @@ export function defineConfig(config: MigrateConfig): MigrateConfig {
     ...(config.databaseUrl === undefined
       ? {}
       : { databaseUrl: config.databaseUrl }),
+    ...(config.databasePath === undefined
+      ? {}
+      : { databasePath: config.databasePath }),
     ...(config.historyTable === undefined
       ? {}
       : { historyTable: config.historyTable }),

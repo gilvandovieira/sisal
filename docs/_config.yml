@@ -1,0 +1,13 @@
+title: Sisal
+description: A Deno-first, JSR-native database toolkit.
+markdown: kramdown
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: true
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

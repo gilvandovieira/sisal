@@ -5,6 +5,8 @@
  * the `@db/postgres` driver — so they are fully unit-testable. Destructive
  * changes (drop table/column, column type changes) are detected and returned
  * separately; they are never emitted as ordinary migration SQL.
+ *
+ * @module
  */
 
 import {
@@ -56,6 +58,9 @@ function pgBaseType(type: SisalColumnType): string {
       return type.scale === undefined
         ? `numeric(${type.precision})`
         : `numeric(${type.precision}, ${type.scale})`;
+    case "double":
+    case "float":
+      return "double precision";
     case "timestamp":
       return "timestamptz";
     default:

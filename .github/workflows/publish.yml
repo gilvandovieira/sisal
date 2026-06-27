@@ -1,0 +1,66 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate packages without publishing
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish packages
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Check formatting
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Check docs coverage
+        run: deno task --frozen docs:check
+
+      - name: Type check workspace
+        run: deno task --frozen check
+
+      - name: Test workspace
+        run: deno task --frozen test
+
+      - name: Dry run package publish
+        if: inputs.dry_run
+        run: |
+          deno publish --dry-run --allow-dirty --config packages/orm/deno.json
+          deno publish --dry-run --allow-dirty --config packages/migrate/deno.json
+          deno publish --dry-run --allow-dirty --config packages/pg/deno.json
+          deno publish --dry-run --allow-dirty --config packages/sqlite/deno.json
+
+      - name: Publish packages
+        if: ${{ !inputs.dry_run }}
+        run: |
+          deno publish --config packages/orm/deno.json
+          deno publish --config packages/migrate/deno.json
+          deno publish --config packages/pg/deno.json
+          deno publish --config packages/sqlite/deno.json

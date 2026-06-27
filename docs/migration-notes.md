@@ -1,3 +1,7 @@
+---
+title: Migration Notes
+---
+
 # Migration Notes
 
 Sisal replaces the earlier ORM and migration package direction with a focused

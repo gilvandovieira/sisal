@@ -1,3 +1,9 @@
+/**
+ * Benchmarks for core Sisal SQL rendering and schema snapshot creation.
+ *
+ * @module
+ */
+
 import {
   columns,
   createSchemaSnapshot,
@@ -5,6 +11,8 @@ import {
   renderSql,
   sql,
 } from "@sisal/orm";
+import { registerBenchmarkScenarios } from "./harness.ts";
+import { migrateCliScenarios } from "./scenarios/migrate_cli.ts";
 
 const users = defineTable("users", {
   id: columns.uuid().primaryKey(),
@@ -20,3 +28,5 @@ Deno.bench("render parameterized sql", () => {
 Deno.bench("create schema snapshot", () => {
   createSchemaSnapshot({ tables: [users] });
 });
+
+registerBenchmarkScenarios(migrateCliScenarios);

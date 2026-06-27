@@ -6,6 +6,8 @@
  * (drop table/column, column type changes) are detected and returned
  * separately; SQLite has very limited `ALTER TABLE`, so they are never emitted
  * as ordinary migration SQL.
+ *
+ * @module
  */
 
 import {

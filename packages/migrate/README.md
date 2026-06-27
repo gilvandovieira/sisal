@@ -32,3 +32,22 @@ await migrator.up();
 
 Use `@sisal/pg` or `@sisal/sqlite` for database-specific history stores,
 execution, and DDL generation.
+
+## CLI
+
+`@sisal/migrate/cli` provides the `sisal` command runner:
+
+```sh
+deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
+  jsr:@sisal/migrate/cli generate initial
+deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
+  jsr:@sisal/migrate/cli migrate
+deno run --allow-read --allow-env --allow-net --allow-ffi \
+  jsr:@sisal/migrate/cli status
+deno run --allow-read --allow-env --allow-net --allow-ffi \
+  jsr:@sisal/migrate/cli drift
+```
+
+By default it loads `sisal.migrate.ts`, which should export `default` or
+`config` from `defineConfig({ dir, dialect, snapshot, ... })`. SQLite uses
+`databasePath`; PostgreSQL uses `databaseUrl`.
