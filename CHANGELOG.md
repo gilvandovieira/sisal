@@ -7,6 +7,12 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
+## Unreleased
+
+### Added
+
+- Added the root MIT license file for the workspace.
+
 ## 0.2.0 - 2026-06-27
 
 ### Added
