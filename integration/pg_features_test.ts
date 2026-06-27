@@ -68,7 +68,6 @@ async function db(): Promise<PgDatabase> {
   return dbHandle;
 }
 
-// deno-lint-ignore no-explicit-any
 function pgTest(name: string, fn: (db: PgDatabase) => Promise<void> | void) {
   Deno.test({
     name,

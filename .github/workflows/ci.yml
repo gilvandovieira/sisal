@@ -37,25 +37,32 @@ jobs:
       - name: Type check workspace
         run: deno task --frozen check
 
+  discover-packages:
+    name: Discover packages
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.8.3
+
+      - name: Build package matrix
+        id: packages
+        run: |
+          echo "packages=$(deno run --allow-read tools/workspace_packages.ts matrix)" >> "$GITHUB_OUTPUT"
+
   packages:
     name: ${{ matrix.package }}
+    needs: discover-packages
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - package: "@sisal/orm"
-            path: packages/orm
-            check: packages/orm/mod.ts packages/orm/core/mod.ts packages/orm/error.ts packages/orm/logger.ts packages/orm/schema.ts
-          - package: "@sisal/migrate"
-            path: packages/migrate
-            check: packages/migrate/mod.ts packages/migrate/core/mod.ts packages/migrate/core/workflow.ts
-          - package: "@sisal/pg"
-            path: packages/pg
-            check: packages/pg/mod.ts packages/pg/orm/mod.ts packages/pg/migrate/mod.ts packages/pg/migrate/ddl.ts
-          - package: "@sisal/sqlite"
-            path: packages/sqlite
-            check: packages/sqlite/mod.ts packages/sqlite/orm/mod.ts packages/sqlite/migrate/mod.ts packages/sqlite/migrate/ddl.ts
+      matrix: ${{ fromJSON(needs.discover-packages.outputs.packages) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,7 +76,8 @@ jobs:
         run: deno install --frozen
 
       - name: Type check package
-        run: deno check --frozen ${{ matrix.check }}
+        run: |
+          deno check --frozen $(deno run --allow-read tools/workspace_packages.ts entrypoints "${{ matrix.path }}")
 
       - name: Test package
         run: deno test --frozen --allow-read ${{ matrix.path }}
