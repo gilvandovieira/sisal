@@ -1,4 +1,4 @@
-import type { MigrationDriver } from "@sisal/migrate";
+import type { MigrationDriver, MigrationTransaction } from "@sisal/migrate";
 
 import {
   createSqliteExecutor,
@@ -16,7 +16,14 @@ export function createSqliteMigrationDriver(
 ): MigrationDriver {
   const executor = createSqliteExecutor(options);
 
-  return {
+  return createSqliteMigrationDriverFromExecutor(executor, true);
+}
+
+function createSqliteMigrationDriverFromExecutor(
+  executor: SqlExecutor,
+  closeExecutor: boolean,
+): MigrationDriver {
+  const driver: MigrationDriver = {
     async execute(sql: string): Promise<void> {
       try {
         await executor.execute(sql);
@@ -28,14 +35,19 @@ export function createSqliteMigrationDriver(
       }
     },
 
-    transaction<T>(fn: () => Promise<T>): Promise<T> {
+    transaction<T>(fn: (tx: MigrationTransaction) => Promise<T>): Promise<T> {
       if (executor.transaction === undefined) {
-        return fn();
+        return fn({ driver });
       }
 
-      return executor.transaction(async () => {
+      return executor.transaction(async (txExecutor) => {
+        const txDriver = createSqliteMigrationDriverFromExecutor(
+          txExecutor,
+          false,
+        );
+
         try {
-          return await fn();
+          return await fn({ driver: txDriver });
         } catch (error) {
           throw toSqliteMigrationError(error, "SQLite query failed", {
             code: "MIGRATION_EXECUTE_FAILED",
@@ -45,9 +57,15 @@ export function createSqliteMigrationDriver(
     },
 
     async close(): Promise<void> {
+      if (!closeExecutor) {
+        return;
+      }
+
       await executor.close?.();
     },
   };
+
+  return driver;
 }
 
 export type { SqlExecutor };

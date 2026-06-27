@@ -1,16 +1,23 @@
 /** Shared structural Neon serverless client contracts and lazy client opening. */
 
 import type {
-  ClientConfig as NeonClientConfig,
-  PoolConfig as NeonPoolConfig,
+  ClientConfig,
+  PoolConfig,
+  QueryResult,
+  QueryResultRow,
 } from "@neon/serverless";
+import { redactErrorCause, redactSecrets } from "@sisal/orm";
 
-export type {
-  ClientConfig as NeonClientConfig,
-  PoolConfig as NeonPoolConfig,
-  QueryResult as NeonDriverQueryResult,
-  QueryResultRow as NeonQueryResultRow,
-} from "@neon/serverless";
+/** Neon serverless single-client configuration (the driver's `ClientConfig`). */
+export type NeonClientConfig = ClientConfig;
+/** Neon serverless connection-pool configuration (the driver's `PoolConfig`). */
+export type NeonPoolConfig = PoolConfig;
+/** One raw result row as returned by the Neon driver. */
+export type NeonQueryResultRow = QueryResultRow;
+/** A raw Neon driver query result; rows typed as {@link NeonQueryResultRow}. */
+export type NeonDriverQueryResult<
+  Row extends QueryResultRow = QueryResultRow,
+> = QueryResult<Row>;
 
 /** Error codes emitted by the Neon compatibility package. */
 export type NeonErrorCode =
@@ -33,7 +40,8 @@ export class NeonError extends Error {
       readonly cause?: unknown;
     },
   ) {
-    super(message, { cause: options.cause });
+    // Mirror SisalError: never let a connection error echo a DSN/token.
+    super(redactSecrets(message), { cause: redactErrorCause(options.cause) });
     this.name = "NeonError";
     this.code = options.code;
     this.details = options.details;

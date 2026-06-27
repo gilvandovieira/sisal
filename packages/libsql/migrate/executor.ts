@@ -24,7 +24,7 @@ export interface SqlExecutor {
     params?: readonly unknown[],
   ): Promise<QueryResult<Row>>;
 
-  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+  transaction?<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T>;
   close?(): Promise<void>;
 }
 
@@ -88,7 +88,6 @@ export function createLibsqlExecutor(
 class SisalLibsqlExecutor implements SqlExecutor {
   readonly #client: LibsqlClient;
   readonly #ownsClient: boolean;
-  #transaction?: LibsqlTransaction;
   #closed = false;
 
   constructor(client: LibsqlClient, ownsClient: boolean) {
@@ -100,36 +99,19 @@ class SisalLibsqlExecutor implements SqlExecutor {
     sql: string,
     params: readonly unknown[] = [],
   ): Promise<QueryResult<Row>> {
-    try {
-      const statement = { sql, args: normalizeLibsqlParams(params) };
-      const result: LibsqlResultSet<Row> = this.#transaction === undefined
-        ? await this.#client.execute<Row>(statement)
-        : await this.#transaction.execute<Row>(statement);
-
-      return {
-        rows: result.rows,
-        rowCount: result.rowsAffected ?? result.rows.length,
-      };
-    } catch (error) {
-      throw toLibsqlMigrationError(error, "libSQL query failed", {
-        code: "MIGRATION_EXECUTE_FAILED",
-        sql,
-      });
-    }
+    return await this.#executeWithClient<Row>(this.#client, sql, params);
   }
 
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (
-      this.#transaction !== undefined || this.#client.transaction === undefined
-    ) {
-      return await fn();
+  async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
+    if (this.#client.transaction === undefined) {
+      return await fn(this);
     }
 
     const transaction = await this.#client.transaction("write");
-    this.#transaction = transaction;
+    const tx = this.#createTransactionExecutor(transaction);
 
     try {
-      const result = await fn();
+      const result = await fn(tx);
       await transaction.commit();
       return result;
     } catch (error) {
@@ -141,7 +123,6 @@ class SisalLibsqlExecutor implements SqlExecutor {
 
       throw error;
     } finally {
-      this.#transaction = undefined;
       transaction.close();
     }
   }
@@ -157,6 +138,68 @@ class SisalLibsqlExecutor implements SqlExecutor {
       await this.#client.close?.();
     }
   }
+
+  async #executeWithClient<Row>(
+    client: LibsqlClient,
+    sql: string,
+    params: readonly unknown[] = [],
+  ): Promise<QueryResult<Row>> {
+    try {
+      const statement = { sql, args: normalizeLibsqlParams(params) };
+      const result = await client.execute<Row>(statement);
+      return libsqlResultToQueryResult(result);
+    } catch (error) {
+      throw toLibsqlMigrationError(error, "libSQL query failed", {
+        code: "MIGRATION_EXECUTE_FAILED",
+        sql,
+      });
+    }
+  }
+
+  async #executeWithTransaction<Row>(
+    transaction: LibsqlTransaction,
+    sql: string,
+    params: readonly unknown[] = [],
+  ): Promise<QueryResult<Row>> {
+    try {
+      const statement = { sql, args: normalizeLibsqlParams(params) };
+      const result: LibsqlResultSet<Row> = await transaction.execute<Row>(
+        statement,
+      );
+      return libsqlResultToQueryResult(result);
+    } catch (error) {
+      throw toLibsqlMigrationError(error, "libSQL query failed", {
+        code: "MIGRATION_EXECUTE_FAILED",
+        sql,
+      });
+    }
+  }
+
+  #createTransactionExecutor(transaction: LibsqlTransaction): SqlExecutor {
+    const tx: SqlExecutor = {
+      execute: <Row = Record<string, unknown>>(
+        sql: string,
+        params: readonly unknown[] = [],
+      ): Promise<QueryResult<Row>> => {
+        return this.#executeWithTransaction<Row>(transaction, sql, params);
+      },
+
+      transaction: <T>(fn: (nestedTx: SqlExecutor) => Promise<T>) => {
+        return fn(tx);
+      },
+    };
+
+    return tx;
+  }
+}
+
+function libsqlResultToQueryResult<Row>(
+  result: LibsqlResultSet<Row>,
+): QueryResult<Row> {
+  return {
+    rows: result.rows,
+    rowCount: result.rowsAffected ?? result.rows.length,
+  };
 }
 
 function normalizeLibsqlParams(params: readonly unknown[]): LibsqlInValue[] {

@@ -8,9 +8,12 @@ import { SisalError } from "../error.ts";
 import type { Logger } from "../logger.ts";
 import {
   defineSchemaSnapshot,
+  type SisalCheckConstraintSnapshot,
   type SisalColumnDefault,
   type SisalDialectName,
+  type SisalIndexSnapshot,
   type SisalSchemaSnapshot,
+  type SisalUniqueConstraintSnapshot,
 } from "../schema.ts";
 
 /** Error codes emitted by ORM schema, SQL, driver, and transaction helpers. */
@@ -66,6 +69,20 @@ export type ColumnRuntimeType =
   | Record<string, unknown>
   | unknown[];
 
+/** A foreign-key referential action for `ON DELETE` / `ON UPDATE`. */
+export type ReferentialAction =
+  | "cascade"
+  | "restrict"
+  | "no action"
+  | "set null"
+  | "set default";
+
+/** Options accepted by {@link ColumnBuilder.references}. */
+export interface ReferentialOptions {
+  readonly onDelete?: ReferentialAction;
+  readonly onUpdate?: ReferentialAction;
+}
+
 /** Column metadata used by table definitions and future adapters. */
 export interface ColumnDefinition<T> {
   readonly name?: ColumnName;
@@ -81,6 +98,8 @@ export interface ColumnDefinition<T> {
   readonly references?: {
     readonly table: string;
     readonly column: string;
+    readonly onDelete?: ReferentialAction;
+    readonly onUpdate?: ReferentialAction;
   };
   readonly defaultValue?: T | (() => T);
   readonly onUpdate?: () => unknown;
@@ -107,6 +126,7 @@ export interface ColumnBuilder<
   references(
     table: string,
     column: string,
+    options?: ReferentialOptions,
   ): ColumnBuilder<T, TOptional, THasDefault>;
   /** Makes the column an array of its element type (Postgres `type[]`). */
   array(): ColumnBuilder<ColumnArray<T>, TOptional, THasDefault>;
@@ -150,15 +170,121 @@ export interface TableDefinition<
       readonly tableName: string;
     };
   };
+  /** Table-level constraints/indexes from `defineTable`'s extras callback. */
+  readonly extras?: readonly TableConstraint[];
 }
 
 /** Any Sisal table definition, regardless of its column map. */
 // deno-lint-ignore no-explicit-any -- This alias intentionally erases table column specifics.
 export type AnyTableDefinition = TableDefinition<any>;
 
+/**
+ * A table-level constraint or index produced by the {@link defineTable} extras
+ * callback — `index`/`uniqueIndex`, `primaryKey`, `unique`, or `check`.
+ */
+export type TableConstraint =
+  | {
+    readonly kind: "index";
+    readonly name?: string;
+    readonly columns: readonly string[];
+    readonly unique: boolean;
+  }
+  | { readonly kind: "primaryKey"; readonly columns: readonly string[] }
+  | {
+    readonly kind: "unique";
+    readonly name?: string;
+    readonly columns: readonly string[];
+  }
+  | { readonly kind: "check"; readonly name: string; readonly expression: Sql };
+
+/** Fluent builder returned by {@link index} / {@link uniqueIndex}. */
+export interface IndexConstraintBuilder {
+  /** Sets the indexed columns (column references or names). */
+  on(...columns: readonly unknown[]): TableConstraint;
+}
+
+/** Fluent builder returned by {@link unique}. */
+export interface UniqueConstraintBuilder {
+  /** Sets the constrained columns (column references or names). */
+  on(...columns: readonly unknown[]): TableConstraint;
+}
+
+function constraintColumnNames(columns: readonly unknown[]): string[] {
+  if (columns.length === 0) {
+    throw new OrmError("A constraint requires at least one column", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return columns.map((column) => {
+    if (typeof column === "string") {
+      return normalizeColumnName(column);
+    }
+    if (isColumn(column)) {
+      return column.name;
+    }
+    throw new OrmError("Constraint column must be a column or column name", {
+      code: "ORM_INVALID_COLUMN",
+    });
+  });
+}
+
+/** A table index (`CREATE INDEX`); complete it with `.on(...columns)`. */
+export function index(name?: string): IndexConstraintBuilder {
+  return {
+    on: (...columns) => ({
+      kind: "index",
+      ...(name === undefined ? {} : { name }),
+      columns: constraintColumnNames(columns),
+      unique: false,
+    }),
+  };
+}
+
+/** A unique table index (`CREATE UNIQUE INDEX`); complete with `.on(...)`. */
+export function uniqueIndex(name?: string): IndexConstraintBuilder {
+  return {
+    on: (...columns) => ({
+      kind: "index",
+      ...(name === undefined ? {} : { name }),
+      columns: constraintColumnNames(columns),
+      unique: true,
+    }),
+  };
+}
+
+/** A composite/table-level primary key over the given columns. */
+export function primaryKey(
+  config: { readonly columns: readonly unknown[] },
+): TableConstraint {
+  return { kind: "primaryKey", columns: constraintColumnNames(config.columns) };
+}
+
+/** A named/composite `UNIQUE` constraint; complete it with `.on(...columns)`. */
+export function unique(name?: string): UniqueConstraintBuilder {
+  return {
+    on: (...columns) => ({
+      kind: "unique",
+      ...(name === undefined ? {} : { name }),
+      columns: constraintColumnNames(columns),
+    }),
+  };
+}
+
+/** A named `CHECK` constraint from a `sql` expression. */
+export function check(name: string, expression: Sql): TableConstraint {
+  if (!isSql(expression)) {
+    throw new OrmError("check() expects a sql`...` expression", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return { kind: "check", name, expression };
+}
+
+/** Extracts the selected (read) value type a column builder produces. */
 type ColumnValueFromBuilder<TBuilder> = TBuilder extends
   ColumnBuilder<infer TValue, boolean, boolean> ? TValue : never;
 
+/** True when a column may be omitted on insert — it is `.optional()` or has a default. */
 type InsertOptionalFromBuilder<TBuilder> = TBuilder extends
   ColumnBuilder<unknown, infer TOptional, infer THasDefault>
   ? TOptional extends true ? true
@@ -166,12 +292,14 @@ type InsertOptionalFromBuilder<TBuilder> = TBuilder extends
   : false
   : false;
 
+/** The column keys that must be provided when inserting a row. */
 type RequiredInsertKeys<TColumns extends TableColumns> = {
   [K in keyof TColumns]: InsertOptionalFromBuilder<TColumns[K]> extends true
     ? never
     : K;
 }[keyof TColumns];
 
+/** The column keys that may be omitted when inserting a row. */
 type OptionalInsertKeys<TColumns extends TableColumns> = {
   [K in keyof TColumns]: InsertOptionalFromBuilder<TColumns[K]> extends true ? K
     : never;
@@ -317,6 +445,11 @@ export interface Database<
     projection: TProjection,
   ): SelectBuilder<unknown, InferProjection<TProjection>>;
 
+  /** Names a common table expression; complete it with `.as(query)`. */
+  $with(name: string): CteBuilder;
+  /** Begins a query whose `WITH` clause provides the given CTEs. */
+  with(...ctes: Cte[]): WithQueryBuilder;
+
   insert<TTable extends TableDefinition>(
     table: TTable,
   ): InsertBuilder<TTable>;
@@ -372,6 +505,7 @@ export type SelectProjectionValue = SelectColumnRef | Sql;
 /** Map of result key to selected column or expression, for `db.select({ ... })`. */
 export type SelectProjection = Record<string, SelectProjectionValue>;
 
+/** Resolves the value a projection entry (column or expression) yields in a result row. */
 type ProjectionColumnValue<TColumn> = TColumn extends SqlExpression<infer TExpr>
   ? TExpr
   : TColumn extends { readonly defaultValue?: infer TDefault }
@@ -425,6 +559,7 @@ export type RelationDefinitionMap = Record<
   RelationDefinition<any, any>
 >;
 
+/** Rebinds each relation in a config map to carry its own key as the relation name. */
 type NamedRelationDefinitionMap<TConfig extends Record<string, unknown>> = {
   readonly [K in keyof TConfig]: TConfig[K] extends RelationDefinition<
     infer TSource,
@@ -463,6 +598,7 @@ export type RelationalColumnSelection<TTable extends TableDefinition> = Partial<
   Record<keyof InferSelect<TTable>, boolean>
 >;
 
+/** Looks up the relation map declared for a table within a relations list. */
 type RelationsForTable<
   TTable extends TableDefinition,
   TRelations extends RelationsList,
@@ -477,18 +613,22 @@ type RelationsForTable<
   : RelationDefinitionMap
   : RelationDefinitionMap;
 
+/** The keys of a column selection explicitly set to `true`. */
 type TrueSelectionKeys<TSelection> = {
   [K in keyof TSelection]: TSelection[K] extends true ? K : never;
 }[keyof TSelection];
 
+/** The keys of a column selection explicitly set to `false`. */
 type FalseSelectionKeys<TSelection> = {
   [K in keyof TSelection]: TSelection[K] extends false ? K : never;
 }[keyof TSelection];
 
+/** Narrows a set of keys to those that are real selectable columns of a table. */
 type SelectableKeys<TTable, TKeys> = TTable extends TableDefinition
   ? Extract<TKeys, keyof InferSelect<TTable>>
   : never;
 
+/** The row shape a relational query returns for its `columns` selection (all / include / exclude). */
 type SelectedRelationalColumns<TTable, TSelection> = TTable extends
   TableDefinition ? [TSelection] extends [never] ? Partial<InferSelect<TTable>>
   : TSelection extends Record<string, boolean>
@@ -503,20 +643,24 @@ type SelectedRelationalColumns<TTable, TSelection> = TTable extends
   : InferSelect<TTable>
   : never;
 
+/** The target table definition a relation points at, defaulting to any table. */
 type RelationTarget<TValue> = TValue extends
   { readonly targetTable: infer TTarget }
   ? TTarget extends TableDefinition ? TTarget : AnyTableDefinition
   : AnyTableDefinition;
 
+/** Normalizes a `with` entry to its nested config object, dropping booleans/nullish. */
 type RelationConfigValue<TValue> = [TValue] extends [never]
   ? Record<never, never>
   : TValue extends true | false | null | undefined ? Record<never, never>
   : TValue;
 
+/** Partial fallback shape for a related row when no nested selection is given. */
 type RelationObjectFallback<TRelation> = Partial<
   InferSelect<RelationTarget<TRelation>>
 >;
 
+/** The attached value of one relation — an array for `many`, a nullable object for `one`. */
 type RelationResultValue<
   TRelation,
   TRelations extends RelationsList,
@@ -541,6 +685,7 @@ type RelationResultValue<
     | null
   : never;
 
+/** The combined shape of every relation loaded through a query's `with` clause. */
 type RelationalWithResult<
   TRelationMap extends RelationDefinitionMap,
   TRelations extends RelationsList,
@@ -626,6 +771,10 @@ export interface SelectBuilder<TTable, TResult> {
     TNewTable,
     unknown extends TResult ? InferSelect<TNewTable> : TResult
   >;
+  /** Selects from a common table expression created via {@link Database.with}. */
+  from<TColumns extends Record<string, SelectColumnRef>>(
+    cte: Cte<TColumns>,
+  ): SelectBuilder<unknown, TResult>;
 
   /** Emits `SELECT DISTINCT`. */
   distinct(): SelectBuilder<TTable, TResult>;
@@ -670,9 +819,91 @@ export interface SelectBuilder<TTable, TResult> {
 
   offset(count: number): SelectBuilder<TTable, TResult>;
 
+  /** `UNION` with another query (duplicate rows removed). */
+  union(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `UNION ALL` with another query (duplicate rows kept). */
+  unionAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `INTERSECT` with another query (rows present in both). */
+  intersect(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `INTERSECT ALL` with another query (keeps duplicates). */
+  intersectAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `EXCEPT` with another query (rows in this but not the other). */
+  except(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `EXCEPT ALL` with another query (keeps duplicates). */
+  exceptAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+
   toSql(): Sql;
 
   execute(): Promise<TResult[]>;
+}
+
+/**
+ * A query usable as the right-hand operand of a set operation (`union`,
+ * `intersect`, `except`). Both {@link SelectBuilder} and
+ * {@link CompoundSelectBuilder} satisfy this shape.
+ */
+export type SetOperand<TResult> = {
+  toSql(): Sql;
+  execute(): Promise<TResult[]>;
+};
+
+/**
+ * A combined query produced by a set operation. Trailing `orderBy`/`limit`/
+ * `offset` apply to the whole compound, and further set operations may be
+ * chained.
+ */
+export interface CompoundSelectBuilder<TResult> {
+  /** `UNION` with another query. */
+  union(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `UNION ALL` with another query. */
+  unionAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `INTERSECT` with another query. */
+  intersect(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `INTERSECT ALL` with another query. */
+  intersectAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `EXCEPT` with another query. */
+  except(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** `EXCEPT ALL` with another query. */
+  exceptAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** Orders the whole compound by one or more `asc()`/`desc()` terms. */
+  orderBy(...terms: unknown[]): CompoundSelectBuilder<TResult>;
+  /** Limits the whole compound. */
+  limit(count: number): CompoundSelectBuilder<TResult>;
+  /** Offsets the whole compound. */
+  offset(count: number): CompoundSelectBuilder<TResult>;
+
+  toSql(): Sql;
+
+  execute(): Promise<TResult[]>;
+}
+
+/**
+ * A named common table expression. Its keys are the projected columns of the
+ * inner query, each usable as a column reference in `select`, `where`, etc.
+ * Create one with {@link Database.$with} and reference it via
+ * {@link Database.with}.
+ */
+export type Cte<
+  TColumns extends Record<string, SelectColumnRef> = Record<
+    string,
+    SelectColumnRef
+  >,
+> = TColumns;
+
+/** Intermediate returned by {@link Database.$with}; complete it with `.as`. */
+export interface CteBuilder {
+  /** Binds the CTE to a query, inferring its columns from the query's projection. */
+  as<TResult>(
+    query: SetOperand<TResult>,
+  ): Cte<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
+}
+
+/** Query root seeded with CTEs, returned by {@link Database.with}. */
+export interface WithQueryBuilder {
+  select(): SelectBuilder<unknown, unknown>;
+  select<TProjection extends SelectProjection>(
+    projection: TProjection,
+  ): SelectBuilder<unknown, InferProjection<TProjection>>;
 }
 
 /** Fluent builder for `INSERT` queries. */
@@ -790,6 +1021,7 @@ export class OrmError extends SisalError {
   }
 }
 
+/** The `columns` builder factory: one method per supported column type. */
 interface ColumnsFactory {
   text(): ColumnBuilder<string | null>;
   /** Postgres `varchar`; pass `length` for `varchar(n)`. */
@@ -934,14 +1166,23 @@ export const columns: ColumnsFactory = Object.freeze({
 export function defineTable<TColumns extends TableColumns>(
   name: TableName,
   tableColumns: TColumns,
-  options: {
-    readonly schema?: string;
-  } = {},
+  extrasOrOptions?:
+    | ((
+      columns: TableDefinition<TColumns>["columns"],
+    ) => readonly TableConstraint[])
+    | { readonly schema?: string },
+  options: { readonly schema?: string } = {},
 ): TableDefinition<TColumns> {
+  const extras = typeof extrasOrOptions === "function"
+    ? extrasOrOptions
+    : undefined;
+  const resolvedOptions = typeof extrasOrOptions === "function"
+    ? options
+    : extrasOrOptions ?? {};
   const tableName = normalizeTableName(name);
-  const schema = options.schema === undefined
+  const schema = resolvedOptions.schema === undefined
     ? undefined
-    : normalizeTableName(options.schema);
+    : normalizeTableName(resolvedOptions.schema);
   const finalColumns: Record<string, unknown> = {};
 
   for (const [propertyName, builder] of Object.entries(tableColumns)) {
@@ -968,11 +1209,19 @@ export function defineTable<TColumns extends TableColumns>(
     });
   }
 
+  const frozenColumns = Object.freeze(
+    finalColumns,
+  ) as TableDefinition<TColumns>["columns"];
+  const constraints = extras === undefined
+    ? undefined
+    : Object.freeze([...extras(frozenColumns)]);
+
   return Object.freeze({
     kind: "table",
     name: tableName,
     ...(schema === undefined ? {} : { schema }),
-    columns: Object.freeze(finalColumns),
+    columns: frozenColumns,
+    ...(constraints === undefined ? {} : { extras: constraints }),
   }) as TableDefinition<TColumns>;
 }
 
@@ -1086,6 +1335,10 @@ export function sql(
 
       if (isSql(value)) {
         chunks.push({ kind: "sql", value });
+      } else if (isColumn(value)) {
+        // A column reference renders as a validated, quoted identifier (e.g. in
+        // a `check()` expression), not a bound parameter.
+        chunks.push({ kind: "sql", value: columnToSql(value) });
       } else {
         chunks.push({ kind: "param", value: serializeSqlValue(value) });
       }
@@ -1402,7 +1655,7 @@ export function createDatabase<
  * Useful for tests and scaffolding; it always returns empty result sets.
  */
 export function noopOrmDriver(): OrmDriver {
-  return {
+  const driver: OrmDriver = {
     query<T = unknown>(_query: SqlQuery): Promise<OrmQueryResult<T>> {
       return Promise.resolve({ rows: [], rowCount: 0 });
     },
@@ -1412,13 +1665,15 @@ export function noopOrmDriver(): OrmDriver {
     },
 
     transaction<T>(fn: (tx: OrmTransaction) => Promise<T>): Promise<T> {
-      return fn(this);
+      return fn(driver);
     },
 
     close(): Promise<void> {
       return Promise.resolve();
     },
   };
+
+  return driver;
 }
 
 /** Creates a tiny in-memory driver that records no data and returns empty rows. */
@@ -1427,7 +1682,7 @@ export function memoryOrmDriver(
 ): OrmDriver {
   const history: SqlQuery[] = [];
 
-  return {
+  const driver: OrmDriver = {
     query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
       history.push(cloneSqlQuery(query));
       return Promise.resolve({ rows: [], rowCount: 0 });
@@ -1439,7 +1694,7 @@ export function memoryOrmDriver(
     },
 
     transaction<T>(fn: (tx: OrmTransaction) => Promise<T>): Promise<T> {
-      return fn(this);
+      return fn(driver);
     },
 
     close(): Promise<void> {
@@ -1447,6 +1702,8 @@ export function memoryOrmDriver(
       return Promise.resolve();
     },
   };
+
+  return driver;
 }
 
 /** Normalizes a table name. */
@@ -1675,6 +1932,7 @@ class SisalColumnBuilder<
   references(
     table: string,
     column: string,
+    options: ReferentialOptions = {},
   ): ColumnBuilder<T, TOptional, THasDefault> {
     return new SisalColumnBuilder(
       {
@@ -1682,6 +1940,12 @@ class SisalColumnBuilder<
         references: {
           table: normalizeTableName(table),
           column: normalizeColumnName(column),
+          ...(options.onDelete === undefined
+            ? {}
+            : { onDelete: options.onDelete }),
+          ...(options.onUpdate === undefined
+            ? {}
+            : { onUpdate: options.onUpdate }),
         },
       },
       this.optionalInsert,
@@ -1779,6 +2043,52 @@ class SisalDatabase<
       joins: [],
       ...(projection === undefined ? {} : { projection }),
     });
+  }
+
+  $with(name: string): CteBuilder {
+    return {
+      as: <TResult>(
+        query: SetOperand<TResult>,
+      ): Cte<{ readonly [K in keyof TResult]-?: SelectColumnRef }> => {
+        const columns: Record<string, SelectColumnRef> = {};
+        for (const key of cteColumnKeys(query)) {
+          columns[key] = {
+            name: key,
+            tableName: name,
+            dataType: "unknown",
+          } as unknown as SelectColumnRef;
+        }
+        CTE_DEFINITIONS.set(columns, { name, query: query.toSql() });
+        return columns as Cte<
+          { readonly [K in keyof TResult]-?: SelectColumnRef }
+        >;
+      },
+    };
+  }
+
+  with(...ctes: Cte[]): WithQueryBuilder {
+    const definitions = ctes.map((cte) => {
+      const definition = CTE_DEFINITIONS.get(cte);
+      if (definition === undefined) {
+        throw new OrmError(
+          "with() expects CTEs created via db.$with(name).as(query)",
+          { code: "ORM_INVALID_QUERY" },
+        );
+      }
+      return definition;
+    });
+    // deno-lint-ignore no-this-alias
+    const database: Database = this;
+    return {
+      select: (
+        projection?: SelectProjection,
+      ): SelectBuilder<unknown, unknown> =>
+        new SisalSelectBuilder<unknown, unknown>(database, {
+          joins: [],
+          ctes: definitions,
+          ...(projection === undefined ? {} : { projection }),
+        }),
+    } as WithQueryBuilder;
   }
 
   insert<TTable extends TableDefinition>(
@@ -2532,6 +2842,8 @@ interface SelectJoin {
 
 interface SelectState {
   readonly table?: TableDefinition;
+  readonly fromCte?: string;
+  readonly ctes?: readonly CteDefinition[];
   readonly projection?: SelectProjection;
   readonly distinct?: boolean;
   readonly joins: readonly SelectJoin[];
@@ -2541,6 +2853,56 @@ interface SelectState {
   readonly orderBy?: readonly Sql[];
   readonly limit?: number;
   readonly offset?: number;
+}
+
+/** Internal definition behind a {@link Cte}: its name and rendered query. */
+interface CteDefinition {
+  readonly name: string;
+  readonly query: Sql;
+}
+
+/** The set operations Sisal can compound two queries with. */
+type SetOperationKind =
+  | "union"
+  | "union all"
+  | "intersect"
+  | "intersect all"
+  | "except"
+  | "except all";
+
+// CTE column maps carry their definition out-of-band so the map's own keys stay
+// the projected column names (and nothing collides with a real column).
+const CTE_DEFINITIONS = new WeakMap<object, CteDefinition>();
+
+function isCte(value: unknown): value is Record<string, SelectColumnRef> {
+  return typeof value === "object" && value !== null &&
+    CTE_DEFINITIONS.has(value);
+}
+
+function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
+  return joinSql([
+    raw("with "),
+    joinSql(
+      ctes.map((cte) =>
+        joinSql(
+          [identifier(cte.name), raw(" as ("), cte.query, raw(")")],
+          emptySql(),
+        )
+      ),
+      raw(", "),
+    ),
+    raw(" "),
+  ], emptySql());
+}
+
+function cteColumnKeys(query: SetOperand<unknown>): readonly string[] {
+  if (query instanceof SisalSelectBuilder) {
+    return query.projectionKeys() ?? [];
+  }
+  if (query instanceof SisalCompoundSelectBuilder) {
+    return query.projectionKeys() ?? [];
+  }
+  return [];
 }
 
 class SisalSelectBuilder<TTable, TResult>
@@ -2565,12 +2927,68 @@ class SisalSelectBuilder<TTable, TResult>
   ): SelectBuilder<
     TNewTable,
     unknown extends TResult ? InferSelect<TNewTable> : TResult
-  > {
-    assertTable(table);
-    return new SisalSelectBuilder<
-      TNewTable,
-      unknown extends TResult ? InferSelect<TNewTable> : TResult
-    >(this.#database, { ...this.#state, table });
+  >;
+  from<TColumns extends Record<string, SelectColumnRef>>(
+    cte: Cte<TColumns>,
+  ): SelectBuilder<unknown, TResult>;
+  from(
+    source: TableDefinition | Record<string, SelectColumnRef>,
+  ): SelectBuilder<TableDefinition, unknown> {
+    if (isCte(source)) {
+      const definition = CTE_DEFINITIONS.get(source)!;
+      return new SisalSelectBuilder(this.#database, {
+        ...this.#state,
+        table: undefined,
+        fromCte: definition.name,
+      });
+    }
+    assertTable(source);
+    return new SisalSelectBuilder(this.#database, {
+      ...this.#state,
+      table: source,
+      fromCte: undefined,
+    });
+  }
+
+  /** Column names of this select's projection (internal, for CTE inference). */
+  projectionKeys(): readonly string[] | undefined {
+    return this.#state.projection === undefined
+      ? undefined
+      : Object.keys(this.#state.projection);
+  }
+
+  union(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#compound("union", other);
+  }
+
+  unionAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#compound("union all", other);
+  }
+
+  intersect(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#compound("intersect", other);
+  }
+
+  intersectAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#compound("intersect all", other);
+  }
+
+  except(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#compound("except", other);
+  }
+
+  exceptAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#compound("except all", other);
+  }
+
+  #compound(
+    kind: SetOperationKind,
+    other: SetOperand<TResult>,
+  ): CompoundSelectBuilder<TResult> {
+    return new SisalCompoundSelectBuilder<TResult>(this.#database, {
+      first: this.toSql(),
+      rest: [{ kind, query: other.toSql() }],
+    });
   }
 
   distinct(): SelectBuilder<TTable, TResult> {
@@ -2663,6 +3081,8 @@ class SisalSelectBuilder<TTable, TResult>
   toSql(): Sql {
     const {
       table,
+      fromCte,
+      ctes,
       projection,
       distinct,
       joins,
@@ -2674,20 +3094,32 @@ class SisalSelectBuilder<TTable, TResult>
       offset,
     } = this.#state;
 
-    if (table === undefined) {
+    const fromName = table !== undefined
+      ? identifier(table.name)
+      : fromCte !== undefined
+      ? identifier(fromCte)
+      : undefined;
+
+    if (fromName === undefined) {
       throw new OrmError("Select query requires a table", {
         code: "ORM_INVALID_QUERY",
       });
     }
 
-    const parts: Sql[] = [raw(distinct ? "select distinct " : "select ")];
+    const parts: Sql[] = [];
+    if (ctes !== undefined && ctes.length > 0) {
+      parts.push(withPrefixSql(ctes));
+    }
+    parts.push(raw(distinct ? "select distinct " : "select "));
     parts.push(projection === undefined ? raw("*") : projectionSql(projection));
-    parts.push(raw(" from "), identifier(table.name));
+    parts.push(raw(" from "), fromName);
 
     for (const join of joins) {
       assertTable(join.table);
       assertCondition(join.on);
       parts.push(
+        // join.kind is a fixed SelectJoinKind enum, never user input.
+        // deno-lint-ignore sisal/no-raw-interpolation
         raw(` ${join.kind} join `),
         identifier(join.table.name),
         raw(" on "),
@@ -2737,6 +3169,133 @@ class SisalSelectBuilder<TTable, TResult>
     return this.#with({
       joins: [...this.#state.joins, { kind, table, on }],
     });
+  }
+}
+
+interface CompoundState {
+  readonly first: Sql;
+  readonly rest: readonly {
+    readonly kind: SetOperationKind;
+    readonly query: Sql;
+  }[];
+  readonly orderBy?: readonly Sql[];
+  readonly limit?: number;
+  readonly offset?: number;
+  /** Carried for CTE column inference when a compound query backs a CTE. */
+  readonly projection?: SelectProjection;
+}
+
+class SisalCompoundSelectBuilder<TResult>
+  implements CompoundSelectBuilder<TResult> {
+  readonly #database: Database;
+  readonly #state: CompoundState;
+
+  constructor(database: Database, state: CompoundState) {
+    this.#database = database;
+    this.#state = state;
+  }
+
+  #append(
+    kind: SetOperationKind,
+    other: SetOperand<TResult>,
+  ): CompoundSelectBuilder<TResult> {
+    return new SisalCompoundSelectBuilder<TResult>(this.#database, {
+      ...this.#state,
+      rest: [...this.#state.rest, { kind, query: other.toSql() }],
+    });
+  }
+
+  union(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#append("union", other);
+  }
+
+  unionAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#append("union all", other);
+  }
+
+  intersect(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#append("intersect", other);
+  }
+
+  intersectAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#append("intersect all", other);
+  }
+
+  except(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#append("except", other);
+  }
+
+  exceptAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult> {
+    return this.#append("except all", other);
+  }
+
+  orderBy(...terms: unknown[]): CompoundSelectBuilder<TResult> {
+    if (terms.length === 0) {
+      throw new OrmError("orderBy requires at least one column", {
+        code: "ORM_INVALID_QUERY",
+      });
+    }
+    return new SisalCompoundSelectBuilder<TResult>(this.#database, {
+      ...this.#state,
+      orderBy: terms.map((term) => isSql(term) ? term : columnToSql(term)),
+    });
+  }
+
+  limit(count: number): CompoundSelectBuilder<TResult> {
+    return new SisalCompoundSelectBuilder<TResult>(this.#database, {
+      ...this.#state,
+      limit: normalizePositiveInteger(count, "limit"),
+    });
+  }
+
+  offset(count: number): CompoundSelectBuilder<TResult> {
+    return new SisalCompoundSelectBuilder<TResult>(this.#database, {
+      ...this.#state,
+      offset: normalizeNonNegativeInteger(count, "offset"),
+    });
+  }
+
+  /** Column names of the compound's projection (internal, for CTE inference). */
+  projectionKeys(): readonly string[] | undefined {
+    return this.#state.projection === undefined
+      ? undefined
+      : Object.keys(this.#state.projection);
+  }
+
+  toSql(): Sql {
+    // Operands are not parenthesized: `(SELECT …) UNION (SELECT …)` is valid on
+    // Postgres but a syntax error on SQLite, whereas the unwrapped form renders
+    // correctly on both. Apply `orderBy`/`limit`/`offset` to the compound (not
+    // its operands), since those bind to the whole set operation.
+    const parts: Sql[] = [this.#state.first];
+
+    for (const operation of this.#state.rest) {
+      // operation.kind is a fixed SetOperationKind enum, never user input.
+      // deno-lint-ignore sisal/no-raw-interpolation
+      parts.push(raw(` ${operation.kind} `), operation.query);
+    }
+
+    if (this.#state.orderBy !== undefined && this.#state.orderBy.length > 0) {
+      parts.push(
+        raw(" order by "),
+        joinSql([...this.#state.orderBy], raw(", ")),
+      );
+    }
+
+    if (this.#state.limit !== undefined) {
+      parts.push(raw(" limit "), paramSql(this.#state.limit));
+    }
+
+    if (this.#state.offset !== undefined) {
+      parts.push(raw(" offset "), paramSql(this.#state.offset));
+    }
+
+    return joinSql(parts, emptySql());
+  }
+
+  async execute(): Promise<TResult[]> {
+    const result = await this.#database.query<TResult>(this.toSql());
+    return result.rows;
   }
 }
 
@@ -3291,7 +3850,52 @@ function tableToSnapshot(
         table: column.references!.table,
         columns: [column.references!.column],
       },
+      ...(column.references!.onDelete === undefined
+        ? {}
+        : { onDelete: column.references!.onDelete }),
+      ...(column.references!.onUpdate === undefined
+        ? {}
+        : { onUpdate: column.references!.onUpdate }),
     }));
+
+  // Table-level constraints/indexes from the defineTable extras callback.
+  const indexes: SisalIndexSnapshot[] = [];
+  const extraUnique: SisalUniqueConstraintSnapshot[] = [];
+  const checks: SisalCheckConstraintSnapshot[] = [];
+  let tablePrimaryKey: { readonly columns: readonly string[] } | undefined;
+  for (const constraint of table.extras ?? []) {
+    switch (constraint.kind) {
+      case "index":
+        indexes.push({
+          ...(constraint.name === undefined ? {} : { name: constraint.name }),
+          columns: [...constraint.columns],
+          ...(constraint.unique ? { unique: true } : {}),
+        });
+        break;
+      case "primaryKey":
+        tablePrimaryKey = { columns: [...constraint.columns] };
+        break;
+      case "unique":
+        extraUnique.push({
+          ...(constraint.name === undefined ? {} : { name: constraint.name }),
+          columns: [...constraint.columns],
+        });
+        break;
+      case "check":
+        checks.push({
+          name: constraint.name,
+          // CHECK constraints reference the table's own columns by unqualified
+          // name (portable across Postgres/SQLite), so strip the table prefix.
+          expression: renderSql(constraint.expression, { dialect: "postgres" })
+            .text.replaceAll(`"${table.name}".`, ""),
+        });
+        break;
+    }
+  }
+  const primaryKey = tablePrimaryKey ??
+    (primaryKeyColumns.length === 0
+      ? undefined
+      : { columns: primaryKeyColumns });
 
   return {
     name: table.name,
@@ -3324,13 +3928,11 @@ function tableToSnapshot(
         hasDefault: column.hasDefault,
       },
     })),
-    ...(primaryKeyColumns.length === 0
-      ? {}
-      : { primaryKey: { columns: primaryKeyColumns } }),
-    uniqueConstraints,
+    ...(primaryKey === undefined ? {} : { primaryKey }),
+    uniqueConstraints: [...uniqueConstraints, ...extraUnique],
     foreignKeys,
-    indexes: [],
-    checks: [],
+    indexes,
+    checks,
   };
 }
 
@@ -3369,6 +3971,12 @@ function cloneColumnDefinition<T>(
       references: {
         table: definition.references.table,
         column: definition.references.column,
+        ...(definition.references.onDelete === undefined
+          ? {}
+          : { onDelete: definition.references.onDelete }),
+        ...(definition.references.onUpdate === undefined
+          ? {}
+          : { onUpdate: definition.references.onUpdate }),
       },
     }),
     ...(definition.defaultValue === undefined
@@ -3546,6 +4154,8 @@ function combineConditions(
   return createCondition(
     joinSql(
       validConditions.map((condition) => sql`(${condition.sql})`),
+      // operator is a fixed SQL keyword (and/or), never user input.
+      // deno-lint-ignore sisal/no-raw-interpolation
       raw(` ${operator} `),
     ),
   );

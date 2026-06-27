@@ -185,6 +185,39 @@ Deno.test("@sisal/orm - inArray, notInArray, and ilike predicates", () => {
   );
 });
 
+Deno.test("@sisal/orm - CTEs and set operations build SQL and execute", async () => {
+  const db = createDatabase({ driver: noopOrmDriver(), dialect: "postgres" });
+
+  const a = db.select({ id: users.columns.id }).from(users)
+    .where(eq(users.columns.id, "u_1"));
+  const b = db.select({ id: users.columns.id }).from(users)
+    .where(eq(users.columns.id, "u_2"));
+
+  // Set-operation operands are not parenthesized (portable Postgres/SQLite).
+  assertEquals(
+    renderSql(a.union(b).toSql(), { dialect: "postgres" }).text,
+    'select "users"."id" as "id" from "users" where "users"."id" = $1 union ' +
+      'select "users"."id" as "id" from "users" where "users"."id" = $2',
+  );
+  assertEquals(await a.intersect(b).execute(), []);
+
+  // A CTE infers its columns from the inner projection and renders a WITH prefix.
+  const recent = db.$with("recent").as(
+    db.select({ id: users.columns.id, email: users.columns.email }).from(users),
+  );
+  const cte = db.with(recent).select({ id: recent.id }).from(recent).limit(10);
+  assertEquals(
+    renderSql(cte.toSql(), { dialect: "postgres" }).text,
+    'with "recent" as (select "users"."id" as "id", "users"."email" as ' +
+      '"email" from "users") select "recent"."id" as "id" from "recent" ' +
+      "limit $1",
+  );
+  assertEquals(await cte.execute(), []);
+
+  // with() rejects values that were not produced by db.$with(...).as(...).
+  assertThrows(() => db.with({} as never), Error);
+});
+
 Deno.test("@sisal/orm - builders generate SQL and execute with noop driver", async () => {
   const db = createDatabase({ driver: noopOrmDriver(), dialect: "postgres" });
 

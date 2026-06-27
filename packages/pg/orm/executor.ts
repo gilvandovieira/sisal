@@ -21,7 +21,7 @@ export interface PgSqlExecutor {
     params?: readonly unknown[],
   ): Promise<PgQueryResult<Row>>;
 
-  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+  transaction?<T>(fn: (tx: PgSqlExecutor) => Promise<T>): Promise<T>;
   close?(): Promise<void>;
 }
 
@@ -45,7 +45,6 @@ export function createPgExecutor(
 
 class SisalPgExecutor implements PgSqlExecutor {
   readonly #source: PgConnectionSource;
-  #transactionClient?: PgClient;
   #closed = false;
 
   constructor(source: PgConnectionSource) {
@@ -56,14 +55,6 @@ class SisalPgExecutor implements PgSqlExecutor {
     sql: string,
     params: readonly unknown[] = [],
   ): Promise<PgQueryResult<Row>> {
-    if (this.#transactionClient !== undefined) {
-      return await this.#executeWithClient<Row>(
-        this.#transactionClient,
-        sql,
-        params,
-      );
-    }
-
     const acquired = await this.#acquireClient();
 
     try {
@@ -73,24 +64,20 @@ class SisalPgExecutor implements PgSqlExecutor {
     }
   }
 
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.#transactionClient !== undefined) {
-      return await fn();
-    }
-
+  async transaction<T>(fn: (tx: PgSqlExecutor) => Promise<T>): Promise<T> {
     const acquired = await this.#acquireClient();
+    const tx = this.#createTransactionExecutor(acquired.client);
 
     try {
-      this.#transactionClient = acquired.client;
-      await this.#executeWithClient(acquired.client, "begin");
+      await tx.execute("begin");
 
       try {
-        const result = await fn();
-        await this.#executeWithClient(acquired.client, "commit");
+        const result = await fn(tx);
+        await tx.execute("commit");
         return result;
       } catch (error) {
         try {
-          await this.#executeWithClient(acquired.client, "rollback");
+          await tx.execute("rollback");
         } catch {
           // Preserve the original migration/query failure.
         }
@@ -98,7 +85,6 @@ class SisalPgExecutor implements PgSqlExecutor {
         throw error;
       }
     } finally {
-      this.#transactionClient = undefined;
       acquired.release();
     }
   }
@@ -165,6 +151,23 @@ class SisalPgExecutor implements PgSqlExecutor {
         sql,
       });
     }
+  }
+
+  #createTransactionExecutor(client: PgClient): PgSqlExecutor {
+    const tx: PgSqlExecutor = {
+      execute: <Row = Record<string, unknown>>(
+        sql: string,
+        params: readonly unknown[] = [],
+      ): Promise<PgQueryResult<Row>> => {
+        return this.#executeWithClient<Row>(client, sql, params);
+      },
+
+      transaction: <T>(fn: (nestedTx: PgSqlExecutor) => Promise<T>) => {
+        return fn(tx);
+      },
+    };
+
+    return tx;
   }
 }
 

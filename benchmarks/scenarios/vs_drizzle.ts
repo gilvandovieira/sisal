@@ -120,6 +120,16 @@ function sisalDelete(dialect: SqlDialect) {
     { dialect },
   );
 }
+function sisalCte(dialect: SqlDialect) {
+  const adults = sisal.$with("adults").as(
+    sisal.select({ id: sUsers.columns.id, age: sUsers.columns.age })
+      .from(sUsers).where(gt(sUsers.columns.age, 18)),
+  );
+  renderSql(
+    sisal.with(adults).select({ id: adults.id }).from(adults).toSql(),
+    { dialect },
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Drizzle — a db per dialect. The proxy client is never called (.toSQL() only).
@@ -208,6 +218,20 @@ function drizzleSqliteUpdate() {
 function drizzleSqliteDelete() {
   drizzleSqlite.delete(sqUsers).where(dEq(sqUsers.id, 1)).toSQL();
 }
+function drizzlePgCte() {
+  const adults = drizzlePg.$with("adults").as(
+    drizzlePg.select({ id: pgUsers.id, age: pgUsers.age })
+      .from(pgUsers).where(dGt(pgUsers.age, 18)),
+  );
+  drizzlePg.with(adults).select({ id: adults.id }).from(adults).toSQL();
+}
+function drizzleSqliteCte() {
+  const adults = drizzleSqlite.$with("adults").as(
+    drizzleSqlite.select({ id: sqUsers.id, age: sqUsers.age })
+      .from(sqUsers).where(dGt(sqUsers.age, 18)),
+  );
+  drizzleSqlite.with(adults).select({ id: adults.id }).from(adults).toSQL();
+}
 
 interface Pairing {
   readonly op: string;
@@ -246,6 +270,11 @@ const pgPairings: readonly Pairing[] = [
     sisal: () => sisalDelete("postgres"),
     drizzle: drizzlePgDelete,
   },
+  {
+    op: "cte select",
+    sisal: () => sisalCte("postgres"),
+    drizzle: drizzlePgCte,
+  },
 ];
 
 const sqlitePairings: readonly Pairing[] = [
@@ -278,6 +307,11 @@ const sqlitePairings: readonly Pairing[] = [
     op: "delete",
     sisal: () => sisalDelete("sqlite"),
     drizzle: drizzleSqliteDelete,
+  },
+  {
+    op: "cte select",
+    sisal: () => sisalCte("sqlite"),
+    drizzle: drizzleSqliteCte,
   },
 ];
 

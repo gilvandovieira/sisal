@@ -31,7 +31,9 @@ import {
   writeMigrationFile,
 } from "./mod.ts";
 
+/** The dialects the `sisal` migration CLI can target. */
 type CliDialect = "postgres" | "sqlite";
+/** Sink for one line of CLI output — stdout by default, injectable for tests. */
 type CliOutput = (line: string) => void;
 
 /**
@@ -150,7 +152,51 @@ interface CliContext {
   readonly err: CliOutput;
 }
 
+interface PostgresDdlModule {
+  readonly generatePostgresUpStatements:
+    SisalCliAdapter["generateUpStatements"];
+}
+
+interface PostgresMigrateModule {
+  readonly createPgMigrator: (options: {
+    readonly url: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
+interface LibsqlDdlModule {
+  readonly generateLibsqlUpStatements: SisalCliAdapter["generateUpStatements"];
+}
+
+interface LibsqlMigrateModule {
+  readonly createLibsqlMigrator: (options: {
+    readonly url: string;
+    readonly authToken?: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
+interface SqliteDdlModule {
+  readonly generateSqliteUpStatements: SisalCliAdapter["generateUpStatements"];
+}
+
+interface SqliteMigrateModule {
+  readonly createSqliteMigrator: (options: {
+    readonly path: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
 const DEFAULT_CONFIG_FILE = "sisal.migrate.ts";
+const DEFAULT_ADAPTER_VERSION = "^0.2.0";
+const DEFAULT_ADAPTER_IMPORTS = {
+  pgDdl: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/ddl`,
+  pgMigrate: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/migrate`,
+  libsqlDdl: `jsr:@sisal/libsql@${DEFAULT_ADAPTER_VERSION}/ddl`,
+  libsqlMigrate: `jsr:@sisal/libsql@${DEFAULT_ADAPTER_VERSION}/migrate`,
+  sqliteDdl: `jsr:@sisal/sqlite@${DEFAULT_ADAPTER_VERSION}/ddl`,
+  sqliteMigrate: `jsr:@sisal/sqlite@${DEFAULT_ADAPTER_VERSION}/migrate`,
+} as const;
 const VALUE_FLAGS = new Set([
   "config",
   "database-auth-token",
@@ -286,7 +332,15 @@ async function commandInit(
 }
 
 function renderConfigTemplate(target: InitTarget, dir: string): string {
-  return `import { defineConfig } from "@sisal/migrate/workflow";
+  return `// sisal.migrate.ts — migration config for the \`sisal\` CLI.
+//
+// SECURITY: this is TRUSTED, executable code. The CLI imports and runs it with
+// whatever Deno permissions the command was granted (read/write/env/net/FFI), so
+// it can read environment variables, write files, and reach the network. Keep it
+// in version control, review changes like any source file, and read secrets from
+// the environment (Deno.env.get) rather than hard-coding them.
+
+import { defineConfig } from "@sisal/migrate/workflow";
 
 export default defineConfig({
   dir: ${JSON.stringify(dir)},
@@ -540,8 +594,12 @@ async function loadDefaultAdapter(
   config: MigrateConfig,
 ): Promise<SisalCliAdapter> {
   if (dialect === "postgres") {
-    const ddl = await import("@sisal/pg/ddl");
-    const migrate = await import("@sisal/pg/migrate");
+    const ddl = await importDefaultAdapterModule<PostgresDdlModule>(
+      DEFAULT_ADAPTER_IMPORTS.pgDdl,
+    );
+    const migrate = await importDefaultAdapterModule<PostgresMigrateModule>(
+      DEFAULT_ADAPTER_IMPORTS.pgMigrate,
+    );
 
     return {
       generateUpStatements: ddl.generatePostgresUpStatements,
@@ -565,8 +623,12 @@ async function loadDefaultAdapter(
     config.databasePath === undefined &&
     isLibsqlDatabaseUrl(config.databaseUrl)
   ) {
-    const ddl = await import("@sisal/libsql/ddl");
-    const migrate = await import("@sisal/libsql/migrate");
+    const ddl = await importDefaultAdapterModule<LibsqlDdlModule>(
+      DEFAULT_ADAPTER_IMPORTS.libsqlDdl,
+    );
+    const migrate = await importDefaultAdapterModule<LibsqlMigrateModule>(
+      DEFAULT_ADAPTER_IMPORTS.libsqlMigrate,
+    );
 
     return {
       generateUpStatements: ddl.generateLibsqlUpStatements,
@@ -587,8 +649,12 @@ async function loadDefaultAdapter(
     };
   }
 
-  const ddl = await import("@sisal/sqlite/ddl");
-  const migrate = await import("@sisal/sqlite/migrate");
+  const ddl = await importDefaultAdapterModule<SqliteDdlModule>(
+    DEFAULT_ADAPTER_IMPORTS.sqliteDdl,
+  );
+  const migrate = await importDefaultAdapterModule<SqliteMigrateModule>(
+    DEFAULT_ADAPTER_IMPORTS.sqliteMigrate,
+  );
 
   return {
     generateUpStatements: ddl.generateSqliteUpStatements,
@@ -607,6 +673,12 @@ async function loadDefaultAdapter(
       }) as Promise<SisalCliMigrator>;
     },
   };
+}
+
+async function importDefaultAdapterModule<TModule>(
+  specifier: string,
+): Promise<TModule> {
+  return await import(specifier) as TModule;
 }
 
 async function createMigrator(
@@ -880,13 +952,32 @@ function joinPath(dir: string, name: string): string {
   return dir.endsWith("/") ? `${dir}${name}` : `${dir}/${name}`;
 }
 
-function splitSqlStatements(text: string): string[] {
+// A Postgres dollar-quote delimiter: `$$` or `$tag$` (tag is an identifier).
+const DOLLAR_QUOTE_TAG = /\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/y;
+
+/** Returns the dollar-quote delimiter (`$$`, `$tag$`) opening at `index`, else undefined. */
+function dollarTagAt(text: string, index: number): string | undefined {
+  DOLLAR_QUOTE_TAG.lastIndex = index;
+  const match = DOLLAR_QUOTE_TAG.exec(text);
+  return match !== null ? match[0] : undefined;
+}
+
+/**
+ * Splits a SQL script into individual statements on top-level `;`, ignoring
+ * semicolons inside string literals, identifiers, line/block comments, and
+ * PostgreSQL dollar-quoted bodies (`$$ … $$`, `$tag$ … $tag$`). Exported for
+ * regression testing.
+ */
+export function splitSqlStatements(text: string): string[] {
   const statements: string[] = [];
   let start = 0;
   let singleQuoted = false;
   let doubleQuoted = false;
   let lineComment = false;
   let blockComment = false;
+  // The open dollar-quote delimiter (`$$`, `$tag$`), or undefined outside one.
+  // Postgres treats everything inside a dollar-quoted body verbatim, `;` too.
+  let dollarTag: string | undefined;
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -903,6 +994,15 @@ function splitSqlStatements(text: string): string[] {
       if (char === "*" && next === "/") {
         blockComment = false;
         index += 1;
+      }
+      continue;
+    }
+
+    if (dollarTag !== undefined) {
+      // Inside a dollar-quoted body: only the matching closer ends it.
+      if (text.startsWith(dollarTag, index)) {
+        index += dollarTag.length - 1;
+        dollarTag = undefined;
       }
       continue;
     }
@@ -935,6 +1035,15 @@ function splitSqlStatements(text: string): string[] {
       blockComment = true;
       index += 1;
       continue;
+    }
+
+    if (char === "$") {
+      const opener = dollarTagAt(text, index);
+      if (opener !== undefined) {
+        dollarTag = opener;
+        index += opener.length - 1;
+        continue;
+      }
     }
 
     if (char === "'") {

@@ -166,6 +166,8 @@ libsqlTest("libsql: generated DDL applies (affinity mapping)", async (db) => {
       "it_orgs",
     ]
   ) {
+    // table is a trusted literal from the loop above, never user input.
+    // deno-lint-ignore sisal/no-raw-interpolation
     await db.execute(raw(`drop table if exists ${table}`));
   }
   const snapshot = createSchemaSnapshot({

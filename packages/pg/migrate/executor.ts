@@ -13,6 +13,16 @@ export interface QueryResult<Row = Record<string, unknown>> {
   readonly rowCount: number;
 }
 
+/** Pinned PostgreSQL execution session held across multiple executor calls. */
+export interface SqlExecutorSession {
+  execute<Row = Record<string, unknown>>(
+    sql: string,
+    params?: readonly unknown[],
+  ): Promise<QueryResult<Row>>;
+
+  release(): Promise<void>;
+}
+
 /** Minimal SQL executor used by the PostgreSQL migration adapter. */
 export interface SqlExecutor {
   execute<Row = Record<string, unknown>>(
@@ -20,7 +30,8 @@ export interface SqlExecutor {
     params?: readonly unknown[],
   ): Promise<QueryResult<Row>>;
 
-  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+  transaction?<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+  acquireSession?(): Promise<SqlExecutorSession>;
   close?(): Promise<void>;
 }
 
@@ -44,7 +55,7 @@ export function createPgExecutor(
 
 class SisalPgExecutor implements SqlExecutor {
   readonly #source: PgConnectionSource;
-  #transactionClient?: PgClient;
+  readonly #sessions = new Set<AcquiredClient>();
   #closed = false;
 
   constructor(source: PgConnectionSource) {
@@ -55,14 +66,6 @@ class SisalPgExecutor implements SqlExecutor {
     sql: string,
     params: readonly unknown[] = [],
   ): Promise<QueryResult<Row>> {
-    if (this.#transactionClient !== undefined) {
-      return await this.#executeWithClient<Row>(
-        this.#transactionClient,
-        sql,
-        params,
-      );
-    }
-
     const acquired = await this.#acquireClient();
 
     try {
@@ -72,34 +75,40 @@ class SisalPgExecutor implements SqlExecutor {
     }
   }
 
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.#transactionClient !== undefined) {
-      return await fn();
-    }
-
+  async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
     const acquired = await this.#acquireClient();
 
     try {
-      this.#transactionClient = acquired.client;
-      await this.#executeWithClient(acquired.client, "begin");
-
-      try {
-        const result = await fn();
-        await this.#executeWithClient(acquired.client, "commit");
-        return result;
-      } catch (error) {
-        try {
-          await this.#executeWithClient(acquired.client, "rollback");
-        } catch {
-          // Preserve the original migration failure.
-        }
-
-        throw error;
-      }
+      return await this.#transactionWithClient(acquired.client, fn);
     } finally {
-      this.#transactionClient = undefined;
       acquired.release();
     }
+  }
+
+  async acquireSession(): Promise<SqlExecutorSession> {
+    const acquired = await this.#acquireClient();
+    this.#sessions.add(acquired);
+    let released = false;
+
+    return {
+      execute: <Row = Record<string, unknown>>(
+        sql: string,
+        params: readonly unknown[] = [],
+      ): Promise<QueryResult<Row>> => {
+        return this.#executeWithClient<Row>(acquired.client, sql, params);
+      },
+
+      release: (): Promise<void> => {
+        if (released) {
+          return Promise.resolve();
+        }
+
+        released = true;
+        this.#sessions.delete(acquired);
+        acquired.release();
+        return Promise.resolve();
+      },
+    };
   }
 
   async close(): Promise<void> {
@@ -108,6 +117,11 @@ class SisalPgExecutor implements SqlExecutor {
     }
 
     this.#closed = true;
+
+    for (const session of this.#sessions) {
+      session.release();
+    }
+    this.#sessions.clear();
 
     if (this.#source.ownsPool && this.#source.pool?.end !== undefined) {
       await this.#source.pool.end();
@@ -143,6 +157,29 @@ class SisalPgExecutor implements SqlExecutor {
     }
   }
 
+  async #transactionWithClient<T>(
+    client: PgClient,
+    fn: (tx: SqlExecutor) => Promise<T>,
+  ): Promise<T> {
+    const tx = this.#createTransactionExecutor(client);
+
+    await tx.execute("begin");
+
+    try {
+      const result = await fn(tx);
+      await tx.execute("commit");
+      return result;
+    } catch (error) {
+      try {
+        await tx.execute("rollback");
+      } catch {
+        // Preserve the original migration failure.
+      }
+
+      throw error;
+    }
+  }
+
   async #executeWithClient<Row>(
     client: PgClient,
     sql: string,
@@ -164,5 +201,22 @@ class SisalPgExecutor implements SqlExecutor {
         sql,
       });
     }
+  }
+
+  #createTransactionExecutor(client: PgClient): SqlExecutor {
+    const tx: SqlExecutor = {
+      execute: <Row = Record<string, unknown>>(
+        sql: string,
+        params: readonly unknown[] = [],
+      ): Promise<QueryResult<Row>> => {
+        return this.#executeWithClient<Row>(client, sql, params);
+      },
+
+      transaction: <T>(fn: (nestedTx: SqlExecutor) => Promise<T>) => {
+        return fn(tx);
+      },
+    };
+
+    return tx;
   }
 }

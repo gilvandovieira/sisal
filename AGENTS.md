@@ -2,8 +2,10 @@
 
 ## Project Shape
 
-Sisal is a Deno-first, JSR-native database toolkit split into workspace
-packages:
+Sisal is a Deno-first database toolkit, published to JSR, split into workspace
+packages (the `@sisal/orm` + `@sisal/migrate` core is pure JSR; npm appears only
+at explicit adapter/benchmark boundaries — `npm:@libsql/client`, Neon's
+transitive deps, and `npm:drizzle-orm` in benchmarks):
 
 - `packages/orm`: driverless schema, typed SQL, query builders, snapshots,
   structured errors, and logger interfaces.
@@ -57,6 +59,18 @@ package exports and publish include list if the file should be shipped to JSR.
 Examples live under `examples/basic-postgres`, `examples/basic-sqlite`, and
 `examples/basic-libsql`. Docs live under `docs/`, with coverage checked by
 `tools/check_docs.ts`.
+
+## Changelog Discipline
+
+`CHANGELOG.md` is the canonical workspace changelog. Keep it current whenever a
+change affects public APIs, package exports, adapter behavior, migration
+behavior, CLI behavior, documentation, examples, benchmarks, CI, release
+workflows, or package metadata.
+
+Use an `Unreleased` section for ongoing work unless the change is part of a
+specific version bump. When preparing a release, move relevant entries under the
+release version and date. Do not leave user-visible or release-relevant changes
+untracked in the changelog.
 
 ## Local Git Notes
 

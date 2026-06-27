@@ -1,0 +1,116 @@
+name: Integration
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DENO_VERSION: v2.8.3
+
+jobs:
+  postgres:
+    name: PostgreSQL 16/17/18
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Run PostgreSQL compatibility matrix
+        run: scripts/pg-matrix.sh
+
+  neon:
+    name: Neon local proxy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Run Neon compatibility suite
+        run: |
+          trap 'docker compose -f docker/compose.yaml down -v' EXIT
+          docker compose -f docker/compose.yaml up -d neon-proxy
+
+          for _ in $(seq 1 60); do
+            state=$(docker compose -f docker/compose.yaml ps neon-proxy --format '{{.State}}')
+            [ "$state" = "running" ] && break
+            sleep 1
+          done
+
+          state=$(docker compose -f docker/compose.yaml ps neon-proxy --format '{{.State}}')
+          if [ "$state" != "running" ]; then
+            docker compose -f docker/compose.yaml logs neon-pg neon-proxy
+            exit 1
+          fi
+
+          NEON_DATABASE_URL=postgres://postgres:postgres@localhost/sisal \
+            NEON_WS_PROXY=localhost:5499 \
+            deno test --frozen -A integration/neon_features_test.ts
+
+  sqlite:
+    name: SQLite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Run SQLite compatibility suite
+        run: |
+          SISAL_SQLITE_IT=1 deno test --frozen \
+            --allow-ffi --allow-read --allow-write --allow-env --allow-net \
+            integration/sqlite_features_test.ts
+
+  libsql:
+    name: libSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Run libSQL compatibility suite
+        run: |
+          SISAL_LIBSQL_IT=1 deno test --frozen -A \
+            integration/libsql_features_test.ts

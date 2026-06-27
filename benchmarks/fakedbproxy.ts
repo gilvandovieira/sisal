@@ -9,7 +9,7 @@
  * @module
  */
 
-import type { MigrationDriver } from "@sisal/migrate";
+import type { MigrationDriver, MigrationTransaction } from "@sisal/migrate";
 import type {
   OrmDriver,
   OrmQueryResult,
@@ -118,7 +118,7 @@ export interface FakeSqlExecutor {
     params?: readonly unknown[],
   ): Promise<FakeDbQueryResult<Row>>;
 
-  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+  transaction?<T>(fn: (tx: FakeSqlExecutor) => Promise<T>): Promise<T>;
   close?(): Promise<void>;
 }
 
@@ -224,8 +224,10 @@ class SisalFakeDbProxy implements FakeDbProxy {
     };
 
     if (this.#supportsTransactions()) {
-      driver.transaction = <T>(fn: () => Promise<T>): Promise<T> => {
-        return this.#transaction(fn);
+      driver.transaction = <T>(
+        fn: (tx: MigrationTransaction) => Promise<T>,
+      ): Promise<T> => {
+        return this.#transaction(() => fn({ driver }));
       };
     }
 
@@ -245,8 +247,10 @@ class SisalFakeDbProxy implements FakeDbProxy {
     };
 
     if (this.#supportsTransactions()) {
-      executor.transaction = <T>(fn: () => Promise<T>): Promise<T> => {
-        return this.#transaction(fn);
+      executor.transaction = <T>(
+        fn: (tx: FakeSqlExecutor) => Promise<T>,
+      ): Promise<T> => {
+        return this.#transaction(() => fn(executor));
       };
     }
 

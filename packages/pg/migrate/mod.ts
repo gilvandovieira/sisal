@@ -17,7 +17,11 @@ export type {
 } from "./migrator.ts";
 export { createPgMigrator } from "./migrator.ts";
 
-export type { QueryResult, SqlExecutor } from "./executor.ts";
+export type {
+  QueryResult,
+  SqlExecutor,
+  SqlExecutorSession,
+} from "./executor.ts";
 export { createPgExecutor } from "./executor.ts";
 
 export { createPgMigrationDriver } from "./driver.ts";

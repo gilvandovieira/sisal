@@ -16,7 +16,7 @@ export interface SqlExecutor {
     params?: readonly unknown[],
   ): Promise<QueryResult<Row>>;
 
-  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+  transaction?<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T>;
   close?(): Promise<void>;
 }
 
@@ -88,11 +88,11 @@ class SisalSqliteExecutor implements SqlExecutor {
     }
   }
 
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+  async transaction<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T> {
     await this.execute("begin");
 
     try {
-      const result = await fn();
+      const result = await fn(this);
       await this.execute("commit");
       return result;
     } catch (error) {

@@ -116,7 +116,84 @@ export function generatePostgresCreateTable(
     lines.push(`  PRIMARY KEY (${columns})`);
   }
 
+  for (const unique of table.uniqueConstraints ?? []) {
+    if (unique.columns.length === 0) continue;
+    const columns = unique.columns.map(quotePgIdent).join(", ");
+    const name = unique.name === undefined
+      ? ""
+      : `CONSTRAINT ${quotePgIdent(unique.name)} `;
+    lines.push(`  ${name}UNIQUE (${columns})`);
+  }
+
+  for (const check of table.checks ?? []) {
+    if (check.expression.trim().length === 0) continue;
+    const name = check.name === undefined
+      ? ""
+      : `CONSTRAINT ${quotePgIdent(check.name)} `;
+    lines.push(`  ${name}CHECK (${check.expression})`);
+  }
+
   return `CREATE TABLE ${pgQualifiedName(table)} (\n${lines.join(",\n")}\n);`;
+}
+
+/** Default index name when one is not provided (`table_col1_col2_idx`). */
+function pgIndexName(table: string, columns: readonly string[]): string {
+  return `${table}_${columns.join("_")}_idx`;
+}
+
+/** Generates `CREATE [UNIQUE] INDEX` statements for a table's indexes. */
+export function generatePostgresIndexes(table: SisalTableSnapshot): string[] {
+  return (table.indexes ?? [])
+    .filter((index) => index.columns.length > 0)
+    .map((index) => {
+      const unique = index.unique === true ? "UNIQUE " : "";
+      const columns = index.columns.map(quotePgIdent).join(", ");
+      const name = quotePgIdent(
+        index.name ?? pgIndexName(table.name, index.columns),
+      );
+      return `CREATE ${unique}INDEX ${name} ON ${
+        pgQualifiedName(table)
+      } (${columns});`;
+    });
+}
+
+/** Maps a referential action to its SQL keyword (`cascade` → `CASCADE`). */
+function pgReferentialAction(action: string): string {
+  return action.toUpperCase();
+}
+
+/**
+ * Generates `ALTER TABLE … ADD … FOREIGN KEY` statements for a table. Foreign
+ * keys are emitted *after* every `CREATE TABLE` so the alphabetical table order
+ * in a snapshot never produces a forward-reference error on Postgres.
+ */
+export function generatePostgresForeignKeys(
+  table: SisalTableSnapshot,
+): string[] {
+  return (table.foreignKeys ?? [])
+    .filter((fk) => fk.columns.length > 0)
+    .map((fk) => {
+      const columns = fk.columns.map(quotePgIdent).join(", ");
+      const refTable = pgQualifiedName({
+        name: fk.references.table,
+        ...(fk.references.schema === undefined
+          ? {}
+          : { schema: fk.references.schema }),
+      });
+      const refColumns = fk.references.columns.map(quotePgIdent).join(", ");
+      const name = fk.name === undefined
+        ? ""
+        : `CONSTRAINT ${quotePgIdent(fk.name)} `;
+      let clause =
+        `${name}FOREIGN KEY (${columns}) REFERENCES ${refTable} (${refColumns})`;
+      if (fk.onDelete !== undefined) {
+        clause += ` ON DELETE ${pgReferentialAction(fk.onDelete)}`;
+      }
+      if (fk.onUpdate !== undefined) {
+        clause += ` ON UPDATE ${pgReferentialAction(fk.onUpdate)}`;
+      }
+      return `ALTER TABLE ${pgQualifiedName(table)} ADD ${clause};`;
+    });
 }
 
 /** Generates an `ALTER TABLE ... ADD COLUMN` statement. */
@@ -160,6 +237,15 @@ export function generatePostgresUpStatements(
     for (const column of table.columns.added) {
       statements.push(generatePostgresAddColumn(table, column));
     }
+  }
+
+  // Foreign keys come after every CREATE TABLE so forward references resolve.
+  for (const table of diff.addedTables) {
+    statements.push(...generatePostgresForeignKeys(table));
+  }
+
+  for (const table of diff.addedTables) {
+    statements.push(...generatePostgresIndexes(table));
   }
 
   const { destructive } = planSchemaChangesFromDiff(diff);

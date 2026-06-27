@@ -27,12 +27,16 @@ Deno.test("neon executor: transaction uses a pooled client", async () => {
   const pool = new FakePool();
   const executor = await createNeonExecutor({ pool });
 
-  await executor.transaction!(async () => {
-    await executor.execute("insert into notes (body) values ($1)", ["ok"]);
+  await executor.transaction!(async (tx) => {
+    await tx.execute("insert into notes (body) values ($1)", ["ok"]);
+    await executor.execute("select outside");
   });
 
   assertEquals(pool.connectCount, 1);
   assertEquals(pool.client.released, true);
+  assertEquals(pool.queries, [
+    { sql: "select outside", params: [] },
+  ]);
   assertEquals(pool.client.queries, [
     { sql: "begin", params: [] },
     { sql: "insert into notes (body) values ($1)", params: ["ok"] },
@@ -47,8 +51,8 @@ Deno.test("neon executor: transaction rolls back on query failure", async () => 
 
   const error = await assertRejects(
     () =>
-      executor.transaction!(async () => {
-        await executor.execute("insert into notes (body) values ($1)", ["bad"]);
+      executor.transaction!(async (tx) => {
+        await tx.execute("insert into notes (body) values ($1)", ["bad"]);
       }),
     NeonError,
     "Neon query failed",

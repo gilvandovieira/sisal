@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import {
+  type AppliedMigration,
   assertMigrationChecksum,
   buildMigrationFile,
   calculateMigrationChecksum,
@@ -16,8 +17,11 @@ import {
   getPendingMigrations,
   getRollbackMigrations,
   memoryMigrationStore,
+  type MigrationDriver,
   MigrationError,
   type MigrationFileSystem,
+  type MigrationStore,
+  type MigrationTransaction,
   nextMigrationSequence,
   noopMigrationDriver,
   noopMigrator,
@@ -61,6 +65,46 @@ function fakeFs(): MigrationFileSystem & {
     },
     mkdir(): Promise<void> {
       return Promise.resolve();
+    },
+  };
+}
+
+function recordingMigrationStore(): {
+  readonly store: MigrationStore;
+  readonly marked: AppliedMigration[];
+} {
+  const applied: AppliedMigration[] = [];
+  const marked: AppliedMigration[] = [];
+
+  return {
+    marked,
+    store: {
+      listApplied(): Promise<AppliedMigration[]> {
+        return Promise.resolve([...applied]);
+      },
+
+      getApplied(id): Promise<AppliedMigration | undefined> {
+        return Promise.resolve(
+          applied.find((migration) => migration.id === id),
+        );
+      },
+
+      markApplied(migration): Promise<void> {
+        marked.push(migration);
+        applied.push(migration);
+        return Promise.resolve();
+      },
+
+      unmarkApplied(id): Promise<boolean> {
+        const index = applied.findIndex((migration) => migration.id === id);
+
+        if (index < 0) {
+          return Promise.resolve(false);
+        }
+
+        applied.splice(index, 1);
+        return Promise.resolve(true);
+      },
     },
   };
 }
@@ -203,6 +247,46 @@ Deno.test("@sisal/migrate - memory store and noop driver", async () => {
   const driver = noopMigrationDriver();
   await driver.execute("select 1");
   assertEquals(await driver.transaction?.(() => Promise.resolve(1)), 1);
+});
+
+Deno.test("@sisal/migrate - transaction scope routes driver and store", async () => {
+  const outerStore = recordingMigrationStore();
+  const transactionStore = recordingMigrationStore();
+  const outerSql: string[] = [];
+  const transactionSql: string[] = [];
+  const transactionDriver: MigrationDriver = {
+    execute(sql: string): Promise<void> {
+      transactionSql.push(sql);
+      return Promise.resolve();
+    },
+  };
+  const driver: MigrationDriver = {
+    execute(sql: string): Promise<void> {
+      outerSql.push(sql);
+      return Promise.resolve();
+    },
+    transaction<T>(fn: (tx: MigrationTransaction) => Promise<T>): Promise<T> {
+      return fn({
+        driver: transactionDriver,
+        store: transactionStore.store,
+      });
+    },
+  };
+  const migrator = createMigrator({
+    migrations: [defineSqlMigration({ id: "001", up: "create table users" })],
+    store: outerStore.store,
+    driver,
+  });
+
+  const result = await migrator.up();
+
+  assertEquals(result.executed.map((migration) => migration.id), ["001"]);
+  assertEquals(outerSql, []);
+  assertEquals(transactionSql, ["create table users"]);
+  assertEquals(outerStore.marked.map((migration) => migration.id), []);
+  assertEquals(transactionStore.marked.map((migration) => migration.id), [
+    "001",
+  ]);
 });
 
 Deno.test("@sisal/migrate - migrator plan up down dry-run and dirty checks", async () => {

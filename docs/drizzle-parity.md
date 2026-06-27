@@ -67,25 +67,29 @@ generic types rather than phantom properties on the value.
 
 ### Column types
 
-| Drizzle (`pg-core`)           | Sisal                                            | Status |
-| ----------------------------- | ------------------------------------------------ | ------ |
-| `text`                        | `columns.text()`                                 | ✅     |
-| `varchar({ length })`         | `columns.varchar(n)`                             | ✅     |
-| `integer`                     | `columns.integer()`                              | ✅     |
-| `bigint({ mode })`            | `columns.bigint()` (string-typed)                | 🟡     |
-| `boolean`                     | `columns.boolean()`                              | ✅     |
-| `timestamp({ withTimezone })` | `columns.timestamp({ withTimezone })`            | ✅     |
-| `date`                        | `columns.date()`                                 | ✅     |
-| `uuid`                        | `columns.uuid()`                                 | ✅     |
-| `json` / `jsonb`              | `columns.json<T>()` / `columns.jsonb<T>()`       | ✅     |
-| `serial` / `bigserial`        | `columns.serial()` / `columns.bigserial()`       | ✅     |
-| `real` / `doublePrecision`    | `columns.real()` / `columns.doublePrecision()`   | ✅     |
-| `numeric` / `decimal`         | `columns.numeric(p, s)` / `columns.decimal(...)` | ✅     |
-| `char`                        | `columns.char(n)`                                | ✅     |
-| `smallint`                    | `columns.smallint()`                             | ✅     |
-| `bytea` / `blob`              | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)    | ✅     |
-| `*.array()`                   | `.array()`                                       | ✅     |
-| custom `pgEnum`               | —                                                | ❌     |
+| Drizzle (`pg-core`)                            | Sisal                                            | Status |
+| ---------------------------------------------- | ------------------------------------------------ | ------ |
+| `text`                                         | `columns.text()`                                 | ✅     |
+| `varchar({ length })`                          | `columns.varchar(n)`                             | ✅     |
+| `integer`                                      | `columns.integer()`                              | ✅     |
+| `bigint({ mode })`                             | `columns.bigint()` (string-typed)                | 🟡     |
+| `boolean`                                      | `columns.boolean()`                              | ✅     |
+| `timestamp({ withTimezone })`                  | `columns.timestamp({ withTimezone })`            | ✅     |
+| `date`                                         | `columns.date()`                                 | ✅     |
+| `uuid`                                         | `columns.uuid()`                                 | ✅     |
+| `json` / `jsonb`                               | `columns.json<T>()` / `columns.jsonb<T>()`       | ✅     |
+| `serial` / `bigserial`                         | `columns.serial()` / `columns.bigserial()`       | ✅     |
+| `real` / `doublePrecision`                     | `columns.real()` / `columns.doublePrecision()`   | ✅     |
+| `numeric` / `decimal`                          | `columns.numeric(p, s)` / `columns.decimal(...)` | ✅     |
+| `char`                                         | `columns.char(n)`                                | ✅     |
+| `smallint`                                     | `columns.smallint()`                             | ✅     |
+| `bytea` / `blob`                               | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)    | ✅     |
+| `*.array()`                                    | `.array()`                                       | ✅     |
+| custom `pgEnum`                                | —                                                | ❌     |
+| `time` / `interval`                            | —                                                | ❌     |
+| `generatedAlwaysAsIdentity()`                  | — (`serial`/`bigserial` only)                    | ❌     |
+| `customType(...)`                              | — (snapshot has a `dialectType` escape hatch)    | ❌     |
+| `point`/geometry/`inet`/`vector`/`bit`/`money` | —                                                | ❌     |
 
 `numeric`/`decimal`/`bigint`/`bigserial` are string-typed to preserve precision.
 `serial`/`bigserial` are optional on insert (DB-generated). `.array()` emits
@@ -94,21 +98,31 @@ column gap: `pgEnum`.
 
 ### Column modifiers
 
-| Drizzle 0.45.2                  | Sisal                                        | Status |
-| ------------------------------- | -------------------------------------------- | ------ |
-| `.notNull()`                    | `.notNull()` (opt out of nullable default)   | ✅     |
-| `.default(v)`                   | `.default(v \| () => v)`                     | ✅     |
-| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both              | 🟡     |
-| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)       | ✅     |
-| `.unique()`                     | `.unique()`                                  | ✅     |
-| `.references(() => t.col)`      | `.references("table", "column")`             | 🔷     |
-| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)  | 🔷     |
-| `.array()`                      | `.array()`                                   | ✅     |
-| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)       | ✅     |
-| `.generatedAlwaysAs(...)`       | —                                            | ❌     |
-| (no equivalent)                 | `.nullable()` (explicit form of the default) | 🔷     |
-| (no equivalent)                 | `.optional()` (insert-optional)              | 🔷     |
-| (no equivalent)                 | `.named(name)`                               | 🔷     |
+| Drizzle 0.45.2                  | Sisal                                                         | Status |
+| ------------------------------- | ------------------------------------------------------------- | ------ |
+| `.notNull()`                    | `.notNull()` (opt out of nullable default)                    | ✅     |
+| `.default(v)`                   | `.default(v \| () => v)`                                      | ✅     |
+| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both                               | 🟡     |
+| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)                        | ✅     |
+| `.unique()`                     | `.unique()` → emits a `UNIQUE` constraint                     | ✅     |
+| `.references(() => t.col)`      | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY` | ✅⁵    |
+| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)                   | 🔷     |
+| `.array()`                      | `.array()`                                                    | ✅     |
+| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)                        | ✅     |
+| `.generatedAlwaysAs(...)`       | —                                                             | ❌     |
+| (no equivalent)                 | `.nullable()` (explicit form of the default)                  | 🔷     |
+| (no equivalent)                 | `.optional()` (insert-optional)                               | 🔷     |
+| (no equivalent)                 | `.named(name)`                                                | 🔷     |
+
+⁵ **Constraint emission strategy.** `.unique()` emits a `UNIQUE` constraint and
+`.references(table, column, { onDelete?, onUpdate? })` emits a `FOREIGN KEY`
+with optional `ON DELETE`/`ON UPDATE` actions. On **Postgres**, foreign keys are
+emitted as `ALTER TABLE … ADD … FOREIGN KEY` _after_ every `CREATE TABLE`, so
+the snapshot's alphabetical table order never causes a forward-reference error;
+on **SQLite** they stay inline (SQLite allows forward references). Still pending
+under [**P6**](#p6--schema-constraints--indexes--in-progress): composite /
+table-level primary keys, named/composite unique constraints, indexes, and
+`check`.
 
 ### ✅ Nullability default — aligned with Drizzle
 
@@ -122,6 +136,27 @@ change nullability, and (unlike Drizzle) a plain nullable column is still
 required on insert unless it is `.optional()` or has a `.default()`. This
 behavior is asserted by `parity: columns are nullable by default` in the ORM
 parity test.
+
+### Constraints & indexes
+
+| Drizzle 0.45.2                                 | Sisal                                        | Status |
+| ---------------------------------------------- | -------------------------------------------- | ------ |
+| column `.unique()` / `.references()`           | emitted (`UNIQUE` / `FOREIGN KEY`)           | ✅⁵    |
+| FK actions `onDelete` / `onUpdate`             | `.references(t, c, { onDelete, onUpdate })`  | ✅     |
+| table PK `primaryKey({ columns })` (composite) | `primaryKey({ columns })` extras callback    | ✅⁶    |
+| named / composite `unique('n').on(a, b)`       | `unique('n').on(a, b)` extras callback       | ✅⁶    |
+| `index()` / `uniqueIndex()`                    | `index('n').on(...)` / `uniqueIndex().on(…)` | ✅⁶    |
+| `check('n', sql\`…\`)`                         | `check('n', sql\`…\`)` extras callback       | ✅⁶    |
+
+⁶ **Table-level constraints use a `defineTable` extras callback**,
+Drizzle-style: `defineTable(name, columns, (t) => [...])`. The callback returns
+`primaryKey({ columns })`, `unique(name?).on(...)`, `index(name?).on(...)` /
+`uniqueIndex(name?).on(...)`, and
+`check(name, sql\`…\`)`.`UNIQUE`/`CHECK`emit
+inline in`CREATE
+TABLE`(check columns rendered unqualified for portability);
+indexes emit as separate`CREATE
+INDEX` statements (auto-named when unnamed).
 
 ---
 
@@ -160,26 +195,35 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 
 ## 3. Query builder
 
-| Drizzle 0.45.2                           | Sisal                            | Status |
-| ---------------------------------------- | -------------------------------- | ------ |
-| `db.select().from(t)`                    | same                             | ✅     |
-| `db.select({ projection })`              | same                             | ✅     |
-| `.where(...)`                            | same                             | ✅     |
-| `.orderBy(asc(c), desc(c))`              | same, plus `.orderBy(c, "desc")` | ✅     |
-| `.limit(n)` / `.offset(n)`               | same                             | ✅     |
-| `.innerJoin` / `.leftJoin`               | same                             | ✅     |
-| `.rightJoin` / `.fullJoin`               | same                             | ✅     |
-| `.groupBy(...)` / `.having(...)`         | same                             | ✅     |
-| `.distinct()`                            | same                             | ✅     |
-| `.$dynamic()`                            | —                                | ❌     |
-| `db.insert(t).values(v)`                 | same                             | ✅     |
-| `.returning(projection?)`                | same                             | ✅     |
-| `.onConflictDoNothing/DoUpdate`          | same (`on conflict …`)           | ✅⁴    |
-| `db.update(t).set(v).where(...)`         | same                             | ✅     |
-| `db.delete(t).where(...)`                | same                             | ✅     |
-| update/delete without `where`            | allowed (full-table)             | 🔷     |
-| `db.transaction(fn)`                     | same                             | ✅     |
-| Relational queries `db.query.t.findMany` | `relations()` + `db.query.t`     | ✅     |
+| Drizzle 0.45.2                              | Sisal                              | Status |
+| ------------------------------------------- | ---------------------------------- | ------ |
+| `db.select().from(t)`                       | same                               | ✅     |
+| `db.select({ projection })`                 | same                               | ✅     |
+| `.where(...)`                               | same                               | ✅     |
+| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`   | ✅     |
+| `.limit(n)` / `.offset(n)`                  | same                               | ✅     |
+| `.innerJoin` / `.leftJoin`                  | same                               | ✅     |
+| `.rightJoin` / `.fullJoin`                  | same                               | ✅     |
+| `.groupBy(...)` / `.having(...)`            | same                               | ✅     |
+| `.distinct()`                               | same                               | ✅     |
+| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                 | ✅⁵    |
+| `union` / `unionAll`                        | `.union()` / `.unionAll()`         | ✅⁵    |
+| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()` | ✅⁵    |
+| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`       | ✅⁵    |
+| `.$dynamic()`                               | —                                  | ❌     |
+| subquery as derived table / scalar subquery | —                                  | ❌     |
+| `inArray(col, subquery)`                    | array literal only                 | ❌     |
+| `.for("update" \| "share")` (locking)       | —                                  | ❌     |
+| `db.$count(table, where?)`                  | —                                  | ❌     |
+| `.distinctOn(...)` (Postgres)               | —                                  | ❌     |
+| `db.insert(t).values(v)`                    | same                               | ✅     |
+| `.returning(projection?)`                   | same                               | ✅     |
+| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)             | ✅⁴    |
+| `db.update(t).set(v).where(...)`            | same                               | ✅     |
+| `db.delete(t).where(...)`                   | same                               | ✅     |
+| update/delete without `where`               | allowed (full-table)               | 🔷     |
+| `db.transaction(fn)`                        | same                               | ✅     |
+| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`       | ✅     |
 
 **Divergence (safety):** a `where`-less `update`/`delete` throws in Sisal unless
 you call `.unsafeAllowAllRows()`. Drizzle runs it. We consider the rail worth
@@ -194,6 +238,16 @@ accepts a column, a column name, or an array of either.
 `.orderBy` accepts both the legacy `(column, "asc" | "desc")` form and one or
 more `asc()`/`desc()` terms (or bare columns), e.g.
 `orderBy(desc(t.columns.createdAt), asc(t.columns.name))`.
+
+⁵ **CTEs and set operations are fluent in Sisal.** A CTE is created with
+`db.$with("name").as(subquery)` (its columns are inferred from the subquery's
+projection) and consumed with `db.with(cte).select(...).from(cte)`. Set
+operations are chainable methods on the select builder (`q1.union(q2)`,
+`.unionAll`, `.intersect`, `.intersectAll`, `.except`, `.exceptAll`) returning a
+compound builder that still accepts `.orderBy`/`.limit`/`.offset` for the whole
+compound. Operands are **not** parenthesized, so the same query renders
+correctly on both Postgres and SQLite (SQLite rejects parenthesized compound
+operands). Recursive CTEs are written with the `` sql`...` `` template.
 
 Relational queries are enabled with `createDatabase({ schema, relations })`.
 `db.query` remains callable for raw SQL (``db.query(sql`...`)``) and gains
@@ -325,6 +379,43 @@ in `packages/migrate/cli_test.ts`. Stretch goals still open: `rollback` (needs
 the SQL-first workflow to also persist `down` statements), `push`, and a
 studio-like inspector.
 
+### P6 — schema constraints & indexes ✅ done
+
+The schema snapshot already modelled all of these; the gap was the builder API
+and the DDL emitters. Both are now closed.
+
+- ✅ **`UNIQUE` and `FOREIGN KEY` constraints** (with `onDelete`/`onUpdate`)
+  emit from `generate{Postgres,Sqlite}UpStatements` — Postgres as
+  `ALTER … ADD … FOREIGN KEY` after every `CREATE TABLE`, SQLite inline — and
+  `.references()` accepts a `{ onDelete?, onUpdate? }` options object.
+- ✅ **Table-level extras callback** —
+  `defineTable(name, columns, (t) => [...])` returns `primaryKey({ columns })`
+  (composite PK), `unique(name?).on(...)` (named/composite unique),
+  `index(name?).on(...)` / `uniqueIndex(name?).on(...)` (→ `CREATE INDEX`), and
+  `check(name, sql\`…\`)`(inline`CHECK`, columns rendered unqualified for
+  portability).
+- _Tests:_ `parity: foreign keys + actions emit as ALTER after CREATE`,
+  `parity: SQLite emits UNIQUE + inline FOREIGN KEY with actions`, and
+  `parity: table extras — composite PK, named unique, check, index(es)` in the
+  pg and sqlite parity tests.
+
+### P7 — query-builder ergonomics & subqueries ❌ next
+
+Small, pure-SQL, driver-free additions, plus the larger subquery work.
+
+- `.for("update" | "share")` row locking (`skip locked` / `no wait`).
+- `db.$count(table, where?)` and `distinctOn(...)`.
+- Subqueries as derived tables (`.from(sub.as("x"))`) and scalar /
+  `inArray(col, subquery)` subqueries.
+- `countDistinct`; window-function helpers (already expressible via `sql`).
+
+### P8 — column-type escape hatch ❌ later
+
+Expose the snapshot's existing `dialectType` field through a `customType(...)`
+factory so `time`, `interval`, identity columns, and niche Postgres types
+(`vector`, `inet`, geometry, `bit`, `money`) are reachable without one method
+per type. `pgEnum` and `.generatedAlwaysAs()` carry over from P3.
+
 ---
 
 ## Keeping this document honest
@@ -335,3 +426,7 @@ studio-like inspector.
 - When you add a deliberate divergence, add a 🔷 row with its justification.
 - The parity tests are the enforcement layer; this document is the explanation.
   They are meant to change together in the same commit.
+- Run a periodic **gap sweep**: enumerate Drizzle's surface against the _code_
+  (not just this matrix) to catch capabilities that were never tracked at all.
+  CTEs, set operations, and the constraint-emission gap were each found this way
+  — absent from the document entirely rather than listed as ❌.

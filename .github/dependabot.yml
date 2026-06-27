@@ -1,0 +1,19 @@
+# Keeps the SHA-pinned GitHub Actions and digest-pinned Docker images current.
+# Dependabot bumps the commit SHA / image digest and the trailing version
+# comment together, so pins stay immutable and reviewable. See docs/security.md
+# (SEC-002).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

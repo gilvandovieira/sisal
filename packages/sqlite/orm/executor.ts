@@ -16,7 +16,7 @@ export interface SqliteSqlExecutor {
     params?: readonly unknown[],
   ): Promise<SqliteQueryResult<Row>>;
 
-  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+  transaction?<T>(fn: (tx: SqliteSqlExecutor) => Promise<T>): Promise<T>;
   close?(): Promise<void>;
 }
 
@@ -90,11 +90,13 @@ class SisalSqliteExecutor implements SqliteSqlExecutor {
 
   // SQLite is single-connection, so a transaction wraps the same database in
   // BEGIN/COMMIT and rolls back on failure.
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
+  async transaction<T>(
+    fn: (tx: SqliteSqlExecutor) => Promise<T>,
+  ): Promise<T> {
     await this.execute("begin");
 
     try {
-      const result = await fn();
+      const result = await fn(this);
       await this.execute("commit");
       return result;
     } catch (error) {

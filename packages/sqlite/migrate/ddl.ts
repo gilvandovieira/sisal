@@ -110,10 +110,66 @@ export function generateSqliteCreateTable(
     lines.push(`  PRIMARY KEY (${columns})`);
   }
 
+  for (const unique of table.uniqueConstraints ?? []) {
+    if (unique.columns.length === 0) continue;
+    const columns = unique.columns.map(quoteSqliteIdent).join(", ");
+    const name = unique.name === undefined
+      ? ""
+      : `CONSTRAINT ${quoteSqliteIdent(unique.name)} `;
+    lines.push(`  ${name}UNIQUE (${columns})`);
+  }
+
+  for (const check of table.checks ?? []) {
+    if (check.expression.trim().length === 0) continue;
+    const name = check.name === undefined
+      ? ""
+      : `CONSTRAINT ${quoteSqliteIdent(check.name)} `;
+    lines.push(`  ${name}CHECK (${check.expression})`);
+  }
+
+  // SQLite accepts forward references, so foreign keys can stay inline in the
+  // CREATE TABLE (unlike Postgres, where they are added afterwards).
+  for (const fk of table.foreignKeys ?? []) {
+    if (fk.columns.length === 0) continue;
+    const columns = fk.columns.map(quoteSqliteIdent).join(", ");
+    const refColumns = fk.references.columns.map(quoteSqliteIdent).join(", ");
+    let clause = `  FOREIGN KEY (${columns}) REFERENCES ${
+      quoteSqliteIdent(fk.references.table)
+    } (${refColumns})`;
+    if (fk.onDelete !== undefined) {
+      clause += ` ON DELETE ${fk.onDelete.toUpperCase()}`;
+    }
+    if (fk.onUpdate !== undefined) {
+      clause += ` ON UPDATE ${fk.onUpdate.toUpperCase()}`;
+    }
+    lines.push(clause);
+  }
+
   // SQLite ignores any schema qualifier; tables live in one namespace.
   return `CREATE TABLE ${quoteSqliteIdent(table.name)} (\n${
     lines.join(",\n")
   }\n);`;
+}
+
+/** Default index name when one is not provided (`table_col1_col2_idx`). */
+function sqliteIndexName(table: string, columns: readonly string[]): string {
+  return `${table}_${columns.join("_")}_idx`;
+}
+
+/** Generates `CREATE [UNIQUE] INDEX` statements for a table's indexes. */
+export function generateSqliteIndexes(table: SisalTableSnapshot): string[] {
+  return (table.indexes ?? [])
+    .filter((index) => index.columns.length > 0)
+    .map((index) => {
+      const unique = index.unique === true ? "UNIQUE " : "";
+      const columns = index.columns.map(quoteSqliteIdent).join(", ");
+      const name = quoteSqliteIdent(
+        index.name ?? sqliteIndexName(table.name, index.columns),
+      );
+      return `CREATE ${unique}INDEX ${name} ON ${
+        quoteSqliteIdent(table.name)
+      } (${columns});`;
+    });
 }
 
 /** Generates an `ALTER TABLE ... ADD COLUMN` statement. */
@@ -158,6 +214,10 @@ export function generateSqliteUpStatements(
     for (const column of table.columns.added) {
       statements.push(generateSqliteAddColumn(table, column));
     }
+  }
+
+  for (const table of diff.addedTables) {
+    statements.push(...generateSqliteIndexes(table));
   }
 
   const { destructive } = planSchemaChangesFromDiff(diff);

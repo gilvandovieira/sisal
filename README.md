@@ -1,16 +1,21 @@
 <p align="center">
-  <img src="./assets/sisal-banner.png" alt="Sisal - a Deno-first, JSR-native database toolkit: typed schemas, planned migrations, and small database adapters" width="900">
+  <img src="./assets/sisal-banner.png" alt="Sisal - a Deno-first database toolkit published to JSR: typed schemas, planned migrations, and small database adapters" width="900">
 </p>
 
 # Sisal
 
-Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL,
-query builders, migration planning, and small adapter packages.
+Sisal is a Deno-first database toolkit, published to JSR, for typed schemas,
+safe SQL, query builders, migration planning, and small adapter packages.
 
 The core idea is simple: keep schema and migration logic portable, then attach
 database-specific behavior at explicit adapter boundaries. `@sisal/orm` is
 driverless. `@sisal/migrate` is adapter-neutral. PostgreSQL, Neon, SQLite, and
 libSQL/Turso live in their own packages.
+
+Every package is published to JSR, and the `@sisal/orm` + `@sisal/migrate` core
+is pure JSR. npm appears only at explicit boundaries: the libSQL adapter imports
+`npm:@libsql/client`, the Neon driver pulls a few transitive npm dependencies,
+and the benchmarks compare against `npm:drizzle-orm`.
 
 ## Installing
 
@@ -816,7 +821,15 @@ deno lint
 deno task check
 deno task test
 deno task docs:check
+deno task publish:dry-run
 ```
+
+Publishing is handled by `.github/workflows/publish.yml`. Manual dispatch runs a
+dry-run by default; setting `dry_run` to `false` publishes from `main`. Pushing
+a release tag like `v0.2.0` publishes automatically after the workflow checks
+that every package manifest is also at `0.2.0`. JSR trusted publishing uses
+GitHub Actions OIDC, so each `@sisal/*` package must be connected to this GitHub
+repository in JSR package settings.
 
 Integration suites are opt-in because they use real database drivers or
 services:
@@ -830,8 +843,13 @@ SISAL_SQLITE_IT=1 deno test --allow-ffi --allow-read --allow-write \
 SISAL_LIBSQL_IT=1 deno test -A integration/libsql_features_test.ts
 ```
 
-CI uses Deno `v2.8.3`, installs with `--frozen`, checks formatting, linting,
-docs coverage, workspace type-checking, package tests, and publish dry-runs for
-each workspace package.
+The separate `.github/workflows/integration.yml` workflow runs these suites on a
+weekly schedule and by manual dispatch. It covers PostgreSQL 16/17/18 through
+Docker, Neon through the bundled local WebSocket proxy, and local SQLite/libSQL
+execution.
+
+The main CI workflow uses Deno `v2.8.3`, installs with `--frozen`, checks
+formatting, linting, docs coverage, workspace type-checking, package tests, a
+workspace publish dry-run, and publish dry-runs for each workspace package.
 
 See [migration notes](./docs/migration-notes.md) for transition guidance.

@@ -5,10 +5,19 @@ import type {
 } from "@sisal/migrate";
 import { MigrationError } from "@sisal/migrate";
 
-import type { QueryResult, SqlExecutor } from "./executor.ts";
+import type {
+  QueryResult,
+  SqlExecutor,
+  SqlExecutorSession,
+} from "./executor.ts";
 
 /** Default PostgreSQL table used to store applied migration history. */
 export const DEFAULT_PG_MIGRATION_TABLE = "sisal_migrations";
+
+const DEFAULT_PG_MIGRATION_LOCK_ID = "sisal:migrate";
+const FNV_64_OFFSET = 0xcbf29ce484222325n;
+const FNV_64_PRIME = 0x100000001b3n;
+const textEncoder = new TextEncoder();
 
 /** Options for creating a PostgreSQL-backed migration history store. */
 export interface PgMigrationHistoryStoreOptions {
@@ -24,6 +33,11 @@ interface AppliedMigrationRow {
   readonly applied_at?: unknown;
   readonly executionMs?: unknown;
   readonly execution_ms?: unknown;
+}
+
+interface AdvisoryLockRow {
+  readonly acquired?: unknown;
+  readonly released?: unknown;
 }
 
 /** Creates a migration history store persisted in a PostgreSQL table. */
@@ -53,7 +67,82 @@ export function createPgMigrationHistoryStore(
     ensured = true;
   }
 
-  return {
+  let lockSession: SqlExecutorSession | undefined;
+  let lockKey: string | undefined;
+
+  async function acquireLock(lockId?: string): Promise<boolean> {
+    if (lockSession !== undefined) {
+      return false;
+    }
+
+    const acquireSession = executor.acquireSession?.bind(executor);
+
+    if (acquireSession === undefined) {
+      return false;
+    }
+
+    const key = advisoryLockKey(lockId);
+    const session = await acquireSession();
+    let released = false;
+
+    try {
+      const result = await session.execute<AdvisoryLockRow>(
+        `
+          select pg_try_advisory_lock($1::bigint) as "acquired"
+        `,
+        [key],
+      );
+      const acquired = assertBoolean(result.rows[0]?.acquired, "acquired");
+
+      if (!acquired) {
+        await session.release();
+        released = true;
+        return false;
+      }
+
+      lockSession = session;
+      lockKey = key;
+      return true;
+    } catch (error) {
+      if (!released) {
+        await session.release();
+      }
+
+      throw error;
+    }
+  }
+
+  async function releaseLock(): Promise<void> {
+    const session = lockSession;
+    const key = lockKey;
+
+    if (session === undefined || key === undefined) {
+      return;
+    }
+
+    try {
+      const result = await session.execute<AdvisoryLockRow>(
+        `
+          select pg_advisory_unlock($1::bigint) as "released"
+        `,
+        [key],
+      );
+      const released = assertBoolean(result.rows[0]?.released, "released");
+
+      if (!released) {
+        throw new MigrationError("PostgreSQL migration lock was not held", {
+          code: "MIGRATION_UNLOCK_FAILED",
+          details: { lockKey: key },
+        });
+      }
+    } finally {
+      lockSession = undefined;
+      lockKey = undefined;
+      await session.release();
+    }
+  }
+
+  const store: MigrationStore = {
     async listApplied(): Promise<AppliedMigration[]> {
       await ensureHistoryTable();
       const result = await executor.execute<AppliedMigrationRow>(`
@@ -126,8 +215,22 @@ export function createPgMigrationHistoryStore(
     },
 
     async close(): Promise<void> {
-      await executor.close?.();
+      try {
+        await releaseLock();
+      } finally {
+        await executor.close?.();
+      }
     },
+  };
+
+  if (executor.acquireSession === undefined) {
+    return store;
+  }
+
+  return {
+    ...store,
+    acquireLock,
+    releaseLock,
   };
 }
 
@@ -172,6 +275,37 @@ function quoteIdentifier(identifier: string): string {
   }
 
   return `"${identifier}"`;
+}
+
+function advisoryLockKey(lockId?: string): string {
+  const normalized = lockId ?? DEFAULT_PG_MIGRATION_LOCK_ID;
+
+  if (typeof normalized !== "string" || normalized.trim().length === 0) {
+    throw new MigrationError("PostgreSQL migration lock id is required", {
+      code: "MIGRATION_INVALID",
+      status: 400,
+    });
+  }
+
+  let hash = FNV_64_OFFSET;
+
+  for (const byte of textEncoder.encode(normalized.trim())) {
+    hash ^= BigInt(byte);
+    hash = BigInt.asUintN(64, hash * FNV_64_PRIME);
+  }
+
+  return BigInt.asIntN(64, hash).toString();
+}
+
+function assertBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new MigrationError("PostgreSQL migration lock row is invalid", {
+      code: "MIGRATION_INVALID",
+      details: { field },
+    });
+  }
+
+  return value;
 }
 
 function assertString(value: unknown, field: string): string {
