@@ -7,12 +7,58 @@
  *
  * See ../../docs/drizzle-parity.md (section 5).
  */
-import { assertEquals } from "@std/assert";
-import { columns, createSchemaSnapshot, defineTable } from "@sisal/orm";
+import { assert, assertEquals } from "@std/assert";
+import {
+  check,
+  columns,
+  createSchemaSnapshot,
+  defineTable,
+  index,
+  primaryKey,
+  sql,
+  unique,
+  uniqueIndex,
+} from "@sisal/orm";
 import {
   generatePostgresColumnType,
   generatePostgresUpStatements,
 } from "./migrate/ddl.ts";
+
+Deno.test("parity: table extras — composite PK, named unique, check, indexes", () => {
+  const members = defineTable("members", {
+    orgId: columns.integer(),
+    userId: columns.integer(),
+    email: columns.text().notNull(),
+    age: columns.integer(),
+  }, (t) => [
+    primaryKey({ columns: [t.orgId, t.userId] }),
+    unique("uq_email").on(t.email),
+    check("age_check", sql`${t.age} >= 0`),
+    index("members_email_idx").on(t.email),
+    uniqueIndex().on(t.email, t.orgId),
+  ]);
+  const { statements } = generatePostgresUpStatements(
+    createSchemaSnapshot({ dialect: "postgres", tables: [members] }),
+  );
+  const create = statements.find((s) => s.startsWith("CREATE TABLE"))!;
+
+  assert(create.includes('PRIMARY KEY ("orgId", "userId")'), create);
+  assert(create.includes('CONSTRAINT "uq_email" UNIQUE ("email")'), create);
+  // CHECK references the column unqualified (portable across dialects).
+  assert(create.includes('CONSTRAINT "age_check" CHECK ("age" >= 0)'), create);
+  // Indexes are separate CREATE INDEX statements (auto-named when unnamed).
+  assert(
+    statements.includes(
+      'CREATE INDEX "members_email_idx" ON "members" ("email");',
+    ),
+  );
+  assert(
+    statements.includes(
+      'CREATE UNIQUE INDEX "members_email_orgId_idx" ON "members" ' +
+        '("email", "orgId");',
+    ),
+  );
+});
 
 Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => {
   assertEquals(generatePostgresColumnType({ kind: "uuid" }), "uuid");

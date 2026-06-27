@@ -8,11 +8,47 @@
  * See ../../docs/drizzle-parity.md (sections 1 and 5).
  */
 import { assert, assertEquals } from "@std/assert";
-import { columns, createSchemaSnapshot, defineTable } from "@sisal/orm";
+import {
+  check,
+  columns,
+  createSchemaSnapshot,
+  defineTable,
+  index,
+  primaryKey,
+  sql,
+  unique,
+} from "@sisal/orm";
 import {
   generateSqliteColumnType,
   generateSqliteUpStatements,
 } from "./migrate/ddl.ts";
+
+Deno.test("parity: table extras — composite PK, named unique, check, index", () => {
+  const members = defineTable("members", {
+    orgId: columns.integer(),
+    userId: columns.integer(),
+    email: columns.text().notNull(),
+    age: columns.integer(),
+  }, (t) => [
+    primaryKey({ columns: [t.orgId, t.userId] }),
+    unique("uq_email").on(t.email),
+    check("age_check", sql`${t.age} >= 0`),
+    index("members_email_idx").on(t.email),
+  ]);
+  const { statements } = generateSqliteUpStatements(
+    createSchemaSnapshot({ dialect: "sqlite", tables: [members] }),
+  );
+  const create = statements.find((s) => s.startsWith("CREATE TABLE"))!;
+
+  assert(create.includes('PRIMARY KEY ("orgId", "userId")'), create);
+  assert(create.includes('CONSTRAINT "uq_email" UNIQUE ("email")'), create);
+  assert(create.includes('CONSTRAINT "age_check" CHECK ("age" >= 0)'), create);
+  assert(
+    statements.includes(
+      'CREATE INDEX "members_email_idx" ON "members" ("email");',
+    ),
+  );
+});
 
 Deno.test("parity: SQLite emits UNIQUE + inline FOREIGN KEY with actions", () => {
   const orgs = defineTable("orgs", { id: columns.integer().primaryKey() });

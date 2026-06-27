@@ -8,9 +8,12 @@ import { SisalError } from "../error.ts";
 import type { Logger } from "../logger.ts";
 import {
   defineSchemaSnapshot,
+  type SisalCheckConstraintSnapshot,
   type SisalColumnDefault,
   type SisalDialectName,
+  type SisalIndexSnapshot,
   type SisalSchemaSnapshot,
+  type SisalUniqueConstraintSnapshot,
 } from "../schema.ts";
 
 /** Error codes emitted by ORM schema, SQL, driver, and transaction helpers. */
@@ -167,11 +170,115 @@ export interface TableDefinition<
       readonly tableName: string;
     };
   };
+  /** Table-level constraints/indexes from `defineTable`'s extras callback. */
+  readonly extras?: readonly TableConstraint[];
 }
 
 /** Any Sisal table definition, regardless of its column map. */
 // deno-lint-ignore no-explicit-any -- This alias intentionally erases table column specifics.
 export type AnyTableDefinition = TableDefinition<any>;
+
+/**
+ * A table-level constraint or index produced by the {@link defineTable} extras
+ * callback — `index`/`uniqueIndex`, `primaryKey`, `unique`, or `check`.
+ */
+export type TableConstraint =
+  | {
+    readonly kind: "index";
+    readonly name?: string;
+    readonly columns: readonly string[];
+    readonly unique: boolean;
+  }
+  | { readonly kind: "primaryKey"; readonly columns: readonly string[] }
+  | {
+    readonly kind: "unique";
+    readonly name?: string;
+    readonly columns: readonly string[];
+  }
+  | { readonly kind: "check"; readonly name: string; readonly expression: Sql };
+
+/** Fluent builder returned by {@link index} / {@link uniqueIndex}. */
+export interface IndexConstraintBuilder {
+  /** Sets the indexed columns (column references or names). */
+  on(...columns: readonly unknown[]): TableConstraint;
+}
+
+/** Fluent builder returned by {@link unique}. */
+export interface UniqueConstraintBuilder {
+  /** Sets the constrained columns (column references or names). */
+  on(...columns: readonly unknown[]): TableConstraint;
+}
+
+function constraintColumnNames(columns: readonly unknown[]): string[] {
+  if (columns.length === 0) {
+    throw new OrmError("A constraint requires at least one column", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return columns.map((column) => {
+    if (typeof column === "string") {
+      return normalizeColumnName(column);
+    }
+    if (isColumn(column)) {
+      return column.name;
+    }
+    throw new OrmError("Constraint column must be a column or column name", {
+      code: "ORM_INVALID_COLUMN",
+    });
+  });
+}
+
+/** A table index (`CREATE INDEX`); complete it with `.on(...columns)`. */
+export function index(name?: string): IndexConstraintBuilder {
+  return {
+    on: (...columns) => ({
+      kind: "index",
+      ...(name === undefined ? {} : { name }),
+      columns: constraintColumnNames(columns),
+      unique: false,
+    }),
+  };
+}
+
+/** A unique table index (`CREATE UNIQUE INDEX`); complete with `.on(...)`. */
+export function uniqueIndex(name?: string): IndexConstraintBuilder {
+  return {
+    on: (...columns) => ({
+      kind: "index",
+      ...(name === undefined ? {} : { name }),
+      columns: constraintColumnNames(columns),
+      unique: true,
+    }),
+  };
+}
+
+/** A composite/table-level primary key over the given columns. */
+export function primaryKey(
+  config: { readonly columns: readonly unknown[] },
+): TableConstraint {
+  return { kind: "primaryKey", columns: constraintColumnNames(config.columns) };
+}
+
+/** A named/composite `UNIQUE` constraint; complete it with `.on(...columns)`. */
+export function unique(name?: string): UniqueConstraintBuilder {
+  return {
+    on: (...columns) => ({
+      kind: "unique",
+      ...(name === undefined ? {} : { name }),
+      columns: constraintColumnNames(columns),
+    }),
+  };
+}
+
+/** A named `CHECK` constraint from a `sql` expression. */
+export function check(name: string, expression: Sql): TableConstraint {
+  if (!isSql(expression)) {
+    throw new OrmError("check() expects a sql`...` expression", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return { kind: "check", name, expression };
+}
 
 /** Extracts the selected (read) value type a column builder produces. */
 type ColumnValueFromBuilder<TBuilder> = TBuilder extends
@@ -1059,14 +1166,23 @@ export const columns: ColumnsFactory = Object.freeze({
 export function defineTable<TColumns extends TableColumns>(
   name: TableName,
   tableColumns: TColumns,
-  options: {
-    readonly schema?: string;
-  } = {},
+  extrasOrOptions?:
+    | ((
+      columns: TableDefinition<TColumns>["columns"],
+    ) => readonly TableConstraint[])
+    | { readonly schema?: string },
+  options: { readonly schema?: string } = {},
 ): TableDefinition<TColumns> {
+  const extras = typeof extrasOrOptions === "function"
+    ? extrasOrOptions
+    : undefined;
+  const resolvedOptions = typeof extrasOrOptions === "function"
+    ? options
+    : extrasOrOptions ?? {};
   const tableName = normalizeTableName(name);
-  const schema = options.schema === undefined
+  const schema = resolvedOptions.schema === undefined
     ? undefined
-    : normalizeTableName(options.schema);
+    : normalizeTableName(resolvedOptions.schema);
   const finalColumns: Record<string, unknown> = {};
 
   for (const [propertyName, builder] of Object.entries(tableColumns)) {
@@ -1093,11 +1209,19 @@ export function defineTable<TColumns extends TableColumns>(
     });
   }
 
+  const frozenColumns = Object.freeze(
+    finalColumns,
+  ) as TableDefinition<TColumns>["columns"];
+  const constraints = extras === undefined
+    ? undefined
+    : Object.freeze([...extras(frozenColumns)]);
+
   return Object.freeze({
     kind: "table",
     name: tableName,
     ...(schema === undefined ? {} : { schema }),
-    columns: Object.freeze(finalColumns),
+    columns: frozenColumns,
+    ...(constraints === undefined ? {} : { extras: constraints }),
   }) as TableDefinition<TColumns>;
 }
 
@@ -1211,6 +1335,10 @@ export function sql(
 
       if (isSql(value)) {
         chunks.push({ kind: "sql", value });
+      } else if (isColumn(value)) {
+        // A column reference renders as a validated, quoted identifier (e.g. in
+        // a `check()` expression), not a bound parameter.
+        chunks.push({ kind: "sql", value: columnToSql(value) });
       } else {
         chunks.push({ kind: "param", value: serializeSqlValue(value) });
       }
@@ -3730,6 +3858,45 @@ function tableToSnapshot(
         : { onUpdate: column.references!.onUpdate }),
     }));
 
+  // Table-level constraints/indexes from the defineTable extras callback.
+  const indexes: SisalIndexSnapshot[] = [];
+  const extraUnique: SisalUniqueConstraintSnapshot[] = [];
+  const checks: SisalCheckConstraintSnapshot[] = [];
+  let tablePrimaryKey: { readonly columns: readonly string[] } | undefined;
+  for (const constraint of table.extras ?? []) {
+    switch (constraint.kind) {
+      case "index":
+        indexes.push({
+          ...(constraint.name === undefined ? {} : { name: constraint.name }),
+          columns: [...constraint.columns],
+          ...(constraint.unique ? { unique: true } : {}),
+        });
+        break;
+      case "primaryKey":
+        tablePrimaryKey = { columns: [...constraint.columns] };
+        break;
+      case "unique":
+        extraUnique.push({
+          ...(constraint.name === undefined ? {} : { name: constraint.name }),
+          columns: [...constraint.columns],
+        });
+        break;
+      case "check":
+        checks.push({
+          name: constraint.name,
+          // CHECK constraints reference the table's own columns by unqualified
+          // name (portable across Postgres/SQLite), so strip the table prefix.
+          expression: renderSql(constraint.expression, { dialect: "postgres" })
+            .text.replaceAll(`"${table.name}".`, ""),
+        });
+        break;
+    }
+  }
+  const primaryKey = tablePrimaryKey ??
+    (primaryKeyColumns.length === 0
+      ? undefined
+      : { columns: primaryKeyColumns });
+
   return {
     name: table.name,
     ...(table.schema === undefined ? {} : { schema: table.schema }),
@@ -3761,13 +3928,11 @@ function tableToSnapshot(
         hasDefault: column.hasDefault,
       },
     })),
-    ...(primaryKeyColumns.length === 0
-      ? {}
-      : { primaryKey: { columns: primaryKeyColumns } }),
-    uniqueConstraints,
+    ...(primaryKey === undefined ? {} : { primaryKey }),
+    uniqueConstraints: [...uniqueConstraints, ...extraUnique],
     foreignKeys,
-    indexes: [],
-    checks: [],
+    indexes,
+    checks,
   };
 }
 

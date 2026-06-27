@@ -88,17 +88,17 @@ migration config.
 Aligned with OWASP A03 (Injection) and least-privilege / secret-management
 practice — each with Sisal's current status.
 
-| # | Standard                                                               | Sisal                         |
-| - | ---------------------------------------------------------------------- | ----------------------------- |
-| 1 | **Parameterize every value** — never concatenate values into SQL       | ✅                            |
-| 2 | **Quote and validate identifiers**                                     | ✅                            |
-| 3 | **No SQL from untrusted strings** in the core; escape hatches explicit | ✅                            |
-| 4 | **Safe-by-default destructive operations**                             | ✅                            |
-| 5 | **Keep secrets and values out of logs and errors**                     | ✅                            |
-| 6 | **Reject unknown columns** (mass assignment)                           | ✅                            |
-| 7 | **Enforce referential integrity** the schema declares                  | ✅ ⁄ 🟡 ([SEC-001](#sec-001)) |
-| 8 | **Least privilege & secret-management guidance**                       | ✅ ([SEC-004](#sec-004))      |
-| 9 | **Supply-chain integrity** of dependencies and CI                      | ✅ ([SEC-002](#sec-002))      |
+| # | Standard                                                               | Sisal                    |
+| - | ---------------------------------------------------------------------- | ------------------------ |
+| 1 | **Parameterize every value** — never concatenate values into SQL       | ✅                       |
+| 2 | **Quote and validate identifiers**                                     | ✅                       |
+| 3 | **No SQL from untrusted strings** in the core; escape hatches explicit | ✅                       |
+| 4 | **Safe-by-default destructive operations**                             | ✅                       |
+| 5 | **Keep secrets and values out of logs and errors**                     | ✅                       |
+| 6 | **Reject unknown columns** (mass assignment)                           | ✅                       |
+| 7 | **Enforce referential integrity** the schema declares                  | ✅ ([SEC-001](#sec-001)) |
+| 8 | **Least privilege & secret-management guidance**                       | ✅ ([SEC-004](#sec-004)) |
+| 9 | **Supply-chain integrity** of dependencies and CI                      | ✅ ([SEC-002](#sec-002)) |
 
 ---
 
@@ -136,9 +136,14 @@ aliases the SQLite DDL. Pinned by
 `parity: foreign keys + actions emit as ALTER after CREATE` (pg) and
 `parity: SQLite emits UNIQUE + inline FOREIGN KEY with actions`.
 
-_Remaining (tracked):_ emit — or explicitly fail on — `CHECK` constraints,
-indexes, table-level/composite primary keys, and named constraints once the
-public API declares them (parity roadmap **P6**).
+The remaining schema-integrity surface is now also emitted: a `defineTable`
+extras callback (`defineTable(name, columns, (t) => [...])`) declares composite
+`primaryKey`, named/composite `unique`, `index`/`uniqueIndex`, and `check`, all
+rendered into DDL (`CHECK` columns unqualified for portability; indexes as
+`CREATE INDEX`). Pinned by
+`parity: table extras — composite PK, named unique,
+check, index(es)` in the
+pg/sqlite parity tests (parity roadmap **P6**, done).
 
 #### SEC-003 — Credentials are redacted from errors {#sec-003}
 
@@ -336,8 +341,8 @@ record but, as the audit noted, OSV does not index the JSR ecosystem.
       misuse, where-less refusal, no-param-in-errors, redaction).
 - [x] Add a root `SECURITY.md` with a disclosure channel and least-privilege
       guidance.
-- [ ] Emit or explicitly fail on `CHECK`, index, table-level/composite, and
-      named constraints once exposed. — [SEC-001](#sec-001) / parity **P6**
+- [x] Emit `CHECK`, index, table-level/composite, and named constraints via the
+      `defineTable` extras callback. — [SEC-001](#sec-001) / parity **P6**
 - [x] Document DDL default expressions and `dialectType` as trusted inputs and
       ship the enforced `sisal/no-raw-interpolation` lint rule. —
       [SEC-006](#sec-006)

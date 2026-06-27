@@ -139,19 +139,24 @@ parity test.
 
 ### Constraints & indexes
 
-| Drizzle 0.45.2                                 | Sisal                                       | Status |
-| ---------------------------------------------- | ------------------------------------------- | ------ |
-| column `.unique()` / `.references()`           | emitted (`UNIQUE` / `FOREIGN KEY`)          | ✅⁵    |
-| FK actions `onDelete` / `onUpdate`             | `.references(t, c, { onDelete, onUpdate })` | ✅     |
-| table PK `primaryKey({ columns })` (composite) | column-level `.primaryKey()` only           | ❌     |
-| named / composite `unique('n').on(a, b)`       | —                                           | ❌     |
-| `index()` / `uniqueIndex()`                    | —                                           | ❌     |
-| `check('n', sql\`…\`)`                         | —                                           | ❌     |
+| Drizzle 0.45.2                                 | Sisal                                        | Status |
+| ---------------------------------------------- | -------------------------------------------- | ------ |
+| column `.unique()` / `.references()`           | emitted (`UNIQUE` / `FOREIGN KEY`)           | ✅⁵    |
+| FK actions `onDelete` / `onUpdate`             | `.references(t, c, { onDelete, onUpdate })`  | ✅     |
+| table PK `primaryKey({ columns })` (composite) | `primaryKey({ columns })` extras callback    | ✅⁶    |
+| named / composite `unique('n').on(a, b)`       | `unique('n').on(a, b)` extras callback       | ✅⁶    |
+| `index()` / `uniqueIndex()`                    | `index('n').on(...)` / `uniqueIndex().on(…)` | ✅⁶    |
+| `check('n', sql\`…\`)`                         | `check('n', sql\`…\`)` extras callback       | ✅⁶    |
 
-`UNIQUE`/`FOREIGN KEY` (with actions) now emit in generated DDL. The snapshot
-already models the remaining four (`packages/orm/schema.ts:33-36, 82-116`); they
-are absent from the **builder API and the DDL emitters**, not the snapshot.
-Grouped as roadmap **P6**.
+⁶ **Table-level constraints use a `defineTable` extras callback**,
+Drizzle-style: `defineTable(name, columns, (t) => [...])`. The callback returns
+`primaryKey({ columns })`, `unique(name?).on(...)`, `index(name?).on(...)` /
+`uniqueIndex(name?).on(...)`, and
+`check(name, sql\`…\`)`.`UNIQUE`/`CHECK`emit
+inline in`CREATE
+TABLE`(check columns rendered unqualified for portability);
+indexes emit as separate`CREATE
+INDEX` statements (auto-named when unnamed).
 
 ---
 
@@ -374,23 +379,25 @@ in `packages/migrate/cli_test.ts`. Stretch goals still open: `rollback` (needs
 the SQL-first workflow to also persist `down` statements), `push`, and a
 studio-like inspector.
 
-### P6 — schema constraints & indexes 🟡 in progress
+### P6 — schema constraints & indexes ✅ done
 
-The highest-leverage open cluster (surfaced by a parity-gap sweep). The schema
-snapshot already models all of these; the gap was the **builder API and the DDL
-emitters**.
+The schema snapshot already modelled all of these; the gap was the builder API
+and the DDL emitters. Both are now closed.
 
-- ✅ **`UNIQUE` and `FOREIGN KEY` constraints** (with `onDelete`/`onUpdate`) now
+- ✅ **`UNIQUE` and `FOREIGN KEY` constraints** (with `onDelete`/`onUpdate`)
   emit from `generate{Postgres,Sqlite}UpStatements` — Postgres as
   `ALTER … ADD … FOREIGN KEY` after every `CREATE TABLE`, SQLite inline — and
-  `.references()` accepts a `{ onDelete?, onUpdate? }` options object. Pinned by
-  `parity: foreign keys + actions emit as ALTER after CREATE` (pg) and
-  `parity: SQLite emits UNIQUE + inline FOREIGN KEY with actions`.
-- ❌ **Indexes** via a table-definition extras callback (Drizzle's
-  `(t) => [...]` third argument): `index()` / `uniqueIndex()` → `CREATE INDEX`.
-- ❌ **Table-level primary key** (`primaryKey({ columns })`), **named/composite
-  unique** (`unique("n").on(...)`), and **`check("n", sql\`…\`)`** through the
-  same callback.
+  `.references()` accepts a `{ onDelete?, onUpdate? }` options object.
+- ✅ **Table-level extras callback** —
+  `defineTable(name, columns, (t) => [...])` returns `primaryKey({ columns })`
+  (composite PK), `unique(name?).on(...)` (named/composite unique),
+  `index(name?).on(...)` / `uniqueIndex(name?).on(...)` (→ `CREATE INDEX`), and
+  `check(name, sql\`…\`)`(inline`CHECK`, columns rendered unqualified for
+  portability).
+- _Tests:_ `parity: foreign keys + actions emit as ALTER after CREATE`,
+  `parity: SQLite emits UNIQUE + inline FOREIGN KEY with actions`, and
+  `parity: table extras — composite PK, named unique, check, index(es)` in the
+  pg and sqlite parity tests.
 
 ### P7 — query-builder ergonomics & subqueries ❌ next
 

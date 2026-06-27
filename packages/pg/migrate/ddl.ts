@@ -125,7 +125,36 @@ export function generatePostgresCreateTable(
     lines.push(`  ${name}UNIQUE (${columns})`);
   }
 
+  for (const check of table.checks ?? []) {
+    if (check.expression.trim().length === 0) continue;
+    const name = check.name === undefined
+      ? ""
+      : `CONSTRAINT ${quotePgIdent(check.name)} `;
+    lines.push(`  ${name}CHECK (${check.expression})`);
+  }
+
   return `CREATE TABLE ${pgQualifiedName(table)} (\n${lines.join(",\n")}\n);`;
+}
+
+/** Default index name when one is not provided (`table_col1_col2_idx`). */
+function pgIndexName(table: string, columns: readonly string[]): string {
+  return `${table}_${columns.join("_")}_idx`;
+}
+
+/** Generates `CREATE [UNIQUE] INDEX` statements for a table's indexes. */
+export function generatePostgresIndexes(table: SisalTableSnapshot): string[] {
+  return (table.indexes ?? [])
+    .filter((index) => index.columns.length > 0)
+    .map((index) => {
+      const unique = index.unique === true ? "UNIQUE " : "";
+      const columns = index.columns.map(quotePgIdent).join(", ");
+      const name = quotePgIdent(
+        index.name ?? pgIndexName(table.name, index.columns),
+      );
+      return `CREATE ${unique}INDEX ${name} ON ${
+        pgQualifiedName(table)
+      } (${columns});`;
+    });
 }
 
 /** Maps a referential action to its SQL keyword (`cascade` → `CASCADE`). */
@@ -213,6 +242,10 @@ export function generatePostgresUpStatements(
   // Foreign keys come after every CREATE TABLE so forward references resolve.
   for (const table of diff.addedTables) {
     statements.push(...generatePostgresForeignKeys(table));
+  }
+
+  for (const table of diff.addedTables) {
+    statements.push(...generatePostgresIndexes(table));
   }
 
   const { destructive } = planSchemaChangesFromDiff(diff);
