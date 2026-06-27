@@ -22,8 +22,8 @@ and the benchmarks compare against `npm:drizzle-orm`.
 With Deno and JSR, either import packages directly:
 
 ```ts
-import { columns, defineTable } from "jsr:@sisal/orm@0.1";
-import { connect } from "jsr:@sisal/sqlite@0.1";
+import { columns, defineTable } from "jsr:@sisal/orm@0.2";
+import { connect } from "jsr:@sisal/sqlite@0.2";
 ```
 
 Or add an import map in `deno.json`:
@@ -31,14 +31,14 @@ Or add an import map in `deno.json`:
 ```json
 {
   "imports": {
-    "@sisal/orm": "jsr:@sisal/orm@0.1",
-    "@sisal/migrate": "jsr:@sisal/migrate@0.1",
-    "@sisal/migrate/cli": "jsr:@sisal/migrate@0.1/cli",
-    "@sisal/migrate/workflow": "jsr:@sisal/migrate@0.1/workflow",
-    "@sisal/pg": "jsr:@sisal/pg@0.1",
-    "@sisal/neon": "jsr:@sisal/neon@0.1",
-    "@sisal/sqlite": "jsr:@sisal/sqlite@0.1",
-    "@sisal/libsql": "jsr:@sisal/libsql@0.1"
+    "@sisal/orm": "jsr:@sisal/orm@0.2",
+    "@sisal/migrate": "jsr:@sisal/migrate@0.2",
+    "@sisal/migrate/cli": "jsr:@sisal/migrate@0.2/cli",
+    "@sisal/migrate/workflow": "jsr:@sisal/migrate@0.2/workflow",
+    "@sisal/pg": "jsr:@sisal/pg@0.2",
+    "@sisal/neon": "jsr:@sisal/neon@0.2",
+    "@sisal/sqlite": "jsr:@sisal/sqlite@0.2",
+    "@sisal/libsql": "jsr:@sisal/libsql@0.2"
   }
 }
 ```
