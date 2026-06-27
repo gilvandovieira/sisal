@@ -369,12 +369,14 @@ Deno.test("@sisal/migrate - defineConfig validates and normalizes", () => {
   const config = defineConfig({
     dir: " ./migrations ",
     dialect: "postgres",
+    databaseAuthToken: "secret",
     snapshot: snapshot([
       { name: "b", columns: [{ name: "id", type: { kind: "uuid" } }] },
       { name: "a", columns: [{ name: "id", type: { kind: "uuid" } }] },
     ]),
   });
   assertEquals(config.dir, "./migrations");
+  assertEquals(config.databaseAuthToken, "secret");
   // Snapshot is normalized (tables sorted).
   assertEquals(config.snapshot?.tables.map((t) => t.name), ["a", "b"]);
 

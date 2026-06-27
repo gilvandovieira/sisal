@@ -296,6 +296,52 @@ Deno.test("sisal cli - migrate splits multi-statement SQL files", async () => {
   assertEquals((upStep as readonly string[]).length, 2);
 });
 
+Deno.test("sisal cli - passes database auth token to adapters", async () => {
+  const fs = fakeFs();
+  let seenToken: string | undefined;
+  const adapter: SisalCliAdapter = {
+    generateUpStatements() {
+      return { statements: [], destructive: [] };
+    },
+    createMigrator(options) {
+      seenToken = options.config.databaseAuthToken;
+      return Promise.resolve({
+        migrate(migrateOptions) {
+          return Promise.resolve({
+            direction: "up",
+            dryRun: migrateOptions.dryRun ?? false,
+            executed: [],
+            skipped: [],
+            executionMs: 0,
+          });
+        },
+        plan() {
+          return Promise.resolve(createMigrationPlan([], []));
+        },
+      });
+    },
+  };
+
+  const code = await runSisalCli([
+    "migrate",
+    "--database-auth-token",
+    "secret",
+  ], {
+    config: {
+      dir: "migrations",
+      dialect: "sqlite",
+      snapshot: snapshotV1,
+      databaseUrl: "libsql://example.turso.io",
+    },
+    fs,
+    adapters: { sqlite: adapter },
+    stdout() {},
+  });
+
+  assertEquals(code, 0);
+  assertEquals(seenToken, "secret");
+});
+
 Deno.test("sisal cli - init scaffolds config and refuses overwrite", async () => {
   const fs = fakeFs();
   const out: string[] = [];
@@ -335,6 +381,34 @@ Deno.test("sisal cli - init scaffolds config and refuses overwrite", async () =>
     fs.files.get("sisal.migrate.ts") ?? "",
     'dialect: "postgres"',
   );
+});
+
+Deno.test("sisal cli - init scaffolds libsql target as sqlite dialect", async () => {
+  const fs = fakeFs();
+
+  const code = await runSisalCli(["init", "--target", "turso"], {
+    fs,
+    stdout() {},
+    stderr() {},
+  });
+  const config = fs.files.get("sisal.migrate.ts") ?? "";
+
+  assertEquals(code, 0);
+  assertStringIncludes(config, 'dialect: "sqlite"');
+  assertStringIncludes(config, "TURSO_DATABASE_URL");
+  assertStringIncludes(config, "TURSO_AUTH_TOKEN");
+});
+
+Deno.test("sisal cli - init rejects an unknown target and lists supported ones", async () => {
+  const errs: string[] = [];
+  const code = await runSisalCli(["init", "--target", "mongodb"], {
+    fs: fakeFs(),
+    stdout() {},
+    stderr: (line) => errs.push(line),
+  });
+  assertEquals(code, 1);
+  assertStringIncludes(errs.join("\n"), "Unknown target");
+  assertStringIncludes(errs.join("\n"), "libsql");
 });
 
 Deno.test("sisal cli - generate refuses destructive changes", async () => {

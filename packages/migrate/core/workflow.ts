@@ -152,6 +152,8 @@ export interface MigrateConfig {
   readonly snapshot?: SisalSchemaSnapshot;
   /** PostgreSQL connection URL. Also accepted as a SQLite path fallback. */
   readonly databaseUrl?: string;
+  /** Authentication token for URL-based database transports such as Turso. */
+  readonly databaseAuthToken?: string;
   /** SQLite database file path (`:memory:` is accepted for tests/scaffolds). */
   readonly databasePath?: string;
   readonly historyTable?: string;
@@ -175,6 +177,9 @@ export function defineConfig(config: MigrateConfig): MigrateConfig {
     ...(config.databaseUrl === undefined
       ? {}
       : { databaseUrl: config.databaseUrl }),
+    ...(config.databaseAuthToken === undefined
+      ? {}
+      : { databaseAuthToken: config.databaseAuthToken }),
     ...(config.databasePath === undefined
       ? {}
       : { databasePath: config.databasePath }),
