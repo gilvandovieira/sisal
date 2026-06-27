@@ -2990,6 +2990,8 @@ class SisalSelectBuilder<TTable, TResult>
       assertTable(join.table);
       assertCondition(join.on);
       parts.push(
+        // join.kind is a fixed SelectJoinKind enum, never user input.
+        // deno-lint-ignore sisal/no-raw-interpolation
         raw(` ${join.kind} join `),
         identifier(join.table.name),
         raw(" on "),
@@ -3140,6 +3142,8 @@ class SisalCompoundSelectBuilder<TResult>
     const parts: Sql[] = [this.#state.first];
 
     for (const operation of this.#state.rest) {
+      // operation.kind is a fixed SetOperationKind enum, never user input.
+      // deno-lint-ignore sisal/no-raw-interpolation
       parts.push(raw(` ${operation.kind} `), operation.query);
     }
 
@@ -3985,6 +3989,8 @@ function combineConditions(
   return createCondition(
     joinSql(
       validConditions.map((condition) => sql`(${condition.sql})`),
+      // operator is a fixed SQL keyword (and/or), never user input.
+      // deno-lint-ignore sisal/no-raw-interpolation
       raw(` ${operator} `),
     ),
   );

@@ -15,6 +15,8 @@ Sisal-specific history after that baseline through `1f05448`.
 - Added core ORM security-invariant tests for parameter binding, identifier
   validation, escape-hatch strictness, where-less mutation guards, and
   credential redaction.
+- Added the `sisal/no-raw-interpolation` Deno lint plugin and a
+  `deno task audit` OSV advisory/SBOM check.
 
 ### Changed
 
