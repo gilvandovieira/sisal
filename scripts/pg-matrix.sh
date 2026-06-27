@@ -30,29 +30,40 @@ echo "Starting PostgreSQL ${VERSIONS[*]} ..."
 
 for v in "${VERSIONS[@]}"; do
   printf "Waiting for pg%s to be healthy" "$v"
+  healthy=0
   for _ in $(seq 1 60); do
     status=$("${COMPOSE[@]}" ps "pg$v" --format '{{.Health}}' 2>/dev/null || true)
-    [ "$status" = "healthy" ] && break
+    if [ "$status" = "healthy" ]; then
+      healthy=1
+      break
+    fi
     printf "."
     sleep 1
   done
+  if [ "$healthy" != "1" ]; then
+    echo " failed"
+    "${COMPOSE[@]}" logs "pg$v" || true
+    exit 1
+  fi
   echo " ok"
 done
 
 mkdir -p .pg-matrix
+failed=0
 for v in "${VERSIONS[@]}"; do
   echo "=== PostgreSQL $v ==="
   url="postgres://postgres:postgres@localhost:${PORT[$v]}/sisal"
-  DATABASE_URL="$url" deno test --allow-net --allow-env --allow-read \
-    integration/pg_features_test.ts 2>&1 | strip_ansi | tee ".pg-matrix/pg$v.log" \
-    || true
+  if ! DATABASE_URL="$url" deno test --allow-net --allow-env --allow-read \
+    integration/pg_features_test.ts 2>&1 | strip_ansi | tee ".pg-matrix/pg$v.log"; then
+    failed=1
+  fi
 done
 
 echo
 echo "================ Compatibility matrix ================"
 # Collect the union of feature names (drop the trailing "pg: " prefix noise).
-mapfile -t FEATURES < <(grep -hoE '^pg: [^.]+ \.\.\.' ".pg-matrix/pg${VERSIONS[0]}.log" \
-  | sed -E 's/ \.\.\.$//' | sed -E 's/\s+$//')
+mapfile -t FEATURES < <(grep -hoE '^pg: [^.]+ \.\.\.' .pg-matrix/pg*.log \
+  | sed -E 's/ \.\.\.$//' | sed -E 's/\s+$//' | sort -u)
 
 printf '%-52s' "Feature"
 for v in "${VERSIONS[@]}"; do printf '%-6s' "pg$v"; done
@@ -73,3 +84,5 @@ for v in "${VERSIONS[@]}"; do
   printf 'pg%s: ' "$v"
   grep -E '^(ok|FAILED|error)' ".pg-matrix/pg$v.log" | tail -1 || echo "no summary"
 done
+
+exit "$failed"
