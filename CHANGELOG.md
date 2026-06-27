@@ -38,10 +38,29 @@ Sisal-specific history after that baseline through `1f05448`.
   basic package README.
 - Added benchmark scenarios for SQL generation, Drizzle comparison,
   Drizzle-style proxy execution, and FakeDBProxy execution.
+- Added PostgreSQL and SQLite showcase examples to exercise the broader schema,
+  query, migration, and adapter surface.
+- Added fluent common table expressions — `db.$with(name).as(query)` (with the
+  CTE's columns inferred from the inner query's projection), consumed via
+  `db.with(...ctes).select(...).from(cte)` — and chainable set operations
+  (`union`, `unionAll`, `intersect`, `intersectAll`, `except`, `exceptAll`)
+  returning a `CompoundSelectBuilder` whose trailing `orderBy`/`limit`/`offset`
+  bind to the whole compound. Set-operation operands are not parenthesized so
+  the same query renders correctly on both Postgres and SQLite. Includes Drizzle
+  parity rows and tests, `mod_test` unit coverage, API documentation, CTE
+  generation and Drizzle-comparison benchmarks, and showcase example coverage.
+- Added PostgreSQL advisory lock support for migration history stores when the
+  executor can hold a pinned session.
+- Added a scheduled/manual integration workflow for PostgreSQL, Neon, SQLite,
+  and libSQL compatibility suites.
+- Added release-tag validation so publishing checks package versions and the
+  migration CLI's default adapter version against the tag.
 - Added project guidance files for repository conventions and agent workflows.
 
 ### Changed
 
+- Bumped workspace package manifests to `0.2.0` and switched non-published
+  examples/benchmarks to `publish: false`.
 - Aligned column nullability semantics so columns are nullable by default,
   `.notNull()` marks required values, and `.optional()` or `.default()` allows
   omitted insert values.
@@ -54,13 +73,21 @@ Sisal-specific history after that baseline through `1f05448`.
   commands.
 - Replaced the initial docs index with the branded landing page and kept API,
   parity, compatibility, and benchmark docs linked from the docs site.
-- Updated CI and publish workflows to use workspace package discovery.
+- Updated CI and publish workflows to use workspace package discovery,
+  workspace-level dry runs, and tag-triggered trusted publishing.
 - Expanded benchmark dependencies and lockfile entries for Neon, Drizzle, and
   proxy execution scenarios.
+- Updated adapter executors and ORM/migration drivers so transaction callbacks
+  receive scoped transaction executors instead of implicitly routing all outer
+  executor calls through the active transaction.
 
 ### Fixed
 
 - Fixed Neon integration linting by using the intended assertion import.
+- Fixed migration application and rollback so transactional drivers can mark or
+  unmark migration history through a transaction-scoped store.
+- Hardened the PostgreSQL compatibility matrix script so health-check and test
+  failures fail the script while still printing the compatibility summary.
 
 ## 0.1.0 - 2026-06-27
 
