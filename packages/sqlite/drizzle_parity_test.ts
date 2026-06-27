@@ -23,11 +23,11 @@ Deno.test("parity: SQLite type affinity mapping", () => {
   assertEquals(generateSqliteColumnType({ kind: "blob" }), "BLOB");
 });
 
-Deno.test("parity + divergence: defineTable -> SQLite CREATE TABLE (NOT NULL by default)", () => {
+Deno.test("parity: defineTable -> SQLite CREATE TABLE (nullable by default)", () => {
   const notes = defineTable("notes", {
-    id: columns.text().primaryKey(),
-    title: columns.text().notNull(),
-    // .default() does not relax nullability, so this is NOT NULL DEFAULT 0.
+    id: columns.text().primaryKey(), // primary key implies NOT NULL
+    title: columns.text().notNull(), // explicit NOT NULL
+    // Nullable by default (like Drizzle): NOT NULL is absent, DEFAULT remains.
     archived: columns.boolean().default(false),
   });
   const snapshot = createSchemaSnapshot({ dialect: "sqlite", tables: [notes] });
@@ -37,7 +37,7 @@ Deno.test("parity + divergence: defineTable -> SQLite CREATE TABLE (NOT NULL by 
     'CREATE TABLE "notes" (\n' +
     '  "id" TEXT NOT NULL,\n' +
     '  "title" TEXT NOT NULL,\n' +
-    '  "archived" INTEGER NOT NULL DEFAULT 0,\n' +
+    '  "archived" INTEGER DEFAULT 0,\n' +
     '  PRIMARY KEY ("id")\n' +
     ");",
   ]);

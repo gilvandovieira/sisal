@@ -1,3 +1,7 @@
+---
+title: API Reference
+---
+
 # Sisal API Reference
 
 Complete reference for the public API of every Sisal package, generated from a
@@ -100,18 +104,19 @@ All modifiers return a **new** builder (immutable chaining).
 
 | Modifier                         | Effect                                                               |
 | -------------------------------- | -------------------------------------------------------------------- |
-| `.notNull()`                     | Marks the column non-null (this is the default — see below)          |
-| `.nullable()`                    | Marks the column nullable                                            |
+| `.notNull()`                     | Requires a value (opt out of the nullable default)                   |
+| `.nullable()`                    | Marks the column nullable (the default; explicit for readability)    |
 | `.optional()`                    | Makes the field optional **on insert** (does not change nullability) |
 | `.default(value \| () => value)` | Sets a default; also makes the field optional on insert              |
-| `.primaryKey()`                  | Adds the column to the primary key                                   |
+| `.primaryKey()`                  | Adds the column to the primary key (implies `.notNull()`)            |
 | `.unique()`                      | Adds a single-column unique constraint                               |
 | `.references(table, column)`     | Adds a single-column foreign key                                     |
 | `.named(name)`                   | Overrides the database column name                                   |
 
-> **Important:** Sisal columns are **`NOT NULL` by default**. Call `.nullable()`
-> for a nullable column. This is the opposite of Drizzle/SQL defaults — see the
-> parity doc.
+> **Nullability:** Sisal columns are **nullable by default**, matching SQL and
+> Drizzle. Call `.notNull()` to require a value; `.primaryKey()` implies it. A
+> column's inferred value type is therefore `T | null` until you narrow it with
+> `.notNull()`/`.primaryKey()`.
 
 ### Type inference
 

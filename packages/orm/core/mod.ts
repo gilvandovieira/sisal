@@ -88,7 +88,8 @@ export interface ColumnBuilder<
   nullable(): ColumnBuilder<T | null, TOptional, THasDefault>;
   optional(): ColumnBuilder<T | undefined, true, THasDefault>;
   default(value: T | (() => T)): ColumnBuilder<T, TOptional, true>;
-  primaryKey(): ColumnBuilder<T, TOptional, THasDefault>;
+  /** Adds the column to the primary key. Implies `.notNull()`. */
+  primaryKey(): ColumnBuilder<NonNullable<T>, TOptional, THasDefault>;
   unique(): ColumnBuilder<T, TOptional, THasDefault>;
   references(
     table: string,
@@ -448,73 +449,80 @@ export class OrmError extends SisalError {
 }
 
 interface ColumnsFactory {
-  text(): ColumnBuilder<string>;
+  text(): ColumnBuilder<string | null>;
   /** Postgres `varchar`; pass `length` for `varchar(n)`. */
-  varchar(length?: number): ColumnBuilder<string>;
-  integer(): ColumnBuilder<number>;
+  varchar(length?: number): ColumnBuilder<string | null>;
+  integer(): ColumnBuilder<number | null>;
   /** Postgres `bigint`. Typed as `string` to preserve 64-bit precision. */
-  bigint(): ColumnBuilder<string>;
-  number(): ColumnBuilder<number>;
-  boolean(): ColumnBuilder<boolean>;
-  json<T = Record<string, unknown>>(): ColumnBuilder<T>;
+  bigint(): ColumnBuilder<string | null>;
+  number(): ColumnBuilder<number | null>;
+  boolean(): ColumnBuilder<boolean | null>;
+  json<T = Record<string, unknown>>(): ColumnBuilder<T | null>;
   /** Postgres `jsonb`. */
-  jsonb<T = Record<string, unknown>>(): ColumnBuilder<T>;
-  date(): ColumnBuilder<Date>;
+  jsonb<T = Record<string, unknown>>(): ColumnBuilder<T | null>;
+  date(): ColumnBuilder<Date | null>;
   /** Postgres `timestamp`; `{ withTimezone: true }` maps to `timestamptz`. */
-  timestamp(options?: { readonly withTimezone?: boolean }): ColumnBuilder<Date>;
-  uuid(): ColumnBuilder<string>;
+  timestamp(
+    options?: { readonly withTimezone?: boolean },
+  ): ColumnBuilder<Date | null>;
+  uuid(): ColumnBuilder<string | null>;
 }
 
-/** Column builder factory for table schemas. */
+/**
+ * Column builder factory for table schemas.
+ *
+ * Columns are **nullable by default** (matching SQL and Drizzle); call
+ * `.notNull()` to require a value. `.primaryKey()` implies `.notNull()`.
+ */
 export const columns: ColumnsFactory = Object.freeze({
-  text(): ColumnBuilder<string> {
+  text(): ColumnBuilder<string | null> {
     return createColumnBuilder<string>("text");
   },
 
-  varchar(length?: number): ColumnBuilder<string> {
+  varchar(length?: number): ColumnBuilder<string | null> {
     return createColumnBuilder<string>(
       "varchar",
       length === undefined ? {} : { length },
     );
   },
 
-  integer(): ColumnBuilder<number> {
+  integer(): ColumnBuilder<number | null> {
     return createColumnBuilder<number>("integer");
   },
 
-  bigint(): ColumnBuilder<string> {
+  bigint(): ColumnBuilder<string | null> {
     return createColumnBuilder<string>("bigint");
   },
 
-  number(): ColumnBuilder<number> {
+  number(): ColumnBuilder<number | null> {
     return createColumnBuilder<number>("number");
   },
 
-  boolean(): ColumnBuilder<boolean> {
+  boolean(): ColumnBuilder<boolean | null> {
     return createColumnBuilder<boolean>("boolean");
   },
 
-  json<T = Record<string, unknown>>(): ColumnBuilder<T> {
+  json<T = Record<string, unknown>>(): ColumnBuilder<T | null> {
     return createColumnBuilder<T>("json");
   },
 
-  jsonb<T = Record<string, unknown>>(): ColumnBuilder<T> {
+  jsonb<T = Record<string, unknown>>(): ColumnBuilder<T | null> {
     return createColumnBuilder<T>("jsonb");
   },
 
-  date(): ColumnBuilder<Date> {
+  date(): ColumnBuilder<Date | null> {
     return createColumnBuilder<Date>("date");
   },
 
-  timestamp(options: { readonly withTimezone?: boolean } = {}): ColumnBuilder<
-    Date
-  > {
+  timestamp(
+    options: { readonly withTimezone?: boolean } = {},
+  ): ColumnBuilder<Date | null> {
     return createColumnBuilder<Date>(
       options.withTimezone ? "timestamptz" : "timestamp",
     );
   },
 
-  uuid(): ColumnBuilder<string> {
+  uuid(): ColumnBuilder<string | null> {
     return createColumnBuilder<string>("uuid");
   },
 });
@@ -1091,9 +1099,14 @@ class SisalColumnBuilder<
     );
   }
 
-  primaryKey(): ColumnBuilder<T, TOptional, THasDefault> {
+  primaryKey(): ColumnBuilder<NonNullable<T>, TOptional, THasDefault> {
+    // A primary key is never null, so it implies NOT NULL.
     return new SisalColumnBuilder(
-      { ...this.definition, primaryKey: true },
+      {
+        ...this.definition,
+        primaryKey: true,
+        nullable: false,
+      } as ColumnDefinition<NonNullable<T>>,
       this.optionalInsert,
       this.defaultInsert,
     );
@@ -1773,12 +1786,12 @@ class SisalDeleteBuilder<TTable extends TableDefinition>
 function createColumnBuilder<T>(
   dataType: ColumnDataType,
   extra: { readonly length?: number } = {},
-): ColumnBuilder<T> {
-  return new SisalColumnBuilder<T, false, false>(
+): ColumnBuilder<T | null> {
+  return new SisalColumnBuilder<T | null, false, false>(
     {
       dataType,
       ...(extra.length === undefined ? {} : { length: extra.length }),
-      nullable: false,
+      nullable: true,
       hasDefault: false,
       primaryKey: false,
       unique: false,

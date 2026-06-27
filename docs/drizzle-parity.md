@@ -1,3 +1,7 @@
+---
+title: Drizzle Parity
+---
+
 # Sisal ↔ Drizzle ORM 0.45.2 parity
 
 This is the guiding document for how Sisal's API evolves. It maps every relevant
@@ -88,33 +92,34 @@ are "surface the builder," not "design from scratch."
 
 ### Column modifiers
 
-| Drizzle 0.45.2                  | Sisal                                       | Status |
-| ------------------------------- | ------------------------------------------- | ------ |
-| `.notNull()`                    | `.notNull()`                                | ✅     |
-| `.default(v)`                   | `.default(v \| () => v)`                    | ✅     |
-| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both             | 🟡     |
-| `.primaryKey()`                 | `.primaryKey()`                             | ✅     |
-| `.unique()`                     | `.unique()`                                 | ✅     |
-| `.references(() => t.col)`      | `.references("table", "column")`            | 🔷     |
-| `.$type<T>()`                   | type param on factory (`columns.json<T>()`) | 🔷     |
-| `.array()`                      | —                                           | ❌     |
-| `.$onUpdate(fn)`                | —                                           | ❌     |
-| `.generatedAlwaysAs(...)`       | —                                           | ❌     |
-| (no equivalent)                 | `.nullable()`                               | 🔷     |
-| (no equivalent)                 | `.optional()` (insert-optional)             | 🔷     |
-| (no equivalent)                 | `.named(name)`                              | 🔷     |
+| Drizzle 0.45.2                  | Sisal                                        | Status |
+| ------------------------------- | -------------------------------------------- | ------ |
+| `.notNull()`                    | `.notNull()` (opt out of nullable default)   | ✅     |
+| `.default(v)`                   | `.default(v \| () => v)`                     | ✅     |
+| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both              | 🟡     |
+| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)       | ✅     |
+| `.unique()`                     | `.unique()`                                  | ✅     |
+| `.references(() => t.col)`      | `.references("table", "column")`             | 🔷     |
+| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)  | 🔷     |
+| `.array()`                      | —                                            | ❌     |
+| `.$onUpdate(fn)`                | —                                            | ❌     |
+| `.generatedAlwaysAs(...)`       | —                                            | ❌     |
+| (no equivalent)                 | `.nullable()` (explicit form of the default) | 🔷     |
+| (no equivalent)                 | `.optional()` (insert-optional)              | 🔷     |
+| (no equivalent)                 | `.named(name)`                               | 🔷     |
 
-### ⚠️ Behavioral divergence: nullability default
+### ✅ Nullability default — aligned with Drizzle
 
-> **Drizzle (and SQL) columns are nullable by default; Sisal columns are
-> `NOT NULL` by default.**
+> **Columns are nullable by default**, matching SQL and Drizzle. Call
+> `.notNull()` to require a value; `.primaryKey()` implies it.
 
-In Sisal you must opt **into** nullability with `.nullable()`. Also note that
-`.optional()` only makes a field optional **on insert** — it does **not** make
-the column nullable. So `columns.text().optional()` still generates a `NOT NULL`
-column. This is the single biggest footgun for someone arriving from Drizzle,
-and it is asserted explicitly in the parity tests. **Decision needed** (see
-roadmap P0): keep-and-document, or flip to nullable-by-default for true parity.
+A column's inferred value type is `T | null` until narrowed by
+`.notNull()`/`.primaryKey()`. The one axis that stays separate is insert
+optionality: `.optional()` makes a field omittable **on insert** but does not
+change nullability, and (unlike Drizzle) a plain nullable column is still
+required on insert unless it is `.optional()` or has a `.default()`. This
+behavior is asserted by `parity: columns are nullable by default` in the ORM
+parity test.
 
 ---
 
@@ -232,16 +237,15 @@ runs, and `down`/`to` rollback — all adapter-neutral.
 Ordered by leverage. Each item names the parity test(s) that will flip when it
 lands.
 
-### P0 — decide the nullability default
+### P0 — nullability default ✅ done
 
-The `NOT NULL`-by-default behavior is the highest-impact divergence. Either:
-
-- **(a)** keep it and document loudly (current state), or
-- **(b)** flip columns to nullable-by-default and require `.notNull()` like
-  Drizzle/SQL.
-
-Until decided, the divergence is pinned by
-`divergence: columns are NOT NULL by default` in the ORM parity test.
+Columns are now **nullable by default** (`.notNull()` opts out, `.primaryKey()`
+implies not-null), matching SQL and Drizzle. Pinned by
+`parity: columns are
+nullable by default` in the ORM parity test. Remaining
+sub-item: decide whether a plain nullable column should also become
+insert-optional like Drizzle (today it stays required unless
+`.optional()`/`.default()`).
 
 ### P1 — operator & ordering parity (cheap, high value)
 

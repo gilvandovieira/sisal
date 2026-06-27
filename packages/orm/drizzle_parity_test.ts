@@ -201,15 +201,18 @@ Deno.test("parity: column modifiers (shared, extra, and gaps)", () => {
   }
 });
 
-Deno.test("divergence: columns are NOT NULL by default (Drizzle defaults to nullable)", () => {
+Deno.test("parity: columns are nullable by default; .notNull() / .primaryKey() opt out", () => {
   const t = defineTable("t", {
-    a: columns.text(), // no .nullable()
-    b: columns.text().optional(), // optional() is insert-only, not nullability
+    a: columns.text(), // nullable by default, like Drizzle/SQL
+    b: columns.text().notNull(), // opt into NOT NULL
+    id: columns.uuid().primaryKey(), // primary key implies NOT NULL
   });
-  assertEquals(t.columns.a.nullable, false);
+  assertEquals(t.columns.a.nullable, true);
   assertEquals(t.columns.b.nullable, false);
+  assertEquals(t.columns.id.nullable, false);
+  // .optional() is an insert-only axis and does not change nullability.
   assertEquals(
-    defineTable("t2", { a: columns.text().nullable() }).columns.a.nullable,
+    defineTable("t2", { a: columns.text().optional() }).columns.a.nullable,
     true,
   );
 });

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page.title | default: site.title }} | {{ site.title }}</title>
+    <meta name="description" content="{{ site.description }}">
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #fafafa;
+        --panel: #ffffff;
+        --text: #172026;
+        --muted: #5a6670;
+        --line: #d8dee3;
+        --accent: #006d5b;
+        --code-bg: #eef3f2;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.6;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration-thickness: 0.08em;
+        text-underline-offset: 0.18em;
+      }
+
+      .site-header {
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .site-header__inner {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 18px 0;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand {
+        color: var(--text);
+        font-weight: 700;
+        font-size: 1.1rem;
+        text-decoration: none;
+      }
+
+      .site-nav {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+
+      .site-nav a {
+        color: var(--muted);
+        font-size: 0.95rem;
+        text-decoration: none;
+      }
+
+      .site-nav a:hover {
+        color: var(--accent);
+      }
+
+      main {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 44px 0 72px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+      }
+
+      h1 {
+        margin-top: 0;
+        font-size: 2.7rem;
+      }
+
+      h2 {
+        margin-top: 2.2rem;
+        border-top: 1px solid var(--line);
+        padding-top: 1.6rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        display: block;
+        overflow-x: auto;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.55rem 0.7rem;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f0f4f3;
+      }
+
+      code {
+        background: var(--code-bg);
+        border-radius: 4px;
+        padding: 0.1em 0.28em;
+        font-size: 0.92em;
+      }
+
+      pre {
+        overflow-x: auto;
+        background: #172026;
+        color: #f6faf9;
+        border-radius: 8px;
+        padding: 1rem;
+      }
+
+      pre code {
+        background: transparent;
+        color: inherit;
+        padding: 0;
+      }
+
+      blockquote {
+        margin-left: 0;
+        padding: 0.1rem 1rem;
+        border-left: 4px solid var(--accent);
+        color: var(--muted);
+        background: #f3f7f6;
+      }
+
+      @media (max-width: 720px) {
+        .site-header__inner {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        main {
+          padding-top: 32px;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="{{ '/' | relative_url }}">{{ site.title }}</a>
+        <nav class="site-nav" aria-label="Documentation">
+          <a href="{{ '/api.html' | relative_url }}">API</a>
+          <a href="{{ '/migration-notes.html' | relative_url }}">Migration</a>
+          <a href="{{ '/drizzle-parity.html' | relative_url }}"
+          >Drizzle parity</a>
+        </nav>
+      </div>
+    </header>
+    <main>
+      {{ content }}
+    </main>
+  </body>
+</html>
