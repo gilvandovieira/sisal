@@ -1,0 +1,32 @@
+{
+  "name": "@sisal/sqlite",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./orm": "./orm/mod.ts",
+    "./migrate": "./migrate/mod.ts",
+    "./ddl": "./migrate/ddl.ts"
+  },
+  "license": "MIT",
+  "description": "SQLite adapter boundaries for Sisal ORM and migrations.",
+  "keywords": [
+    "deno",
+    "jsr",
+    "sisal",
+    "sqlite",
+    "orm",
+    "migrations"
+  ],
+  "publish": {
+    "include": [
+      "README.md",
+      "mod.ts",
+      "orm/**/*.ts",
+      "migrate/**/*.ts",
+      "deno.json"
+    ],
+    "exclude": [
+      "**/*_test.ts"
+    ]
+  }
+}

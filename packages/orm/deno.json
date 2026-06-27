@@ -1,0 +1,35 @@
+{
+  "name": "@sisal/orm",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./core": "./core/mod.ts",
+    "./error": "./error.ts",
+    "./logger": "./logger.ts",
+    "./schema": "./schema.ts"
+  },
+  "license": "MIT",
+  "description": "Driverless schema, typed SQL, and ORM primitives for Sisal.",
+  "keywords": [
+    "deno",
+    "jsr",
+    "sisal",
+    "orm",
+    "sql",
+    "schema"
+  ],
+  "publish": {
+    "include": [
+      "README.md",
+      "mod.ts",
+      "core/**/*.ts",
+      "schema.ts",
+      "error.ts",
+      "logger.ts",
+      "deno.json"
+    ],
+    "exclude": [
+      "**/*_test.ts"
+    ]
+  }
+}

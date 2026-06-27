@@ -1,0 +1,30 @@
+{
+  "name": "@sisal/migrate",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./core": "./core/mod.ts",
+    "./workflow": "./core/workflow.ts"
+  },
+  "license": "MIT",
+  "description": "Migration planning, diffing, and running primitives for Sisal.",
+  "keywords": [
+    "deno",
+    "jsr",
+    "sisal",
+    "migrations",
+    "database",
+    "schema"
+  ],
+  "publish": {
+    "include": [
+      "README.md",
+      "mod.ts",
+      "core/**/*.ts",
+      "deno.json"
+    ],
+    "exclude": [
+      "**/*_test.ts"
+    ]
+  }
+}

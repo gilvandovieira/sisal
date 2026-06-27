@@ -1,0 +1,22 @@
+{
+  "workspace": [
+    "./packages/orm",
+    "./packages/migrate",
+    "./packages/pg",
+    "./packages/sqlite",
+    "./examples/basic-postgres",
+    "./examples/basic-sqlite",
+    "./benchmarks"
+  ],
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1"
+  },
+  "tasks": {
+    "check": "deno check packages/orm/mod.ts packages/migrate/mod.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts examples/basic-postgres/mod.ts examples/basic-sqlite/mod.ts benchmarks/mod.ts",
+    "test": "deno test --allow-read packages/orm packages/migrate packages/pg packages/sqlite"
+  },
+  "fmt": {
+    "lineWidth": 80,
+    "semiColons": true
+  }
+}
