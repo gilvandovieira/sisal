@@ -16,6 +16,7 @@
     "fmt:check": "deno fmt --check",
     "hooks:install": "git config core.hooksPath .githooks",
     "check": "deno check packages/orm/mod.ts packages/migrate/mod.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts examples/basic-postgres/mod.ts examples/basic-sqlite/mod.ts benchmarks/mod.ts",
+    "bench": "deno bench --allow-run=deno benchmarks/mod.ts",
     "docs:check": "deno run --frozen --allow-read --allow-run tools/check_docs.ts",
     "test": "deno test --allow-read packages/orm packages/migrate packages/pg packages/sqlite"
   },
