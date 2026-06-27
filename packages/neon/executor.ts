@@ -22,7 +22,7 @@ export interface NeonSqlExecutor {
     params?: readonly unknown[],
   ): Promise<NeonSqlResult<Row>>;
 
-  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+  transaction?<T>(fn: (tx: NeonSqlExecutor) => Promise<T>): Promise<T>;
   close?(): Promise<void>;
 }
 
@@ -65,7 +65,6 @@ export async function createNeonExecutor(
 
 class SisalNeonExecutor implements NeonSqlExecutor {
   readonly #source: NeonConnectionSource;
-  #transactionClient?: NeonClient;
   #closed = false;
 
   constructor(source: NeonConnectionSource) {
@@ -76,14 +75,6 @@ class SisalNeonExecutor implements NeonSqlExecutor {
     sql: string,
     params: readonly unknown[] = [],
   ): Promise<NeonSqlResult<Row>> {
-    if (this.#transactionClient !== undefined) {
-      return await this.#executeWithQueryable<Row>(
-        this.#transactionClient,
-        sql,
-        params,
-      );
-    }
-
     if (this.#source.client !== undefined) {
       return await this.#executeWithQueryable<Row>(
         this.#source.client,
@@ -99,24 +90,20 @@ class SisalNeonExecutor implements NeonSqlExecutor {
     );
   }
 
-  async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.#transactionClient !== undefined) {
-      return await fn();
-    }
-
+  async transaction<T>(fn: (tx: NeonSqlExecutor) => Promise<T>): Promise<T> {
     const acquired = await this.#acquireTransactionClient();
+    const tx = this.#createTransactionExecutor(acquired.client);
 
     try {
-      this.#transactionClient = acquired.client;
-      await this.#executeWithQueryable(acquired.client, "begin");
+      await tx.execute("begin");
 
       try {
-        const result = await fn();
-        await this.#executeWithQueryable(acquired.client, "commit");
+        const result = await fn(tx);
+        await tx.execute("commit");
         return result;
       } catch (error) {
         try {
-          await this.#executeWithQueryable(acquired.client, "rollback");
+          await tx.execute("rollback");
         } catch {
           // Preserve the original query/transaction failure.
         }
@@ -124,7 +111,6 @@ class SisalNeonExecutor implements NeonSqlExecutor {
         throw error;
       }
     } finally {
-      this.#transactionClient = undefined;
       acquired.release();
     }
   }
@@ -189,6 +175,23 @@ class SisalNeonExecutor implements NeonSqlExecutor {
         cause: error,
       });
     }
+  }
+
+  #createTransactionExecutor(client: NeonClient): NeonSqlExecutor {
+    const tx: NeonSqlExecutor = {
+      execute: <Row = Record<string, unknown>>(
+        sql: string,
+        params: readonly unknown[] = [],
+      ): Promise<NeonSqlResult<Row>> => {
+        return this.#executeWithQueryable<Row>(client, sql, params);
+      },
+
+      transaction: <T>(fn: (nestedTx: NeonSqlExecutor) => Promise<T>) => {
+        return fn(tx);
+      },
+    };
+
+    return tx;
   }
 }
 

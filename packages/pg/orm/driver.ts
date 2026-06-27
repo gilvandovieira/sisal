@@ -21,6 +21,23 @@ export interface PgOrmDriverOptions extends PgConnectionOptions {
 export function createPgOrmDriver(options: PgOrmDriverOptions): OrmDriver {
   const executor = createPgExecutor(options);
 
+  return createPgOrmDriverFromExecutor(executor, true);
+}
+
+function createPgOrmDriverFromExecutor(
+  executor: PgSqlExecutor,
+  closeExecutor: boolean,
+): OrmDriver {
+  const transaction: OrmTransaction = {
+    query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
+      return executeQuery<T>(executor, query);
+    },
+
+    execute(query: SqlQuery): Promise<OrmQueryResult> {
+      return executeQuery(executor, query);
+    },
+  };
+
   const driver: OrmDriver = {
     query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
       return executeQuery<T>(executor, query);
@@ -35,15 +52,21 @@ export function createPgOrmDriver(options: PgOrmDriverOptions): OrmDriver {
         return fn(driver);
       }
 
-      return executor.transaction(() => fn(driver));
+      return executor.transaction((txExecutor) => {
+        return fn(createPgOrmDriverFromExecutor(txExecutor, false));
+      });
     },
 
     async close(): Promise<void> {
+      if (!closeExecutor) {
+        return;
+      }
+
       await executor.close?.();
     },
   };
 
-  return driver;
+  return closeExecutor ? driver : transaction;
 }
 
 async function executeQuery<T>(

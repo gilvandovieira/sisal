@@ -21,6 +21,23 @@ export function createLibsqlOrmDriver(
 ): OrmDriver {
   const executor = createLibsqlExecutor(options);
 
+  return createLibsqlOrmDriverFromExecutor(executor, true);
+}
+
+function createLibsqlOrmDriverFromExecutor(
+  executor: LibsqlSqlExecutor,
+  closeExecutor: boolean,
+): OrmDriver {
+  const transaction: OrmTransaction = {
+    query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
+      return executeQuery<T>(executor, query);
+    },
+
+    execute(query: SqlQuery): Promise<OrmQueryResult> {
+      return executeQuery(executor, query);
+    },
+  };
+
   const driver: OrmDriver = {
     query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
       return executeQuery<T>(executor, query);
@@ -35,15 +52,21 @@ export function createLibsqlOrmDriver(
         return fn(driver);
       }
 
-      return executor.transaction(() => fn(driver));
+      return executor.transaction((txExecutor) => {
+        return fn(createLibsqlOrmDriverFromExecutor(txExecutor, false));
+      });
     },
 
     async close(): Promise<void> {
+      if (!closeExecutor) {
+        return;
+      }
+
       await executor.close?.();
     },
   };
 
-  return driver;
+  return closeExecutor ? driver : transaction;
 }
 
 async function executeQuery<T>(

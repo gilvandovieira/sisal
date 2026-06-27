@@ -6,8 +6,13 @@ import type {
   LibsqlStatement,
   LibsqlTransaction,
 } from "../client.ts";
+import { createLibsqlOrmDriver } from "./driver.ts";
 import { createLibsqlDb } from "./mod.ts";
-import { createLibsqlExecutor } from "./executor.ts";
+import {
+  createLibsqlExecutor,
+  type LibsqlQueryResult,
+  type LibsqlSqlExecutor,
+} from "./executor.ts";
 
 Deno.test("@sisal/libsql - executor runs statements through client", async () => {
   const calls: LibsqlStatement[] = [];
@@ -109,12 +114,13 @@ Deno.test("@sisal/libsql - transaction commits and rolls back", async () => {
   };
 
   const executor = createLibsqlExecutor({ client });
-  await executor.transaction!(() =>
-    executor.execute("insert into x values (1)")
-  );
+  await executor.transaction!(async (tx) => {
+    await tx.execute("insert into x values (1)");
+    await executor.execute("select outside");
+  });
   await assertRejects(() =>
-    executor.transaction!(async () => {
-      await executor.execute("insert into x values (2)");
+    executor.transaction!(async (tx) => {
+      await tx.execute("insert into x values (2)");
       throw new Error("boom");
     })
   );
@@ -122,6 +128,7 @@ Deno.test("@sisal/libsql - transaction commits and rolls back", async () => {
   assertEquals(transactionExecuteCount, 2);
   assertEquals(events, [
     "transaction:write",
+    "client.execute",
     "commit",
     "close",
     "transaction:write",
@@ -129,3 +136,48 @@ Deno.test("@sisal/libsql - transaction commits and rolls back", async () => {
     "close",
   ]);
 });
+
+Deno.test("@sisal/libsql - ORM driver uses scoped transaction executor", async () => {
+  const outerQueries: QueryCall[] = [];
+  const transactionQueries: QueryCall[] = [];
+  const transactionExecutor = recordingExecutor(transactionQueries);
+  const executor: LibsqlSqlExecutor = {
+    execute<Row = Record<string, unknown>>(
+      sql: string,
+      params: readonly unknown[] = [],
+    ): Promise<LibsqlQueryResult<Row>> {
+      outerQueries.push({ sql, params: [...params] });
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    },
+    transaction<T>(fn: (tx: LibsqlSqlExecutor) => Promise<T>): Promise<T> {
+      return fn(transactionExecutor);
+    },
+  };
+  const driver = createLibsqlOrmDriver({ executor });
+
+  await driver.transaction!(async (tx) => {
+    await tx.execute({ text: "insert into notes values (?)", params: ["tx"] });
+  });
+
+  assertEquals(outerQueries, []);
+  assertEquals(transactionQueries, [
+    { sql: "insert into notes values (?)", params: ["tx"] },
+  ]);
+});
+
+interface QueryCall {
+  readonly sql: string;
+  readonly params: readonly unknown[];
+}
+
+function recordingExecutor(calls: QueryCall[]): LibsqlSqlExecutor {
+  return {
+    execute<Row = Record<string, unknown>>(
+      sql: string,
+      params: readonly unknown[] = [],
+    ): Promise<LibsqlQueryResult<Row>> {
+      calls.push({ sql, params: [...params] });
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    },
+  };
+}
