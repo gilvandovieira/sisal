@@ -17,7 +17,7 @@ import {
   type SisalSchemaSnapshot,
   type SisalTableSnapshot,
 } from "@sisal/orm";
-import { planSchemaChanges, type SchemaChange } from "@sisal/migrate";
+import { planSchemaChangesFromDiff, type SchemaChange } from "@sisal/migrate";
 
 /** Quotes a PostgreSQL identifier, escaping embedded double quotes. */
 export function quotePgIdent(name: string): string {
@@ -162,9 +162,7 @@ export function generatePostgresUpStatements(
     }
   }
 
-  const { destructive } = planSchemaChanges(
-    from === undefined ? { to } : { from, to },
-  );
+  const { destructive } = planSchemaChangesFromDiff(diff);
 
   return { statements, destructive };
 }

@@ -143,6 +143,7 @@ const allTypes = defineTable("it_all_types", {
   c_date: columns.date(),
   c_ts: columns.timestamp(),
   c_uuid: columns.uuid(),
+  c_blob: columns.bytea(),
 });
 
 // ---------------------------------------------------------------------------
@@ -179,7 +180,7 @@ libsqlTest("libsql: generated DDL applies (affinity mapping)", async (db) => {
   const cols = await db.query<{ n: number }>(
     sql`select count(*) as n from pragma_table_info(${"it_all_types"})`,
   );
-  assertEquals(Number(cols.rows[0].n), 16);
+  assertEquals(Number(cols.rows[0].n), 17);
 });
 
 libsqlTest("libsql: insert + returning", async (db) => {
@@ -280,13 +281,33 @@ libsqlTest("libsql: like / notLike", async (db) => {
 });
 
 libsqlTest(
-  "libsql: ilike is NOT supported (SQLite-based, no ILIKE)",
+  "libsql: ilike works (degrades to case-insensitive LIKE)",
   async (db) => {
-    await assertRejects(() =>
-      db.select().from(users).where(ilike(users.columns.email, "A%")).execute()
-    );
+    const rows = await db.select().from(users)
+      .where(ilike(users.columns.email, "A%")).execute();
+    assertEquals(rows.length, 1); // matches lowercase "a@example.com"
   },
 );
+
+libsqlTest("libsql: bytea/BLOB binary round-trip", async (db) => {
+  const bin = defineTable("it_bin", {
+    id: columns.integer().primaryKey(),
+    data: columns.bytea(),
+  });
+  await db.execute(
+    generateLibsqlUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [bin] }),
+    ).statements[0],
+  );
+  const bytes = new Uint8Array([0, 1, 2, 250, 255]);
+  await db.insert(bin).values({ id: 1, data: bytes }).execute();
+  const rows = await db.select({ data: bin.columns.data }).from(bin)
+    .where(eq(bin.columns.id, 1)).execute();
+  // @libsql/client returns BLOBs as ArrayBuffer (SQLite/PG return Uint8Array).
+  const raw = rows[0].data as unknown as ArrayBuffer | Uint8Array;
+  const out = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+  assertEquals(Array.from(out), [0, 1, 2, 250, 255]);
+});
 
 libsqlTest("libsql: orderBy asc/desc + limit + offset", async (db) => {
   const rows = await db.select().from(users)

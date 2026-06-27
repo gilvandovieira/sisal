@@ -83,6 +83,7 @@ generic types rather than phantom properties on the value.
 | `numeric` / `decimal`         | `columns.numeric(p, s)` / `columns.decimal(...)` | ✅     |
 | `char`                        | `columns.char(n)`                                | ✅     |
 | `smallint`                    | `columns.smallint()`                             | ✅     |
+| `bytea` / `blob`              | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)    | ✅     |
 | `*.array()`                   | `.array()`                                       | ✅     |
 | custom `pgEnum`               | —                                                | ❌     |
 

@@ -18,7 +18,7 @@ import {
   type SisalSchemaSnapshot,
   type SisalTableSnapshot,
 } from "@sisal/orm";
-import { planSchemaChanges, type SchemaChange } from "@sisal/migrate";
+import { planSchemaChangesFromDiff, type SchemaChange } from "@sisal/migrate";
 
 /** Quotes a SQLite identifier, escaping embedded double quotes. */
 export function quoteSqliteIdent(name: string): string {
@@ -160,9 +160,7 @@ export function generateSqliteUpStatements(
     }
   }
 
-  const { destructive } = planSchemaChanges(
-    from === undefined ? { to } : { from, to },
-  );
+  const { destructive } = planSchemaChangesFromDiff(diff);
 
   return { statements, destructive };
 }

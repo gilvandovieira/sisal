@@ -14,8 +14,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (20 tests)       |
-| Last run      | 2026-06-27 — **20 / 20 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (21 tests)       |
+| Last run      | 2026-06-27 — **21 / 21 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
@@ -29,7 +29,7 @@ unsupported (SQLite-family).
 | **Insert** — `values`, multi-row, `returning`                |   ✅   |
 | **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`             |   ✅   |
 | **Pattern** — `like` / `notLike`                             |   ✅   |
-| **Pattern** — `ilike` / `notIlike`                           |   ❌   |
+| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)      |   ✅   |
 | **Range** — `between` / `notBetween`                         |   ✅   |
 | **Set** — `inArray` / `notInArray`                           |   ✅   |
 | **Null** — `isNull` / `isNotNull`                            |   ✅   |
@@ -46,13 +46,18 @@ unsupported (SQLite-family).
 | **Boolean** — round-trip                                     |   ⚠️   |
 | **JSON / JSONB** — object round-trip                         |   ⚠️   |
 | **Arrays** — `text[]` round-trip                             |   ⚠️   |
+| **Binary** — `bytea`/`BLOB` round-trip                       |   ⚠️   |
 | **Migrator** — apply, plan, history table, idempotent re-run |   ✅   |
 
 ## Behavior notes
 
 libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
 
-- **`ilike` / `notIlike` are unsupported** — no `ILIKE` keyword; use `like`.
+- **`ilike` / `notIlike` degrade to `LIKE` / `NOT LIKE`**
+  (ASCII-case-insensitive; libSQL has no `ILIKE` keyword).
+- **Binary** (`columns.bytea()` → `BLOB`) round-trips, but `@libsql/client`
+  returns BLOBs as `ArrayBuffer` (SQLite and Postgres return `Uint8Array`) —
+  wrap with `new Uint8Array(value)`.
 - **JSON and arrays round-trip as text** — auto-serialized to JSON `TEXT`;
   `JSON.parse` on read.
 - **Booleans are `INTEGER` `0`/`1`**; `numeric`/`bigint` map to `REAL`/`INTEGER`

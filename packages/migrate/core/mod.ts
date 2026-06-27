@@ -12,6 +12,7 @@ import {
   normalizeSchemaSnapshot,
   SCHEMA_SNAPSHOT_VERSION,
   type SisalSchemaSnapshot,
+  type SisalSchemaSnapshotDiff,
 } from "@sisal/orm";
 
 export * from "./workflow.ts";
@@ -491,6 +492,19 @@ export function planSchemaChanges(
 ): SchemaMigrationChanges {
   const plan = defineSchemaMigrationPlan(input);
   const diff = diffSchemaSnapshots(plan.from ?? EMPTY_SCHEMA_SNAPSHOT, plan.to);
+  return planSchemaChangesFromDiff(diff);
+}
+
+/**
+ * Classifies an already-computed {@link SisalSchemaSnapshotDiff} into ordered
+ * {@link SchemaChange}s. Use this when you already hold a diff and want to avoid
+ * recomputing it — generated DDL, for example, iterates the diff for statements
+ * and reuses the same diff here for the destructive list, rather than diffing
+ * twice via {@link planSchemaChanges}.
+ */
+export function planSchemaChangesFromDiff(
+  diff: SisalSchemaSnapshotDiff,
+): SchemaMigrationChanges {
   const changes: SchemaChange[] = [];
 
   for (const table of diff.addedTables) {

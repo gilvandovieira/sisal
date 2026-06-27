@@ -12,8 +12,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (20 tests)     |
-| Last run      | 2026-06-27 — **20 / 20 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (21 tests)     |
+| Last run      | 2026-06-27 — **21 / 21 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
@@ -27,7 +27,7 @@ unsupported on SQLite.
 | **Insert** — `values`, multi-row, `returning`                |     ✅      |
 | **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`             |     ✅      |
 | **Pattern** — `like` / `notLike`                             |     ✅      |
-| **Pattern** — `ilike` / `notIlike`                           |     ❌      |
+| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)      |     ✅      |
 | **Range** — `between` / `notBetween`                         |     ✅      |
 | **Set** — `inArray` / `notInArray`                           |     ✅      |
 | **Null** — `isNull` / `isNotNull`                            |     ✅      |
@@ -45,6 +45,7 @@ unsupported on SQLite.
 | **Boolean** — round-trip                                     |     ⚠️      |
 | **JSON / JSONB** — object round-trip                         |     ⚠️      |
 | **Arrays** — `text[]` round-trip                             |     ⚠️      |
+| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)        |     ✅      |
 | **Migrator** — apply, plan, history table, idempotent re-run |     ✅      |
 
 ### Column types via the DDL test
@@ -61,9 +62,10 @@ Every generated type maps onto one of SQLite's five affinities and the
 
 ## Behavior notes (SQLite vs PostgreSQL)
 
-- **`ilike` / `notIlike` are unsupported.** SQLite has no `ILIKE` keyword, so
-  the generated SQL is rejected. SQLite's `LIKE` is already case-insensitive for
-  ASCII — use `like` / `notLike`.
+- **`ilike` / `notIlike` degrade to `LIKE` / `NOT LIKE`.** SQLite has no `ILIKE`
+  keyword, so Sisal renders these as `LIKE`, which is already case-insensitive
+  for ASCII. Folding is ASCII-only (not full Unicode like Postgres `ILIKE`).
+- **Binary** (`columns.bytea()` → `BLOB`) round-trips as `Uint8Array`.
 - **JSON and arrays round-trip as text.** Objects and arrays are auto-serialized
   to a JSON `TEXT` value on insert (`{"note":"x"}`, `["a","b"]`) and come back
   as a **string** — `JSON.parse` on read. PostgreSQL `jsonb`/arrays return
