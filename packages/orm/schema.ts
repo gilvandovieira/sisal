@@ -61,10 +61,25 @@ export interface SisalColumnType {
   readonly precision?: number;
   readonly scale?: number;
   readonly array?: boolean;
+  /**
+   * Raw, dialect-specific type emitted verbatim into DDL, overriding `kind`.
+   *
+   * **Trusted input.** This is an escape hatch for schema authors; it is never
+   * sanitized. Only ever set it from developer-authored schema code, never from
+   * a runtime/user value. See `docs/security.md` (SEC-006).
+   */
   readonly dialectType?: string;
 }
 
-/** Serializable column default value or expression. */
+/**
+ * Serializable column default value or expression.
+ *
+ * **`kind: "expression"` is a trusted input:** its `sql` is emitted verbatim
+ * into the generated `DEFAULT` clause and is never sanitized. Set it only from
+ * developer-authored schema code, never from a runtime/user value (literal
+ * defaults are escaped; expression defaults are not). See `docs/security.md`
+ * (SEC-006).
+ */
 export type SisalColumnDefault =
   | {
     readonly kind: "literal";

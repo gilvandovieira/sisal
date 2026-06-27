@@ -18,6 +18,7 @@ Sisal-specific history after that baseline through `1f05448`.
 - Added the `sisal/no-raw-interpolation` Deno lint plugin and a
   `deno task audit` OSV advisory/SBOM check.
 - Added a scheduled/manual dependency advisory workflow.
+- Added the root security policy and security posture documentation page.
 
 ### Changed
 
@@ -25,6 +26,8 @@ Sisal-specific history after that baseline through `1f05448`.
   and `FOREIGN KEY` constraints, including referential actions.
 - Pinned GitHub Actions and Docker integration images to immutable SHAs/digests,
   with Dependabot coverage for updates.
+- Documented migration config scaffolds, DDL expression defaults, and
+  dialect-specific column types as trusted developer-authored inputs.
 
 ### Fixed
 

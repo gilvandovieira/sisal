@@ -332,7 +332,15 @@ async function commandInit(
 }
 
 function renderConfigTemplate(target: InitTarget, dir: string): string {
-  return `import { defineConfig } from "@sisal/migrate/workflow";
+  return `// sisal.migrate.ts — migration config for the \`sisal\` CLI.
+//
+// SECURITY: this is TRUSTED, executable code. The CLI imports and runs it with
+// whatever Deno permissions the command was granted (read/write/env/net/FFI), so
+// it can read environment variables, write files, and reach the network. Keep it
+// in version control, review changes like any source file, and read secrets from
+// the environment (Deno.env.get) rather than hard-coding them.
+
+import { defineConfig } from "@sisal/migrate/workflow";
 
 export default defineConfig({
   dir: ${JSON.stringify(dir)},
