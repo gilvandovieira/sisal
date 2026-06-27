@@ -290,6 +290,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@neon/serverless@1",
       "jsr:@std/assert@1"
     ],
     "members": {

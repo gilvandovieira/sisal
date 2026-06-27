@@ -76,7 +76,7 @@ const SKIP = URL === undefined;
 // against a plain Postgres (no effect against real Neon, which uses secure ws).
 async function configureNeon(): Promise<void> {
   if (WS_PROXY === undefined) return;
-  const mod = await import("jsr:@neon/serverless@^1.0.0");
+  const mod = await import("@neon/serverless");
   const neonConfig = mod.neonConfig as unknown as Record<string, unknown>;
   neonConfig.wsProxy = () => `${WS_PROXY}/v1`;
   neonConfig.useSecureWebSocket = false;

@@ -12,6 +12,7 @@
     "./benchmarks"
   ],
   "imports": {
+    "@neon/serverless": "jsr:@neon/serverless@^1.0.0",
     "@std/assert": "jsr:@std/assert@1"
   },
   "tasks": {
