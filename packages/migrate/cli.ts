@@ -944,13 +944,32 @@ function joinPath(dir: string, name: string): string {
   return dir.endsWith("/") ? `${dir}${name}` : `${dir}/${name}`;
 }
 
-function splitSqlStatements(text: string): string[] {
+// A Postgres dollar-quote delimiter: `$$` or `$tag$` (tag is an identifier).
+const DOLLAR_QUOTE_TAG = /\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/y;
+
+/** Returns the dollar-quote delimiter (`$$`, `$tag$`) opening at `index`, else undefined. */
+function dollarTagAt(text: string, index: number): string | undefined {
+  DOLLAR_QUOTE_TAG.lastIndex = index;
+  const match = DOLLAR_QUOTE_TAG.exec(text);
+  return match !== null ? match[0] : undefined;
+}
+
+/**
+ * Splits a SQL script into individual statements on top-level `;`, ignoring
+ * semicolons inside string literals, identifiers, line/block comments, and
+ * PostgreSQL dollar-quoted bodies (`$$ … $$`, `$tag$ … $tag$`). Exported for
+ * regression testing.
+ */
+export function splitSqlStatements(text: string): string[] {
   const statements: string[] = [];
   let start = 0;
   let singleQuoted = false;
   let doubleQuoted = false;
   let lineComment = false;
   let blockComment = false;
+  // The open dollar-quote delimiter (`$$`, `$tag$`), or undefined outside one.
+  // Postgres treats everything inside a dollar-quoted body verbatim, `;` too.
+  let dollarTag: string | undefined;
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -967,6 +986,15 @@ function splitSqlStatements(text: string): string[] {
       if (char === "*" && next === "/") {
         blockComment = false;
         index += 1;
+      }
+      continue;
+    }
+
+    if (dollarTag !== undefined) {
+      // Inside a dollar-quoted body: only the matching closer ends it.
+      if (text.startsWith(dollarTag, index)) {
+        index += dollarTag.length - 1;
+        dollarTag = undefined;
       }
       continue;
     }
@@ -999,6 +1027,15 @@ function splitSqlStatements(text: string): string[] {
       blockComment = true;
       index += 1;
       continue;
+    }
+
+    if (char === "$") {
+      const opener = dollarTagAt(text, index);
+      if (opener !== undefined) {
+        dollarTag = opener;
+        index += opener.length - 1;
+        continue;
+      }
     }
 
     if (char === "'") {

@@ -18,6 +18,11 @@ Sisal-specific history after that baseline through `1f05448`.
 - Generated PostgreSQL, SQLite, and libSQL DDL now emits column-level `UNIQUE`
   and `FOREIGN KEY` constraints, including referential actions.
 
+### Fixed
+
+- Fixed migration SQL splitting so PostgreSQL dollar-quoted function bodies stay
+  intact.
+
 ## 0.2.0 - 2026-06-27
 
 ### Added
