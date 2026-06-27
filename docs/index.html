@@ -759,6 +759,10 @@
         color: var(--olive);
       }
 
+      .pg-badge--neon b {
+        color: var(--raffia);
+      }
+
       .compat__note {
         margin: 0;
         color: var(--paper-dim);
@@ -779,6 +783,191 @@
 
       .compat__more {
         font-weight: 600;
+      }
+
+      /* ---------- Performance ---------- */
+      .perf {
+        display: grid;
+        gap: 26px;
+      }
+
+      .perf__grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .perf__stat {
+        background: var(--ink);
+        padding: 26px 26px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .perf__num {
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: 2.1rem;
+        line-height: 1;
+        color: var(--paper);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .perf__label {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        color: var(--paper-dim);
+        font-size: 0.95rem;
+      }
+
+      .perf__label small {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--raffia-light);
+      }
+
+      .perf__note {
+        margin: 0;
+        color: var(--paper-faint);
+        font-size: 0.9rem;
+        max-width: 76ch;
+      }
+
+      .perf__note code {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        color: var(--raffia-light);
+      }
+
+      .perf-tabs__radio {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .perf-tabs__list {
+        display: inline-flex;
+        gap: 4px;
+        padding: 4px;
+        margin-bottom: 26px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--ink);
+      }
+
+      .perf-tabs__tab {
+        font-family: var(--mono);
+        font-size: 0.74rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--paper-dim);
+        padding: 9px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+
+      .perf-tabs__tab:hover {
+        color: var(--paper);
+      }
+
+      .perf-tabs__panel {
+        display: none;
+      }
+
+      #perf-view-plain:checked ~ .perf-tabs__list label[for="perf-view-plain"],
+      #perf-view-data:checked ~ .perf-tabs__list label[for="perf-view-data"] {
+        background: var(--olive);
+        color: var(--paper);
+      }
+
+      #perf-view-plain:focus-visible
+        ~ .perf-tabs__list
+        label[for="perf-view-plain"],
+      #perf-view-data:focus-visible
+        ~ .perf-tabs__list
+        label[for="perf-view-data"] {
+        outline: 2px solid var(--raffia);
+        outline-offset: 2px;
+      }
+
+      #perf-view-plain:checked ~ .perf-tabs__panel--plain,
+      #perf-view-data:checked ~ .perf-tabs__panel--data {
+        display: grid;
+        gap: 26px;
+      }
+
+      .perf-table__scroll {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+
+      .perf-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+
+      .perf-table th,
+      .perf-table td {
+        text-align: left;
+        padding: 11px 18px;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+
+      .perf-table tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .perf-table thead th {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--paper-faint);
+        font-weight: 500;
+      }
+
+      .perf-table__name {
+        color: var(--paper-dim);
+        white-space: normal;
+      }
+
+      .perf-table__num {
+        text-align: right;
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        color: var(--paper);
+      }
+
+      .perf-table thead .perf-table__num {
+        color: var(--paper-faint);
+      }
+
+      .perf-table__group td {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--raffia-light);
+        background: rgba(232, 231, 220, 0.025);
+      }
+
+      .perf-table tbody tr:hover td {
+        background: rgba(232, 231, 220, 0.03);
       }
 
       /* ---------- Footer ---------- */
@@ -911,6 +1100,10 @@
           grid-template-columns: 1fr;
         }
 
+        .perf__grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
         .example__grid {
           grid-template-columns: 1fr;
         }
@@ -927,6 +1120,10 @@
 
         .wrap {
           width: calc(100% - 32px);
+        }
+
+        .perf__grid {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -964,6 +1161,7 @@
         <nav class="site-nav" aria-label="Primary">
           <a class="nav-collapse" href="api.html">Docs</a>
           <a class="nav-collapse" href="#compat">Compatibility</a>
+          <a class="nav-collapse" href="#performance">Performance</a>
           <a class="nav-collapse" href="drizzle-parity.html">Drizzle parity</a>
           <a class="nav-cta" href="https://github.com/gilvandovieira/sisal"
           >GitHub</a>
@@ -1230,19 +1428,22 @@
           <div class="compat">
             <div class="compat__versions" aria-label="Tested database engines">
               <div class="pg-badge">
-                <b>PostgreSQL&nbsp;16</b><small>16.14 · 16/16</small>
+                <b>PostgreSQL&nbsp;16</b><small>16.14 · 17/17</small>
               </div>
               <div class="pg-badge">
-                <b>PostgreSQL&nbsp;17</b><small>17.10 · 16/16</small>
+                <b>PostgreSQL&nbsp;17</b><small>17.10 · 17/17</small>
               </div>
               <div class="pg-badge">
-                <b>PostgreSQL&nbsp;18</b><small>18.4 · 16/16</small>
+                <b>PostgreSQL&nbsp;18</b><small>18.4 · 17/17</small>
               </div>
               <div class="pg-badge pg-badge--sqlite">
-                <b>SQLite&nbsp;3.46</b><small>20/20 green</small>
+                <b>SQLite&nbsp;3.46</b><small>21/21 green</small>
               </div>
               <div class="pg-badge pg-badge--libsql">
-                <b>libSQL / Turso</b><small>3.45 · 20/20 green</small>
+                <b>libSQL / Turso</b><small>3.45 · 21/21 green</small>
+              </div>
+              <div class="pg-badge pg-badge--neon">
+                <b>Neon</b><small>serverless · 17/17 green</small>
               </div>
             </div>
 
@@ -1267,8 +1468,8 @@
 
             <p class="compat__note">
               Most features behave identically across engines; the few
-              per-engine differences (e.g. SQLite has no <code>ilike</code>) are
-              noted in each matrix.
+              per-engine differences (e.g. SQLite/libSQL return JSON &amp;
+              arrays as text) are noted in each matrix.
             </p>
 
             <div class="compat__links">
@@ -1278,6 +1479,273 @@
               >SQLite matrix&nbsp;→</a>
               <a class="compat__more" href="libsql-compatibility.html"
               >libSQL / Turso matrix&nbsp;→</a>
+              <a class="compat__more" href="neon-compatibility.html"
+              >Neon matrix&nbsp;→</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="weave-rule">
+
+      <!-- ───────── Performance ───────── -->
+      <section class="section" id="performance">
+        <div class="wrap">
+          <div class="section__head">
+            <span class="section-eyebrow">Measured, not claimed</span>
+            <h2 class="h-display">
+              How fast is it? Faster than you can notice
+            </h2>
+            <p>
+              When an app talks to a database, almost all the waiting is the
+              network and the database itself. Sisal's job — turning your code
+              into a database query — happens in millionths of a second, so it
+              is never what slows you down. We measure it against a stand-in
+              database with zero network delay, so these are pure query-writing
+              speeds.
+            </p>
+          </div>
+
+          <div class="perf">
+            <div class="perf-tabs">
+              <input
+                class="perf-tabs__radio"
+                type="radio"
+                name="perf-view"
+                id="perf-view-plain"
+                checked
+              >
+              <input
+                class="perf-tabs__radio"
+                type="radio"
+                name="perf-view"
+                id="perf-view-data"
+              >
+              <div class="perf-tabs__list">
+                <label class="perf-tabs__tab" for="perf-view-plain"
+                >In plain terms</label>
+                <label class="perf-tabs__tab" for="perf-view-data"
+                >Full results</label>
+              </div>
+
+              <div class="perf-tabs__panel perf-tabs__panel--plain">
+                <div class="perf__grid">
+                  <div class="perf__stat">
+                    <b class="perf__num">100,000+</b>
+                    <span class="perf__label">
+                      queries written in a single blink
+                      <small>before the database has even replied</small>
+                    </span>
+                  </div>
+                  <div class="perf__stat">
+                    <b class="perf__num">1000×</b>
+                    <span class="perf__label">
+                      longer to reach a database than to write the query
+                      <small>the network trip is the slow part, not
+                        Sisal</small>
+                    </span>
+                  </div>
+                  <div class="perf__stat">
+                    <b class="perf__num">≈ 0%</b>
+                    <span class="perf__label">
+                      added cost to switch database brands
+                      <small>the same query for Postgres or SQLite</small>
+                    </span>
+                  </div>
+                  <div class="perf__stat">
+                    <b class="perf__num">Linear</b>
+                    <span class="perf__label">
+                      bulk inserts scale evenly with rows
+                      <small>100 rows is about 30× one query — no
+                        surprises</small>
+                    </span>
+                  </div>
+                  <div class="perf__stat">
+                    <b class="perf__num">Instant</b>
+                    <span class="perf__label">
+                      to plan a brand-new database layout
+                      <small>a few simple queries' worth of work</small>
+                    </span>
+                  </div>
+                  <div class="perf__stat">
+                    <b class="perf__num">Never</b>
+                    <span class="perf__label">
+                      the part of your app that users wait on
+                      <small>writing SQL is dwarfed by the database
+                        itself</small>
+                    </span>
+                  </div>
+                </div>
+
+                <p class="perf__note">
+                  In short: the database and the network do the waiting; Sisal's
+                  share of the time is too small to feel. Prefer the raw
+                  numbers? Open <b>Full results</b>.
+                </p>
+              </div>
+
+              <div class="perf-tabs__panel perf-tabs__panel--data">
+                <div class="perf-table__scroll">
+                  <table class="perf-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Benchmark</th>
+                        <th scope="col" class="perf-table__num">
+                          Cost (× a simple query)
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="perf-table__group">
+                        <td colspan="2">Build vs render</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          Build a simple query (AST)
+                        </td>
+                        <td class="perf-table__num">0.5×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          Render a prepared query
+                        </td>
+                        <td class="perf-table__num">0.4×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          Build + render, simple (baseline)
+                        </td>
+                        <td class="perf-table__num">1.0×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          Build + render, complex
+                        </td>
+                        <td class="perf-table__num">10.5×</td>
+                      </tr>
+
+                      <tr class="perf-table__group">
+                        <td colspan="2">Statement type (build + render)</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">SELECT</td>
+                        <td class="perf-table__num">1.1×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          INSERT (1 row, returning)
+                        </td>
+                        <td class="perf-table__num">1.3×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">INSERT (100 rows)</td>
+                        <td class="perf-table__num">31×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">UPDATE</td>
+                        <td class="perf-table__num">1.5×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">DELETE</td>
+                        <td class="perf-table__num">0.7×</td>
+                      </tr>
+
+                      <tr class="perf-table__group">
+                        <td colspan="2">Query complexity</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">Trivial SELECT</td>
+                        <td class="perf-table__num">1.0×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          Join + group + having + order
+                        </td>
+                        <td class="perf-table__num">11×</td>
+                      </tr>
+
+                      <tr class="perf-table__group">
+                        <td colspan="2">Dialect rendering (same query)</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">Postgres ($1, ILIKE)</td>
+                        <td class="perf-table__num">4.8×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          SQLite (?, ilike→like)
+                        </td>
+                        <td class="perf-table__num">4.5×</td>
+                      </tr>
+
+                      <tr class="perf-table__group">
+                        <td colspan="2">Operator composition</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">AND of 4 conditions</td>
+                        <td class="perf-table__num">2.8×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">AND of 32 conditions</td>
+                        <td class="perf-table__num">16×</td>
+                      </tr>
+
+                      <tr class="perf-table__group">
+                        <td colspan="2">Schema snapshot</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">1 table</td>
+                        <td class="perf-table__num">1.3×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">3 tables</td>
+                        <td class="perf-table__num">2.7×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">12 tables</td>
+                        <td class="perf-table__num">9.6×</td>
+                      </tr>
+
+                      <tr class="perf-table__group">
+                        <td colspan="2">Migration DDL</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          Postgres CREATE (3 tables)
+                        </td>
+                        <td class="perf-table__num">2.1×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          Postgres additive diff (+1 table)
+                        </td>
+                        <td class="perf-table__num">3.6×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">
+                          SQLite CREATE (3 tables)
+                        </td>
+                        <td class="perf-table__num">1.9×</td>
+                      </tr>
+                      <tr>
+                        <td class="perf-table__name">Snapshot diff only</td>
+                        <td class="perf-table__num">3.4×</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <p class="perf__note">
+                  Costs are normalized to one simple query (build + render), so
+                  the figures are machine-independent — absolute timings vary
+                  by hardware. The suite isolates pure generation against an
+                  in-memory fake driver: the same boundary the real adapters
+                  use, minus the database. Run <code>deno task bench</code> for
+                  raw numbers, or see the full
+                  <a href="benchmarks.html"
+                  >benchmarks &amp; Drizzle comparison</a>.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1309,8 +1777,10 @@
               <a href="sqlite-compatibility.html">SQLite compatibility</a>
               <a href="libsql-compatibility.html"
               >libSQL / Turso compatibility</a>
+              <a href="neon-compatibility.html">Neon compatibility</a>
               <a href="migration-notes.html">Migration notes</a>
               <a href="drizzle-parity.html">Drizzle parity</a>
+              <a href="benchmarks.html">Benchmarks</a>
             </div>
             <div class="footer__col">
               <h4>Project</h4>

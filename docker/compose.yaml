@@ -44,6 +44,24 @@ services:
     image: postgres:18
     ports: ["55418:5432"]
 
+  # Neon's serverless driver speaks Postgres over a WebSocket. `neon-proxy`
+  # bridges that WebSocket to a plain Postgres, so the Neon adapter can be
+  # exercised locally exactly as it would against neon.tech.
+  neon-pg:
+    <<: *pg
+    image: postgres:17
+
+  neon-proxy:
+    image: ghcr.io/neondatabase/wsproxy:latest
+    environment:
+      APPEND_PORT: "neon-pg:5432"
+      ALLOW_ADDR_REGEX: ".*"
+      LOG_TRAFFIC: "false"
+    ports: ["5499:80"]
+    depends_on:
+      neon-pg:
+        condition: service_healthy
+
   runner:
     build:
       context: ..

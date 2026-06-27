@@ -28,6 +28,7 @@ Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => 
     generatePostgresColumnType({ kind: "timestamp" }),
     "timestamptz",
   );
+  assertEquals(generatePostgresColumnType({ kind: "bytea" }), "bytea");
   assertEquals(
     generatePostgresColumnType({ kind: "text", array: true }),
     "text[]",

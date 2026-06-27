@@ -10,8 +10,9 @@
  *     --allow-env --allow-net integration/sqlite_features_test.ts
  *
  * Each `Deno.test` name maps to a row in docs/sqlite-compatibility.md. Tests
- * that document a SQLite limitation assert the real behavior (e.g. that `ilike`
- * is rejected), so the whole suite stays green while the matrix stays honest.
+ * that document a SQLite difference assert the real behavior (e.g. JSON/arrays
+ * round-trip as text), so the whole suite stays green while the matrix stays
+ * honest.
  *
  * @module
  */
@@ -140,6 +141,7 @@ const allTypes = defineTable("it_all_types", {
   c_date: columns.date(),
   c_ts: columns.timestamp(),
   c_uuid: columns.uuid(),
+  c_blob: columns.bytea(),
 });
 
 // ---------------------------------------------------------------------------
@@ -172,7 +174,7 @@ sqliteTest("sqlite: generated DDL applies (affinity mapping)", async (db) => {
   const cols = await db.query<{ n: number }>(
     sql`select count(*) as n from pragma_table_info(${"it_all_types"})`,
   );
-  assertEquals(Number(cols.rows[0].n), 16);
+  assertEquals(Number(cols.rows[0].n), 17);
 });
 
 sqliteTest("sqlite: insert + returning", async (db) => {
@@ -272,12 +274,31 @@ sqliteTest("sqlite: like / notLike", async (db) => {
   );
 });
 
-sqliteTest("sqlite: ilike is NOT supported (no ILIKE keyword)", async (db) => {
-  // SQLite has no ILIKE operator; the generated SQL is rejected. LIKE is
-  // already case-insensitive for ASCII, so use `like` on SQLite.
-  await assertRejects(() =>
-    db.select().from(users).where(ilike(users.columns.email, "A%")).execute()
+sqliteTest(
+  "sqlite: ilike works (degrades to case-insensitive LIKE)",
+  async (db) => {
+    // SQLite has no ILIKE; Sisal renders it as the (ASCII case-insensitive) LIKE.
+    const rows = await db.select().from(users)
+      .where(ilike(users.columns.email, "A%")).execute();
+    assertEquals(rows.length, 1); // matches lowercase "a@example.com"
+  },
+);
+
+sqliteTest("sqlite: bytea/BLOB binary round-trip", async (db) => {
+  const bin = defineTable("it_bin", {
+    id: columns.integer().primaryKey(),
+    data: columns.bytea(),
+  });
+  await db.execute(
+    generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [bin] }),
+    ).statements[0],
   );
+  const bytes = new Uint8Array([0, 1, 2, 250, 255]);
+  await db.insert(bin).values({ id: 1, data: bytes }).execute();
+  const rows = await db.select({ data: bin.columns.data }).from(bin)
+    .where(eq(bin.columns.id, 1)).execute();
+  assertEquals(Array.from(rows[0].data as Uint8Array), [0, 1, 2, 250, 255]);
 });
 
 sqliteTest("sqlite: orderBy asc/desc + limit + offset", async (db) => {

@@ -101,6 +101,18 @@ Deno.test("parity: like / ilike", () => {
   );
 });
 
+Deno.test("parity: ilike degrades to like off Postgres (no ILIKE keyword)", () => {
+  // SQLite/libSQL/MySQL have no ILIKE; their LIKE is case-insensitive (ASCII).
+  assertEquals(
+    render(ilike(users.columns.name, "a%"), "sqlite").text,
+    '"users"."name" like ?',
+  );
+  assertEquals(
+    render(notIlike(users.columns.name, "a%"), "sqlite").text,
+    '"users"."name" not like ?',
+  );
+});
+
 Deno.test("parity: notLike / notIlike", () => {
   assertEquals(
     render(notLike(users.columns.name, "a%")).text,
@@ -208,6 +220,7 @@ Deno.test("parity: column type factories exist", () => {
       "boolean",
       "timestamp",
       "uuid",
+      "bytea",
       "json",
       "jsonb",
       "date",

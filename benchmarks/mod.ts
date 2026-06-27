@@ -12,7 +12,12 @@ import {
   sql,
 } from "@sisal/orm";
 import { registerBenchmarkScenarios } from "./harness.ts";
+import { drizzleProxyScenarios } from "./scenarios/drizzle_proxy.ts";
+import { fakeDbProxyScenarios } from "./scenarios/fakedbproxy.ts";
 import { migrateCliScenarios } from "./scenarios/migrate_cli.ts";
+import { sqlGenerationScenarios } from "./scenarios/sql_generation.ts";
+import { vsDrizzleScenarios } from "./scenarios/vs_drizzle.ts";
+import { vsDrizzleExecuteScenarios } from "./scenarios/vs_drizzle_execute.ts";
 
 const users = defineTable("users", {
   id: columns.uuid().primaryKey(),
@@ -30,3 +35,8 @@ Deno.bench("create schema snapshot", () => {
 });
 
 registerBenchmarkScenarios(migrateCliScenarios);
+registerBenchmarkScenarios(fakeDbProxyScenarios);
+registerBenchmarkScenarios(drizzleProxyScenarios);
+registerBenchmarkScenarios(sqlGenerationScenarios);
+registerBenchmarkScenarios(vsDrizzleScenarios);
+registerBenchmarkScenarios(vsDrizzleExecuteScenarios);

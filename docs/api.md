@@ -6,13 +6,14 @@ title: API Reference
 
 Complete reference for the public API of every Sisal package, generated from a
 full read of the source. Sisal is a Deno-first, JSR-native database toolkit made
-of five packages with strict boundaries:
+of six packages with strict boundaries:
 
 | Package          | Import root      | Responsibility                                          |
 | ---------------- | ---------------- | ------------------------------------------------------- |
 | `@sisal/orm`     | `@sisal/orm`     | Driverless schema, typed SQL, query builders, snapshots |
 | `@sisal/migrate` | `@sisal/migrate` | Adapter-neutral migration planning, running, workflow   |
 | `@sisal/pg`      | `@sisal/pg`      | PostgreSQL execution, history, migrator, DDL            |
+| `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL execution and migrations     |
 | `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite execution, history, migrator, DDL                |
 | `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso execution, history, migrator, SQLite DDL   |
 
@@ -31,12 +32,18 @@ Each package exposes narrower entry points so an app can import the smallest
 boundary it needs.
 
 ```text
-@sisal/orm            @sisal/migrate          @sisal/pg               @sisal/sqlite           @sisal/libsql
-  .   -> mod.ts         .        -> mod.ts       .       -> mod.ts       .       -> mod.ts       .       -> mod.ts
-  ./core                ./cli                    ./orm                   ./orm                   ./orm
-  ./error               ./core                   ./migrate               ./migrate               ./migrate
-  ./logger                                       ./ddl                   ./ddl                   ./ddl
+@sisal/orm            @sisal/migrate          @sisal/pg               @sisal/neon
+  .   -> mod.ts         .        -> mod.ts       .       -> mod.ts       .       -> mod.ts
+  ./core                ./cli                    ./orm                   ./orm
+  ./error               ./core                   ./migrate               ./migrate
+  ./logger                                       ./ddl                   ./ddl
   ./schema              ./workflow
+
+@sisal/sqlite         @sisal/libsql
+  .       -> mod.ts     .       -> mod.ts
+  ./orm                ./orm
+  ./migrate            ./migrate
+  ./ddl                ./ddl
 ```
 
 ---
@@ -524,6 +531,43 @@ const users = defineTable("users", {
 const snapshot = createSchemaSnapshot({ dialect: "postgres", tables: [users] });
 const { statements } = generatePostgresUpStatements(snapshot);
 ```
+
+---
+
+# @sisal/neon
+
+Neon serverless PostgreSQL adapter, structured like `@sisal/pg` but backed by
+`jsr:@neon/serverless`. It uses the PostgreSQL SQL dialect, migrations, and DDL.
+
+## ORM execution (`@sisal/neon/orm`)
+
+`createNeonDb(options)` / `connect(options)` open a `NeonDatabase`. Options
+accept a Neon `url`/`connectionString`, an already-open `pool`/`client`, or an
+existing `executor`. Also: `createNeonPool`, `createNeonClient`,
+`createNeonExecutor`, `NeonError`, `POSTGRES_DIALECT`.
+
+Types: `NeonDatabase`, `CreateNeonDbOptions`, `NeonClient`, `NeonPool`,
+`NeonPoolConfig`, `NeonExecutorOptions`, `NeonSqlExecutor`, `NeonSqlResult`.
+
+```ts
+import { connect } from "@sisal/neon";
+
+const db = await connect({
+  url: Deno.env.get("DATABASE_URL"),
+});
+```
+
+## Migrations (`@sisal/neon/migrate`)
+
+`createNeonMigrator(options)` -> `NeonMigrator`, backed by the PostgreSQL
+migrator and history table. Also: `DEFAULT_NEON_MIGRATION_TABLE`.
+
+## DDL generation (`@sisal/neon/ddl`)
+
+Neon uses PostgreSQL syntax, so this subpath re-exports the `@sisal/pg/ddl`
+helpers: `generatePostgresUpStatements`, `generatePostgresCreateTable`,
+`generatePostgresAddColumn`, `generatePostgresColumnDefinition`,
+`generatePostgresColumnType`, `quotePgIdent`, and `pgQualifiedName`.
 
 ---
 

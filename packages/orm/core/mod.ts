@@ -53,7 +53,8 @@ export type ColumnDataType =
   | "date"
   | "timestamp"
   | "timestamptz"
-  | "uuid";
+  | "uuid"
+  | "bytea";
 
 /** JavaScript runtime value types represented by ORM columns. */
 export type ColumnRuntimeType =
@@ -233,6 +234,7 @@ export type SqlChunk =
   | { readonly kind: "param"; readonly value: SqlParameter }
   | { readonly kind: "raw"; readonly value: string }
   | { readonly kind: "identifier"; readonly value: string }
+  | { readonly kind: "operator"; readonly value: string }
   | { readonly kind: "sql"; readonly value: Sql };
 
 /** Boolean SQL condition wrapper used by query builders. */
@@ -820,6 +822,8 @@ interface ColumnsFactory {
     options?: { readonly withTimezone?: boolean },
   ): ColumnBuilder<Date | null>;
   uuid(): ColumnBuilder<string | null>;
+  /** Binary data: Postgres `bytea`, SQLite/libSQL `BLOB`. */
+  bytea(): ColumnBuilder<Uint8Array | null>;
 }
 
 /**
@@ -919,6 +923,10 @@ export const columns: ColumnsFactory = Object.freeze({
 
   uuid(): ColumnBuilder<string | null> {
     return createColumnBuilder<string>("uuid");
+  },
+
+  bytea(): ColumnBuilder<Uint8Array | null> {
+    return createColumnBuilder<Uint8Array>("bytea");
   },
 });
 
@@ -1248,9 +1256,12 @@ export function like(column: unknown, value: unknown): Condition {
   return binaryCondition(column, "like", value);
 }
 
-/** Case-insensitive `ILIKE` match (PostgreSQL-oriented). */
+/**
+ * Case-insensitive `ILIKE` match. Renders `ILIKE` on Postgres and degrades to
+ * the (case-insensitive) `LIKE` on SQLite/libSQL/MySQL, which have no `ILIKE`.
+ */
 export function ilike(column: unknown, value: unknown): Condition {
-  return binaryCondition(column, "ilike", value);
+  return operatorCondition(column, "ilike", value);
 }
 
 /** `column NOT LIKE value` SQL condition. */
@@ -1258,9 +1269,9 @@ export function notLike(column: unknown, value: unknown): Condition {
   return binaryCondition(column, "not like", value);
 }
 
-/** Case-insensitive `NOT ILIKE` match (PostgreSQL-oriented). */
+/** Case-insensitive `NOT ILIKE`; degrades to `NOT LIKE` off Postgres. */
 export function notIlike(column: unknown, value: unknown): Condition {
-  return binaryCondition(column, "not ilike", value);
+  return operatorCondition(column, "not ilike", value);
 }
 
 /** `column BETWEEN min AND max` SQL condition (inclusive). */
@@ -3412,8 +3423,33 @@ function renderSqlInto(query: Sql, state: RenderState): void {
       continue;
     }
 
+    if (chunk.kind === "operator") {
+      state.text += renderOperator(chunk.value, state.dialect);
+      continue;
+    }
+
     renderSqlInto(chunk.value, state);
   }
+}
+
+// Maps an operator name to dialect-specific SQL. Only Postgres has `ILIKE`;
+// SQLite/libSQL/MySQL `LIKE` is already case-insensitive for ASCII, so `ilike`
+// degrades to `like` there instead of producing invalid SQL.
+function renderOperator(operator: string, dialect: SqlDialect): string {
+  if (dialect === "postgres") {
+    return operator;
+  }
+  if (operator === "ilike") {
+    return "like";
+  }
+  if (operator === "not ilike") {
+    return "not like";
+  }
+  return operator;
+}
+
+function operatorSql(name: string): Sql {
+  return makeSql([{ kind: "operator", value: name }]);
 }
 
 function binaryCondition(
@@ -3425,6 +3461,19 @@ function binaryCondition(
   // anything else is bound as a parameter.
   const right = isColumn(value) ? columnToSql(value) : value;
   return createCondition(sql`${columnToSql(column)} ${raw(operator)} ${right}`);
+}
+
+// Like binaryCondition, but the operator is rendered per dialect (see
+// renderOperator) — used by ilike/notIlike.
+function operatorCondition(
+  column: unknown,
+  operator: string,
+  value: unknown,
+): Condition {
+  const right = isColumn(value) ? columnToSql(value) : value;
+  return createCondition(
+    sql`${columnToSql(column)} ${operatorSql(operator)} ${right}`,
+  );
 }
 
 function betweenCondition(

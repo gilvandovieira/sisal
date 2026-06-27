@@ -1,0 +1,40 @@
+{
+  "name": "@sisal/neon",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./orm": "./orm/mod.ts",
+    "./migrate": "./migrate/mod.ts",
+    "./ddl": "./ddl.ts"
+  },
+  "imports": {
+    "@neon/serverless": "jsr:@neon/serverless@^1.0.0"
+  },
+  "license": "MIT",
+  "description": "Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.",
+  "keywords": [
+    "deno",
+    "jsr",
+    "sisal",
+    "neon",
+    "serverless",
+    "postgres",
+    "orm",
+    "migrations"
+  ],
+  "publish": {
+    "include": [
+      "README.md",
+      "mod.ts",
+      "client.ts",
+      "executor.ts",
+      "orm/**/*.ts",
+      "migrate/**/*.ts",
+      "ddl.ts",
+      "deno.json"
+    ],
+    "exclude": [
+      "**/*_test.ts"
+    ]
+  }
+}
