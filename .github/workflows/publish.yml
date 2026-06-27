@@ -1,6 +1,9 @@
 name: Publish
 
 on:
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -20,7 +23,6 @@ concurrency:
 jobs:
   publish:
     name: Publish packages
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,20 +51,35 @@ jobs:
       - name: Test workspace
         run: deno task --frozen test
 
-      - name: Dry run package publish
-        if: inputs.dry_run
+      - name: Check release tag version
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          deno run --allow-read tools/workspace_packages.ts paths | while IFS= read -r package_path; do
-            echo "::group::Dry run ${package_path}"
-            deno publish --dry-run --allow-dirty --config "${package_path}/deno.json"
-            echo "::endgroup::"
-          done
+          version="${GITHUB_REF_NAME#v}"
+          deno run --allow-read tools/check_release_version.ts "$version"
 
-      - name: Publish packages
-        if: ${{ !inputs.dry_run }}
+      - name: Dry run workspace publish
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: deno publish --dry-run
+
+      - name: Refuse manual publish outside main
+        if: >-
+          ${{
+            github.event_name == 'workflow_dispatch' &&
+            !inputs.dry_run &&
+            github.ref != 'refs/heads/main'
+          }}
         run: |
-          deno run --allow-read tools/workspace_packages.ts paths | while IFS= read -r package_path; do
-            echo "::group::Publish ${package_path}"
-            deno publish --config "${package_path}/deno.json"
-            echo "::endgroup::"
-          done
+          echo "::error::Manual publishing must run from the main branch."
+          exit 1
+
+      - name: Publish workspace
+        if: >-
+          ${{
+            github.event_name == 'push' ||
+            (
+              github.event_name == 'workflow_dispatch' &&
+              !inputs.dry_run &&
+              github.ref == 'refs/heads/main'
+            )
+          }}
+        run: deno publish

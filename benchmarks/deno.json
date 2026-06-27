@@ -1,6 +1,6 @@
 {
   "name": "@sisal/benchmarks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "exports": "./mod.ts",
   "imports": {
     "drizzle-orm": "npm:drizzle-orm@0.45.2",
@@ -9,9 +9,5 @@
     "drizzle-orm/sqlite-core": "npm:drizzle-orm@0.45.2/sqlite-core",
     "drizzle-orm/sqlite-proxy": "npm:drizzle-orm@0.45.2/sqlite-proxy"
   },
-  "publish": {
-    "exclude": [
-      "**/*"
-    ]
-  }
+  "publish": false
 }

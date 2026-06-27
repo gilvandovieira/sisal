@@ -3,12 +3,14 @@
     "./packages/orm",
     "./packages/migrate",
     "./packages/pg",
-    "./packages/neon",
     "./packages/sqlite",
     "./packages/libsql",
+    "./packages/neon",
     "./examples/basic-postgres",
     "./examples/basic-sqlite",
     "./examples/basic-libsql",
+    "./examples/showcase-postgres",
+    "./examples/showcase-sqlite",
     "./benchmarks"
   ],
   "imports": {
@@ -19,10 +21,11 @@
     "fmt": "deno fmt",
     "fmt:check": "deno fmt --check",
     "hooks:install": "git config core.hooksPath .githooks",
-    "check": "deno check packages/orm/mod.ts packages/migrate/mod.ts packages/migrate/cli.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/neon/mod.ts packages/neon/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts packages/libsql/mod.ts packages/libsql/migrate/mod.ts examples/basic-postgres/mod.ts examples/basic-sqlite/mod.ts examples/basic-libsql/mod.ts benchmarks/mod.ts",
+    "check": "deno check packages/orm/mod.ts packages/migrate/mod.ts packages/migrate/cli.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/neon/mod.ts packages/neon/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts packages/libsql/mod.ts packages/libsql/migrate/mod.ts examples/basic-postgres/mod.ts examples/basic-sqlite/mod.ts examples/basic-libsql/mod.ts examples/showcase-postgres/mod.ts examples/showcase-sqlite/mod.ts benchmarks/mod.ts",
     "sisal": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi packages/migrate/cli.ts",
     "bench": "deno bench --allow-run=deno benchmarks/mod.ts",
     "docs:check": "deno run --frozen --allow-read --allow-run tools/check_docs.ts",
+    "publish:dry-run": "deno publish --dry-run",
     "test": "deno test --allow-read packages/orm packages/migrate packages/pg packages/neon packages/sqlite packages/libsql"
   },
   "fmt": {

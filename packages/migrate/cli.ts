@@ -31,7 +31,9 @@ import {
   writeMigrationFile,
 } from "./mod.ts";
 
+/** The dialects the `sisal` migration CLI can target. */
 type CliDialect = "postgres" | "sqlite";
+/** Sink for one line of CLI output — stdout by default, injectable for tests. */
 type CliOutput = (line: string) => void;
 
 /**
@@ -150,7 +152,51 @@ interface CliContext {
   readonly err: CliOutput;
 }
 
+interface PostgresDdlModule {
+  readonly generatePostgresUpStatements:
+    SisalCliAdapter["generateUpStatements"];
+}
+
+interface PostgresMigrateModule {
+  readonly createPgMigrator: (options: {
+    readonly url: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
+interface LibsqlDdlModule {
+  readonly generateLibsqlUpStatements: SisalCliAdapter["generateUpStatements"];
+}
+
+interface LibsqlMigrateModule {
+  readonly createLibsqlMigrator: (options: {
+    readonly url: string;
+    readonly authToken?: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
+interface SqliteDdlModule {
+  readonly generateSqliteUpStatements: SisalCliAdapter["generateUpStatements"];
+}
+
+interface SqliteMigrateModule {
+  readonly createSqliteMigrator: (options: {
+    readonly path: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
 const DEFAULT_CONFIG_FILE = "sisal.migrate.ts";
+const DEFAULT_ADAPTER_VERSION = "^0.2.0";
+const DEFAULT_ADAPTER_IMPORTS = {
+  pgDdl: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/ddl`,
+  pgMigrate: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/migrate`,
+  libsqlDdl: `jsr:@sisal/libsql@${DEFAULT_ADAPTER_VERSION}/ddl`,
+  libsqlMigrate: `jsr:@sisal/libsql@${DEFAULT_ADAPTER_VERSION}/migrate`,
+  sqliteDdl: `jsr:@sisal/sqlite@${DEFAULT_ADAPTER_VERSION}/ddl`,
+  sqliteMigrate: `jsr:@sisal/sqlite@${DEFAULT_ADAPTER_VERSION}/migrate`,
+} as const;
 const VALUE_FLAGS = new Set([
   "config",
   "database-auth-token",
@@ -540,8 +586,12 @@ async function loadDefaultAdapter(
   config: MigrateConfig,
 ): Promise<SisalCliAdapter> {
   if (dialect === "postgres") {
-    const ddl = await import("@sisal/pg/ddl");
-    const migrate = await import("@sisal/pg/migrate");
+    const ddl = await importDefaultAdapterModule<PostgresDdlModule>(
+      DEFAULT_ADAPTER_IMPORTS.pgDdl,
+    );
+    const migrate = await importDefaultAdapterModule<PostgresMigrateModule>(
+      DEFAULT_ADAPTER_IMPORTS.pgMigrate,
+    );
 
     return {
       generateUpStatements: ddl.generatePostgresUpStatements,
@@ -565,8 +615,12 @@ async function loadDefaultAdapter(
     config.databasePath === undefined &&
     isLibsqlDatabaseUrl(config.databaseUrl)
   ) {
-    const ddl = await import("@sisal/libsql/ddl");
-    const migrate = await import("@sisal/libsql/migrate");
+    const ddl = await importDefaultAdapterModule<LibsqlDdlModule>(
+      DEFAULT_ADAPTER_IMPORTS.libsqlDdl,
+    );
+    const migrate = await importDefaultAdapterModule<LibsqlMigrateModule>(
+      DEFAULT_ADAPTER_IMPORTS.libsqlMigrate,
+    );
 
     return {
       generateUpStatements: ddl.generateLibsqlUpStatements,
@@ -587,8 +641,12 @@ async function loadDefaultAdapter(
     };
   }
 
-  const ddl = await import("@sisal/sqlite/ddl");
-  const migrate = await import("@sisal/sqlite/migrate");
+  const ddl = await importDefaultAdapterModule<SqliteDdlModule>(
+    DEFAULT_ADAPTER_IMPORTS.sqliteDdl,
+  );
+  const migrate = await importDefaultAdapterModule<SqliteMigrateModule>(
+    DEFAULT_ADAPTER_IMPORTS.sqliteMigrate,
+  );
 
   return {
     generateUpStatements: ddl.generateSqliteUpStatements,
@@ -607,6 +665,12 @@ async function loadDefaultAdapter(
       }) as Promise<SisalCliMigrator>;
     },
   };
+}
+
+async function importDefaultAdapterModule<TModule>(
+  specifier: string,
+): Promise<TModule> {
+  return await import(specifier) as TModule;
 }
 
 async function createMigrator(

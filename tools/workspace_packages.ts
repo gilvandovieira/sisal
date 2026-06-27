@@ -2,7 +2,7 @@ interface DenoConfig {
   readonly name?: string;
   readonly workspace?: readonly string[];
   readonly exports?: unknown;
-  readonly publish?: {
+  readonly publish?: false | {
     readonly exclude?: readonly string[];
   };
 }
@@ -138,6 +138,10 @@ function resolveExportTarget(value: unknown): string | undefined {
 }
 
 function isPublishDisabled(config: DenoConfig): boolean {
+  if (config.publish === false) {
+    return true;
+  }
+
   return config.publish?.exclude?.includes("**/*") ?? false;
 }
 

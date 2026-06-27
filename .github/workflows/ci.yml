@@ -37,6 +37,9 @@ jobs:
       - name: Type check workspace
         run: deno task --frozen check
 
+      - name: Validate workspace publish
+        run: deno publish --dry-run
+
   discover-packages:
     name: Discover packages
     runs-on: ubuntu-latest
