@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/sisal-banner.png" alt="Sisal — a Deno-first, JSR-native database toolkit: typed schemas, planned migrations, and small Postgres &amp; SQLite adapters" width="900">
+</p>
+
 # Sisal
 
 Sisal is a focused Deno-first, JSR-native database toolkit.

@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Check formatting
+        run: deno fmt --check
+
+      - name: Lint
+        run: deno lint
+
+      - name: Type check workspace
+        run: deno task --frozen check
+
+  packages:
+    name: ${{ matrix.package }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: "@sisal/orm"
+            path: packages/orm
+            check: packages/orm/mod.ts packages/orm/core/mod.ts packages/orm/error.ts packages/orm/logger.ts packages/orm/schema.ts
+          - package: "@sisal/migrate"
+            path: packages/migrate
+            check: packages/migrate/mod.ts packages/migrate/core/mod.ts packages/migrate/core/workflow.ts
+          - package: "@sisal/pg"
+            path: packages/pg
+            check: packages/pg/mod.ts packages/pg/orm/mod.ts packages/pg/migrate/mod.ts packages/pg/migrate/ddl.ts
+          - package: "@sisal/sqlite"
+            path: packages/sqlite
+            check: packages/sqlite/mod.ts packages/sqlite/orm/mod.ts packages/sqlite/migrate/mod.ts packages/sqlite/migrate/ddl.ts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Type check package
+        run: deno check --frozen ${{ matrix.check }}
+
+      - name: Test package
+        run: deno test --frozen --allow-read ${{ matrix.path }}
+
+      - name: Validate package publish
+        run: deno publish --dry-run --allow-dirty --config ${{ matrix.path }}/deno.json
