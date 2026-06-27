@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page.title | default: site.title }} | {{ site.title }}</title>
     <meta name="description" content="{{ site.description }}">
+    <link
+      rel="icon"
+      href="{{ '/assets/brand/favicon/favicon.ico' | relative_url }}"
+      sizes="any"
+    >
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="{{ '/assets/brand/favicon/icon-32.png' | relative_url }}"
+    >
+    <link
+      rel="apple-touch-icon"
+      href="{{ '/assets/brand/favicon/apple-touch-icon.png' | relative_url }}"
+    >
+    <link
+      rel="manifest"
+      href="{{ '/assets/brand/favicon/site.webmanifest' | relative_url }}"
+    >
+    <meta name="theme-color" content="#0E0E0F">
     <style>
       :root {
         color-scheme: light;

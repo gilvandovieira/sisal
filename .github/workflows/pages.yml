@@ -24,11 +24,17 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
+      # Renders docs/*.md and serves docs/index.html as the site root.
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./docs
           destination: ./_site
+
+      # Brand assets live outside ./docs, so copy them into the built site
+      # for the landing page's logo, favicons, manifest, and OG image.
+      - name: Add brand assets
+        run: cp -r assets _site/assets
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
