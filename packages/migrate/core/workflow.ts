@@ -6,6 +6,8 @@
  * unit-testable with an in-memory fake; the default Deno-backed implementation
  * needs `--allow-read`/`--allow-write`. The config, drift, and file-name logic
  * are pure.
+ *
+ * @module
  */
 
 import {

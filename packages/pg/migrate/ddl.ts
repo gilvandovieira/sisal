@@ -5,6 +5,8 @@
  * the `@db/postgres` driver — so they are fully unit-testable. Destructive
  * changes (drop table/column, column type changes) are detected and returned
  * separately; they are never emitted as ordinary migration SQL.
+ *
+ * @module
  */
 
 import {

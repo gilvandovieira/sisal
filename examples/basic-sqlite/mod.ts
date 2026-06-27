@@ -1,3 +1,9 @@
+/**
+ * Basic SQLite DDL generation example for Sisal.
+ *
+ * @module
+ */
+
 import { columns, createSchemaSnapshot, defineTable } from "@sisal/orm";
 import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
 

@@ -1,3 +1,9 @@
+/**
+ * Minimal logger contracts accepted by Sisal packages.
+ *
+ * @module
+ */
+
 export interface LoggerMethod {
   (message: string): void;
   (record: Record<string, unknown>, message: string): void;

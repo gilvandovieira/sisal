@@ -1,3 +1,9 @@
+/**
+ * Typed SQL builders and ORM driver contracts for `@sisal/orm`.
+ *
+ * @module
+ */
+
 import { SisalError } from "../error.ts";
 import type { Logger } from "../logger.ts";
 import {

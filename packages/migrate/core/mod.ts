@@ -1,3 +1,9 @@
+/**
+ * Migration definitions, planning, history stores, and runner contracts.
+ *
+ * @module
+ */
+
 import { SisalError } from "@sisal/orm";
 import type { Logger } from "@sisal/orm";
 import {

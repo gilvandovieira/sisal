@@ -1,3 +1,9 @@
+/**
+ * Benchmarks for core Sisal SQL rendering and schema snapshot creation.
+ *
+ * @module
+ */
+
 import {
   columns,
   createSchemaSnapshot,

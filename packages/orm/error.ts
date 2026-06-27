@@ -1,3 +1,9 @@
+/**
+ * Structured error primitives shared by Sisal packages.
+ *
+ * @module
+ */
+
 /** Severity attached to structured Sisal errors. */
 export type SisalErrorSeverity =
   | "debug"

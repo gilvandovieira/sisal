@@ -1,3 +1,9 @@
+/**
+ * Basic PostgreSQL DDL generation example for Sisal.
+ *
+ * @module
+ */
+
 import { columns, createSchemaSnapshot, defineTable } from "@sisal/orm";
 import { generatePostgresUpStatements } from "@sisal/pg/ddl";
 
