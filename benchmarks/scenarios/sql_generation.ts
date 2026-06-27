@@ -104,6 +104,35 @@ function complexSelect() {
     .offset(40);
 }
 
+function cteQuery() {
+  const adults = db.$with("adults").as(
+    db.select({ id: users.columns.id, age: users.columns.age })
+      .from(users).where(gt(users.columns.age, 18)),
+  );
+  return db.with(adults).select({ id: adults.id, age: adults.age })
+    .from(adults).orderBy(asc(adults.age)).limit(10);
+}
+
+function unionQuery() {
+  const active = db.select({ id: users.columns.id }).from(users)
+    .where(eq(users.columns.active, true));
+  const adult = db.select({ id: users.columns.id }).from(users)
+    .where(gt(users.columns.age, 18));
+  return active.union(adult).orderBy(asc(users.columns.id));
+}
+
+function intersectQuery() {
+  const active = db.select({ id: users.columns.id }).from(users)
+    .where(eq(users.columns.active, true));
+  const adult = db.select({ id: users.columns.id }).from(users)
+    .where(gt(users.columns.age, 18));
+  return active.intersect(adult).except(
+    db.select({ id: users.columns.id }).from(users).where(
+      eq(users.columns.id, "u_1"),
+    ),
+  );
+}
+
 const eventRow = { id: 1, kind: "click", seq: 1 };
 const bulkRows = Array.from(
   { length: 100 },
@@ -267,6 +296,30 @@ export const sqlGenerationScenarios: readonly BenchmarkScenario[] = [
     name: "and (32 conditions)",
     fn() {
       renderSql(manyConditions(32), { dialect: "postgres" });
+    },
+  },
+
+  // ---- ctes & set operations -----------------------------------------------
+  {
+    group: "cte / set ops",
+    name: "build + render CTE",
+    baseline: true,
+    fn() {
+      renderSql(cteQuery().toSql(), { dialect: "postgres" });
+    },
+  },
+  {
+    group: "cte / set ops",
+    name: "build + render union (2 selects)",
+    fn() {
+      renderSql(unionQuery().toSql(), { dialect: "postgres" });
+    },
+  },
+  {
+    group: "cte / set ops",
+    name: "build + render intersect + except (3 selects)",
+    fn() {
+      renderSql(intersectQuery().toSql(), { dialect: "postgres" });
     },
   },
 

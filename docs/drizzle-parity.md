@@ -160,26 +160,30 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 
 ## 3. Query builder
 
-| Drizzle 0.45.2                           | Sisal                            | Status |
-| ---------------------------------------- | -------------------------------- | ------ |
-| `db.select().from(t)`                    | same                             | ✅     |
-| `db.select({ projection })`              | same                             | ✅     |
-| `.where(...)`                            | same                             | ✅     |
-| `.orderBy(asc(c), desc(c))`              | same, plus `.orderBy(c, "desc")` | ✅     |
-| `.limit(n)` / `.offset(n)`               | same                             | ✅     |
-| `.innerJoin` / `.leftJoin`               | same                             | ✅     |
-| `.rightJoin` / `.fullJoin`               | same                             | ✅     |
-| `.groupBy(...)` / `.having(...)`         | same                             | ✅     |
-| `.distinct()`                            | same                             | ✅     |
-| `.$dynamic()`                            | —                                | ❌     |
-| `db.insert(t).values(v)`                 | same                             | ✅     |
-| `.returning(projection?)`                | same                             | ✅     |
-| `.onConflictDoNothing/DoUpdate`          | same (`on conflict …`)           | ✅⁴    |
-| `db.update(t).set(v).where(...)`         | same                             | ✅     |
-| `db.delete(t).where(...)`                | same                             | ✅     |
-| update/delete without `where`            | allowed (full-table)             | 🔷     |
-| `db.transaction(fn)`                     | same                             | ✅     |
-| Relational queries `db.query.t.findMany` | `relations()` + `db.query.t`     | ✅     |
+| Drizzle 0.45.2                           | Sisal                              | Status |
+| ---------------------------------------- | ---------------------------------- | ------ |
+| `db.select().from(t)`                    | same                               | ✅     |
+| `db.select({ projection })`              | same                               | ✅     |
+| `.where(...)`                            | same                               | ✅     |
+| `.orderBy(asc(c), desc(c))`              | same, plus `.orderBy(c, "desc")`   | ✅     |
+| `.limit(n)` / `.offset(n)`               | same                               | ✅     |
+| `.innerJoin` / `.leftJoin`               | same                               | ✅     |
+| `.rightJoin` / `.fullJoin`               | same                               | ✅     |
+| `.groupBy(...)` / `.having(...)`         | same                               | ✅     |
+| `.distinct()`                            | same                               | ✅     |
+| `db.$with(n).as(q)` + `db.with(c)`       | same — fluent CTEs                 | ✅⁵    |
+| `union` / `unionAll`                     | `.union()` / `.unionAll()`         | ✅⁵    |
+| `intersect` / `intersectAll`             | `.intersect()` / `.intersectAll()` | ✅⁵    |
+| `except` / `exceptAll`                   | `.except()` / `.exceptAll()`       | ✅⁵    |
+| `.$dynamic()`                            | —                                  | ❌     |
+| `db.insert(t).values(v)`                 | same                               | ✅     |
+| `.returning(projection?)`                | same                               | ✅     |
+| `.onConflictDoNothing/DoUpdate`          | same (`on conflict …`)             | ✅⁴    |
+| `db.update(t).set(v).where(...)`         | same                               | ✅     |
+| `db.delete(t).where(...)`                | same                               | ✅     |
+| update/delete without `where`            | allowed (full-table)               | 🔷     |
+| `db.transaction(fn)`                     | same                               | ✅     |
+| Relational queries `db.query.t.findMany` | `relations()` + `db.query.t`       | ✅     |
 
 **Divergence (safety):** a `where`-less `update`/`delete` throws in Sisal unless
 you call `.unsafeAllowAllRows()`. Drizzle runs it. We consider the rail worth
@@ -194,6 +198,16 @@ accepts a column, a column name, or an array of either.
 `.orderBy` accepts both the legacy `(column, "asc" | "desc")` form and one or
 more `asc()`/`desc()` terms (or bare columns), e.g.
 `orderBy(desc(t.columns.createdAt), asc(t.columns.name))`.
+
+⁵ **CTEs and set operations are fluent in Sisal.** A CTE is created with
+`db.$with("name").as(subquery)` (its columns are inferred from the subquery's
+projection) and consumed with `db.with(cte).select(...).from(cte)`. Set
+operations are chainable methods on the select builder (`q1.union(q2)`,
+`.unionAll`, `.intersect`, `.intersectAll`, `.except`, `.exceptAll`) returning a
+compound builder that still accepts `.orderBy`/`.limit`/`.offset` for the whole
+compound. Operands are **not** parenthesized, so the same query renders
+correctly on both Postgres and SQLite (SQLite rejects parenthesized compound
+operands). Recursive CTEs are written with the `` sql`...` `` template.
 
 Relational queries are enabled with `createDatabase({ schema, relations })`.
 `db.query` remains callable for raw SQL (``db.query(sql`...`)``) and gains

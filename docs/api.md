@@ -5,8 +5,8 @@ title: API Reference
 # Sisal API Reference
 
 Complete reference for the public API of every Sisal package, generated from a
-full read of the source. Sisal is a Deno-first, JSR-native database toolkit made
-of six packages with strict boundaries:
+full read of the source. Sisal is a Deno-first database toolkit, published to
+JSR, made of six packages with strict boundaries:
 
 | Package          | Import root      | Responsibility                                          |
 | ---------------- | ---------------- | ------------------------------------------------------- |
@@ -228,9 +228,9 @@ function createDatabase(options?: {
 }): Database;
 ```
 
-`Database` methods: `execute`, `query`, `select`, `insert`, `update`, `delete`,
-`transaction`, `close`. Query builders are immutable and lazy — call `.toSql()`
-to inspect or `.execute()` to run.
+`Database` methods: `execute`, `query`, `select`, `$with`/`with` (CTEs),
+`insert`, `update`, `delete`, `transaction`, `close`. Query builders are
+immutable and lazy — call `.toSql()` to inspect or `.execute()` to run.
 
 ```ts
 const db = createDatabase({ dialect: "postgres", driver });
@@ -257,7 +257,8 @@ await db.transaction(async (tx) => {
 - `SelectBuilder`: `from`, `distinct`, `innerJoin`, `leftJoin`, `rightJoin`,
   `fullJoin`, `where`, `groupBy(...cols)`, `having(cond)`, `orderBy` (legacy
   `(col, "asc" | "desc")` or `asc()`/`desc()` terms), `limit`, `offset`,
-  `toSql`, `execute`.
+  `union`/`unionAll`/`intersect`/`intersectAll`/`except`/`exceptAll`, `toSql`,
+  `execute`.
 - `InsertBuilder`: `values`, `onConflictDoNothing({ target? })`,
   `onConflictDoUpdate({ target, set, where? })`, `returning(projection?)`,
   `toSql`, `execute`.
@@ -268,6 +269,41 @@ await db.transaction(async (tx) => {
 
 > **Safety rail:** `update`/`delete` without a `where` throw unless you call
 > `.unsafeAllowAllRows()` first.
+
+### CTEs & set operations
+
+Common table expressions are fluent. Create one with `db.$with(name).as(query)`
+— its columns are inferred from the inner query's projection — and consume it
+via `db.with(cte).select(...).from(cte)`:
+
+```ts
+const adults = db.$with("adults").as(
+  db.select({ id: users.columns.id, age: users.columns.age })
+    .from(users).where(gt(users.columns.age, 18)),
+);
+
+await db.with(adults)
+  .select({ id: adults.id, n: count() })
+  .from(adults)
+  .groupBy(adults.id)
+  .execute();
+// with "adults" as (select … where age > $1) select … from "adults" group by …
+```
+
+Set operations chain off any select and return a `CompoundSelectBuilder`;
+trailing `orderBy`/`limit`/`offset` apply to the whole compound:
+
+```ts
+const a = db.select({ id: users.columns.id }).from(users).where(/* … */);
+const b = db.select({ id: users.columns.id }).from(users).where(/* … */);
+
+await a.union(b).orderBy(asc(users.columns.id)).limit(10).execute();
+// also: .unionAll, .intersect, .intersectAll, .except, .exceptAll
+```
+
+Operands are **not** parenthesized, so the same query renders correctly on both
+Postgres and SQLite (which rejects parenthesized compound operands). Recursive
+CTEs are written with the `` sql`...` `` template.
 
 ### Drivers
 
