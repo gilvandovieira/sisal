@@ -58,6 +58,9 @@ function pgBaseType(type: SisalColumnType): string {
       return type.scale === undefined
         ? `numeric(${type.precision})`
         : `numeric(${type.precision}, ${type.scale})`;
+    case "double":
+    case "float":
+      return "double precision";
     case "timestamp":
       return "timestamptz";
     default:

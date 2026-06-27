@@ -32,10 +32,10 @@ boundary it needs.
 ```text
 @sisal/orm            @sisal/migrate          @sisal/pg               @sisal/sqlite
   .   -> mod.ts         .        -> mod.ts       .       -> mod.ts       .       -> mod.ts
-  ./core                ./core                   ./orm                   ./orm
-  ./error               ./workflow               ./migrate               ./migrate
+  ./core                ./cli                    ./orm                   ./orm
+  ./error               ./core                   ./migrate               ./migrate
   ./logger                                       ./ddl                   ./ddl
-  ./schema
+  ./schema              ./workflow
 ```
 
 ---
@@ -84,19 +84,27 @@ users.columns.id; // { name: "id", tableName: "users", dataType: "uuid", ... }
 `columns` is a frozen object of constructors. Each returns an immutable
 `ColumnBuilder`.
 
-| Factory                       | Value type | Notes                                        |
-| ----------------------------- | ---------- | -------------------------------------------- |
-| `columns.text()`              | `string`   |                                              |
-| `columns.varchar(length?)`    | `string`   | `varchar(n)` when `length` given             |
-| `columns.integer()`           | `number`   |                                              |
-| `columns.bigint()`            | `string`   | typed as string to preserve 64-bit precision |
-| `columns.number()`            | `number`   | generic numeric                              |
-| `columns.boolean()`           | `boolean`  |                                              |
-| `columns.json<T>()`           | `T`        | defaults `T = Record<string, unknown>`       |
-| `columns.jsonb<T>()`          | `T`        | Postgres `jsonb`                             |
-| `columns.date()`              | `Date`     |                                              |
-| `columns.timestamp(options?)` | `Date`     | `{ withTimezone: true }` → `timestamptz`     |
-| `columns.uuid()`              | `string`   |                                              |
+| Factory                               | Value type | Notes                                     |
+| ------------------------------------- | ---------- | ----------------------------------------- |
+| `columns.text()`                      | `string`   |                                           |
+| `columns.varchar(length?)`            | `string`   | `varchar(n)` when `length` given          |
+| `columns.char(length?)`               | `string`   | `char(n)` when `length` given             |
+| `columns.integer()`                   | `number`   |                                           |
+| `columns.smallint()`                  | `number`   |                                           |
+| `columns.bigint()`                    | `string`   | string-typed to preserve 64-bit precision |
+| `columns.serial()`                    | `number`   | auto-increment; optional on insert        |
+| `columns.bigserial()`                 | `string`   | auto-increment; optional on insert        |
+| `columns.numeric(precision?, scale?)` | `string`   | string-typed to preserve precision        |
+| `columns.decimal(precision?, scale?)` | `string`   | alias of `numeric`                        |
+| `columns.real()`                      | `number`   |                                           |
+| `columns.doublePrecision()`           | `number`   | Postgres `double precision`               |
+| `columns.number()`                    | `number`   | generic numeric                           |
+| `columns.boolean()`                   | `boolean`  |                                           |
+| `columns.json<T>()`                   | `T`        | defaults `T = Record<string, unknown>`    |
+| `columns.jsonb<T>()`                  | `T`        | Postgres `jsonb`                          |
+| `columns.date()`                      | `Date`     |                                           |
+| `columns.timestamp(options?)`         | `Date`     | `{ withTimezone: true }` → `timestamptz`  |
+| `columns.uuid()`                      | `string`   |                                           |
 
 ### Column modifiers (`ColumnBuilder`)
 
@@ -111,6 +119,8 @@ All modifiers return a **new** builder (immutable chaining).
 | `.primaryKey()`                  | Adds the column to the primary key (implies `.notNull()`)            |
 | `.unique()`                      | Adds a single-column unique constraint                               |
 | `.references(table, column)`     | Adds a single-column foreign key                                     |
+| `.array()`                       | Makes the column an array of its element type (Postgres `type[]`)    |
+| `.$onUpdate(() => value)`        | Value applied on every `UPDATE` of the row                           |
 | `.named(name)`                   | Overrides the database column name                                   |
 
 > **Nullability:** Sisal columns are **nullable by default**, matching SQL and
@@ -173,12 +183,30 @@ for join conditions).
 | `gt` / `gte` / `lt` / `lte`      | `col > / >= / < / <= $n`            |
 | `like(col, value)`               | `col like $n`                       |
 | `ilike(col, value)`              | `col ilike $n` (Postgres-oriented)  |
+| `notLike` / `notIlike`           | `col not like / not ilike $n`       |
+| `between(col, min, max)`         | `col between $1 and $2` (inclusive) |
+| `notBetween(col, min, max)`      | `col not between $1 and $2`         |
 | `inArray(col, values)`           | `col in (...)`; empty → `1 = 0`     |
 | `notInArray(col, values)`        | `col not in (...)`; empty → `1 = 1` |
 | `isNull(col)` / `isNotNull(col)` | `col is [not] null`                 |
 | `and(...conds)`                  | `(...) and (...)`; ignores nullish  |
 | `or(...conds)`                   | `(...) or (...)`; ignores nullish   |
 | `not(cond)`                      | `not (...)`                         |
+
+### Ordering & aggregates
+
+`asc(col)` / `desc(col)` build order terms for `orderBy` (which also accepts the
+legacy `(col, "asc" | "desc")` form and multiple terms). The aggregate helpers
+`count(col?)`, `sum(col)`, `avg(col)`, `min(col)`, `max(col)` return a typed
+`SqlExpression<T>` for use in select projections:
+
+```ts
+const rows = await db
+  .select({ org: users.columns.orgId, total: count() })
+  .from(users)
+  .orderBy(desc(count()))
+  .execute(); // rows: { org: ...; total: number }[]
+```
 
 ## Database facade & query builders
 
@@ -218,10 +246,13 @@ await db.transaction(async (tx) => {
 
 **Builder methods**
 
-- `SelectBuilder`: `from`, `innerJoin`, `leftJoin`, `where`,
-  `orderBy(col, "asc"
-  | "desc")`, `limit`, `offset`, `toSql`, `execute`.
-- `InsertBuilder`: `values`, `returning(projection?)`, `toSql`, `execute`.
+- `SelectBuilder`: `from`, `distinct`, `innerJoin`, `leftJoin`, `rightJoin`,
+  `fullJoin`, `where`, `groupBy(...cols)`, `having(cond)`, `orderBy` (legacy
+  `(col, "asc" | "desc")` or `asc()`/`desc()` terms), `limit`, `offset`,
+  `toSql`, `execute`.
+- `InsertBuilder`: `values`, `onConflictDoNothing({ target? })`,
+  `onConflictDoUpdate({ target, set, where? })`, `returning(projection?)`,
+  `toSql`, `execute`.
 - `UpdateBuilder`: `set`, `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
   `execute`.
 - `DeleteBuilder`: `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
@@ -374,19 +405,51 @@ mismatch unless `allowDirty: true`.
 A SQL-first workflow with an **injectable filesystem** so writers/readers are
 unit-testable.
 
-| Symbol                                                         | Purpose                                                      |
-| -------------------------------------------------------------- | ------------------------------------------------------------ |
-| `MigrationFileSystem`                                          | Interface: `readDir`, `readFile`, `writeFile`, `mkdir`       |
-| `denoMigrationFileSystem()`                                    | Deno-backed implementation (needs `--allow-read/-write`)     |
-| `buildMigrationFile({ sequence, name, statements, snapshot })` | Pure: build `.sql` + `.snapshot.json` contents               |
-| `writeMigrationFile(fs, dir, file)`                            | Write the generated pair                                     |
-| `readMigrationsDir(fs, dir)`                                   | Read + order discovered migrations (with snapshots)          |
-| `parseMigrationSequence(id)` / `nextMigrationSequence(list)`   | Sequence helpers                                             |
-| `defineConfig(config)`                                         | Validate `MigrateConfig` (`dir`, `dialect?`, `snapshot?`, …) |
-| `checkDrift(input)`                                            | Pure drift check → `DriftReport`                             |
+| Symbol                                                         | Purpose                                                                                       |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `MigrationFileSystem`                                          | Interface: `readDir`, `readFile`, `writeFile`, `mkdir`                                        |
+| `denoMigrationFileSystem()`                                    | Deno-backed implementation (needs `--allow-read/-write`)                                      |
+| `buildMigrationFile({ sequence, name, statements, snapshot })` | Pure: build `.sql` + `.snapshot.json` contents                                                |
+| `writeMigrationFile(fs, dir, file)`                            | Write the generated pair                                                                      |
+| `readMigrationsDir(fs, dir)`                                   | Read + order discovered migrations (with snapshots)                                           |
+| `parseMigrationSequence(id)` / `nextMigrationSequence(list)`   | Sequence helpers                                                                              |
+| `defineConfig(config)`                                         | Validate `MigrateConfig` (`dir`, `dialect?`, `snapshot?`, `databaseUrl?`, `databasePath?`, …) |
+| `checkDrift(input)`                                            | Pure drift check → `DriftReport`                                                              |
 
 `checkDrift` reports `schema_changed` (live schema differs from the newest
 captured snapshot), `pending_migrations`, and `missing_snapshot`.
+
+## CLI (`@sisal/migrate/cli`)
+
+`runSisalCli(args, options?)` powers the `sisal` executable and returns an exit
+code. The real CLI loads `sisal.migrate.ts` by default; tests can inject
+`config`, `fs`, and dialect `adapters`.
+
+Commands:
+
+| Command          | Purpose                                                                        |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `sisal init`     | Scaffold `sisal.migrate.ts` + migrations dir (`--force`, `--dialect`, `--dir`) |
+| `sisal generate` | Diff latest snapshot → `config.snapshot`, write SQL + snapshot                 |
+| `sisal migrate`  | Apply pending SQL migrations through the dialect migrator                      |
+| `sisal status`   | Print file counts, database plan, and drift findings                           |
+| `sisal drift`    | Exit non-zero when drift findings exist                                        |
+
+Config modules should export `default` or `config`:
+
+```ts
+import { defineConfig } from "@sisal/migrate";
+
+export default defineConfig({
+  dir: "migrations",
+  dialect: "sqlite",
+  databasePath: "./dev.db",
+  snapshot,
+});
+```
+
+`generate` emits only non-destructive SQL. Drop/alter changes are reported and
+withheld so the captured snapshot cannot get ahead of the SQL that was written.
 
 ## Errors
 

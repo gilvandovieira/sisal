@@ -67,28 +67,29 @@ generic types rather than phantom properties on the value.
 
 ### Column types
 
-| Drizzle (`pg-core`)           | Sisal                                           | Status |
-| ----------------------------- | ----------------------------------------------- | ------ |
-| `text`                        | `columns.text()`                                | ✅     |
-| `varchar({ length })`         | `columns.varchar(n)`                            | ✅     |
-| `integer`                     | `columns.integer()`                             | ✅     |
-| `bigint({ mode })`            | `columns.bigint()` (string-typed)               | 🟡     |
-| `boolean`                     | `columns.boolean()`                             | ✅     |
-| `timestamp({ withTimezone })` | `columns.timestamp({ withTimezone })`           | ✅     |
-| `date`                        | `columns.date()`                                | ✅     |
-| `uuid`                        | `columns.uuid()`                                | ✅     |
-| `json` / `jsonb`              | `columns.json<T>()` / `columns.jsonb<T>()`      | ✅     |
-| `serial` / `bigserial`        | —                                               | ❌     |
-| `real` / `doublePrecision`    | `columns.number()` (generic)                    | 🟡     |
-| `numeric` / `decimal`         | —                                               | ❌     |
-| `char`                        | —                                               | ❌     |
-| `smallint`                    | —                                               | ❌     |
-| `*.array()`                   | — (snapshot supports `array`, builder does not) | ❌     |
-| custom `pgEnum`               | —                                               | ❌     |
+| Drizzle (`pg-core`)           | Sisal                                            | Status |
+| ----------------------------- | ------------------------------------------------ | ------ |
+| `text`                        | `columns.text()`                                 | ✅     |
+| `varchar({ length })`         | `columns.varchar(n)`                             | ✅     |
+| `integer`                     | `columns.integer()`                              | ✅     |
+| `bigint({ mode })`            | `columns.bigint()` (string-typed)                | 🟡     |
+| `boolean`                     | `columns.boolean()`                              | ✅     |
+| `timestamp({ withTimezone })` | `columns.timestamp({ withTimezone })`            | ✅     |
+| `date`                        | `columns.date()`                                 | ✅     |
+| `uuid`                        | `columns.uuid()`                                 | ✅     |
+| `json` / `jsonb`              | `columns.json<T>()` / `columns.jsonb<T>()`       | ✅     |
+| `serial` / `bigserial`        | `columns.serial()` / `columns.bigserial()`       | ✅     |
+| `real` / `doublePrecision`    | `columns.real()` / `columns.doublePrecision()`   | ✅     |
+| `numeric` / `decimal`         | `columns.numeric(p, s)` / `columns.decimal(...)` | ✅     |
+| `char`                        | `columns.char(n)`                                | ✅     |
+| `smallint`                    | `columns.smallint()`                             | ✅     |
+| `*.array()`                   | `.array()`                                       | ✅     |
+| custom `pgEnum`               | —                                                | ❌     |
 
-The DDL layer already understands more `kind`s than the builder exposes
-(`numeric`, `char`, `smallint`, `serial`, `real`, arrays, …), so most of these
-are "surface the builder," not "design from scratch."
+`numeric`/`decimal`/`bigint`/`bigserial` are string-typed to preserve precision.
+`serial`/`bigserial` are optional on insert (DB-generated). `.array()` emits
+Postgres `type[]`; SQLite stores it under the element's affinity. Remaining
+column gap: `pgEnum`.
 
 ### Column modifiers
 
@@ -101,8 +102,8 @@ are "surface the builder," not "design from scratch."
 | `.unique()`                     | `.unique()`                                  | ✅     |
 | `.references(() => t.col)`      | `.references("table", "column")`             | 🔷     |
 | `.$type<T>()`                   | type param on factory (`columns.json<T>()`)  | 🔷     |
-| `.array()`                      | —                                            | ❌     |
-| `.$onUpdate(fn)`                | —                                            | ❌     |
+| `.array()`                      | `.array()`                                   | ✅     |
+| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)       | ✅     |
 | `.generatedAlwaysAs(...)`       | —                                            | ❌     |
 | (no equivalent)                 | `.nullable()` (explicit form of the default) | 🔷     |
 | (no equivalent)                 | `.optional()` (insert-optional)              | 🔷     |
@@ -125,26 +126,30 @@ parity test.
 
 ## 2. Filter operators
 
-| Drizzle 0.45.2                                     | Sisal                           | Status |
-| -------------------------------------------------- | ------------------------------- | ------ |
-| `eq`, `ne`                                         | `eq`, `ne`                      | ✅     |
-| `gt`, `gte`, `lt`, `lte`                           | same                            | ✅     |
-| `like`, `ilike`                                    | `like`, `ilike`                 | ✅     |
-| `inArray`, `notInArray`                            | same                            | ✅¹    |
-| `isNull`, `isNotNull`                              | same                            | ✅     |
-| `and`, `or`, `not`                                 | same                            | ✅²    |
-| `between`, `notBetween`                            | —                               | ❌     |
-| `notLike`, `notIlike`                              | —                               | ❌     |
-| `exists`, `notExists`                              | —                               | ❌     |
-| `arrayContains`, `arrayContained`, `arrayOverlaps` | —                               | ❌     |
-| `asc`, `desc` (order helpers)                      | `orderBy(col, "asc" \| "desc")` | 🔷     |
-| `count`, `sum`, `avg`, `min`, `max`                | —                               | ❌     |
+| Drizzle 0.45.2                                     | Sisal           | Status |
+| -------------------------------------------------- | --------------- | ------ |
+| `eq`, `ne`                                         | `eq`, `ne`      | ✅     |
+| `gt`, `gte`, `lt`, `lte`                           | same            | ✅     |
+| `like`, `ilike`                                    | `like`, `ilike` | ✅     |
+| `inArray`, `notInArray`                            | same            | ✅¹    |
+| `isNull`, `isNotNull`                              | same            | ✅     |
+| `and`, `or`, `not`                                 | same            | ✅²    |
+| `between`, `notBetween`                            | same            | ✅     |
+| `notLike`, `notIlike`                              | same            | ✅     |
+| `asc`, `desc` (order helpers)                      | same            | ✅     |
+| `count`, `sum`, `avg`, `min`, `max`                | same            | ✅³    |
+| `exists`, `notExists`                              | —               | ❌     |
+| `arrayContains`, `arrayContained`, `arrayOverlaps` | —               | ❌     |
 
 ¹ **Divergence:** Drizzle throws on an empty `inArray`; Sisal returns a constant
 condition (`1 = 0` / `1 = 1`) so dynamic filters with no values are safe.
 
 ² **Divergence:** Sisal's `and`/`or` silently ignore `null`/`undefined`
 arguments, so conditional filters need no pre-filtering.
+
+³ Aggregates return a typed `SqlExpression<T>` for use in select projections
+(`db.select({ total: count() })`); `count()` infers `number`, `sum`/`avg` infer
+`number | null`, `min`/`max` infer `T | null`.
 
 **Output divergence:** Sisal always renders column references **table-qualified
 and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
@@ -154,32 +159,45 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 
 ## 3. Query builder
 
-| Drizzle 0.45.2                           | Sisal                          | Status |
-| ---------------------------------------- | ------------------------------ | ------ |
-| `db.select().from(t)`                    | same                           | ✅     |
-| `db.select({ projection })`              | same                           | ✅     |
-| `.where(...)`                            | same                           | ✅     |
-| `.orderBy(asc(c), desc(c))`              | `.orderBy(c, "asc" \| "desc")` | 🟡     |
-| `.limit(n)` / `.offset(n)`               | same                           | ✅     |
-| `.innerJoin` / `.leftJoin`               | same                           | ✅     |
-| `.rightJoin` / `.fullJoin`               | —                              | ❌     |
-| `.groupBy(...)` / `.having(...)`         | —                              | ❌     |
-| `.$dynamic()` / `.distinct()`            | —                              | ❌     |
-| `db.insert(t).values(v)`                 | same                           | ✅     |
-| `.returning(projection?)`                | same                           | ✅     |
-| `.onConflictDoNothing/DoUpdate`          | —                              | ❌     |
-| `db.update(t).set(v).where(...)`         | same                           | ✅     |
-| `db.delete(t).where(...)`                | same                           | ✅     |
-| update/delete without `where`            | allowed (full-table)           | 🔷     |
-| `db.transaction(fn)`                     | same                           | ✅     |
-| Relational queries `db.query.t.findMany` | —                              | ❌     |
+| Drizzle 0.45.2                           | Sisal                            | Status |
+| ---------------------------------------- | -------------------------------- | ------ |
+| `db.select().from(t)`                    | same                             | ✅     |
+| `db.select({ projection })`              | same                             | ✅     |
+| `.where(...)`                            | same                             | ✅     |
+| `.orderBy(asc(c), desc(c))`              | same, plus `.orderBy(c, "desc")` | ✅     |
+| `.limit(n)` / `.offset(n)`               | same                             | ✅     |
+| `.innerJoin` / `.leftJoin`               | same                             | ✅     |
+| `.rightJoin` / `.fullJoin`               | same                             | ✅     |
+| `.groupBy(...)` / `.having(...)`         | same                             | ✅     |
+| `.distinct()`                            | same                             | ✅     |
+| `.$dynamic()`                            | —                                | ❌     |
+| `db.insert(t).values(v)`                 | same                             | ✅     |
+| `.returning(projection?)`                | same                             | ✅     |
+| `.onConflictDoNothing/DoUpdate`          | same (`on conflict …`)           | ✅⁴    |
+| `db.update(t).set(v).where(...)`         | same                             | ✅     |
+| `db.delete(t).where(...)`                | same                             | ✅     |
+| update/delete without `where`            | allowed (full-table)             | 🔷     |
+| `db.transaction(fn)`                     | same                             | ✅     |
+| Relational queries `db.query.t.findMany` | `relations()` + `db.query.t`     | ✅     |
 
 **Divergence (safety):** a `where`-less `update`/`delete` throws in Sisal unless
 you call `.unsafeAllowAllRows()`. Drizzle runs it. We consider the rail worth
 the friction.
 
-`.orderBy` is 🟡 because it is single-column with a direction argument rather
-than accepting `asc()/desc()` expressions and multiple keys.
+⁴ Upserts emit Postgres/SQLite
+`ON CONFLICT (target) DO NOTHING / DO UPDATE SET
+… [WHERE …]`. MySQL's
+`ON DUPLICATE KEY UPDATE` is out of scope until a MySQL adapter exists. `target`
+accepts a column, a column name, or an array of either.
+
+`.orderBy` accepts both the legacy `(column, "asc" | "desc")` form and one or
+more `asc()`/`desc()` terms (or bare columns), e.g.
+`orderBy(desc(t.columns.createdAt), asc(t.columns.name))`.
+
+Relational queries are enabled with `createDatabase({ schema, relations })`.
+`db.query` remains callable for raw SQL (``db.query(sql`...`)``) and gains
+schema-keyed helpers (`db.query.users.findMany(...)`) when a schema map is
+provided.
 
 ---
 
@@ -209,7 +227,8 @@ splits runtime `migrate()` from the `drizzle-kit` CLI (`generate`, `migrate`,
 | Drizzle 0.45.2                      | Sisal                                                   | Status |
 | ----------------------------------- | ------------------------------------------------------- | ------ |
 | `migrate(db, { migrationsFolder })` | `createMigrator(...).up()` / adapter `createPgMigrator` | 🔷     |
-| `drizzle-kit generate`              | `generate*UpStatements` + `buildMigrationFile` (no CLI) | 🟡     |
+| `drizzle-kit generate`              | `sisal generate` + `generate*UpStatements`              | ✅     |
+| `drizzle-kit migrate`               | `sisal migrate`                                         | ✅     |
 | `drizzle-kit push`                  | —                                                       | ❌     |
 | `drizzle-kit studio`                | —                                                       | ❌     |
 | journal / snapshot files            | `.snapshot.json` + `readMigrationsDir`                  | 🔷     |
@@ -247,36 +266,62 @@ sub-item: decide whether a plain nullable column should also become
 insert-optional like Drizzle (today it stays required unless
 `.optional()`/`.default()`).
 
-### P1 — operator & ordering parity (cheap, high value)
+### P1 — operator & ordering parity ✅ done
 
-- Add `between`, `notBetween`, `notLike`, `notIlike`.
-- Add `asc(col)` / `desc(col)` and let `orderBy` take multiple expressions.
-- Add aggregate helpers `count`, `sum`, `avg`, `min`, `max`.
-- _Tests:_ `roadmap: Drizzle operators not yet implemented are absent`.
+- `between`, `notBetween`, `notLike`, `notIlike` added.
+- `asc(col)` / `desc(col)` added; `orderBy` now takes multiple terms (and keeps
+  the legacy `(col, "asc" | "desc")` form).
+- Aggregate helpers `count`, `sum`, `avg`, `min`, `max` added, returning a typed
+  `SqlExpression<T>` usable in select projections.
+- _Tests:_ `parity: between / notBetween`, `parity: notLike / notIlike`,
+  `parity: asc() / desc() ordering helpers + multi-column orderBy`,
+  `parity: aggregate helpers (count/sum/avg/min/max)` in the ORM parity test.
 
-### P2 — query builder breadth
+### P2 — query builder breadth ✅ done
 
-- `onConflictDoNothing` / `onConflictDoUpdate` (upserts).
-- `groupBy` / `having`, `distinct`.
-- `rightJoin` / `fullJoin`.
-- _Tests:_ `parity: join methods present; advanced builder methods are gaps`.
+- `onConflictDoNothing` / `onConflictDoUpdate` (upserts) added.
+- `groupBy` / `having` and `distinct` added.
+- `rightJoin` / `fullJoin` added.
+- _Tests:_ `parity: builder methods present (...)`,
+  `parity: distinct + right/full
+  joins render`, `parity: groupBy + having`,
+  `parity: onConflictDoNothing /
+  onConflictDoUpdate (upsert)` in the ORM
+  parity test.
+- Remaining builder gap: `.$dynamic()`.
 
-### P3 — column surface
+### P3 — column surface ✅ done
 
-- Expose `numeric`/`decimal`, `char`, `smallint`, `serial`, `real` and
-  `.array()` on the builder (the snapshot + DDL already model them).
-- Add `.$onUpdate()`.
+- Exposed `numeric`/`decimal`, `char`, `smallint`, `serial`, `bigserial`,
+  `real`, `doublePrecision`, and `.array()` on the builder.
+- Added `.$onUpdate()`, applied automatically in the update builder.
+- _Tests:_ `parity: new column types render in DDL via snapshot` and
+  `parity: .$onUpdate() injects a value on UPDATE` in the ORM parity test.
+- Remaining column gap: `pgEnum` and `.generatedAlwaysAs()`.
 
-### P4 — relational queries
+### P4 — relational queries ✅ done
 
-- `relations()` + `db.query.table.findMany/findFirst` with `with`/`columns`.
-  This is the largest single feature and should come after the builder is broad.
+- `relations()` added with `one()` / `many()` helpers, explicit
+  `fields`/`references`, and simple foreign-key inference.
+- `createDatabase({ schema, relations })` now exposes
+  `db.query.table.findMany/findFirst` with `with` and `columns` while preserving
+  raw `db.query(sql)` execution.
+- _Tests:_
+  `parity: relations() + db.query.table.findMany/findFirst with
+  with/columns`
+  in the ORM parity test.
 
-### P5 — tooling
+### P5 — tooling ✅ done
 
-- A `sisal` CLI over the existing workflow helpers: `generate` (diff snapshot →
-  migration), `migrate`, `status`/`drift`. `push` and a studio-like inspector
-  are stretch goals.
+`sisal init`, `sisal generate`, `sisal migrate`, `sisal status`, and
+`sisal
+drift` wrap the existing workflow helpers. `init` scaffolds
+`sisal.migrate.ts` and the migrations directory; `generate` writes additive SQL
+plus the matching `.snapshot.json` and refuses destructive diffs instead of
+recording a snapshot that the generated SQL cannot actually produce. Tests live
+in `packages/migrate/cli_test.ts`. Stretch goals still open: `rollback` (needs
+the SQL-first workflow to also persist `down` statements), `push`, and a
+studio-like inspector.
 
 ---
 

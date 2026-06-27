@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "exports": {
     ".": "./mod.ts",
+    "./cli": "./cli.ts",
     "./core": "./core/mod.ts",
     "./workflow": "./core/workflow.ts"
   },
@@ -19,6 +20,7 @@
   "publish": {
     "include": [
       "README.md",
+      "cli.ts",
       "mod.ts",
       "core/**/*.ts",
       "deno.json"
