@@ -6,6 +6,7 @@ import type {
   QueryResult,
   QueryResultRow,
 } from "@neon/serverless";
+import { redactErrorCause, redactSecrets } from "@sisal/orm";
 
 /** Neon serverless single-client configuration (the driver's `ClientConfig`). */
 export type NeonClientConfig = ClientConfig;
@@ -39,7 +40,8 @@ export class NeonError extends Error {
       readonly cause?: unknown;
     },
   ) {
-    super(message, { cause: options.cause });
+    // Mirror SisalError: never let a connection error echo a DSN/token.
+    super(redactSecrets(message), { cause: redactErrorCause(options.cause) });
     this.name = "NeonError";
     this.code = options.code;
     this.details = options.details;

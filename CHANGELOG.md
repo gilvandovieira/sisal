@@ -12,6 +12,9 @@ Sisal-specific history after that baseline through `1f05448`.
 ### Added
 
 - Added the root MIT license file for the workspace.
+- Added core ORM security-invariant tests for parameter binding, identifier
+  validation, escape-hatch strictness, where-less mutation guards, and
+  credential redaction.
 
 ### Changed
 
@@ -22,6 +25,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 - Fixed migration SQL splitting so PostgreSQL dollar-quoted function bodies stay
   intact.
+- Redacted DSNs, passwords, and auth tokens from Sisal and Neon error messages
+  and preserved causes.
 
 ## 0.2.0 - 2026-06-27
 
