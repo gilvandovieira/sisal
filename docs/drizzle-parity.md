@@ -248,6 +248,7 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 | `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait` | ✅⁷    |
 | `db.$count(table, where?)`                  | same                                | ✅⁷    |
 | `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                  | ✅⁷    |
+| (no equivalent)                             | `.keyset({ orderBy, after })`       | 🔷⁸    |
 | `db.insert(t).values(v)`                    | same                                | ✅     |
 | `.returning(projection?)`                   | same                                | ✅     |
 | `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)              | ✅⁴    |
@@ -297,6 +298,17 @@ becomes a derived table usable in `.from(...)`, with its projected columns
 referenceable as `x.col`; the same builder embeds as a parenthesized **scalar
 subquery** in projections and `where` conditions, and as the right side of
 `inArray(col, subquery)` / `notInArray`.
+
+⁸ **Keyset pagination — Sisal leads (divergence by design).** Drizzle has no
+first-class keyset/cursor helper; you hand-build the `(a, b, c) < (x, y, z)`
+comparison. Sisal's `.keyset({ orderBy, after, form? })` infers the cursor type
+from the `orderBy` columns, emits the matching predicate (the default expanded
+`or`/`and` form, or a `"row-value"` comparison for a uniform sort direction)
+plus the `ORDER BY`, and returns a builder whose `.limit(n).execute()` yields
+`{ rows, nextCursor }` (a `nextCursor` only when a full page came back). End
+`orderBy` with a unique column (e.g. the primary key) so the order is total —
+this also avoids the millisecond-`Date` vs microsecond-`timestamptz` boundary
+pitfall. Asserted by `packages/orm/keyset_test.ts`.
 
 ---
 

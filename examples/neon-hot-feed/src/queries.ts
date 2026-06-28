@@ -2,19 +2,21 @@
  * The two timelines: `/new` and `/hot`.
  *
  * Both use keyset (cursor) pagination — never OFFSET — so deep pages stay cheap
- * and pages do not shift when rows are inserted between requests.
+ * and pages do not shift when rows are inserted between requests. Both are now
+ * fully builder-native via `.keyset({ orderBy, after })`:
  *
- * - `getNewFeed` is written with the Sisal query builder. The `(created_at, id)`
- *   keyset is expressible with `and`/`or`/`lt`/`eq`, so no raw SQL is needed.
- * - `getHotFeed` drops to a raw `sql` template. The three-column keyset over a
- *   computed `double precision` ranking column, plus matching DESC ordering, is
- *   clearer and safer as raw SQL than as nested builder predicates. This is a
- *   deliberate "escape hatch" — see the README "Sisal API pressure points".
+ * - `getNewFeed` keysets over `(created_at, id)` in the default expanded
+ *   `or`/`and` form.
+ * - `getHotFeed` keysets over `(hot_score, created_at, id)` using the row-value
+ *   form (`(a, b, c) < (x, y, z)`), which reads cleanly for a uniform DESC sort.
+ *
+ * Each `orderBy` ends with the unique `id`, which makes the keyset a total order
+ * and sidesteps the timestamp-precision pitfall at page boundaries.
  *
  * @module
  */
 
-import { and, desc, eq, lt, or, type Sql, sql } from "@sisal/orm";
+import { desc, eq } from "@sisal/orm";
 import type { NeonDatabase } from "@sisal/neon";
 import { posts } from "./schema.ts";
 
@@ -30,16 +32,16 @@ export interface FeedPost {
   readonly created_at: Date;
 }
 
-/** Cursor for the `/new` timeline. */
+/** Cursor for the `/new` timeline (keyed by the ordered columns). */
 export interface NewCursor {
-  readonly createdAt: Date;
+  readonly created_at: Date;
   readonly id: string;
 }
 
-/** Cursor for the `/hot` timeline. */
+/** Cursor for the `/hot` timeline (keyed by the ordered columns). */
 export interface HotCursor {
-  readonly hotScore: number;
-  readonly createdAt: Date;
+  readonly hot_score: number;
+  readonly created_at: Date;
   readonly id: string;
 }
 
@@ -54,89 +56,43 @@ function clampLimit(limit: number): number {
   return Math.min(100, Math.max(1, Math.trunc(limit)));
 }
 
-/**
- * `/new`: newest first, `created_at DESC, id DESC`. Built entirely with the
- * Sisal query builder, including the keyset predicate.
- */
+/** `/new`: newest first, `created_at DESC, id DESC`, keyset-paginated. */
 export async function getNewFeed(
   db: NeonDatabase,
   limit: number,
   cursor?: NewCursor,
 ): Promise<FeedPage<NewCursor>> {
-  const take = clampLimit(limit);
-  const published = eq(posts.columns.status, "published");
+  const page = await db.select().from(posts)
+    .where(eq(posts.columns.status, "published"))
+    .keyset({
+      orderBy: [desc(posts.columns.created_at), desc(posts.columns.id)],
+      after: cursor,
+    })
+    .limit(clampLimit(limit))
+    .execute();
 
-  // Keyset: created_at < c.createdAt OR (created_at = c.createdAt AND id < c.id)
-  const where = cursor === undefined ? published : and(
-    published,
-    or(
-      lt(posts.columns.created_at, cursor.createdAt),
-      and(
-        eq(posts.columns.created_at, cursor.createdAt),
-        lt(posts.columns.id, cursor.id),
-      ),
-    ),
-  );
-
-  const rows = await db.select().from(posts).where(where)
-    .orderBy(desc(posts.columns.created_at), desc(posts.columns.id))
-    .limit(take)
-    .execute() as FeedPost[];
-
-  return page(rows, take, (last) => ({
-    createdAt: last.created_at,
-    id: last.id,
-  }));
+  return { posts: page.rows, nextCursor: page.nextCursor ?? undefined };
 }
 
-/**
- * `/hot`: highest hot_score first, with `created_at` then `id` as tiebreakers.
- * Written as a raw `sql` template (parameterized) to keep the three-column
- * keyset comparison legible.
- */
+/** `/hot`: `hot_score DESC, created_at DESC, id DESC`, keyset-paginated. */
 export async function getHotFeed(
   db: NeonDatabase,
   limit: number,
   cursor?: HotCursor,
 ): Promise<FeedPage<HotCursor>> {
-  const take = clampLimit(limit);
+  const page = await db.select().from(posts)
+    .where(eq(posts.columns.status, "published"))
+    .keyset({
+      orderBy: [
+        desc(posts.columns.hot_score),
+        desc(posts.columns.created_at),
+        desc(posts.columns.id),
+      ],
+      after: cursor,
+      form: "row-value",
+    })
+    .limit(clampLimit(limit))
+    .execute();
 
-  const keyset: Sql = cursor === undefined ? sql`` : sql`
-    and (
-      hot_score < ${cursor.hotScore}
-      or (hot_score = ${cursor.hotScore} and created_at < ${cursor.createdAt})
-      or (
-        hot_score = ${cursor.hotScore}
-        and created_at = ${cursor.createdAt}
-        and id < ${cursor.id}::uuid
-      )
-    )`;
-
-  const query = sql`
-    select id, title, status, score, upvotes, downvotes, hot_score, created_at
-    from posts
-    where status = ${"published"}${keyset}
-    order by hot_score desc, created_at desc, id desc
-    limit ${take}
-  `;
-
-  const result = await db.query<FeedPost>(query);
-
-  return page(result.rows, take, (last) => ({
-    hotScore: last.hot_score,
-    createdAt: last.created_at,
-    id: last.id,
-  }));
-}
-
-function page<TCursor>(
-  rows: readonly FeedPost[],
-  take: number,
-  toCursor: (last: FeedPost) => TCursor,
-): FeedPage<TCursor> {
-  const full = rows.length === take && rows.length > 0;
-  return {
-    posts: rows,
-    nextCursor: full ? toCursor(rows[rows.length - 1]) : undefined,
-  };
+  return { posts: page.rows, nextCursor: page.nextCursor ?? undefined };
 }

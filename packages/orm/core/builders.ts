@@ -7,18 +7,21 @@
 
 import type { Database, OrmQueryResult } from "./database.ts";
 import { OrmError } from "./errors.ts";
-import { asc, desc } from "./operators.ts";
+import { and, asc, desc } from "./operators.ts";
 import {
   assertCondition,
   columnToSql,
   type Condition,
+  createCondition,
   emptySql,
   fillPreparedPlan,
   identifier,
   type InferProjection,
   isColumn,
+  isOrderTerm,
   isSql,
   joinSql,
+  type OrderTerm,
   paramSql,
   type PlaceholderValues,
   type PreparedPlan,
@@ -52,6 +55,51 @@ type SelectFromResult<TSource extends SelectFromSource, TResult> =
       unknown extends TResult ? InferSelect<TSource> : TResult
     >
     : SelectBuilder<unknown, TResult>;
+
+/** The union of JS property keys carried by a tuple of {@link OrderTerm}s. */
+export type KeysetKeys<TTerms> = TTerms extends readonly OrderTerm<infer TKey>[]
+  ? TKey
+  : never;
+
+/** The cursor shape for a keyset over `TResult`, keyed by the ordered columns. */
+export type KeysetCursor<TResult, TKeys extends string> = {
+  readonly [K in TKeys & keyof TResult]: TResult[K];
+};
+
+/** Options for {@link SelectBuilder.keyset}. */
+export interface KeysetOptions<
+  TResult,
+  TTerms extends readonly OrderTerm[],
+> {
+  /**
+   * Ordered `asc()`/`desc()` terms. End with a unique column (e.g. the primary
+   * key) so the keyset is a total order.
+   */
+  readonly orderBy: TTerms;
+  /** The cursor to page after (a previous `nextCursor`); omit for the first page. */
+  readonly after?: KeysetCursor<TResult, KeysetKeys<TTerms>>;
+  /**
+   * Predicate shape: nested `or`/`and` (`"expanded"`, the default, works with
+   * mixed directions and every dialect) or a SQL row-value comparison
+   * (`"row-value"`, e.g. `(a, b) < (x, y)`, which requires a single direction).
+   */
+  readonly form?: "expanded" | "row-value";
+}
+
+/** A page returned by a keyset query: the rows plus the cursor for the next page. */
+export interface KeysetPage<TRow, TCursor> {
+  readonly rows: TRow[];
+  /** Cursor for the next page, or `null` when this was the last (partial) page. */
+  readonly nextCursor: TCursor | null;
+}
+
+/** A keyset-paginated select; set the page size with `.limit(n)` then run it. */
+export interface KeysetSelectBuilder<TRow, TCursor> {
+  /** Sets the page size. Required to derive a `nextCursor`. */
+  limit(count: number): KeysetSelectBuilder<TRow, TCursor>;
+  toSql(): Sql;
+  execute(): Promise<KeysetPage<TRow, TCursor>>;
+}
 
 /** Fluent builder for `SELECT` queries. */
 export interface SelectBuilder<TTable, TResult> {
@@ -108,6 +156,21 @@ export interface SelectBuilder<TTable, TResult> {
   limit(count: number): SelectBuilder<TTable, TResult>;
 
   offset(count: number): SelectBuilder<TTable, TResult>;
+
+  /**
+   * Keyset (cursor) pagination over `orderBy`. Emits the matching `WHERE`
+   * comparison against `after` (a previous page's `nextCursor`; omit for the
+   * first page) plus the `ORDER BY`, and returns a builder whose `.execute()`
+   * yields `{ rows, nextCursor }`. Set the page size with `.limit(n)`.
+   *
+   * Always end `orderBy` with a unique column (e.g. the primary key) so the
+   * comparison is total; this also sidesteps the timestamp-precision pitfall
+   * where a millisecond-precision `Date` cursor straddles a microsecond
+   * `timestamptz` value at a page boundary.
+   */
+  keyset<const TTerms extends readonly OrderTerm[]>(
+    options: KeysetOptions<TResult, TTerms>,
+  ): KeysetSelectBuilder<TResult, KeysetCursor<TResult, KeysetKeys<TTerms>>>;
 
   /**
    * Row-level locking (`FOR UPDATE` / `FOR SHARE`) — Postgres/MySQL only.
@@ -697,6 +760,38 @@ export class SisalSelectBuilder<TTable, TResult>
     return this.#with({ offset: normalizeNonNegativeInteger(count, "offset") });
   }
 
+  keyset<const TTerms extends readonly OrderTerm[]>(
+    options: KeysetOptions<TResult, TTerms>,
+  ): KeysetSelectBuilder<TResult, KeysetCursor<TResult, KeysetKeys<TTerms>>> {
+    const terms = normalizeKeysetTerms(options.orderBy);
+    const keysetCondition = options.after === undefined
+      ? undefined
+      : createCondition(
+        keysetPredicate(
+          terms,
+          options.after as Record<string, unknown>,
+          options.form ?? "expanded",
+        ),
+      );
+    const condition = this.#state.condition === undefined
+      ? keysetCondition
+      : keysetCondition === undefined
+      ? this.#state.condition
+      : and(this.#state.condition, keysetCondition);
+    const builder = new SisalSelectBuilder<TTable, TResult>(this.#database, {
+      ...this.#state,
+      ...(condition === undefined ? {} : { condition }),
+      orderBy: terms.map((term) => term.term),
+    });
+    return new SisalKeysetSelectBuilder<
+      TResult,
+      KeysetCursor<TResult, KeysetKeys<TTerms>>
+    >(
+      builder as unknown as SelectBuilder<unknown, TResult>,
+      terms.map((term) => term.key),
+    );
+  }
+
   toSql(): Sql {
     const {
       table,
@@ -833,6 +928,162 @@ export class SisalSelectBuilder<TTable, TResult>
     return this.#with({
       joins: [...this.#state.joins, { kind, table, on }],
     });
+  }
+}
+
+/** Internal: an order term resolved to its column, key, and direction. */
+interface NormalizedKeysetTerm {
+  readonly term: OrderTerm;
+  readonly key: string;
+  readonly column: unknown;
+  readonly direction: "asc" | "desc";
+}
+
+function normalizeKeysetTerms(
+  orderBy: readonly OrderTerm[],
+): NormalizedKeysetTerm[] {
+  if (!Array.isArray(orderBy) || orderBy.length === 0) {
+    throw new OrmError("keyset requires at least one orderBy term", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return orderBy.map((term) => {
+    if (!isOrderTerm(term)) {
+      throw new OrmError("keyset orderBy expects asc()/desc() terms", {
+        code: "ORM_INVALID_QUERY",
+      });
+    }
+    const column = term.column;
+    if (!isColumn(column)) {
+      throw new OrmError("keyset orderBy terms must be table columns", {
+        code: "ORM_INVALID_COLUMN",
+      });
+    }
+    return {
+      term,
+      key: column.propertyName ?? column.name,
+      column,
+      direction: term.direction,
+    };
+  });
+}
+
+function keysetPredicate(
+  terms: readonly NormalizedKeysetTerm[],
+  after: Record<string, unknown>,
+  form: "expanded" | "row-value",
+): Sql {
+  const values = terms.map((term) => {
+    if (!Object.hasOwn(after, term.key)) {
+      throw new OrmError("keyset cursor is missing a column value", {
+        code: "ORM_INVALID_QUERY",
+        details: { column: term.key },
+      });
+    }
+    return after[term.key];
+  });
+  return form === "row-value"
+    ? rowValueKeysetSql(terms, values)
+    : expandedKeysetSql(terms, values);
+}
+
+// `(a < $1) or (a = $2 and b < $3) or ...` — the lexicographic "after the
+// cursor" comparison, honoring each column's own direction. Always valid.
+function expandedKeysetSql(
+  terms: readonly NormalizedKeysetTerm[],
+  values: readonly unknown[],
+): Sql {
+  const clauses = terms.map((term, index) => {
+    const parts: Sql[] = [];
+    for (let j = 0; j < index; j += 1) {
+      parts.push(sql`${columnToSql(terms[j].column)} = ${values[j]}`);
+    }
+    const comparator = term.direction === "desc" ? "<" : ">";
+    parts.push(
+      sql`${columnToSql(term.column)} ${raw(comparator)} ${values[index]}`,
+    );
+    return joinSql(
+      [raw("("), joinSql(parts, raw(" and ")), raw(")")],
+      emptySql(),
+    );
+  });
+  return joinSql(clauses, raw(" or "));
+}
+
+// `(a, b, c) < ($1, $2, $3)` — a SQL row-value comparison. Requires a single
+// direction across all terms; Postgres/SQLite/MySQL support row values.
+function rowValueKeysetSql(
+  terms: readonly NormalizedKeysetTerm[],
+  values: readonly unknown[],
+): Sql {
+  if (new Set(terms.map((term) => term.direction)).size > 1) {
+    throw new OrmError(
+      'keyset form "row-value" requires a single sort direction',
+      { code: "ORM_INVALID_QUERY" },
+    );
+  }
+  const comparator = terms[0].direction === "desc" ? "<" : ">";
+  return joinSql([
+    raw("("),
+    joinSql(terms.map((term) => columnToSql(term.column)), raw(", ")),
+    raw(") "),
+    raw(comparator),
+    raw(" ("),
+    joinSql(values.map((value) => paramSql(value)), raw(", ")),
+    raw(")"),
+  ], emptySql());
+}
+
+class SisalKeysetSelectBuilder<TRow, TCursor>
+  implements KeysetSelectBuilder<TRow, TCursor> {
+  readonly #builder: SelectBuilder<unknown, TRow>;
+  readonly #keys: readonly string[];
+  readonly #limit?: number;
+
+  constructor(
+    builder: SelectBuilder<unknown, TRow>,
+    keys: readonly string[],
+    limit?: number,
+  ) {
+    this.#builder = builder;
+    this.#keys = keys;
+    if (limit !== undefined) {
+      this.#limit = limit;
+    }
+  }
+
+  limit(count: number): KeysetSelectBuilder<TRow, TCursor> {
+    return new SisalKeysetSelectBuilder<TRow, TCursor>(
+      this.#builder.limit(count),
+      this.#keys,
+      Math.floor(count),
+    );
+  }
+
+  toSql(): Sql {
+    return this.#builder.toSql();
+  }
+
+  async execute(): Promise<KeysetPage<TRow, TCursor>> {
+    const rows = await this.#builder.execute();
+    return { rows, nextCursor: this.#nextCursor(rows) };
+  }
+
+  // A nextCursor exists only when a full page came back (rows.length === limit);
+  // a short page is the last page.
+  #nextCursor(rows: readonly TRow[]): TCursor | null {
+    if (
+      this.#limit === undefined || rows.length === 0 ||
+      rows.length < this.#limit
+    ) {
+      return null;
+    }
+    const last = rows[rows.length - 1] as Record<string, unknown>;
+    const cursor: Record<string, unknown> = {};
+    for (const key of this.#keys) {
+      cursor[key] = last[key];
+    }
+    return cursor as TCursor;
   }
 }
 

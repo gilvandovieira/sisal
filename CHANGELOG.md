@@ -11,6 +11,23 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added keyset (cursor) pagination to `@sisal/orm` (roadmap item 3):
+  `SelectBuilder.keyset({ orderBy, after, form? })` infers the cursor type from
+  the `orderBy` columns, emits the keyset comparison against `after` (omit for
+  the first page) plus the matching `ORDER BY`, and returns a
+  `KeysetSelectBuilder` whose `.limit(n).execute()` yields
+  `{ rows, nextCursor }` (a `nextCursor` only when a full page came back). Two
+  predicate forms: the default `"expanded"` nested `or`/`and` (mixed directions,
+  every dialect) and `"row-value"` (`(a, b, c) < (x, y, z)`, a single
+  direction). To support it, `asc()`/`desc()` now return an `OrderTerm` — a
+  `Sql` subtype that also carries the column and direction, fully backward
+  compatible — and a column's `propertyName` is a literal type so cursor keys
+  infer. Exports `OrderTerm`, `isOrderTerm`, `KeysetOptions`, `KeysetCursor`,
+  `KeysetKeys`, `KeysetPage`, and `KeysetSelectBuilder`. The
+  `examples/neon-hot-feed` feeds (`getNewFeed`, `getHotFeed`) are now
+  builder-native via `.keyset(...)`, dropping the raw-SQL `/hot` keyset. Adds a
+  divergence-by-design row to `docs/drizzle-parity.md` (Drizzle has no
+  first-class keyset helper).
 - Added a typed database-function caller to `@sisal/orm` (roadmap item 1):
   `defineFunction(name, { args, returns })` declares a function's positional
   argument column types and its return shape — a `RETURNS TABLE (...)` column

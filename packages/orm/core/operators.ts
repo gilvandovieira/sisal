@@ -16,8 +16,8 @@ import {
   isQueryBuilder,
   joinSql,
   operatorSql,
+  type OrderTerm,
   raw,
-  type Sql,
   sql,
   type SqlExpression,
   type SubquerySource,
@@ -179,14 +179,36 @@ export function not(condition: Condition): Condition {
   return createCondition(sql`not (${condition.sql})`);
 }
 
+/**
+ * The JS property key an order term carries, inferred from a table column
+ * reference (falling back to `string` for raw operands/expressions).
+ */
+type OrderKey<TColumn> = TColumn extends { readonly propertyName: infer TKey }
+  ? TKey extends string ? TKey : string
+  : string;
+
 /** Ascending order term for `orderBy`, e.g. `orderBy(asc(users.columns.name))`. */
-export function asc(column: unknown): Sql {
-  return sql`${columnToSql(column)} asc`;
+export function asc<TColumn>(column: TColumn): OrderTerm<OrderKey<TColumn>> {
+  return makeOrderTerm(column, "asc") as OrderTerm<OrderKey<TColumn>>;
 }
 
 /** Descending order term for `orderBy`, e.g. `orderBy(desc(users.columns.id))`. */
-export function desc(column: unknown): Sql {
-  return sql`${columnToSql(column)} desc`;
+export function desc<TColumn>(column: TColumn): OrderTerm<OrderKey<TColumn>> {
+  return makeOrderTerm(column, "desc") as OrderTerm<OrderKey<TColumn>>;
+}
+
+// An order term is a SQL fragment (so it renders in `orderBy`) that also carries
+// the column and direction for keyset pagination to read.
+function makeOrderTerm(column: unknown, direction: "asc" | "desc"): OrderTerm {
+  const fragment = direction === "asc"
+    ? sql`${columnToSql(column)} asc`
+    : sql`${columnToSql(column)} desc`;
+  return Object.freeze({
+    kind: "sql",
+    chunks: fragment.chunks,
+    column,
+    direction,
+  }) as OrderTerm;
 }
 
 /** `count(*)` (no argument) or `count(column)` aggregate expression. */

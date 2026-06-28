@@ -195,10 +195,16 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `isEmptySchemaSnapshotDiff` (function): Returns true when a snapshot diff contains no table or column changes.
 - `isNotNull` (function): column IS NOT NULL SQL condition.
 - `isNull` (function): column IS NULL SQL condition.
+- `isOrderTerm` (function): Returns true when a value is an asc()/desc() {@link OrderTerm}.
 - `isSql` (function): Returns true when a value is a Sisal SQL fragment.
 - `isSqlQuery` (function): Returns true when a value is driver-ready SQL text and parameters.
 - `isTable` (function): Returns true when a value has the public table definition shape.
 - `joinSql` (function): Joins SQL fragments with a separator.
+- `KeysetCursor` (typeAlias): The cursor shape for a keyset over TResult, keyed by the ordered columns.
+- `KeysetKeys` (typeAlias): The union of JS property keys carried by a tuple of {@link OrderTerm}s.
+- `KeysetOptions` (interface): Options for {@link SelectBuilder.keyset}.
+- `KeysetPage` (interface): A page returned by a keyset query: the rows plus the cursor for the next page.
+- `KeysetSelectBuilder` (interface): A keyset-paginated select; set the page size with .limit(n) then run it.
 - `like` (function): column LIKE value SQL condition.
 - `Logger` (interface): Minimal logger contract accepted by Sisal packages.
 - `LoggerMethod` (interface): Minimal logger contracts accepted by Sisal packages.
@@ -221,6 +227,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `notInArray` (function): column NOT IN (...). An empty array yields a constant always-true condition; a select builder renders as a subquery.
 - `notLike` (function): column NOT LIKE value SQL condition.
 - `or` (function): Combines conditions with SQL OR, ignoring nullish values.
+- `OrderTerm` (interface): An ORDER BY term produced by asc()/desc(). It is a SQL fragment ("t"."col" asc) that also carries the underlying column and its direction, so keyset pagination can build the matching comparison predicate and derive a...
 - `OrmDriver` (interface): Async-first driver contract for future database adapters.
 - `OrmError` (class): Error thrown for schema, SQL, execution, and transaction failures.
 - `OrmErrorCode` (typeAlias): Error codes emitted by ORM schema, SQL, driver, and transaction helpers.
@@ -375,10 +382,16 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `isColumn` (function): Returns true when a value has the public column definition shape.
 - `isNotNull` (function): column IS NOT NULL SQL condition.
 - `isNull` (function): column IS NULL SQL condition.
+- `isOrderTerm` (function): Returns true when a value is an asc()/desc() {@link OrderTerm}.
 - `isSql` (function): Returns true when a value is a Sisal SQL fragment.
 - `isSqlQuery` (function): Returns true when a value is driver-ready SQL text and parameters.
 - `isTable` (function): Returns true when a value has the public table definition shape.
 - `joinSql` (function): Joins SQL fragments with a separator.
+- `KeysetCursor` (typeAlias): The cursor shape for a keyset over TResult, keyed by the ordered columns.
+- `KeysetKeys` (typeAlias): The union of JS property keys carried by a tuple of {@link OrderTerm}s.
+- `KeysetOptions` (interface): Options for {@link SelectBuilder.keyset}.
+- `KeysetPage` (interface): A page returned by a keyset query: the rows plus the cursor for the next page.
+- `KeysetSelectBuilder` (interface): A keyset-paginated select; set the page size with .limit(n) then run it.
 - `like` (function): column LIKE value SQL condition.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
@@ -398,6 +411,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `notInArray` (function): column NOT IN (...). An empty array yields a constant always-true condition; a select builder renders as a subquery.
 - `notLike` (function): column NOT LIKE value SQL condition.
 - `or` (function): Combines conditions with SQL OR, ignoring nullish values.
+- `OrderTerm` (interface): An ORDER BY term produced by asc()/desc(). It is a SQL fragment ("t"."col" asc) that also carries the underlying column and its direction, so keyset pagination can build the matching comparison predicate and derive a...
 - `OrmDriver` (interface): Async-first driver contract for future database adapters.
 - `OrmError` (class): Error thrown for schema, SQL, execution, and transaction failures.
 - `OrmErrorCode` (typeAlias): Error codes emitted by ORM schema, SQL, driver, and transaction helpers.
@@ -2064,6 +2078,23 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added keyset (cursor) pagination to `@sisal/orm` (roadmap item 3):
+  `SelectBuilder.keyset({ orderBy, after, form? })` infers the cursor type from
+  the `orderBy` columns, emits the keyset comparison against `after` (omit for
+  the first page) plus the matching `ORDER BY`, and returns a
+  `KeysetSelectBuilder` whose `.limit(n).execute()` yields
+  `{ rows, nextCursor }` (a `nextCursor` only when a full page came back). Two
+  predicate forms: the default `"expanded"` nested `or`/`and` (mixed directions,
+  every dialect) and `"row-value"` (`(a, b, c) < (x, y, z)`, a single
+  direction). To support it, `asc()`/`desc()` now return an `OrderTerm` — a
+  `Sql` subtype that also carries the column and direction, fully backward
+  compatible — and a column's `propertyName` is a literal type so cursor keys
+  infer. Exports `OrderTerm`, `isOrderTerm`, `KeysetOptions`, `KeysetCursor`,
+  `KeysetKeys`, `KeysetPage`, and `KeysetSelectBuilder`. The
+  `examples/neon-hot-feed` feeds (`getNewFeed`, `getHotFeed`) are now
+  builder-native via `.keyset(...)`, dropping the raw-SQL `/hot` keyset. Adds a
+  divergence-by-design row to `docs/drizzle-parity.md` (Drizzle has no
+  first-class keyset helper).
 - Added a typed database-function caller to `@sisal/orm` (roadmap item 1):
   `defineFunction(name, { args, returns })` declares a function's positional
   argument column types and its return shape — a `RETURNS TABLE (...)` column
@@ -3474,6 +3505,7 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 | `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait` | ✅⁷    |
 | `db.$count(table, where?)`                  | same                                | ✅⁷    |
 | `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                  | ✅⁷    |
+| (no equivalent)                             | `.keyset({ orderBy, after })`       | 🔷⁸    |
 | `db.insert(t).values(v)`                    | same                                | ✅     |
 | `.returning(projection?)`                   | same                                | ✅     |
 | `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)              | ✅⁴    |
@@ -3523,6 +3555,17 @@ becomes a derived table usable in `.from(...)`, with its projected columns
 referenceable as `x.col`; the same builder embeds as a parenthesized **scalar
 subquery** in projections and `where` conditions, and as the right side of
 `inArray(col, subquery)` / `notInArray`.
+
+⁸ **Keyset pagination — Sisal leads (divergence by design).** Drizzle has no
+first-class keyset/cursor helper; you hand-build the `(a, b, c) < (x, y, z)`
+comparison. Sisal's `.keyset({ orderBy, after, form? })` infers the cursor type
+from the `orderBy` columns, emits the matching predicate (the default expanded
+`or`/`and` form, or a `"row-value"` comparison for a uniform sort direction)
+plus the `ORDER BY`, and returns a builder whose `.limit(n).execute()` yields
+`{ rows, nextCursor }` (a `nextCursor` only when a full page came back). End
+`orderBy` with a unique column (e.g. the primary key) so the order is total —
+this also avoids the millisecond-`Date` vs microsecond-`timestamptz` boundary
+pitfall. Asserted by `packages/orm/keyset_test.ts`.
 
 ---
 
@@ -4796,7 +4839,7 @@ the two documents stay in step.
 | - | ------------------------------------------------- | -------- | ------------ | ------ |
 | 1 | Typed database-function caller                    | P1       | M            | 🟢     |
 | 2 | Serverless-safe SQL migration applier + Neon CLI  | P1       | M–L          | 🔴     |
-| 3 | Keyset / cursor pagination helper                 | P1       | M            | 🔴     |
+| 3 | Keyset / cursor pagination helper                 | P1       | M            | 🟢     |
 | 4 | Raw expressions in builder `SET` / `VALUES`       | P2       | M            | 🔴     |
 | 5 | Richer DDL generation (indexes, CHECK, functions) | P2       | L            | 🔴     |
 | 6 | Non-interactive (batched) transaction API         | P2       | M            | 🔴     |
@@ -4946,13 +4989,31 @@ about the **serverless/HTTP** path that the example optimizes for.
 
 ---
 
-## 3. Keyset / cursor pagination helper — P1
+## 3. Keyset / cursor pagination helper — P1 — 🟢 Done
 
-**Problem.** Every feed re-implements the keyset comparison
-`(a, b, c) < (x, y, z)` by hand. The `/new` feed can do it with nested
+**Shipped.** `SelectBuilder.keyset({ orderBy, after, form? })` infers the cursor
+type from the `orderBy` columns, emits the keyset comparison against `after`
+(omit it for the first page) plus the matching `ORDER BY`, and returns a
+`KeysetSelectBuilder` whose `.limit(n).execute()` yields `{ rows, nextCursor }`
+(a `nextCursor` only when a full page came back). Two predicate forms: the
+default `"expanded"` nested `or`/`and` (works with mixed directions and every
+dialect) and `"row-value"` (`(a, b, c) < (x, y, z)`, a uniform sort direction).
+To enable this, `asc()`/`desc()` now return an `OrderTerm` (a `Sql` subtype that
+also carries the column + direction; backward compatible), and a column's
+`propertyName` is a literal type so the cursor keys infer. Precision: ending
+`orderBy` with a unique key (e.g. `id`) makes the order total and sidesteps the
+millisecond-`Date` vs microsecond-`timestamptz` boundary pitfall (documented on
+the method and the parity row). Exports `OrderTerm`, `KeysetOptions`,
+`KeysetCursor`, `KeysetKeys`, `KeysetPage`, `KeysetSelectBuilder`. The example's
+`getNewFeed` (expanded) and `getHotFeed` (row-value) are both builder-native;
+covered by `packages/orm/keyset_test.ts`. Adds the divergence-by-design row
+(footnote ⁸) to [drizzle-parity](drizzle-parity.md).
+
+**Problem.** Every feed re-implemented the keyset comparison
+`(a, b, c) < (x, y, z)` by hand. The `/new` feed could do it with nested
 `or`/`and`, but the `/hot` feed (a three-column keyset over a computed
-`double precision` column) is clearer as raw SQL — so it drops out of the typed
-builder.
+`double precision` column) was clearer as raw SQL — so it dropped out of the
+typed builder.
 
 **Where it surfaced.**
 

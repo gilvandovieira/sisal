@@ -145,7 +145,7 @@ export interface TableDefinition<
   readonly schema?: string;
   readonly columns: {
     readonly [K in keyof TColumns]: ColumnDefinitionFromBuilder<TColumns[K]> & {
-      readonly propertyName: string;
+      readonly propertyName: K & string;
       readonly tableName: string;
     };
   };

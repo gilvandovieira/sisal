@@ -76,6 +76,29 @@ export interface SelectColumnRef {
 }
 
 /**
+ * An `ORDER BY` term produced by `asc()`/`desc()`. It is a SQL fragment
+ * (`"t"."col" asc`) that also carries the underlying column and its direction,
+ * so keyset pagination can build the matching comparison predicate and derive a
+ * cursor. `TKey` is the column's JS property name, used to infer the cursor
+ * shape; it is a phantom type with no runtime presence.
+ */
+export interface OrderTerm<TKey extends string = string> extends Sql {
+  /** The column reference (or raw operand) this term orders by. */
+  readonly column: unknown;
+  /** The sort direction. */
+  readonly direction: "asc" | "desc";
+  /** Phantom carrier for the ordered column's property key (compile-time only). */
+  readonly __orderKey?: TKey;
+}
+
+/** Returns true when a value is an `asc()`/`desc()` {@link OrderTerm}. */
+export function isOrderTerm(value: unknown): value is OrderTerm {
+  return isSql(value) &&
+    (value as { direction?: unknown }).direction !== undefined &&
+    "column" in (value as object);
+}
+
+/**
  * A value usable in a select projection: a column reference, a SQL expression,
  * or a select/compound builder embedded as a scalar subquery.
  */
