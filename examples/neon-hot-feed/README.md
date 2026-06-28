@@ -89,15 +89,31 @@ non-interactive transactions, or database functions** for multi-step mutations.
 | Approach                                                                     | Round trips | Holds a session open?           | Good on Deno Deploy + Neon? |
 | ---------------------------------------------------------------------------- | ----------- | ------------------------------- | --------------------------- |
 | **Interactive transaction** (`db.transaction(tx => { read; write; write })`) | several     | **yes**, for the whole callback | least preferred             |
-| **Non-interactive transaction** (one batched `begin; …; commit`)             | one         | briefly                         | ok                          |
+| **Non-interactive transaction** (`db.batch([...])`)                          | one\*       | no                              | good                        |
 | **Single-statement atomic mutation** (one data-modifying CTE)                | one         | no                              | good                        |
 | **Database function** (`select * from app.vote_post(…)`)                     | one         | no                              | **preferred here**          |
 
-This example uses the **database function** `app.vote_post` (preferred) and, in
-`src/seed.ts`, a **single-statement** data-modifying `UPDATE … FROM` for the
-bulk recompute. It deliberately avoids a long `db.transaction` callback for the
-vote path. The driver _can_ do interactive transactions (the seed/test reset
-even uses small ones), but they are not the shape this example optimizes for.
+The **non-interactive transaction** is now first-class as `db.batch([...])`: it
+submits several pre-built statements as one atomic unit — no `tx => {...}`
+callback holding a connection open. The statements commit together and roll back
+on any failure, but none may read a previous one's result (use the database
+function or an interactive transaction for that):
+
+```ts
+await db.batch([
+  db.insert(postVotes).values({ postId, userId, value }),
+  db.update(posts).set({
+    score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
+  })
+    .where(eq(posts.columns.id, postId)),
+]); // atomic, non-interactive
+```
+
+This example still uses the **database function** `app.vote_post` for the vote
+(it needs to read the prior vote before writing), and a **single-statement**
+`UPDATE … FROM` for the bulk recompute. `db.batch` is the right tool when the
+writes are independent. _\*One round trip on drivers with a native batch; an
+atomic `begin; …; commit` otherwise._
 
 ## How to run
 
@@ -177,24 +193,28 @@ Point it at a scratch Neon branch, never production.
 ## Sisal API pressure points
 
 Honest gaps this example ran into. Each is a candidate for future Sisal work.
-Four have since landed in v0.4.0: the **typed database-function caller**
+Several have since landed in v0.4.0: the **typed database-function caller**
 (`defineFunction` / `db.call`, now used by `src/vote.ts`), **keyset pagination**
 (`.keyset({ orderBy, after })`, now used by both feeds in `src/queries.ts`),
 **column-name mapping** (the default `snake_case` naming strategy, so
-`src/schema.ts` could use camelCase keys without changing the SQL), and the
+`src/schema.ts` could use camelCase keys without changing the SQL), the
 **serverless-safe migration applier** (`splitSqlStatements` is now exported from
 `@sisal/migrate`, the migrator has a `splitStatements` apply mode, and the
 `sisal` CLI has a `provider: "neon"` target — `src/migrate.ts` uses the shared
-splitter).
+splitter), and **raw `sql` in `.set()` / `.values()`** (a scalar `sql`
+expression is now a valid column value).
 
 1. **Snapshot DDL can't express this schema.** `generatePostgresUpStatements`
    emits additive `CREATE TABLE` / `ADD COLUMN` only — no **DESC index
    ordering**, no functions, no triggers, no partial/expression indexes. So the
    `.sql` migrations are the source of truth and `src/schema.ts` is a _typed
    mirror_ for the builder, not the generator's output.
-2. **No SQL-function expressions in builder `SET`/`VALUES`.** We can't write
-   `set hot_score = app.calculate_hot_score(…)` or insert with a computed
-   default through the builder, so the bulk recompute is raw SQL.
+2. **No `UPDATE … FROM` / `INSERT … SELECT` in the builder.** Scalar `sql`
+   expressions in `.set()` / `.values()` now work, so a simple
+   `set hot_score = app.calculate_hot_score(score, created_at)` is
+   builder-native — but the bulk `recomputeAggregates` joins a derived table in
+   its `FROM`, and `UPDATE … FROM (subquery)` has no builder surface yet, so it
+   stays raw SQL.
 
 ## Tests
 
@@ -247,17 +267,17 @@ examples/neon-hot-feed/
 These gaps are written up in full — with proposed APIs, affected packages, and
 acceptance criteria — in the [v0.4.0 roadmap](../../docs/v0.4.0-roadmap.md).
 
-- **Raw expressions in `SET` / `VALUES` / `DEFAULT`** (e.g. calling a SQL
-  function or `now()` in a builder mutation).
+- **`UPDATE … FROM` / `INSERT … SELECT`** in the builder (scalar `sql` in
+  `.set()` / `.values()` already works; the join-in-`FROM` form does not yet).
 - **Richer DDL generation**: DESC/partial/expression indexes, CHECK constraints,
   and (eventually) functions/triggers in the snapshot pipeline.
 
 **Landed in v0.4.0** (this example now uses them): a **typed database-function
 caller** (`defineFunction` / `db.call`, see `src/vote.ts`), **keyset
 pagination** (`.keyset({ orderBy, after })`, see `src/queries.ts`),
-**column-name mapping** (the default `snake_case` naming strategy), and a
+**column-name mapping** (the default `snake_case` naming strategy), a
 **serverless-safe migration applier** (`splitSqlStatements` from
-`@sisal/migrate`
-
-- the migrator's `splitStatements` mode + the CLI's `provider: "neon"` target;
-  `src/migrate.ts` uses the shared splitter).
+`@sisal/migrate`, the migrator's `splitStatements` mode, and the CLI's
+`provider: "neon"` target; `src/migrate.ts` uses the shared splitter), and **raw
+`sql` in `.set()` / `.values()`** (a scalar `sql` expression is now a valid
+column value).

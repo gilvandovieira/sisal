@@ -13,9 +13,9 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (28 tests)                |
+| Suite           | `integration/pg_features_test.ts` (30 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-28 — **28 / 28 passed on every version**            |
+| Last run        | 2026-06-28 — **30 / 30 passed on every version**            |
 
 ✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
 
@@ -47,11 +47,13 @@ adapter feature through the public API.
 | **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |  ✅  |  ✅  |
 | **Delete** — `where`, `returning`                                       |  ✅  |  ✅  |  ✅  |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |  ✅  |  ✅  |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |  ✅  |  ✅  |
 | **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |  ✅  |  ✅  |
 | **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |  ✅  |  ✅  |
 | **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |  ✅  |  ✅  |
 | **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |  ✅  |  ✅  |
 | **Transactions** — commit + rollback on error                           |  ✅  |  ✅  |  ✅  |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |  ✅  |  ✅  |
 | **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
 | **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
 | **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |

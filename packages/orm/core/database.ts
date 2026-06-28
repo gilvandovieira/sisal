@@ -94,8 +94,8 @@ export interface OrmTransaction {
 }
 
 /**
- * A statement accepted by {@link Database.batch}: a query builder (anything with
- * `toSql()`), a `` sql`...` `` fragment, or already-rendered {@link SqlQuery}.
+ * Statement accepted by `Database.batch`: a query builder, `Sql` fragment, or
+ * already-rendered `SqlQuery`.
  */
 export type BatchStatement = { toSql(): Sql } | Sql | SqlQuery;
 

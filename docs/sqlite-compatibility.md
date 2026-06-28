@@ -12,8 +12,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (28 tests)     |
-| Last run      | 2026-06-28 — **28 / 28 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (30 tests)     |
+| Last run      | 2026-06-28 — **30 / 30 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
@@ -45,10 +45,12 @@ unsupported on SQLite.
 | **Update** — `set`, `where`, `returning`, `$onUpdate`                   |     ✅      |
 | **Delete** — `where`, `returning`                                       |     ✅      |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |     ✅      |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |     ✅      |
 | **Column naming** — snake_case default, `.named()`, `preserve`          |     ✅      |
 | **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |     ✅      |
 | **Prepared statements** — `placeholder()` + `.prepare()`                |     ✅      |
 | **Transactions** — commit + rollback, single-connection serialized      |     ✅      |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |     ✅      |
 | **Boolean** — round-trip                                                |     ⚠️      |
 | **JSON / JSONB** — object round-trip                                    |     ⚠️      |
 | **Arrays** — `text[]` round-trip                                        |     ⚠️      |

@@ -235,36 +235,38 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 
 ## 3. Query builder
 
-| Drizzle 0.45.2                              | Sisal                               | Status |
-| ------------------------------------------- | ----------------------------------- | ------ |
-| `db.select().from(t)`                       | same                                | ✅     |
-| `db.select({ projection })`                 | same                                | ✅     |
-| `.where(...)`                               | same                                | ✅     |
-| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`    | ✅     |
-| `.limit(n)` / `.offset(n)`                  | same                                | ✅     |
-| `.innerJoin` / `.leftJoin`                  | same                                | ✅     |
-| `.rightJoin` / `.fullJoin`                  | same                                | ✅     |
-| `.groupBy(...)` / `.having(...)`            | same                                | ✅     |
-| `.distinct()`                               | same                                | ✅     |
-| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                  | ✅⁵    |
-| `union` / `unionAll`                        | `.union()` / `.unionAll()`          | ✅⁵    |
-| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()`  | ✅⁵    |
-| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`        | ✅⁵    |
-| `.$dynamic()`                               | —                                   | ❌     |
-| subquery as derived table / scalar subquery | `.as(alias)` + scalar embed         | ✅⁷    |
-| `inArray(col, subquery)`                    | same                                | ✅⁷    |
-| `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait` | ✅⁷    |
-| `db.$count(table, where?)`                  | same                                | ✅⁷    |
-| `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                  | ✅⁷    |
-| (no equivalent)                             | `.keyset({ orderBy, after })`       | 🔷⁸    |
-| `db.insert(t).values(v)`                    | same                                | ✅     |
-| `.returning(projection?)`                   | same                                | ✅     |
-| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)              | ✅⁴    |
-| `db.update(t).set(v).where(...)`            | same                                | ✅     |
-| `db.delete(t).where(...)`                   | same                                | ✅     |
-| update/delete without `where`               | allowed (full-table)                | 🔷     |
-| `db.transaction(fn)`                        | same                                | ✅     |
-| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`        | ✅     |
+| Drizzle 0.45.2                              | Sisal                                   | Status |
+| ------------------------------------------- | --------------------------------------- | ------ |
+| `db.select().from(t)`                       | same                                    | ✅     |
+| `db.select({ projection })`                 | same                                    | ✅     |
+| `.where(...)`                               | same                                    | ✅     |
+| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`        | ✅     |
+| `.limit(n)` / `.offset(n)`                  | same                                    | ✅     |
+| `.innerJoin` / `.leftJoin`                  | same                                    | ✅     |
+| `.rightJoin` / `.fullJoin`                  | same                                    | ✅     |
+| `.groupBy(...)` / `.having(...)`            | same                                    | ✅     |
+| `.distinct()`                               | same                                    | ✅     |
+| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                      | ✅⁵    |
+| `union` / `unionAll`                        | `.union()` / `.unionAll()`              | ✅⁵    |
+| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()`      | ✅⁵    |
+| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`            | ✅⁵    |
+| `.$dynamic()`                               | —                                       | ❌     |
+| subquery as derived table / scalar subquery | `.as(alias)` + scalar embed             | ✅⁷    |
+| `inArray(col, subquery)`                    | same                                    | ✅⁷    |
+| `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait`     | ✅⁷    |
+| `db.$count(table, where?)`                  | same                                    | ✅⁷    |
+| `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                      | ✅⁷    |
+| (no equivalent)                             | `.keyset({ orderBy, after })`           | 🔷⁸    |
+| `db.insert(t).values(v)`                    | same                                    | ✅     |
+| `.returning(projection?)`                   | same                                    | ✅     |
+| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)                  | ✅⁴    |
+| `db.update(t).set(v).where(...)`            | same                                    | ✅     |
+| `sql` in `.set({...})` / `.values({...})`   | `set/values` accept `Sql` values        | ✅     |
+| `db.delete(t).where(...)`                   | same                                    | ✅     |
+| update/delete without `where`               | allowed (full-table)                    | 🔷     |
+| `db.transaction(fn)`                        | same                                    | ✅     |
+| `db.batch([...])` (non-interactive)         | `db.batch([...])` — atomic, no callback | ✅     |
+| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`            | ✅     |
 
 **Divergence (safety):** a `where`-less `update`/`delete` throws in Sisal unless
 you call `.unsafeAllowAllRows()`. Drizzle runs it. We consider the rail worth

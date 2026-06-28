@@ -130,6 +130,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
 - `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
 - `avg` (function): avg(column) aggregate expression.
+- `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
 - `check` (function): A named CHECK constraint from a sql expression.
 - `ColumnArray` (typeAlias): Array element/column type produced by {@link ColumnBuilder.array}.
@@ -193,6 +194,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `InferProjection` (typeAlias): Inferred row type for a projected select.
 - `InferSelect` (typeAlias): Infers the row shape returned when selecting from a table.
 - `InsertBuilder` (interface): Fluent builder for INSERT queries.
+- `InsertValues` (typeAlias): Insert row values: each column accepts its literal type or a {@link Sql} expression. Literals bind as parameters; Sql values render inline.
 - `isColumn` (function): Returns true when a value has the public column definition shape.
 - `isEmptySchemaSnapshotDiff` (function): Returns true when a snapshot diff contains no table or column changes.
 - `isNotNull` (function): column IS NOT NULL SQL condition.
@@ -315,6 +317,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
 - `uniqueIndex` (function): A unique table index (CREATE UNIQUE INDEX); complete with .on(...).
 - `UpdateBuilder` (interface): Fluent builder for UPDATE queries.
+- `UpdateValues` (typeAlias): Update/upsert assignments: each column set to its literal type or a Sql expression, all columns optional (UPDATE ... SET).
 - `validateSchemaSnapshot` (function): Returns validation issues for a schema snapshot without mutating it.
 - `WithQueryBuilder` (interface): Query root seeded with CTEs, returned by {@link Database.with}.
 
@@ -329,6 +332,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
 - `avg` (function): avg(column) aggregate expression.
+- `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
 - `check` (function): A named CHECK constraint from a sql expression.
 - `ColumnArray` (typeAlias): Array element/column type produced by {@link ColumnBuilder.array}.
@@ -388,6 +392,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `InferProjection` (typeAlias): Inferred row type for a projected select.
 - `InferSelect` (typeAlias): Infers the row shape returned when selecting from a table.
 - `InsertBuilder` (interface): Fluent builder for INSERT queries.
+- `InsertValues` (typeAlias): Insert row values: each column accepts its literal type or a {@link Sql} expression. Literals bind as parameters; Sql values render inline.
 - `isColumn` (function): Returns true when a value has the public column definition shape.
 - `isNotNull` (function): column IS NOT NULL SQL condition.
 - `isNull` (function): column IS NULL SQL condition.
@@ -482,6 +487,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
 - `uniqueIndex` (function): A unique table index (CREATE UNIQUE INDEX); complete with .on(...).
 - `UpdateBuilder` (interface): Fluent builder for UPDATE queries.
+- `UpdateValues` (typeAlias): Update/upsert assignments: each column set to its literal type or a Sql expression, all columns optional (UPDATE ... SET).
 - `WithQueryBuilder` (interface): Query root seeded with CTEs, returned by {@link Database.with}.
 
 ### @sisal/orm ./error (packages/orm/error.ts)
@@ -2098,6 +2104,30 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added a non-interactive batched transaction API to `@sisal/orm` (roadmap item
+  6). `db.batch([...])` runs several pre-built statements (query builders,
+  `` sql`...` `` fragments, or rendered `SqlQuery`) as one atomic,
+  non-interactive unit and returns one `OrmQueryResult` per statement — ideal
+  for Deno Deploy / Neon HTTP, where an interactive `transaction()` callback
+  holds a connection open. Each statement is rendered up front (an unbound
+  placeholder throws a clear error before any execution); the whole batch
+  commits together and rolls back on failure. A `batch?` hook was added to the
+  `OrmDriver` contract and implemented in **every adapter** (`@sisal/pg`,
+  `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`), each running the batch in
+  one atomic transaction. Exports `BatchStatement`. No statement may depend on a
+  previous one's result (use `transaction()` or a database function for that).
+  Covered by `packages/orm/batch_test.ts` and the gated integration suites.
+- Added raw `sql` expressions as builder `SET` / `VALUES` values in `@sisal/orm`
+  (roadmap item 4). `.set({...})`, `.values({...})`, and
+  `onConflictDoUpdate.set` now accept a `Sql` expression for any column value
+  alongside literals — e.g.
+  ``.set({ score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}` })``
+  or ``.values({ id, createdAt: sql`now()` })``. Expressions render inline
+  (column references render table-qualified) while literal values still bind as
+  parameters. Adds the `InsertValues` / `UpdateValues` types (each column value
+  widened to `value | Sql`); inference is unchanged. Scope is scalar expressions
+  — `UPDATE ... FROM` / `INSERT ... SELECT` remain out of scope. Covered by
+  `packages/orm/set_values_expr_test.ts`; moves the parity row.
 - Added Temporal-aware date/time support across ORM and adapters for v0.4.0:
   `columns.date()` now defaults to `Temporal.PlainDate`, `columns.time()` was
   added and defaults to `Temporal.PlainTime`, `columns.timestamp()` defaults to
@@ -3614,36 +3644,38 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 
 ## 3. Query builder
 
-| Drizzle 0.45.2                              | Sisal                               | Status |
-| ------------------------------------------- | ----------------------------------- | ------ |
-| `db.select().from(t)`                       | same                                | ✅     |
-| `db.select({ projection })`                 | same                                | ✅     |
-| `.where(...)`                               | same                                | ✅     |
-| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`    | ✅     |
-| `.limit(n)` / `.offset(n)`                  | same                                | ✅     |
-| `.innerJoin` / `.leftJoin`                  | same                                | ✅     |
-| `.rightJoin` / `.fullJoin`                  | same                                | ✅     |
-| `.groupBy(...)` / `.having(...)`            | same                                | ✅     |
-| `.distinct()`                               | same                                | ✅     |
-| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                  | ✅⁵    |
-| `union` / `unionAll`                        | `.union()` / `.unionAll()`          | ✅⁵    |
-| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()`  | ✅⁵    |
-| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`        | ✅⁵    |
-| `.$dynamic()`                               | —                                   | ❌     |
-| subquery as derived table / scalar subquery | `.as(alias)` + scalar embed         | ✅⁷    |
-| `inArray(col, subquery)`                    | same                                | ✅⁷    |
-| `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait` | ✅⁷    |
-| `db.$count(table, where?)`                  | same                                | ✅⁷    |
-| `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                  | ✅⁷    |
-| (no equivalent)                             | `.keyset({ orderBy, after })`       | 🔷⁸    |
-| `db.insert(t).values(v)`                    | same                                | ✅     |
-| `.returning(projection?)`                   | same                                | ✅     |
-| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)              | ✅⁴    |
-| `db.update(t).set(v).where(...)`            | same                                | ✅     |
-| `db.delete(t).where(...)`                   | same                                | ✅     |
-| update/delete without `where`               | allowed (full-table)                | 🔷     |
-| `db.transaction(fn)`                        | same                                | ✅     |
-| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`        | ✅     |
+| Drizzle 0.45.2                              | Sisal                                   | Status |
+| ------------------------------------------- | --------------------------------------- | ------ |
+| `db.select().from(t)`                       | same                                    | ✅     |
+| `db.select({ projection })`                 | same                                    | ✅     |
+| `.where(...)`                               | same                                    | ✅     |
+| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`        | ✅     |
+| `.limit(n)` / `.offset(n)`                  | same                                    | ✅     |
+| `.innerJoin` / `.leftJoin`                  | same                                    | ✅     |
+| `.rightJoin` / `.fullJoin`                  | same                                    | ✅     |
+| `.groupBy(...)` / `.having(...)`            | same                                    | ✅     |
+| `.distinct()`                               | same                                    | ✅     |
+| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                      | ✅⁵    |
+| `union` / `unionAll`                        | `.union()` / `.unionAll()`              | ✅⁵    |
+| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()`      | ✅⁵    |
+| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`            | ✅⁵    |
+| `.$dynamic()`                               | —                                       | ❌     |
+| subquery as derived table / scalar subquery | `.as(alias)` + scalar embed             | ✅⁷    |
+| `inArray(col, subquery)`                    | same                                    | ✅⁷    |
+| `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait`     | ✅⁷    |
+| `db.$count(table, where?)`                  | same                                    | ✅⁷    |
+| `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                      | ✅⁷    |
+| (no equivalent)                             | `.keyset({ orderBy, after })`           | 🔷⁸    |
+| `db.insert(t).values(v)`                    | same                                    | ✅     |
+| `.returning(projection?)`                   | same                                    | ✅     |
+| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)                  | ✅⁴    |
+| `db.update(t).set(v).where(...)`            | same                                    | ✅     |
+| `sql` in `.set({...})` / `.values({...})`   | `set/values` accept `Sql` values        | ✅     |
+| `db.delete(t).where(...)`                   | same                                    | ✅     |
+| update/delete without `where`               | allowed (full-table)                    | 🔷     |
+| `db.transaction(fn)`                        | same                                    | ✅     |
+| `db.batch([...])` (non-interactive)         | `db.batch([...])` — atomic, no callback | ✅     |
+| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`            | ✅     |
 
 **Divergence (safety):** a `where`-less `update`/`delete` throws in Sisal unless
 you call `.unsafeAllowAllRows()`. Drizzle runs it. We consider the rail worth
@@ -3956,9 +3988,9 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (28 tests)                |
+| Suite           | `integration/pg_features_test.ts` (30 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-28 — **28 / 28 passed on every version**            |
+| Last run        | 2026-06-28 — **30 / 30 passed on every version**            |
 
 ✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
 
@@ -3990,11 +4022,13 @@ adapter feature through the public API.
 | **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |  ✅  |  ✅  |
 | **Delete** — `where`, `returning`                                       |  ✅  |  ✅  |  ✅  |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |  ✅  |  ✅  |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |  ✅  |  ✅  |
 | **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |  ✅  |  ✅  |
 | **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |  ✅  |  ✅  |
 | **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |  ✅  |  ✅  |
 | **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |  ✅  |  ✅  |
 | **Transactions** — commit + rollback on error                           |  ✅  |  ✅  |  ✅  |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |  ✅  |  ✅  |
 | **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
 | **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
 | **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |
@@ -4188,8 +4222,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (28 tests)     |
-| Last run      | 2026-06-28 — **28 / 28 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (30 tests)     |
+| Last run      | 2026-06-28 — **30 / 30 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
@@ -4221,10 +4255,12 @@ unsupported on SQLite.
 | **Update** — `set`, `where`, `returning`, `$onUpdate`                   |     ✅      |
 | **Delete** — `where`, `returning`                                       |     ✅      |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |     ✅      |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |     ✅      |
 | **Column naming** — snake_case default, `.named()`, `preserve`          |     ✅      |
 | **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |     ✅      |
 | **Prepared statements** — `placeholder()` + `.prepare()`                |     ✅      |
 | **Transactions** — commit + rollback, single-connection serialized      |     ✅      |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |     ✅      |
 | **Boolean** — round-trip                                                |     ⚠️      |
 | **JSON / JSONB** — object round-trip                                    |     ⚠️      |
 | **Arrays** — `text[]` round-trip                                        |     ⚠️      |
@@ -4313,8 +4349,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (25 tests)       |
-| Last run      | 2026-06-28 — **25 / 25 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (27 tests)       |
+| Last run      | 2026-06-28 — **27 / 27 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
@@ -4345,7 +4381,9 @@ unsupported (SQLite-family).
 | **Update** — `set`, `where`, `returning`, `$onUpdate`                   |   ✅   |
 | **Delete** — `where`, `returning`                                       |   ✅   |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |   ✅   |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |   ✅   |
 | **Transactions** — commit + rollback on error                           |   ✅   |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |   ✅   |
 | **Boolean** — round-trip                                                |   ⚠️   |
 | **JSON / JSONB** — object round-trip                                    |   ⚠️   |
 | **Arrays** — `text[]` round-trip                                        |   ⚠️   |
@@ -5041,9 +5079,9 @@ the two documents stay in step.
 | 1 | Typed database-function caller                    | P1       | M            | 🟢     |
 | 2 | Serverless-safe SQL migration applier + Neon CLI  | P1       | M–L          | 🟢     |
 | 3 | Keyset / cursor pagination helper                 | P1       | M            | 🟢     |
-| 4 | Raw expressions in builder `SET` / `VALUES`       | P2       | M            | 🔴     |
+| 4 | Raw expressions in builder `SET` / `VALUES`       | P2       | M            | 🟢     |
 | 5 | Richer DDL generation (indexes, CHECK, functions) | P2       | L            | 🔴     |
-| 6 | Non-interactive (batched) transaction API         | P2       | M            | 🔴     |
+| 6 | Non-interactive (batched) transaction API         | P2       | M            | 🟢     |
 | 7 | Column-name mapping (camelCase ↔ snake_case)      | P3       | M–L          | 🟢     |
 | 8 | Temporal date/time semantics                      | P3       | M            | 🟢     |
 
@@ -5287,12 +5325,31 @@ a chance for Sisal to lead rather than match. Add a roadmap row to
 
 ---
 
-## 4. Raw expressions in builder `SET` / `VALUES` / `DEFAULT` — P2
+## 4. Raw expressions in builder `SET` / `VALUES` / `DEFAULT` — P2 — 🟢 Done
 
-**Problem.** The builder can only set/insert bound values, not SQL expressions.
-You cannot write `set hot_score = app.calculate_hot_score(score, created_at)` or
-insert a column whose value is a SQL function call, so any computed mutation
-drops to raw SQL.
+**Shipped.** `.set({...})`, `.values({...})`, and `onConflictDoUpdate.set`
+accept a `Sql` expression for any column value alongside literals:
+
+```ts
+set({ score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}` });
+values({ id, created_at: sql`now()` });
+```
+
+Expressions render **inline** (a column reference renders table-qualified; raw
+text passes through) while literal values still bind as parameters. The public
+types `InsertValues` / `UpdateValues` widen each column value to `value | Sql`;
+`InferSelect` / `InferInsert` are unchanged. Covered by
+`packages/orm/set_values_expr_test.ts` (UPDATE, INSERT, and `onConflict` mixing
+literals and expressions; param binding verified). Scope is **scalar**
+expressions: `UPDATE ... FROM` and `INSERT ... SELECT` remain out of scope, so
+the example's `recomputeAggregates` (an `UPDATE ... FROM (subquery)`) stays raw.
+`DEFAULT` expressions are a DDL concern tracked under item 5. Moves the parity
+row.
+
+**Problem.** The builder could only set/insert bound values, not SQL
+expressions. You cannot write
+`set hot_score = app.calculate_hot_score(score, created_at)` or insert a column
+whose value is a SQL function call, so any computed mutation drops to raw SQL.
 
 **Where it surfaced.**
 
@@ -5380,7 +5437,23 @@ classification.
 
 ---
 
-## 6. Non-interactive (batched) transaction API — P2
+## 6. Non-interactive (batched) transaction API — P2 — 🟢 Done
+
+**Shipped.** `db.batch([...])` runs several pre-built statements (query
+builders, `` sql`...` `` fragments, or rendered `SqlQuery`) as one atomic,
+**non-interactive** unit and returns one `OrmQueryResult` per statement. It
+renders every statement up front (an unbound placeholder throws a clear
+`OrmError` before touching the database), then prefers a driver's native `batch`
+and otherwise wraps the statements in one `transaction` (`begin; …; commit`),
+rolling the whole batch back on any failure. A `batch?` hook was added to the
+`OrmDriver` contract and implemented in **every adapter** (`@sisal/pg` — and
+therefore `@sisal/neon`, which builds on `createPgOrmDriver` — plus
+`@sisal/sqlite` and `@sisal/libsql`), each running the batch in one atomic
+transaction. Exports `BatchStatement`. Covered by `packages/orm/batch_test.ts`
+(native-batch path, transaction fallback, rollback, unbound-placeholder, mixed
+inputs, empty) and the gated `pg`/`sqlite`/`libsql` integration suites. No
+statement may depend on a previous one's result — that is what `transaction()`
+and database functions are for.
 
 **Problem.** `db.transaction(async (tx) => { ... })` is interactive: it holds a
 connection open across every awaited statement in the callback. On Deno Deploy +

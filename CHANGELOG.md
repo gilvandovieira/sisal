@@ -11,6 +11,30 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added a non-interactive batched transaction API to `@sisal/orm` (roadmap item
+  6). `db.batch([...])` runs several pre-built statements (query builders,
+  `` sql`...` `` fragments, or rendered `SqlQuery`) as one atomic,
+  non-interactive unit and returns one `OrmQueryResult` per statement — ideal
+  for Deno Deploy / Neon HTTP, where an interactive `transaction()` callback
+  holds a connection open. Each statement is rendered up front (an unbound
+  placeholder throws a clear error before any execution); the whole batch
+  commits together and rolls back on failure. A `batch?` hook was added to the
+  `OrmDriver` contract and implemented in **every adapter** (`@sisal/pg`,
+  `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`), each running the batch in
+  one atomic transaction. Exports `BatchStatement`. No statement may depend on a
+  previous one's result (use `transaction()` or a database function for that).
+  Covered by `packages/orm/batch_test.ts` and the gated integration suites.
+- Added raw `sql` expressions as builder `SET` / `VALUES` values in `@sisal/orm`
+  (roadmap item 4). `.set({...})`, `.values({...})`, and
+  `onConflictDoUpdate.set` now accept a `Sql` expression for any column value
+  alongside literals — e.g.
+  ``.set({ score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}` })``
+  or ``.values({ id, createdAt: sql`now()` })``. Expressions render inline
+  (column references render table-qualified) while literal values still bind as
+  parameters. Adds the `InsertValues` / `UpdateValues` types (each column value
+  widened to `value | Sql`); inference is unchanged. Scope is scalar expressions
+  — `UPDATE ... FROM` / `INSERT ... SELECT` remain out of scope. Covered by
+  `packages/orm/set_values_expr_test.ts`; moves the parity row.
 - Added Temporal-aware date/time support across ORM and adapters for v0.4.0:
   `columns.date()` now defaults to `Temporal.PlainDate`, `columns.time()` was
   added and defaults to `Temporal.PlainTime`, `columns.timestamp()` defaults to
