@@ -18,7 +18,7 @@ JSR, made of six packages with strict boundaries:
 | `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso execution, history, migrator, SQLite DDL   |
 
 The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
-[`drizzle-parity.md`](./drizzle-parity.md) for how this surface maps to Drizzle
+[`drizzle-parity`](./drizzle-parity.html) for how this surface maps to Drizzle
 ORM 0.45.2 and where it diverges on purpose.
 
 > **Stability:** all packages are `0.3.0` (pre-1.0). The surface below is
@@ -55,37 +55,61 @@ builders, the database facade, and serializable schema snapshots.
 
 ## Schema definition
 
-### `defineTable(name, columns, options?)`
+### `defineTable(name, columns, extrasOrOptions?, options?)`
 
 ```ts
 function defineTable<TColumns extends TableColumns>(
   name: string,
   columns: TColumns,
+  extrasOrOptions?:
+    | ((columns: TableDefinition<TColumns>["columns"]) => TableConstraint[])
+    | { schema?: string },
   options?: { schema?: string },
 ): TableDefinition<TColumns>;
 ```
 
 Defines a typed, frozen table. Column DB names default to the property key (or
-`.named(...)` override). Returns a `TableDefinition` whose `.columns[key]`
+`.named(...)` override). The optional extras callback defines table-level
+indexes and constraints. Returns a `TableDefinition` whose `.columns[key]`
 entries carry `name`, `tableName`, `propertyName`, and the resolved flags.
 
 ```ts
-import { columns, defineTable } from "@sisal/orm";
+import { check, columns, defineTable, index, sql, unique } from "@sisal/orm";
 
-const users = defineTable("users", {
-  id: columns.uuid().primaryKey(),
-  email: columns.text().notNull().unique(),
-  name: columns.text().notNull(),
-  age: columns.integer().optional(),
-  createdAt: columns.timestamp({ withTimezone: true }).default(() =>
-    new Date()
-  ),
-  orgId: columns.uuid().references("organizations", "id"),
-});
+const users = defineTable(
+  "users",
+  {
+    id: columns.uuid().primaryKey(),
+    email: columns.text().notNull().unique(),
+    name: columns.text().notNull(),
+    age: columns.integer().optional(),
+    createdAt: columns.timestamp({ withTimezone: true }).default(() =>
+      new Date()
+    ),
+    orgId: columns.uuid().references("organizations", "id", {
+      onDelete: "cascade",
+    }),
+  },
+  (t) => [
+    index("users_org_idx").on(t.orgId),
+    unique("users_org_email_unique").on(t.orgId, t.email),
+    check("users_age_check", sql`${t.age} >= ${0}`),
+  ],
+);
 
 // Column references are reached through `.columns`:
 users.columns.id; // { name: "id", tableName: "users", dataType: "uuid", ... }
 ```
+
+Table-level helpers:
+
+| Helper                         | Purpose                                   |
+| ------------------------------ | ----------------------------------------- |
+| `index(name?).on(...cols)`     | Non-unique index                          |
+| `uniqueIndex(name?).on(...c)`  | Unique index                              |
+| `primaryKey({ columns })`      | Composite/table-level primary key         |
+| `unique(name?).on(...columns)` | Composite/table-level unique constraint   |
+| `check(name, sql\`...\`)`      | Named check constraint from a SQL literal |
 
 ### `columns` — column builder factory
 
@@ -125,18 +149,18 @@ syntax when a dedicated Sisal factory does not exist.
 
 All modifiers return a **new** builder (immutable chaining).
 
-| Modifier                         | Effect                                                               |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `.notNull()`                     | Requires a value (opt out of the nullable default)                   |
-| `.nullable()`                    | Marks the column nullable (the default; explicit for readability)    |
-| `.optional()`                    | Makes the field optional **on insert** (does not change nullability) |
-| `.default(value \| () => value)` | Sets a default; also makes the field optional on insert              |
-| `.primaryKey()`                  | Adds the column to the primary key (implies `.notNull()`)            |
-| `.unique()`                      | Adds a single-column unique constraint                               |
-| `.references(table, column)`     | Adds a single-column foreign key                                     |
-| `.array()`                       | Makes the column an array of its element type (Postgres `type[]`)    |
-| `.$onUpdate(() => value)`        | Value applied on every `UPDATE` of the row                           |
-| `.named(name)`                   | Overrides the database column name                                   |
+| Modifier                               | Effect                                                                      |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `.notNull()`                           | Requires a value (opt out of the nullable default)                          |
+| `.nullable()`                          | Marks the column nullable (the default; explicit for readability)           |
+| `.optional()`                          | Makes the field optional **on insert** (does not change nullability)        |
+| `.default(value \| () => value)`       | Sets a default; also makes the field optional on insert                     |
+| `.primaryKey()`                        | Adds the column to the primary key (implies `.notNull()`)                   |
+| `.unique()`                            | Adds a single-column unique constraint                                      |
+| `.references(table, column, options?)` | Adds a single-column foreign key; `options` accepts `onDelete` / `onUpdate` |
+| `.array()`                             | Makes the column an array of its element type (Postgres `type[]`)           |
+| `.$onUpdate(() => value)`              | Value applied on every `UPDATE` of the row                                  |
+| `.named(name)`                         | Overrides the database column name                                          |
 
 > **Nullability:** Sisal columns are **nullable by default**, matching SQL and
 > Drizzle. Call `.notNull()` to require a value; `.primaryKey()` implies it. A
@@ -236,19 +260,22 @@ function createDatabase(options?: {
   driver?: OrmDriver;
   dialect?: SqlDialect; // "postgres" | "sqlite" | "mysql" | "generic"
   logger?: Logger;
+  schema?: DatabaseSchema;
+  relations?: RelationsList;
 }): Database;
 ```
 
-`Database` methods: `execute`, `query`, `select`, `$with`/`with` (CTEs),
-`$count(table, where?)`, `insert`, `update`, `delete`, `transaction`, `close`.
-Query builders are immutable and lazy — call `.toSql()` to inspect or
+`Database` methods: `execute`, callable `query`, schema-aware
+`query.<table>.findMany/findFirst`, `select`, `$with`/`with` (CTEs),
+`$count(table, where?)`, `insert`, `update`, `delete`, `transaction`, and
+`close`. Query builders are immutable and lazy — call `.toSql()` to inspect or
 `.execute()` to run.
 
 ```ts
 const db = createDatabase({ dialect: "postgres", driver });
 
 await db.select().from(users)
-  .where(and(eq(users.columns.active, true), gt(users.columns.age, 18)))
+  .where(gt(users.columns.age, 18))
   .orderBy(users.columns.createdAt, "desc")
   .limit(20)
   .execute();
@@ -283,6 +310,47 @@ await db.transaction(async (tx) => {
 
 > **Safety rail:** `update`/`delete` without a `where` throw unless you call
 > `.unsafeAllowAllRows()` first.
+
+### Relations & relational queries
+
+`relations(table, ({ one, many }) => ({ ... }))` defines typed one-to-one and
+one-to-many metadata. Pass a schema map and relation list into
+`createDatabase()` to enable `db.query.<tableKey>`:
+
+```ts
+const posts = defineTable("posts", {
+  id: columns.uuid().primaryKey(),
+  userId: columns.uuid().notNull().references("users", "id"),
+  title: columns.text().notNull(),
+});
+
+const usersRelations = relations(users, ({ many }) => ({
+  posts: many(posts, {
+    fields: [users.columns.id],
+    references: [posts.columns.userId],
+  }),
+}));
+
+const db = createDatabase({
+  dialect: "postgres",
+  driver,
+  schema: { users, posts },
+  relations: [usersRelations],
+});
+
+const rows = await db.query.users.findMany({
+  columns: { id: true, email: true },
+  with: { posts: { columns: { id: true, title: true } } },
+  where: gt(users.columns.age, 18),
+  orderBy: desc(users.columns.createdAt),
+  limit: 20,
+});
+```
+
+`findMany(config?)` returns an array. `findFirst(config?)` adds `limit 1` and
+returns one row or `undefined`. `columns` can include selected columns (`true`)
+or exclude columns (`false`); `with` accepts `true` for a relation's default
+selection or a nested relational query config.
 
 ### CTEs & set operations
 
@@ -352,7 +420,7 @@ appends row-level locking (`{ skipLocked }`, `{ noWait }`, or `{ of }`) on
 Postgres/MySQL:
 
 ```ts
-const n = await db.$count(users, eq(users.columns.active, true));
+const n = await db.$count(users, gt(users.columns.age, 18));
 
 await db.select().from(users)
   .for("update", { skipLocked: true }) // for update skip locked
@@ -365,7 +433,7 @@ await db.select().from(users)
 | Helper                      | Description                                      |
 | --------------------------- | ------------------------------------------------ |
 | `noopOrmDriver()`           | Returns empty result sets; for tests/scaffolding |
-| `memoryOrmDriver(options?)` | Records queries in memory, returns empty rows    |
+| `memoryOrmDriver(options?)` | Tiny test driver that returns empty rows         |
 
 `OrmDriver` is the async contract adapters implement (`query`, `execute`,
 optional `transaction`, `close`). `OrmTransaction` is the in-transaction facade.
@@ -395,6 +463,10 @@ Key types: `SisalSchemaSnapshot`, `SisalTableSnapshot`, `SisalColumnSnapshot`,
 `SisalSchemaSnapshotDiff` / `SisalTableDiff` / `SisalColumnDiff`. The constant
 `SCHEMA_SNAPSHOT_VERSION` is `1`.
 
+`SisalColumnType.dialectType` and `SisalColumnDefault` with `kind: "expression"`
+are trusted schema inputs: DDL generators emit them verbatim. Use them only from
+developer-authored schema code, not runtime values.
+
 ## Introspection & utilities
 
 `getTableColumns(table)`, `getTableName(table)`, `isTable(v)`, `isColumn(v)`,
@@ -405,6 +477,8 @@ Key types: `SisalSchemaSnapshot`, `SisalTableSnapshot`, `SisalColumnSnapshot`,
 
 - `SisalError` (`@sisal/orm/error`) — base structured error with `code`,
   `status`, `expose`, `severity`, `details`.
+- `redactSecrets(text)` / `redactErrorCause(cause)` — mask connection-string
+  passwords and token-like key/value secrets before logging or wrapping errors.
 - `OrmError` — schema/SQL/execution failures; `OrmErrorCode` enumerates causes.
 - `Logger` / `LoggerMethod` (`@sisal/orm/logger`) — the minimal logger contract
   accepted everywhere (`debug`/`info`/`warn`/`error`).
@@ -486,6 +560,7 @@ mismatch unless `allowDirty: true`.
 | ------------------------------------------ | ---------------------------------------------------------------------- |
 | `createMigrationPlan(migrations, applied)` | Pure plan from known migrations + applied history                      |
 | `planSchemaChanges({ from?, to })`         | Classify snapshot diff into ordered `SchemaChange[]`, flag destructive |
+| `planSchemaChangesFromDiff(diff)`          | Classify an already-computed schema snapshot diff                      |
 | `defineSchemaMigrationPlan({ from?, to })` | Validate/normalize a snapshot pair                                     |
 
 `SchemaChange.kind` is one of `create_table`, `drop_table`, `add_column`,
@@ -493,10 +568,10 @@ mismatch unless `allowDirty: true`.
 
 ## Checksums & helpers
 
-`calculateMigrationChecksum`, `assertMigrationChecksum`, `getMigrationChecksum`
-(internal default), `createAppliedMigration`, `isMigrationApplied`,
-`getPendingMigrations`, `getAppliedMigrations`, `getRollbackMigrations`,
-`sortMigrations`, `validateMigration`, `validateMigrations`,
+`calculateMigrationChecksum`, `assertMigrationChecksum`,
+`createAppliedMigration`, `isMigrationApplied`, `getPendingMigrations`,
+`getAppliedMigrations`, `getRollbackMigrations`, `sortMigrations`,
+`validateMigration`, `validateMigrations`,
 `formatMigrationFilename(sequence, name, ext = "sql")`, `slugifyMigrationName`.
 
 ## File workflow (`@sisal/migrate/workflow`)
@@ -507,6 +582,7 @@ unit-testable.
 | Symbol                                                         | Purpose                                                                                                             |
 | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `MigrationFileSystem`                                          | Interface: `readDir`, `readFile`, `writeFile`, `mkdir`                                                              |
+| `GeneratedMigrationFile` / `DiscoveredMigration`               | File shapes written and read by the workflow                                                                        |
 | `denoMigrationFileSystem()`                                    | Deno-backed implementation (needs `--allow-read/-write`)                                                            |
 | `buildMigrationFile({ sequence, name, statements, snapshot })` | Pure: build `.sql` + `.snapshot.json` contents                                                                      |
 | `writeMigrationFile(fs, dir, file)`                            | Write the generated pair                                                                                            |
@@ -516,23 +592,26 @@ unit-testable.
 | `checkDrift(input)`                                            | Pure drift check → `DriftReport`                                                                                    |
 
 `checkDrift` reports `schema_changed` (live schema differs from the newest
-captured snapshot), `pending_migrations`, and `missing_snapshot`.
+captured snapshot), `pending_migrations`, and `missing_snapshot`. Related types:
+`MigrateConfig`, `DriftKind`, `DriftFinding`, `DriftReport`, and
+`DriftCheckInput`.
 
 ## CLI (`@sisal/migrate/cli`)
 
 `runSisalCli(args, options?)` powers the `sisal` executable and returns an exit
 code. The real CLI loads `sisal.migrate.ts` by default; tests can inject
-`config`, `fs`, and dialect `adapters`.
+`config`, `fs`, dialect `adapters`, `cwd`, `stdout`, and `stderr` through
+`SisalCliOptions`.
 
 Commands:
 
-| Command          | Purpose                                                                        |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `sisal init`     | Scaffold `sisal.migrate.ts` + migrations dir (`--force`, `--dialect`, `--dir`) |
-| `sisal generate` | Diff latest snapshot → `config.snapshot`, write SQL + snapshot                 |
-| `sisal migrate`  | Apply pending SQL migrations through the dialect migrator                      |
-| `sisal status`   | Print file counts, database plan, and drift findings                           |
-| `sisal drift`    | Exit non-zero when drift findings exist                                        |
+| Command          | Purpose                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| `sisal init`     | Scaffold `sisal.migrate.ts` + migrations dir (`--force`, `--target`, `--dialect`, `--dir`) |
+| `sisal generate` | Diff latest snapshot → `config.snapshot`, write SQL + snapshot                             |
+| `sisal migrate`  | Apply pending SQL migrations through the dialect migrator                                  |
+| `sisal status`   | Print file counts, database plan, and drift findings                                       |
+| `sisal drift`    | Exit non-zero when drift findings exist                                                    |
 
 Config modules should export `default` or `config`:
 
@@ -552,6 +631,8 @@ For Turso/libSQL migrations, keep `dialect: "sqlite"` and set `databaseUrl` plus
 
 `generate` emits only non-destructive SQL. Drop/alter changes are reported and
 withheld so the captured snapshot cannot get ahead of the SQL that was written.
+`splitSqlStatements(text)` is exported from `@sisal/migrate/cli` for tests and
+tooling that need the CLI's simple SQL-statement splitting behavior.
 
 ## Errors
 
@@ -591,22 +672,35 @@ await db.select().from(users).execute();
 
 `createPgMigrator(options)` returns a `PgMigrator`
 (`migrate`/`rollback`/`plan`/`applied`/`close`) backed by an advisory-locked,
-database history store. Also: `createPgMigrationDriver`,
-`createPgMigrationHistoryStore`, `DEFAULT_PG_MIGRATION_TABLE`. Convenience input
-type `PgMigrationDefinition` infers the programmatic/SQL kind for you.
+database history store.
+
+| Symbol                                   | Purpose                                  |
+| ---------------------------------------- | ---------------------------------------- |
+| `createPgMigrator(options)`              | Adapter facade over core migration flow  |
+| `createPgMigrationDriver(options)`       | `MigrationDriver` backed by Postgres SQL |
+| `createPgMigrationHistoryStore(options)` | Database-backed migration history store  |
+| `createPgExecutor(options)`              | Lower-level SQL executor                 |
+| `createPgPool(options)`                  | Connection pool                          |
+| `DEFAULT_PG_MIGRATION_TABLE`             | `"sisal_migrations"`                     |
+
+Types include `CreatePgMigratorOptions`, `PgMigrationDefinition`,
+`PgMigrationInput`, `PgMigrateOptions`, `PgRollbackOptions`,
+`PgMigrationPlanOptions`, and `PgMigrator`.
 
 ## DDL generation (`@sisal/pg/ddl`)
 
 Pure functions — emit SQL strings, never open a connection.
 
-| Function                                        | Output                        |
-| ----------------------------------------------- | ----------------------------- |
-| `generatePostgresUpStatements(to, from?)`       | `{ statements, destructive }` |
-| `generatePostgresCreateTable(table)`            | `CREATE TABLE …`              |
-| `generatePostgresAddColumn(table, column)`      | `ALTER TABLE … ADD COLUMN …`  |
-| `generatePostgresColumnDefinition(column)`      | one column definition         |
-| `generatePostgresColumnType(type)`              | a Postgres type expression    |
-| `quotePgIdent(name)` / `pgQualifiedName(table)` | identifier quoting            |
+| Function                                        | Output                            |
+| ----------------------------------------------- | --------------------------------- |
+| `generatePostgresUpStatements(to, from?)`       | `{ statements, destructive }`     |
+| `generatePostgresCreateTable(table)`            | `CREATE TABLE …`                  |
+| `generatePostgresAddColumn(table, column)`      | `ALTER TABLE … ADD COLUMN …`      |
+| `generatePostgresColumnDefinition(column)`      | one column definition             |
+| `generatePostgresColumnType(type)`              | a Postgres type expression        |
+| `generatePostgresIndexes(table)`                | `CREATE [UNIQUE] INDEX …`         |
+| `generatePostgresForeignKeys(table)`            | `ALTER TABLE … ADD FOREIGN KEY …` |
+| `quotePgIdent(name)` / `pgQualifiedName(table)` | identifier quoting                |
 
 Only **additive** changes are emitted; destructive changes (drop table/column,
 type change) are returned in `destructive` for explicit handling.
@@ -635,10 +729,15 @@ Neon serverless PostgreSQL adapter, structured like `@sisal/pg` but backed by
 `createNeonDb(options)` / `connect(options)` open a `NeonDatabase`. Options
 accept a Neon `url`/`connectionString`, an already-open `pool`/`client`, or an
 existing `executor`. Also: `createNeonPool`, `createNeonClient`,
-`createNeonExecutor`, `NeonError`, `POSTGRES_DIALECT`.
+`createNeonExecutor`, `neonPoolConfigFromOptions`,
+`neonClientConfigFromOptions`, `resolveNeonConnectionString`,
+`normalizeNeonResult`, `NeonError`, `POSTGRES_DIALECT`.
 
 Types: `NeonDatabase`, `CreateNeonDbOptions`, `NeonClient`, `NeonPool`,
-`NeonPoolConfig`, `NeonExecutorOptions`, `NeonSqlExecutor`, `NeonSqlResult`.
+`NeonPoolConfig`, `NeonClientConfig`, `NeonPoolConnectionOptions`,
+`NeonClientConnectionOptions`, `NeonExecutorOptions`, `NeonSqlExecutor`,
+`NeonSqlResult`, `NeonQueryResult`, `NeonDriverQueryResult`, and
+`NeonErrorCode`.
 
 ```ts
 import { connect } from "@sisal/neon";
@@ -651,7 +750,9 @@ const db = await connect({
 ## Migrations (`@sisal/neon/migrate`)
 
 `createNeonMigrator(options)` -> `NeonMigrator`, backed by the PostgreSQL
-migrator and history table. Also: `DEFAULT_NEON_MIGRATION_TABLE`.
+migrator and history table. Also: `DEFAULT_NEON_MIGRATION_TABLE`. The migrate
+subpath also re-exports the Neon client/executor helpers so migration-only code
+can build pools, clients, or executors without importing `@sisal/neon/orm`.
 
 ## DDL generation (`@sisal/neon/ddl`)
 
@@ -682,16 +783,19 @@ Types: `SqliteDatabase`, `CreateSqliteDbOptions`, `SqliteConnectionOptions`,
 
 `createSqliteMigrator(options)` → `SqliteMigrator`. Also
 `createSqliteMigrationDriver`, `createSqliteMigrationHistoryStore`,
-`DEFAULT_SQLITE_MIGRATION_TABLE`.
+`createSqliteExecutor`, `openSqliteDatabase`, `statementReturnsRows`,
+`DEFAULT_SQLITE_MIGRATION_TABLE`, and the SQLite connection/database/executor
+types.
 
 ## DDL generation (`@sisal/sqlite/ddl`)
 
 `generateSqliteUpStatements(to, from?)`, `generateSqliteCreateTable`,
 `generateSqliteAddColumn`, `generateSqliteColumnDefinition`,
-`generateSqliteColumnType`, `quoteSqliteIdent`. Higher-level types collapse onto
-SQLite's five affinities (`TEXT`/`INTEGER`/`REAL`/`NUMERIC`/`BLOB`); booleans →
-`INTEGER`, dates/JSON/UUID → `TEXT`. Because SQLite has limited `ALTER TABLE`,
-destructive changes are always withheld and returned in `destructive`.
+`generateSqliteColumnType`, `generateSqliteIndexes`, `quoteSqliteIdent`.
+Higher-level types collapse onto SQLite's five affinities
+(`TEXT`/`INTEGER`/`REAL`/`NUMERIC`/`BLOB`); booleans → `INTEGER`,
+dates/JSON/UUID → `TEXT`. Because SQLite has limited `ALTER TABLE`, destructive
+changes are always withheld and returned in `destructive`.
 
 ```ts
 import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
@@ -711,11 +815,14 @@ libSQL/Turso adapter, structured like `@sisal/sqlite` but backed by
 `createLibsqlDb(options)` / `connect(options)` open a `LibsqlDatabase`. Options
 accept a Turso/libSQL `url`, optional `authToken`, or an already-open `client`.
 Also: `createLibsqlOrmDriver`, `createLibsqlExecutor`, `openLibsqlClient`,
+`createLibsqlClient`, `isLibsqlUrl`, `libsqlConfigFromOptions`,
 `LIBSQL_DIALECT`.
 
 Types: `LibsqlDatabase`, `CreateLibsqlDbOptions`, `LibsqlConnectionOptions`,
-`LibsqlClient`, `LibsqlOrmDriverOptions`, `LibsqlExecutorOptions`,
-`LibsqlQueryResult`, `LibsqlSqlExecutor`.
+`LibsqlClient`, `LibsqlClientConfig`, `LibsqlArgs`, `LibsqlValue`,
+`LibsqlInValue`, `LibsqlStatement`, `LibsqlResultSet`, `LibsqlTransaction`,
+`LibsqlOrmDriverOptions`, `LibsqlExecutorOptions`, `LibsqlQueryResult`, and
+`LibsqlSqlExecutor`.
 
 ```ts
 import { connect } from "@sisal/libsql";
@@ -730,7 +837,9 @@ const db = await connect({
 
 `createLibsqlMigrator(options)` -> `LibsqlMigrator`. Also
 `createLibsqlMigrationDriver`, `createLibsqlMigrationHistoryStore`,
-`DEFAULT_LIBSQL_MIGRATION_TABLE`.
+`createLibsqlExecutor`, `openLibsqlClient`, `createLibsqlClient`, `isLibsqlUrl`,
+`libsqlConfigFromOptions`, `DEFAULT_LIBSQL_MIGRATION_TABLE`, and the libSQL
+client/executor/migration types.
 
 ## DDL generation (`@sisal/libsql/ddl`)
 

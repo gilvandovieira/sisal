@@ -31,6 +31,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 - Bumped workspace package manifests, example/benchmark manifests, and the
   migration CLI's scaffolded adapter imports to `0.3.0`.
+- Expanded the API reference to cover the current public relation-query,
+  table-constraint, workflow, CLI, adapter utility, and DDL helper surfaces.
 - Serialized SQLite ORM executor work so statements issued on the same executor
   queue behind an open transaction instead of interleaving inside its
   `BEGIN`/`COMMIT` window.
