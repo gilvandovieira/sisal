@@ -17,7 +17,7 @@ otherwise.
 ## Supported versions
 
 Sisal is a `0.x` workspace; security fixes land on the latest published minor
-(currently `0.2.x`). Pin a version and upgrade promptly when a fix is released.
+(currently `0.3.x`). Pin a version and upgrade promptly when a fix is released.
 
 ## Security model (summary)
 
