@@ -10,6 +10,7 @@ export {
   emptySql,
   identifier,
   isColumn,
+  isOrderTerm,
   isSql,
   isSqlQuery,
   joinSql,
@@ -28,6 +29,7 @@ export type {
   ColumnName,
   Condition,
   InferProjection,
+  OrderTerm,
   PlaceholderValues,
   SelectColumnRef,
   SelectProjection,
@@ -83,10 +85,16 @@ export type {
   ColumnDataType,
   ColumnDefinition,
   ColumnRuntimeType,
+  ColumnValueMode,
   CustomColumnTypeOptions,
+  DateColumnMode,
   ReferentialAction,
   ReferentialOptions,
+  TimeColumnMode,
+  TimestampColumnMode,
 } from "./columns.ts";
+export { normalizeTemporalSqlValue } from "./temporal.ts";
+export type { TemporalParsingOptions, TemporalSqlValue } from "./temporal.ts";
 export {
   check,
   createSchemaSnapshot,
@@ -108,6 +116,7 @@ export type {
   CreateSchemaSnapshotInput,
   CreateSchemaSnapshotOptions,
   DefineTableOptions,
+  IndexColumnSpec,
   IndexConstraintBuilder,
   InferInsert,
   InferSelect,
@@ -124,13 +133,30 @@ export type {
   DeleteBuilder,
   ForLockOptions,
   InsertBuilder,
+  InsertValues,
+  KeysetCursor,
+  KeysetKeys,
+  KeysetOptions,
+  KeysetPage,
+  KeysetSelectBuilder,
   PreparedQuery,
   SelectBuilder,
   SetOperand,
   Subquery,
   UpdateBuilder,
+  UpdateValues,
   WithQueryBuilder,
 } from "./builders.ts";
+export { defineFunction } from "./functions.ts";
+export type {
+  FunctionArgsConfig,
+  FunctionArgsInput,
+  FunctionCall,
+  FunctionConfig,
+  FunctionDefinition,
+  FunctionReturnsConfig,
+  FunctionRow,
+} from "./functions.ts";
 export { relations } from "./relations.ts";
 export type {
   RelationalColumnSelection,
@@ -147,6 +173,7 @@ export type {
 } from "./relations.ts";
 export { createDatabase, memoryOrmDriver, noopOrmDriver } from "./database.ts";
 export type {
+  BatchStatement,
   Database,
   DatabaseOptions,
   DatabaseQuery,
@@ -165,7 +192,9 @@ export type {
 //   name: columns.text().notNull(),
 //   email: columns.text().notNull().unique(),
 //   age: columns.integer().optional(),
-//   createdAt: columns.timestamp().default(() => new Date()),
+//   createdAt: columns.timestamp({ withTimezone: true }).default(() =>
+//     Temporal.Now.instant()
+//   ),
 // });
 //
 // type User = InferSelect<typeof users>;
@@ -186,7 +215,7 @@ export type {
 //   id: "u_123",
 //   name: "Lucas",
 //   email: "lucas@example.com",
-//   createdAt: new Date(),
+//   createdAt: Temporal.Now.instant(),
 // }).execute();
 //
 // await db.update(users)
@@ -209,6 +238,6 @@ export type {
 //     id: "u_456",
 //     name: "Ana",
 //     email: "ana@example.com",
-//     createdAt: new Date(),
+//     createdAt: Temporal.Now.instant(),
 //   }).execute();
 // });

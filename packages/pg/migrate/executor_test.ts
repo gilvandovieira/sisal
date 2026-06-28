@@ -31,6 +31,27 @@ Deno.test("@sisal/pg - migration executor isolates transaction client", async ()
   assertEquals(outsideClient.released, true);
 });
 
+Deno.test("@sisal/pg - migration executor normalizes Temporal params", async () => {
+  const client = new RecordingPgClient();
+  const pool = new QueuePgPool([client]);
+  const executor = createPgExecutor({ pool });
+
+  await executor.execute("insert into migrations values ($1, $2)", [
+    Temporal.PlainDate.from("2026-06-28"),
+    [Temporal.Instant.from("2026-06-28T12:00:00.123456789Z")],
+  ]);
+
+  assertEquals(client.queries, [
+    {
+      sql: "insert into migrations values ($1, $2)",
+      params: [
+        "2026-06-28",
+        ["2026-06-28T12:00:00.123456789Z"],
+      ],
+    },
+  ]);
+});
+
 Deno.test("@sisal/pg - migration driver uses scoped transaction executor", async () => {
   const outerQueries: QueryCall[] = [];
   const transactionQueries: QueryCall[] = [];

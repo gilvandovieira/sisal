@@ -20,11 +20,11 @@ const textColumn = (name: string): SisalColumnSnapshot => ({
 
 const snapshotOf = (
   tables: SisalSchemaSnapshot["tables"],
-): SisalSchemaSnapshot => ({ version: 1, tables });
+): SisalSchemaSnapshot => ({ version: 2, tables });
 
 Deno.test("@sisal/orm - canonical serialization round-trips and compares equal", () => {
   const snapshot: SisalSchemaSnapshot = {
-    version: 1,
+    version: 2,
     dialect: "postgres",
     tables: [
       {
@@ -40,7 +40,7 @@ Deno.test("@sisal/orm - canonical serialization round-trips and compares equal",
 
   // Same tables in a different order are structurally equal after normalization.
   const reordered: SisalSchemaSnapshot = {
-    version: 1,
+    version: 2,
     dialect: "postgres",
     tables: [snapshot.tables[1], snapshot.tables[0]],
   };
@@ -57,7 +57,7 @@ Deno.test("@sisal/orm - canonical serialization round-trips and compares equal",
 
 Deno.test("@sisal/orm - valid minimal snapshot", () => {
   const snapshot = defineSchemaSnapshot({
-    version: 1,
+    version: 2,
     dialect: "postgres",
     tables: [
       {
@@ -70,14 +70,14 @@ Deno.test("@sisal/orm - valid minimal snapshot", () => {
     ],
   });
 
-  assertEquals(snapshot.version, 1);
+  assertEquals(snapshot.version, 2);
   assertEquals(snapshot.tables[0].name, "users");
   assertEquals(validateSchemaSnapshot(snapshot), []);
 });
 
 Deno.test("@sisal/orm - duplicate table detection", () => {
   const issues = validateSchemaSnapshot({
-    version: 1,
+    version: 2,
     tables: [
       { name: "users", columns: [{ name: "id", type: { kind: "text" } }] },
       { name: "users", columns: [{ name: "id", type: { kind: "text" } }] },
@@ -92,7 +92,7 @@ Deno.test("@sisal/orm - duplicate table detection", () => {
 
 Deno.test("@sisal/orm - duplicate column detection", () => {
   const issues = validateSchemaSnapshot({
-    version: 1,
+    version: 2,
     tables: [
       {
         name: "users",
@@ -112,7 +112,7 @@ Deno.test("@sisal/orm - duplicate column detection", () => {
 
 Deno.test("@sisal/orm - primary key references missing column", () => {
   const issues = validateSchemaSnapshot({
-    version: 1,
+    version: 2,
     tables: [
       {
         name: "users",
@@ -130,7 +130,7 @@ Deno.test("@sisal/orm - primary key references missing column", () => {
 
 Deno.test("@sisal/orm - foreign key references missing local column", () => {
   const issues = validateSchemaSnapshot({
-    version: 1,
+    version: 2,
     tables: [
       {
         name: "posts",
@@ -153,7 +153,7 @@ Deno.test("@sisal/orm - foreign key references missing local column", () => {
 
 Deno.test("@sisal/orm - foreign key target checked when table exists", () => {
   const issues = validateSchemaSnapshot({
-    version: 1,
+    version: 2,
     tables: [
       {
         name: "posts",
@@ -181,12 +181,12 @@ Deno.test("@sisal/orm - foreign key target checked when table exists", () => {
 
 Deno.test("@sisal/orm - normalization does not mutate input", () => {
   const input: SisalSchemaSnapshot = {
-    version: 1,
+    version: 2,
     tables: [
       {
         name: "b",
         columns: [{ name: "id", type: { kind: "text" } }],
-        indexes: [{ name: "b_idx", columns: ["id"] }],
+        indexes: [{ name: "b_idx", columns: [{ value: "id" }] }],
       },
       { name: "a", columns: [{ name: "id", type: { kind: "text" } }] },
     ],
@@ -201,7 +201,7 @@ Deno.test("@sisal/orm - normalization does not mutate input", () => {
 
 Deno.test("@sisal/orm - deterministic output order", () => {
   const snapshot = normalizeSchemaSnapshot({
-    version: 1,
+    version: 2,
     tables: [
       { name: "z", columns: [{ name: "b", type: { kind: "text" } }] },
       {
@@ -226,7 +226,7 @@ Deno.test("@sisal/orm - deterministic output order", () => {
 Deno.test("@sisal/orm - assert throws structured issues", () => {
   assertThrows(() =>
     assertValidSchemaSnapshot({
-      version: 2 as 1,
+      version: 1 as 2,
       tables: [{ name: "", columns: [] }],
     })
   );

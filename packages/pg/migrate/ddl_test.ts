@@ -27,14 +27,14 @@ Deno.test("@sisal/pg - generates PostgreSQL CREATE TABLE SQL", () => {
 
 Deno.test("@sisal/pg - generates additive PostgreSQL migration SQL", () => {
   const from: SisalSchemaSnapshot = {
-    version: 1,
+    version: 2,
     tables: [{
       name: "users",
       columns: [{ name: "id", type: { kind: "uuid" }, nullable: false }],
     }],
   };
   const to: SisalSchemaSnapshot = {
-    version: 1,
+    version: 2,
     tables: [users],
   };
 

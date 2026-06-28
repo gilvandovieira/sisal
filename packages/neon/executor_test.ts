@@ -23,6 +23,24 @@ Deno.test("neon executor: pool query executes without acquiring a client", async
   ]);
 });
 
+Deno.test("neon executor: normalizes Temporal params", async () => {
+  const pool = new FakePool();
+  const executor = await createNeonExecutor({ pool });
+
+  await executor.execute("insert into events values ($1, $2)", [
+    Temporal.PlainDate.from("2026-06-28"),
+    [Temporal.Instant.from("2026-06-28T12:00:00.123456789Z")],
+  ]);
+
+  assertEquals(pool.queries.at(-1), {
+    sql: "insert into events values ($1, $2)",
+    params: [
+      "2026-06-28",
+      ["2026-06-28T12:00:00.123456789Z"],
+    ],
+  });
+});
+
 Deno.test("neon executor: transaction uses a pooled client", async () => {
   const pool = new FakePool();
   const executor = await createNeonExecutor({ pool });

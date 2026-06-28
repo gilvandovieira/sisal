@@ -16,7 +16,7 @@ import {
   HOT_DECAY_SECONDS,
   HOT_EPOCH_SECONDS,
 } from "./src/hot.ts";
-import { splitSqlStatements } from "./src/sql_split.ts";
+import { splitSqlStatements } from "@sisal/migrate";
 import { getHotFeed, getNewFeed } from "./src/queries.ts";
 import type { NeonDatabase } from "./src/db.ts";
 
@@ -53,9 +53,10 @@ Deno.test("calculateHotScore: monotonic in votes and in recency", () => {
 });
 
 Deno.test("splitSqlStatements: splits top-level statements", () => {
+  // The shared @sisal/migrate splitter keeps each statement's terminating `;`.
   assertEquals(splitSqlStatements("select 1; select 2;"), [
-    "select 1",
-    "select 2",
+    "select 1;",
+    "select 2;",
   ]);
 });
 
@@ -102,8 +103,8 @@ Deno.test("feeds build and render without a database (postgres noop)", async () 
   assertEquals(newFeed.nextCursor, undefined);
 
   const hotFeed = await getHotFeed(db, 10, {
-    hotScore: 1.5,
-    createdAt: new Date("2026-01-01T00:00:00Z"),
+    hot_score: 1.5,
+    created_at: new Date("2026-01-01T00:00:00Z"),
     id: "00000000-0000-0000-0000-000000000000",
   });
   assertEquals(hotFeed.posts, []);

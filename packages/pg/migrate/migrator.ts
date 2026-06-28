@@ -59,6 +59,12 @@ export interface CreatePgMigratorOptions extends PgConnectionOptions {
   readonly logger?: Logger;
   readonly historyTable?: string;
   readonly useTransaction?: boolean;
+  /**
+   * Apply each SQL migration statement-by-statement (see the core migrator's
+   * `splitStatements`). Defaults to `false`; set it for single-statement
+   * transports.
+   */
+  readonly splitStatements?: boolean;
 }
 
 /** Creates a PostgreSQL migration facade with a database-backed history store. */
@@ -85,6 +91,7 @@ export function createPgMigrator(
       store,
       logger: options.logger,
       useTransaction: options.useTransaction ?? true,
+      splitStatements: options.splitStatements ?? false,
     }),
   );
 }
@@ -94,17 +101,20 @@ class SisalPgMigrator implements PgMigrator {
   readonly #store: ReturnType<typeof createPgMigrationHistoryStore>;
   readonly #logger?: Logger;
   readonly #useTransaction: boolean;
+  readonly #splitStatements: boolean;
 
   constructor(options: {
     readonly driver: ReturnType<typeof createPgMigrationDriver>;
     readonly store: ReturnType<typeof createPgMigrationHistoryStore>;
     readonly logger?: Logger;
     readonly useTransaction: boolean;
+    readonly splitStatements: boolean;
   }) {
     this.#driver = options.driver;
     this.#store = options.store;
     this.#logger = options.logger;
     this.#useTransaction = options.useTransaction;
+    this.#splitStatements = options.splitStatements;
   }
 
   migrate(options: PgMigrateOptions): Promise<MigrationResult> {
@@ -135,6 +145,7 @@ class SisalPgMigrator implements PgMigrator {
       driver: this.#driver,
       logger: this.#logger,
       useTransaction: this.#useTransaction,
+      splitStatements: this.#splitStatements,
     });
   }
 }

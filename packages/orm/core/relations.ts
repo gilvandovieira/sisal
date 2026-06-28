@@ -30,6 +30,7 @@ import {
   type TableColumn,
   type TableDefinition,
 } from "./table.ts";
+import { isTemporalSqlValue, serializeTemporalValue } from "./temporal.ts";
 
 /** Relational metadata list accepted by {@link createDatabase}. */
 export type RelationsList = readonly TableRelations[];
@@ -913,6 +914,9 @@ function relationKey(values: readonly unknown[]): string {
 function stableRelationKeyValue(value: unknown): unknown {
   if (value instanceof Date) {
     return value.toISOString();
+  }
+  if (isTemporalSqlValue(value)) {
+    return serializeTemporalValue(value);
   }
   if (value instanceof Uint8Array) {
     return [...value];

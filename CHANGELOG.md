@@ -11,6 +11,109 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added richer index DDL generation (roadmap item 5). Table-level `index()` /
+  `uniqueIndex()` now accept per-column sort direction via `asc()`/`desc()`
+  terms, raw `` sql`...` `` **expression** keys (an expression index), and a
+  partial-index predicate via a new `.where(predicate)` builder method — e.g.
+  ``index("hot").where(sql`${t.status} = 'published'`).on(desc(t.hotScore), desc(t.id))``
+  or ``uniqueIndex().on(sql`lower(${t.email})`)``. The
+  `generate{Postgres,Sqlite,Libsql}UpStatements` DDL generators emit the
+  `col DESC`/`ASC` ordering, parenthesized expression keys, and the trailing
+  `WHERE` clause; expression keys and predicates render portably (table prefix
+  stripped, identifiers double-quoted) like CHECK constraints. Adds the public
+  `IndexColumnSpec` type and the `SisalIndexColumnSnapshot` schema descriptor.
+  **BREAKING (snapshot format):** the serialized index shape changed —
+  `SisalIndexSnapshot.columns` is now a list of
+  `{ value, direction?, expression? }` objects (was `string[]`) and gains an
+  optional `where`, so `SCHEMA_SNAPSHOT_VERSION` is bumped to **2**; regenerate
+  `.snapshot.json` files. Covered by the pg/sqlite Drizzle-parity tests and the
+  gated pg (16/17/18), SQLite, and libSQL integration suites; moves the parity
+  index row.
+- Added a non-interactive batched transaction API to `@sisal/orm` (roadmap item
+  6). `db.batch([...])` runs several pre-built statements (query builders,
+  `` sql`...` `` fragments, or rendered `SqlQuery`) as one atomic,
+  non-interactive unit and returns one `OrmQueryResult` per statement — ideal
+  for Deno Deploy / Neon HTTP, where an interactive `transaction()` callback
+  holds a connection open. Each statement is rendered up front (an unbound
+  placeholder throws a clear error before any execution); the whole batch
+  commits together and rolls back on failure. A `batch?` hook was added to the
+  `OrmDriver` contract and implemented in **every adapter** (`@sisal/pg`,
+  `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`), each running the batch in
+  one atomic transaction. Exports `BatchStatement`. No statement may depend on a
+  previous one's result (use `transaction()` or a database function for that).
+  Covered by `packages/orm/batch_test.ts` and the gated integration suites.
+- Added raw `sql` expressions as builder `SET` / `VALUES` values in `@sisal/orm`
+  (roadmap item 4). `.set({...})`, `.values({...})`, and
+  `onConflictDoUpdate.set` now accept a `Sql` expression for any column value
+  alongside literals — e.g.
+  ``.set({ score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}` })``
+  or ``.values({ id, createdAt: sql`now()` })``. Expressions render inline
+  (column references render table-qualified) while literal values still bind as
+  parameters. Adds the `InsertValues` / `UpdateValues` types (each column value
+  widened to `value | Sql`); inference is unchanged. Scope is scalar expressions
+  — `UPDATE ... FROM` / `INSERT ... SELECT` remain out of scope. Covered by
+  `packages/orm/set_values_expr_test.ts`; moves the parity row.
+- Added Temporal-aware date/time support across ORM and adapters for v0.4.0:
+  `columns.date()` now defaults to `Temporal.PlainDate`, `columns.time()` was
+  added and defaults to `Temporal.PlainTime`, `columns.timestamp()` defaults to
+  `Temporal.PlainDateTime`, and `columns.timestamp({ withTimezone: true })`
+  defaults to `Temporal.Instant`. Explicit `mode: "date"` and `mode: "string"`
+  keep legacy JS `Date` or raw string values. `SqlParameter` /
+  `serializeSqlValue()` normalize Temporal values (including arrays and
+  `Temporal.ZonedDateTime`) to ISO strings before adapters receive them.
+  Database facades accept `temporal: { parse: true }` to opt into
+  metadata-driven result decoding for ORM-built selects, `returning()`,
+  relational queries, and `db.call(...)`; raw SQL rows are left driver-shaped.
+- Added gated pg/neon/sqlite/libSQL integration coverage for Temporal date/time
+  modes, including parse-enabled ORM rows, parse-disabled rows, raw SQL
+  behavior, string modes, legacy `Date` modes, and `Temporal.ZonedDateTime`
+  parameter normalization.
+- Added Date-vs-Temporal benchmark scenarios covering raw JS date APIs, Sisal
+  parameter serialization/rendering, and database-free ORM result parsing.
+- Added a serverless-safe SQL migration applier and a Neon CLI target (roadmap
+  item 2). `@sisal/migrate` now exports `splitSqlStatements(sql)` — a
+  dollar-quote/`$tag$`/string/quoted-identifier/comment-aware statement splitter
+  (hardened to drop empty/stray semicolons) — and the core migrator gained a
+  `splitStatements` apply mode that runs each `.sql` `up`/`down` step one
+  statement per `driver.execute(...)` call (still recording history), forwarded
+  through `createPgMigrator` and `createNeonMigrator`. `createNeonMigrator`
+  defaults `splitStatements` to `true` and `useTransaction` to `false` for the
+  Neon HTTP transport. The `sisal` CLI adds a **Neon target**:
+  `sisal init --neon` scaffolds a `dialect: "postgres"` + `provider: "neon"`
+  config (a new `MigrateConfig.provider` discriminator), and `sisal migrate`
+  then applies through `@sisal/neon` over HTTP. The `examples/neon-hot-feed`
+  example switches to the shared `splitSqlStatements` and drops its local copy.
+  Covered by `packages/migrate/{sql_split,split_apply,cli}_test.ts`.
+- Added keyset (cursor) pagination to `@sisal/orm` (roadmap item 3):
+  `SelectBuilder.keyset({ orderBy, after, form? })` infers the cursor type from
+  the `orderBy` columns, emits the keyset comparison against `after` (omit for
+  the first page) plus the matching `ORDER BY`, and returns a
+  `KeysetSelectBuilder` whose `.limit(n).execute()` yields
+  `{ rows, nextCursor }` (a `nextCursor` only when a full page came back). Two
+  predicate forms: the default `"expanded"` nested `or`/`and` (mixed directions,
+  every dialect) and `"row-value"` (`(a, b, c) < (x, y, z)`, a single
+  direction). To support it, `asc()`/`desc()` now return an `OrderTerm` — a
+  `Sql` subtype that also carries the column and direction, fully backward
+  compatible — and a column's `propertyName` is a literal type so cursor keys
+  infer. Exports `OrderTerm`, `isOrderTerm`, `KeysetOptions`, `KeysetCursor`,
+  `KeysetKeys`, `KeysetPage`, and `KeysetSelectBuilder`. The
+  `examples/neon-hot-feed` feeds (`getNewFeed`, `getHotFeed`) are now
+  builder-native via `.keyset(...)`, dropping the raw-SQL `/hot` keyset. Adds a
+  divergence-by-design row to `docs/drizzle-parity.md` (Drizzle has no
+  first-class keyset helper).
+- Added a typed database-function caller to `@sisal/orm` (roadmap item 1):
+  `defineFunction(name, { args, returns })` declares a function's positional
+  argument column types and its return shape — a `RETURNS TABLE (...)` column
+  map (typed row) or a single column builder (typed scalar). `db.call(fn, args)`
+  renders one `select * from <schema.fn>($1::t1, …)` statement with the `::type`
+  casts taken from the argument column types and every value bound, then runs it
+  with `.execute()` (all rows) or `.one()` (asserts exactly one row); a scalar
+  return renders `select fn(...) as "result"` and unwraps the value. Pure
+  `@sisal/orm` with no adapter changes. Exports `defineFunction`,
+  `FunctionDefinition`, `FunctionCall`, `FunctionConfig`, `FunctionArgsConfig`,
+  `FunctionReturnsConfig`, `FunctionArgsInput`, and `FunctionRow`. The
+  `examples/neon-hot-feed` `src/vote.ts` is rewritten to use it (no raw `sql`
+  string), and the README's function-caller pressure point is resolved.
 - Added column-name mapping to `@sisal/orm` (roadmap item 7): `defineTable`
   derives physical column names through a naming strategy, the `naming` option
   (`"snake_case"` | `"camelCase"` | `"preserve"` | a `(key) => name` function),
@@ -59,6 +162,28 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Reworked the root README to match the current core/adapters positioning,
+  clarify experimental status and install stacks, document CLI task setup,
+  consolidate examples around one PostgreSQL walkthrough, update the current API
+  summary, remove comparison-forward Drizzle wording, and add an AI-generated
+  README disclaimer.
+- Reworded the docs homepage to clarify Sisal's core/adapters split, JSR/runtime
+  dependency boundaries, Drizzle inspiration, autogenerated docs note, and
+  package presentation.
+- **BREAKING:** PostgreSQL DDL now emits `timestamp` for `columns.timestamp()`
+  and `timestamptz` only for `columns.timestamp({ withTimezone: true })`.
+  Existing users who relied on the old instant/timestamptz behavior should opt
+  into `withTimezone: true`; users who want legacy JS `Date` values should also
+  set `mode: "date"`, e.g.
+  `columns.timestamp({ withTimezone: true, mode: "date" })`.
+- Extended the PostgreSQL (`integration/pg_features_test.ts`) and SQLite
+  (`integration/sqlite_features_test.ts`) feature suites to cover the new v0.4.0
+  surfaces — column naming (snake_case default / `.named()` / `preserve`),
+  keyset pagination (both predicate forms), and prepared statements on both
+  engines, plus the typed function caller (`defineFunction` / `db.call`) on
+  Postgres. Refreshed `docs/pg-compatibility.md` and
+  `docs/sqlite-compatibility.md` (now **27 / 27** on pg16/17/18 and SQLite 3.46)
+  and the homepage `#compat` badges/feature list.
 - Updated the pre-commit hook to regenerate and stage `docs/llms.txt` and
   `docs/llms-full.txt`, keeping the generated LLM docs in sync before CI's
   `docs:llms:check` gate.

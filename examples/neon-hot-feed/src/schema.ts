@@ -20,6 +20,7 @@ import {
   check,
   columns,
   defineTable,
+  desc,
   index,
   type InferSelect,
   primaryKey,
@@ -36,15 +37,16 @@ export const posts = defineTable("posts", {
   upvotes: columns.integer().notNull().default(0),
   downvotes: columns.integer().notNull().default(0),
   hot_score: columns.doublePrecision().notNull().default(0),
-  created_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
-  updated_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
+  created_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
+  updated_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
 }, (c) => [
-  index("posts_new_feed_idx").on(c.status, c.created_at, c.id),
-  index("posts_hot_feed_idx").on(c.status, c.hot_score, c.created_at, c.id),
+  // Keyset feed indexes: leading equality column, then DESC tiebreakers — now
+  // the typed model emits the same `... desc` DDL as migrations/0001_init.sql.
+  index("posts_new_feed_idx").on(c.status, desc(c.created_at), desc(c.id)),
+  index("posts_hot_feed_idx")
+    .on(c.status, desc(c.hot_score), desc(c.created_at), desc(c.id)),
 ]);
 
 /** A row in `post_votes`; only -1 / 1 are ever stored (0 means delete). */
@@ -54,12 +56,10 @@ export const postVotes = defineTable("post_votes", {
   }),
   user_id: columns.uuid().notNull(),
   value: columns.smallint().notNull(),
-  created_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
-  updated_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
+  created_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
+  updated_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
 }, (c) => [
   primaryKey({ columns: [c.post_id, c.user_id] }),
   check("post_votes_value_check", sql`value in (-1, 1)`),

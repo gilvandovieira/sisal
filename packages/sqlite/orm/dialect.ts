@@ -25,6 +25,7 @@ export function sqliteColumnAffinity(dataType: ColumnDataType): string {
     case "json":
     case "jsonb":
     case "date":
+    case "time":
     case "timestamp":
     case "timestamptz":
       return "TEXT";

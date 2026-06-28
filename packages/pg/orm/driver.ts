@@ -57,6 +57,10 @@ function createPgOrmDriverFromExecutor(
       });
     },
 
+    batch(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]> {
+      return executeBatch(executor, queries);
+    },
+
     async close(): Promise<void> {
       if (!closeExecutor) {
         return;
@@ -82,4 +86,27 @@ async function executeQuery<T>(
     rows: result.rows,
     rowCount: result.rowCount,
   };
+}
+
+// Runs the statements as one atomic transaction (begin/commit), collecting one
+// result per statement. Used by the non-interactive `db.batch(...)` API.
+async function executeBatch(
+  executor: PgSqlExecutor,
+  queries: readonly SqlQuery[],
+): Promise<OrmQueryResult[]> {
+  if (executor.transaction === undefined) {
+    const results: OrmQueryResult[] = [];
+    for (const query of queries) {
+      results.push(await executeQuery(executor, query));
+    }
+    return results;
+  }
+
+  return await executor.transaction(async (txExecutor) => {
+    const results: OrmQueryResult[] = [];
+    for (const query of queries) {
+      results.push(await executeQuery(txExecutor, query));
+    }
+    return results;
+  });
 }

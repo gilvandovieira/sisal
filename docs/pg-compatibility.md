@@ -13,46 +13,52 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (23 feature groups)       |
+| Suite           | `integration/pg_features_test.ts` (31 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-27 — **17 / 17 passed on every version**            |
+| Last run        | 2026-06-28 — **31 / 31 passed on every version**            |
 
-✅ = verified on a live server · 🆕 = integration test added 2026-06-28,
-awaiting the next live matrix run (six new operator groups; verified by the unit
-parity tests in the meantime).
+✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
 
 ## Matrix
 
-| Feature                                                        | pg16 | pg17 | pg18 |
-| -------------------------------------------------------------- | :--: | :--: | :--: |
-| **Connection** — `connect({ url })`, pooled, parameterized SQL |  ✅  |  ✅  |  ✅  |
-| **Generated DDL applies** — all column types below             |  ✅  |  ✅  |  ✅  |
-| **Insert** — `values`, multi-row, `returning`                  |  ✅  |  ✅  |  ✅  |
-| **Comparison ops** — `eq` `ne` `gt` `gte` `lt` `lte`           |  ✅  |  ✅  |  ✅  |
-| **Pattern ops** — `like` `ilike` `notLike` `notIlike`          |  ✅  |  ✅  |  ✅  |
-| **Range ops** — `between` `notBetween`                         |  ✅  |  ✅  |  ✅  |
-| **Set ops** — `inArray` `notInArray`                           |  ✅  |  ✅  |  ✅  |
-| **Null ops** — `isNull` `isNotNull`                            |  ✅  |  ✅  |  ✅  |
-| **Logical** — `and` `or` `not`                                 |  ✅  |  ✅  |  ✅  |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`      |  ✅  |  ✅  |  ✅  |
-| **Distinct** — `select().distinct()`                           |  ✅  |  ✅  |  ✅  |
-| **Joins** — `inner` / `left` / `right` / `full`                |  ✅  |  ✅  |  ✅  |
-| **Aggregates** — `count` `sum` `avg` `min` `max`               |  ✅  |  ✅  |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`    |  🆕  |  🆕  |  🆕  |
-| **Subquery** — `exists` / `notExists` (correlated)             |  🆕  |  🆕  |  🆕  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`    |  🆕  |  🆕  |  🆕  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                  |  🆕  |  🆕  |  🆕  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`       |  🆕  |  🆕  |  🆕  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`         |  🆕  |  🆕  |  🆕  |
-| **Group / filter** — `groupBy`, `having`                       |  ✅  |  ✅  |  ✅  |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`          |  ✅  |  ✅  |  ✅  |
-| **Delete** — `where`, `returning`                              |  ✅  |  ✅  |  ✅  |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`      |  ✅  |  ✅  |  ✅  |
-| **Transactions** — commit + rollback on error                  |  ✅  |  ✅  |  ✅  |
-| **JSONB** — object round-trip                                  |  ✅  |  ✅  |  ✅  |
-| **Arrays** — `text[]` round-trip                               |  ✅  |  ✅  |  ✅  |
-| **Binary** — `bytea` round-trip (`Uint8Array`)                 |  ✅  |  ✅  |  ✅  |
-| **Migrator** — apply, plan, history table, idempotent re-run   |  ✅  |  ✅  |  ✅  |
+| Feature                                                                 | pg16 | pg17 | pg18 |
+| ----------------------------------------------------------------------- | :--: | :--: | :--: |
+| **Connection** — `connect({ url })`, pooled, parameterized SQL          |  ✅  |  ✅  |  ✅  |
+| **Generated DDL applies** — all column types below                      |  ✅  |  ✅  |  ✅  |
+| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |  ✅  |  ✅  |  ✅  |
+| **Insert** — `values`, multi-row, `returning`                           |  ✅  |  ✅  |  ✅  |
+| **Comparison ops** — `eq` `ne` `gt` `gte` `lt` `lte`                    |  ✅  |  ✅  |  ✅  |
+| **Pattern ops** — `like` `ilike` `notLike` `notIlike`                   |  ✅  |  ✅  |  ✅  |
+| **Range ops** — `between` `notBetween`                                  |  ✅  |  ✅  |  ✅  |
+| **Set ops** — `inArray` `notInArray`                                    |  ✅  |  ✅  |  ✅  |
+| **Null ops** — `isNull` `isNotNull`                                     |  ✅  |  ✅  |  ✅  |
+| **Logical** — `and` `or` `not`                                          |  ✅  |  ✅  |  ✅  |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |  ✅  |  ✅  |  ✅  |
+| **Distinct** — `select().distinct()`                                    |  ✅  |  ✅  |  ✅  |
+| **Joins** — `inner` / `left` / `right` / `full`                         |  ✅  |  ✅  |  ✅  |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                        |  ✅  |  ✅  |  ✅  |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |  ✅  |  ✅  |  ✅  |
+| **Subquery** — `exists` / `notExists` (correlated)                      |  ✅  |  ✅  |  ✅  |
+| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |  ✅  |  ✅  |  ✅  |
+| **`distinctOn`** — `SELECT DISTINCT ON (...)`                           |  ✅  |  ✅  |  ✅  |
+| **Row locking** — `.for("update"/"share")`, `skipLocked`                |  ✅  |  ✅  |  ✅  |
+| **Array ops** — `arrayContains`/`Contained`/`Overlaps`                  |  ✅  |  ✅  |  ✅  |
+| **Group / filter** — `groupBy`, `having`                                |  ✅  |  ✅  |  ✅  |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |  ✅  |  ✅  |
+| **Delete** — `where`, `returning`                                       |  ✅  |  ✅  |  ✅  |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |  ✅  |  ✅  |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |  ✅  |  ✅  |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |  ✅  |  ✅  |
+| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |  ✅  |  ✅  |
+| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |  ✅  |  ✅  |
+| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |  ✅  |  ✅  |
+| **Transactions** — commit + rollback on error                           |  ✅  |  ✅  |  ✅  |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |  ✅  |  ✅  |
+| **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
+| **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
+| **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |  ✅  |  ✅  |
+| **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |  ✅  |  ✅  |
 
 ### Column types proven by the DDL test
 
@@ -61,8 +67,8 @@ each server and the column count is verified:
 
 `text` · `varchar(n)` · `char(n)` · `integer` · `smallint` · `bigint` · `serial`
 · `bigserial` · `numeric(p,s)` · `real` · `double precision` · `boolean` ·
-`json` · `jsonb` · `date` · `timestamp` · `timestamptz` · `uuid` · `text[]` ·
-`bytea`.
+`json` · `jsonb` · `date` · `time` · `timestamp` · `timestamptz` · `uuid` ·
+`text[]` · `bytea`.
 
 ## Behavior notes (driver-level, not version-specific)
 
@@ -79,6 +85,21 @@ each server and the column count is verified:
   as `string` for the same reason.
 - **`json` vs `jsonb`.** `jsonb` round-trips as a parsed object; some `json`
   paths may return text — parse defensively if you mix them.
+- **Date/time semantics.** Sisal maps SQL `date` to `Temporal.PlainDate`, `time`
+  to `Temporal.PlainTime`, `timestamp` to `Temporal.PlainDateTime`, and
+  `timestamptz` to `Temporal.Instant` at the type level. Result parsing is
+  opt-in with `temporal: { parse: true }`; otherwise rows keep the
+  `@db/postgres` driver shape. Use `mode: "date"` to keep JS `Date` values or
+  `mode: "string"` to keep raw text. PostgreSQL stores timestamps at microsecond
+  precision; JS `Date` stores milliseconds.
+- **`timestamp` vs `timestamptz`.** `columns.timestamp()` now emits `timestamp`.
+  Use `columns.timestamp({ withTimezone: true })` for `timestamptz` / instant
+  semantics.
+- **The typed function caller is PostgreSQL-oriented.** `db.call(fn, args)`
+  renders `value::type` casts from the declared argument column types and maps a
+  `RETURNS TABLE (...)` function to typed rows (a scalar return is aliased as
+  `result`). The `::type` cast syntax and stored `CREATE FUNCTION` definitions
+  are PostgreSQL features, so this is verified here and not on SQLite.
 
 ## Reproduce
 

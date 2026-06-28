@@ -15,7 +15,10 @@ import {
   type SisalSchemaSnapshotDiff,
 } from "@sisal/orm";
 
+import { splitSqlStatements } from "./sql_split.ts";
+
 export * from "./workflow.ts";
+export * from "./sql_split.ts";
 
 const DEFAULT_LOCK_ID = "sisal:migrate";
 
@@ -220,6 +223,16 @@ export interface MigratorOptions {
   readonly logger?: Logger;
   readonly lockId?: string;
   readonly useTransaction?: boolean;
+  /**
+   * Apply each SQL migration **statement-by-statement** instead of as one
+   * multi-statement query. A string `up`/`down` step is split with
+   * {@link splitSqlStatements} (dollar-quote/string/comment aware) and each
+   * statement runs as a separate `driver.execute(...)` call. Required for
+   * drivers that accept only one statement per call (e.g. PostgreSQL's
+   * serverless/HTTP transports). Array steps already run per-statement and are
+   * left untouched. Defaults to `false`.
+   */
+  readonly splitStatements?: boolean;
 }
 
 /** Input snapshots for creating a schema migration plan. */
@@ -302,6 +315,7 @@ export function createMigrator(options: MigratorOptions): Migrator {
     logger: options.logger,
     lockId: options.lockId ?? DEFAULT_LOCK_ID,
     useTransaction: options.useTransaction ?? true,
+    splitStatements: options.splitStatements ?? false,
   });
 }
 
@@ -848,6 +862,7 @@ interface SisalMigratorOptions {
   readonly logger?: Logger;
   readonly lockId: string;
   readonly useTransaction: boolean;
+  readonly splitStatements: boolean;
 }
 
 class SisalMigrator implements Migrator {
@@ -857,6 +872,7 @@ class SisalMigrator implements Migrator {
   readonly #logger?: Logger;
   readonly #lockId: string;
   readonly #useTransaction: boolean;
+  readonly #splitStatements: boolean;
 
   constructor(options: SisalMigratorOptions) {
     this.#migrations = options.migrations;
@@ -865,6 +881,15 @@ class SisalMigrator implements Migrator {
     this.#logger = options.logger;
     this.#lockId = options.lockId;
     this.#useTransaction = options.useTransaction;
+    this.#splitStatements = options.splitStatements;
+  }
+
+  // Splits a string SQL step into per-statement form when splitStatements is on;
+  // array/function steps already run statement-by-statement.
+  #resolveStep(step: MigrationStep): MigrationStep {
+    return this.#splitStatements && typeof step === "string"
+      ? splitSqlStatements(step)
+      : step;
   }
 
   async plan(): Promise<MigrationPlan> {
@@ -1019,7 +1044,7 @@ class SisalMigrator implements Migrator {
 
     try {
       const applied = await this.#runInTransaction(async (scope) => {
-        await executeMigrationStep(migration.up, {
+        await executeMigrationStep(this.#resolveStep(migration.up), {
           driver: scope.driver,
           logger: this.#logger,
           dryRun: false,
@@ -1070,7 +1095,7 @@ class SisalMigrator implements Migrator {
 
     try {
       const rolledBack = await this.#runInTransaction(async (scope) => {
-        await executeMigrationStep(migration.down!, {
+        await executeMigrationStep(this.#resolveStep(migration.down!), {
           driver: scope.driver,
           logger: this.#logger,
           dryRun: false,

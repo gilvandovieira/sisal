@@ -27,7 +27,7 @@ const MIGRATION_COUNT = 24;
 const WORKSPACE_ROOT = new URL("../../", import.meta.url);
 
 const snapshotV1: SisalSchemaSnapshot = {
-  version: 1,
+  version: 2,
   dialect: "sqlite",
   tables: [
     {
@@ -43,7 +43,7 @@ const snapshotV1: SisalSchemaSnapshot = {
 };
 
 const snapshotV2: SisalSchemaSnapshot = {
-  version: 1,
+  version: 2,
   dialect: "sqlite",
   tables: [
     {
@@ -234,7 +234,7 @@ import {
 } from "@sisal/migrate";
 
 const snapshot = {
-  version: 1,
+  version: 2,
   dialect: "sqlite",
   tables: [{
     name: "users",

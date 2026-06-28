@@ -9,14 +9,17 @@
  */
 import { assert, assertEquals } from "@std/assert";
 import {
+  asc,
   check,
   columns,
   createSchemaSnapshot,
   defineTable,
+  desc,
   index,
   primaryKey,
   sql,
   unique,
+  uniqueIndex,
 } from "@sisal/orm";
 import {
   generateSqliteColumnType,
@@ -50,6 +53,47 @@ Deno.test("parity: table extras — composite PK, named unique, check, index", (
   );
 });
 
+Deno.test("parity: rich indexes — direction, partial WHERE, expression keys", () => {
+  const posts = defineTable("posts", {
+    id: columns.integer(),
+    status: columns.text(),
+    hotScore: columns.integer(),
+    createdAt: columns.timestamp(),
+    email: columns.text(),
+  }, (t) => [
+    index("hot_feed")
+      .where(sql`${t.status} = 'published'`)
+      .on(desc(t.hotScore), desc(t.createdAt), desc(t.id)),
+    index("new_feed").on(asc(t.createdAt), desc(t.id)),
+    uniqueIndex("lower_email").on(sql`lower(${t.email})`),
+  ], { naming: "preserve" });
+  const { statements } = generateSqliteUpStatements(
+    createSchemaSnapshot({ dialect: "sqlite", tables: [posts] }),
+  );
+  const all = statements.join("\n");
+
+  assert(
+    statements.includes(
+      'CREATE INDEX "hot_feed" ON "posts" ' +
+        '("hotScore" DESC, "createdAt" DESC, "id" DESC) ' +
+        `WHERE "status" = 'published';`,
+    ),
+    all,
+  );
+  assert(
+    statements.includes(
+      'CREATE INDEX "new_feed" ON "posts" ("createdAt" ASC, "id" DESC);',
+    ),
+    all,
+  );
+  assert(
+    statements.includes(
+      'CREATE UNIQUE INDEX "lower_email" ON "posts" ((lower("email")));',
+    ),
+    all,
+  );
+});
+
 Deno.test("parity: SQLite emits UNIQUE + inline FOREIGN KEY with actions", () => {
   const orgs = defineTable("orgs", { id: columns.integer().primaryKey() });
   const users = defineTable("users", {
@@ -80,6 +124,10 @@ Deno.test("parity: SQLite type affinity mapping", () => {
   assertEquals(generateSqliteColumnType({ kind: "number" }), "REAL");
   assertEquals(generateSqliteColumnType({ kind: "text" }), "TEXT");
   assertEquals(generateSqliteColumnType({ kind: "uuid" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "date" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "time" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "timestamp" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "timestamptz" }), "TEXT");
   assertEquals(generateSqliteColumnType({ kind: "blob" }), "BLOB");
   assertEquals(generateSqliteColumnType({ kind: "bytea" }), "BLOB");
   assertEquals(

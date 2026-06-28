@@ -75,7 +75,18 @@ export type NeonMigrator = PgMigrator;
 export interface CreateNeonMigratorOptions extends NeonExecutorOptions {
   readonly logger?: Logger;
   readonly historyTable?: string;
+  /**
+   * Wrap each migration in a transaction. Defaults to `false`: the Neon HTTP
+   * transport runs one statement per round trip and has no interactive
+   * transaction, so migrations apply statement-by-statement instead. Set `true`
+   * only with a Neon pool/WebSocket client that supports transactions.
+   */
   readonly useTransaction?: boolean;
+  /**
+   * Apply each SQL migration statement-by-statement. Defaults to `true` for
+   * Neon, since the HTTP transport accepts only one statement per call.
+   */
+  readonly splitStatements?: boolean;
 }
 
 /** Creates a Neon migration facade with a database-backed history store. */
@@ -88,6 +99,7 @@ export async function createNeonMigrator(
     executor,
     logger: options.logger,
     historyTable: options.historyTable,
-    useTransaction: options.useTransaction,
+    useTransaction: options.useTransaction ?? false,
+    splitStatements: options.splitStatements ?? true,
   });
 }

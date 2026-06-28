@@ -22,6 +22,11 @@ import {
   type WithQueryBuilder,
 } from "./builders.ts";
 import { OrmError } from "./errors.ts";
+import {
+  createFunctionCall,
+  type FunctionCall,
+  type FunctionDefinition,
+} from "./functions.ts";
 import { count } from "./operators.ts";
 import {
   createDatabaseQuery,
@@ -34,10 +39,12 @@ import {
   assertCondition,
   cloneSqlQuery,
   type Condition,
+  getResultMetadata,
   type InferProjection,
   normalizeSqlInput,
   type SelectColumnRef,
   type SelectProjection,
+  type Sql,
   type SqlDialect,
   type SqlInput,
   type SqlParameter,
@@ -48,6 +55,7 @@ import {
   assertTable,
   type TableDefinition,
 } from "./table.ts";
+import { decodeTemporalRow, type TemporalParsingOptions } from "./temporal.ts";
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
@@ -69,6 +77,13 @@ export interface OrmDriver {
     fn: (tx: OrmTransaction) => Promise<T>,
   ): Promise<T>;
 
+  /**
+   * Runs several pre-rendered statements as one atomic, non-interactive unit
+   * (`begin; …; commit`), ideally in a single round trip. Optional: when a
+   * driver omits it, {@link Database.batch} falls back to {@link transaction}.
+   */
+  batch?(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]>;
+
   close?(): Promise<void>;
 }
 
@@ -77,6 +92,12 @@ export interface OrmTransaction {
   query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>>;
   execute(query: SqlQuery): Promise<OrmQueryResult>;
 }
+
+/**
+ * Statement accepted by `Database.batch`: a query builder, `Sql` fragment, or
+ * already-rendered `SqlQuery`.
+ */
+export type BatchStatement = { toSql(): Sql } | Sql | SqlQuery;
 
 /** Schema map used to expose `db.query.<table>` relational helpers. */
 export type DatabaseSchema = Record<string, AnyTableDefinition>;
@@ -128,6 +149,16 @@ export interface Database<
   /** Counts rows in a table, optionally filtered, returning a `number`. */
   $count(table: TableDefinition, where?: Condition): Promise<number>;
 
+  /**
+   * Calls a typed database function declared with `defineFunction`, returning a
+   * caller that renders one `SELECT * FROM fn(args)` statement (casts taken from
+   * the argument column types) and runs it via `.execute()` / `.one()`.
+   */
+  call<TArgsInput, TRow>(
+    fn: FunctionDefinition<TArgsInput, TRow>,
+    args: TArgsInput,
+  ): FunctionCall<TRow>;
+
   insert<TTable extends TableDefinition>(
     table: TTable,
   ): InsertBuilder<TTable>;
@@ -144,6 +175,17 @@ export interface Database<
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T>;
 
+  /**
+   * Runs several pre-built statements as one atomic, **non-interactive**
+   * transaction — ideal for Deno Deploy / Neon HTTP, where an interactive
+   * `transaction()` callback holds a connection open. Each statement is a query
+   * builder, a `` sql`...` `` fragment, or rendered SQL; they commit together and
+   * roll back on any failure, returning one result per statement. No statement
+   * may depend on a previous one's result (that is what `transaction()` and
+   * database functions are for).
+   */
+  batch(statements: readonly BatchStatement[]): Promise<OrmQueryResult[]>;
+
   close(): Promise<void>;
 }
 
@@ -159,6 +201,8 @@ export interface DatabaseOptions<
   readonly schema?: TSchema;
   /** Relation definitions created with {@link relations}. */
   readonly relations?: TRelations;
+  /** Opt-in Temporal result parsing for ORM-built queries with column metadata. */
+  readonly temporal?: TemporalParsingOptions;
 }
 
 /** Options for the in-memory ORM driver. */
@@ -181,6 +225,7 @@ export function createDatabase<
     ...(options.relations === undefined
       ? {}
       : { relations: options.relations }),
+    ...(options.temporal === undefined ? {} : { temporal: options.temporal }),
   });
 }
 
@@ -250,6 +295,7 @@ interface SisalDatabaseOptions<
   readonly logger?: Logger;
   readonly schema?: TSchema;
   readonly relations?: TRelations;
+  readonly temporal?: TemporalParsingOptions;
 }
 
 class SisalDatabase<
@@ -262,6 +308,7 @@ class SisalDatabase<
   readonly #logger?: Logger;
   readonly #schema?: TSchema;
   readonly #relations?: TRelations;
+  readonly #temporal: TemporalParsingOptions;
   readonly #relationRegistry: RelationRegistry;
 
   constructor(options: SisalDatabaseOptions<TSchema, TRelations>) {
@@ -270,6 +317,7 @@ class SisalDatabase<
     this.#logger = options.logger;
     this.#schema = options.schema;
     this.#relations = options.relations;
+    this.#temporal = options.temporal ?? {};
     this.#relationRegistry = createRelationRegistry(options.relations ?? []);
     this.query = createDatabaseQuery<TSchema, TRelations>(
       (query, params) => this.#query(query, params),
@@ -360,6 +408,13 @@ class SisalDatabase<
     } as WithQueryBuilder;
   }
 
+  call<TArgsInput, TRow>(
+    fn: FunctionDefinition<TArgsInput, TRow>,
+    args: TArgsInput,
+  ): FunctionCall<TRow> {
+    return createFunctionCall<TRow>(this, fn, args);
+  }
+
   async $count(table: TableDefinition, where?: Condition): Promise<number> {
     assertTable(table);
     let builder = this.select({ count: count() }).from(table);
@@ -410,6 +465,7 @@ class SisalDatabase<
           ...(this.#relations === undefined
             ? {}
             : { relations: this.#relations }),
+          temporal: this.#temporal,
         });
 
         return await fn(transactionDatabase);
@@ -420,6 +476,70 @@ class SisalDatabase<
         cause: error,
       });
     }
+  }
+
+  async batch(
+    statements: readonly BatchStatement[],
+  ): Promise<OrmQueryResult[]> {
+    // Render first: an unbound placeholder throws a clear OrmError here, before
+    // anything touches the database.
+    const queries = statements.map((statement) =>
+      this.#renderBatchStatement(statement)
+    );
+    if (queries.length === 0) {
+      return [];
+    }
+
+    const startedAt = performance.now();
+    this.#debug({ statements: queries.length }, "orm batch started");
+
+    try {
+      const results = await this.#runBatch(queries);
+      this.#debug(
+        { statements: queries.length, durationMs: elapsedMs(startedAt) },
+        "orm batch completed",
+      );
+      return results;
+    } catch (error) {
+      this.#error({ statements: queries.length }, "orm batch failed");
+      if (error instanceof OrmError) {
+        throw error;
+      }
+      throw new OrmError("ORM batch failed", {
+        code: "ORM_BATCH_FAILED",
+        cause: error,
+      });
+    }
+  }
+
+  #renderBatchStatement(statement: BatchStatement): SqlQuery {
+    const input = typeof (statement as { toSql?: unknown }).toSql === "function"
+      ? (statement as { toSql(): Sql }).toSql()
+      : (statement as SqlInput);
+    return normalizeSqlInput(input, undefined, this.dialect);
+  }
+
+  async #runBatch(queries: SqlQuery[]): Promise<OrmQueryResult[]> {
+    // Prefer a driver's native batch (one round trip where supported).
+    if (this.#driver.batch !== undefined) {
+      return await this.#driver.batch(queries);
+    }
+    // Otherwise wrap the statements in one atomic transaction.
+    if (this.#driver.transaction !== undefined) {
+      return await this.#driver.transaction(async (tx) => {
+        const results: OrmQueryResult[] = [];
+        for (const query of queries) {
+          results.push(await tx.execute(query));
+        }
+        return results;
+      });
+    }
+    // A minimal driver with no transaction: run sequentially (not atomic).
+    const results: OrmQueryResult[] = [];
+    for (const query of queries) {
+      results.push(await this.#driver.execute(query));
+    }
+    return results;
   }
 
   async close(): Promise<void> {
@@ -446,7 +566,7 @@ class SisalDatabase<
         },
         "orm query completed",
       );
-      return result;
+      return this.#decodeResult(rendered, result);
     } catch (error) {
       this.#error({ sql: rendered.text }, "orm query failed");
 
@@ -476,6 +596,25 @@ class SisalDatabase<
     } catch {
       // Logging must not break queries.
     }
+  }
+
+  #decodeResult<T>(
+    query: SqlQuery,
+    result: OrmQueryResult<T>,
+  ): OrmQueryResult<T> {
+    if (this.#temporal.parse !== true) {
+      return result;
+    }
+    const metadata = getResultMetadata(query);
+    if (metadata === undefined || Object.keys(metadata).length === 0) {
+      return result;
+    }
+    return {
+      rows: result.rows.map((row) =>
+        decodeTemporalRow(row as Record<string, unknown>, metadata) as T
+      ),
+      rowCount: result.rowCount,
+    };
   }
 }
 

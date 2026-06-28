@@ -74,8 +74,9 @@ generic types rather than phantom properties on the value.
 | `integer`                                      | `columns.integer()`                                    | ✅     |
 | `bigint({ mode })`                             | `columns.bigint()` (string-typed)                      | 🟡     |
 | `boolean`                                      | `columns.boolean()`                                    | ✅     |
-| `timestamp({ withTimezone })`                  | `columns.timestamp({ withTimezone })`                  | ✅     |
-| `date`                                         | `columns.date()`                                       | ✅     |
+| `timestamp({ withTimezone, mode })`            | `columns.timestamp({ withTimezone, mode })`            | ✅     |
+| `date`                                         | `columns.date({ mode? })`                              | ✅     |
+| `time`                                         | `columns.time({ mode? })`                              | ✅     |
 | `uuid`                                         | `columns.uuid()`                                       | ✅     |
 | `json` / `jsonb`                               | `columns.json<T>()` / `columns.jsonb<T>()`             | ✅     |
 | `serial` / `bigserial`                         | `columns.serial()` / `columns.bigserial()`             | ✅     |
@@ -86,7 +87,7 @@ generic types rather than phantom properties on the value.
 | `bytea` / `blob`                               | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)          | ✅     |
 | `*.array()`                                    | `.array()`                                             | ✅     |
 | custom `pgEnum`                                | `columns.customType<T>({ kind: "enum", dialectType })` | 🟡     |
-| `time` / `interval`                            | `columns.customType<T>({ kind, dialectType })`         | ✅     |
+| `interval`                                     | `columns.customType<T>({ kind, dialectType })`         | ✅     |
 | `generatedAlwaysAsIdentity()`                  | `columns.customType<number>(...).optional()`           | ✅     |
 | `customType(...)`                              | `columns.customType<T>({ kind, dialectType })`         | ✅     |
 | `point`/geometry/`inet`/`vector`/`bit`/`money` | `columns.customType<T>({ kind, dialectType })`         | ✅     |
@@ -102,6 +103,13 @@ is `pgEnum`: enum **columns** can point at an existing enum type, but Sisal does
 not yet create/drop Postgres enum types as structured schema objects. Identity
 DDL is reachable through `customType`, but Sisal does not yet model it as
 structured metadata beyond the trusted dialect type string:
+
+Date/time columns default to Temporal rather than JS `Date`: SQL `date` maps to
+`Temporal.PlainDate`, `time` to `Temporal.PlainTime`, `timestamp` to
+`Temporal.PlainDateTime`, and `timestamptz` to `Temporal.Instant`. Use
+`mode: "date"` for legacy JS `Date` behavior or `mode: "string"` for raw text.
+Postgres DDL now emits `timestamp` for `columns.timestamp()` and `timestamptz`
+only when `withTimezone: true`.
 
 ```ts
 columns.customType<number>({
@@ -165,24 +173,34 @@ parity test.
 
 ### Constraints & indexes
 
-| Drizzle 0.45.2                                 | Sisal                                        | Status |
-| ---------------------------------------------- | -------------------------------------------- | ------ |
-| column `.unique()` / `.references()`           | emitted (`UNIQUE` / `FOREIGN KEY`)           | ✅⁵    |
-| FK actions `onDelete` / `onUpdate`             | `.references(t, c, { onDelete, onUpdate })`  | ✅     |
-| table PK `primaryKey({ columns })` (composite) | `primaryKey({ columns })` extras callback    | ✅⁶    |
-| named / composite `unique('n').on(a, b)`       | `unique('n').on(a, b)` extras callback       | ✅⁶    |
-| `index()` / `uniqueIndex()`                    | `index('n').on(...)` / `uniqueIndex().on(…)` | ✅⁶    |
-| `check('n', sql\`…\`)`                         | `check('n', sql\`…\`)` extras callback       | ✅⁶    |
+| Drizzle 0.45.2                                                      | Sisal                                           | Status |
+| ------------------------------------------------------------------- | ----------------------------------------------- | ------ |
+| column `.unique()` / `.references()`                                | emitted (`UNIQUE` / `FOREIGN KEY`)              | ✅⁵    |
+| FK actions `onDelete` / `onUpdate`                                  | `.references(t, c, { onDelete, onUpdate })`     | ✅     |
+| table PK `primaryKey({ columns })` (composite)                      | `primaryKey({ columns })` extras callback       | ✅⁶    |
+| named / composite `unique('n').on(a, b)`                            | `unique('n').on(a, b)` extras callback          | ✅⁶    |
+| `index()` / `uniqueIndex()` (+ `.on(col.desc())`, `.where()`, expr) | `index('n').on(asc/desc, sql\`…\`)`/`.where(…)` | ✅⁶    |
+| `check('n', sql\`…\`)`                                              | `check('n', sql\`…\`)` extras callback          | ✅⁶    |
 
 ⁶ **Table-level constraints use a `defineTable` extras callback**,
 Drizzle-style: `defineTable(name, columns, (t) => [...])`. The callback returns
-`primaryKey({ columns })`, `unique(name?).on(...)`, `index(name?).on(...)` /
-`uniqueIndex(name?).on(...)`, and
-`check(name, sql\`…\`)`.`UNIQUE`/`CHECK`emit
-inline in`CREATE
-TABLE`(check columns rendered unqualified for portability);
-indexes emit as separate`CREATE
-INDEX` statements (auto-named when unnamed).
+primary keys, unique constraints, indexes, unique indexes, and checks. `UNIQUE`
+/ `CHECK` emit inline in `CREATE TABLE` (check columns rendered unqualified for
+portability); indexes emit as separate `CREATE INDEX` statements (auto-named
+when unnamed).
+
+**Indexes are rich:** `.on(...)` accepts `asc()` / `desc()` terms (per-column
+`ASC` / `DESC` ordering) and `Sql` expression keys (an expression index), and
+`.where(predicate)` adds a partial-index `WHERE` clause:
+
+```ts
+index("hot")
+  .where(sql`${t.status} = "published"`)
+  .on(desc(t.hotScore), desc(t.id));
+uniqueIndex().on(sql`lower(${t.email})`);
+```
+
+Emitted across Postgres, SQLite, and libSQL.
 
 ---
 
@@ -227,35 +245,38 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 
 ## 3. Query builder
 
-| Drizzle 0.45.2                              | Sisal                               | Status |
-| ------------------------------------------- | ----------------------------------- | ------ |
-| `db.select().from(t)`                       | same                                | ✅     |
-| `db.select({ projection })`                 | same                                | ✅     |
-| `.where(...)`                               | same                                | ✅     |
-| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`    | ✅     |
-| `.limit(n)` / `.offset(n)`                  | same                                | ✅     |
-| `.innerJoin` / `.leftJoin`                  | same                                | ✅     |
-| `.rightJoin` / `.fullJoin`                  | same                                | ✅     |
-| `.groupBy(...)` / `.having(...)`            | same                                | ✅     |
-| `.distinct()`                               | same                                | ✅     |
-| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                  | ✅⁵    |
-| `union` / `unionAll`                        | `.union()` / `.unionAll()`          | ✅⁵    |
-| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()`  | ✅⁵    |
-| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`        | ✅⁵    |
-| `.$dynamic()`                               | —                                   | ❌     |
-| subquery as derived table / scalar subquery | `.as(alias)` + scalar embed         | ✅⁷    |
-| `inArray(col, subquery)`                    | same                                | ✅⁷    |
-| `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait` | ✅⁷    |
-| `db.$count(table, where?)`                  | same                                | ✅⁷    |
-| `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                  | ✅⁷    |
-| `db.insert(t).values(v)`                    | same                                | ✅     |
-| `.returning(projection?)`                   | same                                | ✅     |
-| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)              | ✅⁴    |
-| `db.update(t).set(v).where(...)`            | same                                | ✅     |
-| `db.delete(t).where(...)`                   | same                                | ✅     |
-| update/delete without `where`               | allowed (full-table)                | 🔷     |
-| `db.transaction(fn)`                        | same                                | ✅     |
-| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`        | ✅     |
+| Drizzle 0.45.2                              | Sisal                                   | Status |
+| ------------------------------------------- | --------------------------------------- | ------ |
+| `db.select().from(t)`                       | same                                    | ✅     |
+| `db.select({ projection })`                 | same                                    | ✅     |
+| `.where(...)`                               | same                                    | ✅     |
+| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`        | ✅     |
+| `.limit(n)` / `.offset(n)`                  | same                                    | ✅     |
+| `.innerJoin` / `.leftJoin`                  | same                                    | ✅     |
+| `.rightJoin` / `.fullJoin`                  | same                                    | ✅     |
+| `.groupBy(...)` / `.having(...)`            | same                                    | ✅     |
+| `.distinct()`                               | same                                    | ✅     |
+| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                      | ✅⁵    |
+| `union` / `unionAll`                        | `.union()` / `.unionAll()`              | ✅⁵    |
+| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()`      | ✅⁵    |
+| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`            | ✅⁵    |
+| `.$dynamic()`                               | —                                       | ❌     |
+| subquery as derived table / scalar subquery | `.as(alias)` + scalar embed             | ✅⁷    |
+| `inArray(col, subquery)`                    | same                                    | ✅⁷    |
+| `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait`     | ✅⁷    |
+| `db.$count(table, where?)`                  | same                                    | ✅⁷    |
+| `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                      | ✅⁷    |
+| (no equivalent)                             | `.keyset({ orderBy, after })`           | 🔷⁸    |
+| `db.insert(t).values(v)`                    | same                                    | ✅     |
+| `.returning(projection?)`                   | same                                    | ✅     |
+| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)                  | ✅⁴    |
+| `db.update(t).set(v).where(...)`            | same                                    | ✅     |
+| `sql` in `.set({...})` / `.values({...})`   | `set/values` accept `Sql` values        | ✅     |
+| `db.delete(t).where(...)`                   | same                                    | ✅     |
+| update/delete without `where`               | allowed (full-table)                    | 🔷     |
+| `db.transaction(fn)`                        | same                                    | ✅     |
+| `db.batch([...])` (non-interactive)         | `db.batch([...])` — atomic, no callback | ✅     |
+| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`            | ✅     |
 
 **Divergence (safety):** a `where`-less `update`/`delete` throws in Sisal unless
 you call `.unsafeAllowAllRows()`. Drizzle runs it. We consider the rail worth
@@ -297,6 +318,19 @@ becomes a derived table usable in `.from(...)`, with its projected columns
 referenceable as `x.col`; the same builder embeds as a parenthesized **scalar
 subquery** in projections and `where` conditions, and as the right side of
 `inArray(col, subquery)` / `notInArray`.
+
+⁸ **Keyset pagination — Sisal leads (divergence by design).** Drizzle has no
+first-class keyset/cursor helper; you hand-build the `(a, b, c) < (x, y, z)`
+comparison. Sisal's `.keyset({ orderBy, after, form? })` infers the cursor type
+from the `orderBy` columns, emits the matching predicate (the default expanded
+`or`/`and` form, or a `"row-value"` comparison for a uniform sort direction)
+plus the `ORDER BY`, and returns a builder whose `.limit(n).execute()` yields
+`{ rows, nextCursor }` (a `nextCursor` only when a full page came back). End
+`orderBy` with a unique column (e.g. the primary key) so the order is total. For
+date/time cursors, prefer DB-returned cursor values and keep a unique final
+tiebreaker; PostgreSQL timestamps store microseconds, JS `Date` stores
+milliseconds, and Temporal can represent nanoseconds. Asserted by
+`packages/orm/keyset_test.ts`.
 
 ---
 
@@ -415,7 +449,7 @@ insert-optional like Drizzle (today it stays required unless
 ### P3 — column surface ✅ done
 
 - Exposed `numeric`/`decimal`, `char`, `smallint`, `serial`, `bigserial`,
-  `real`, `doublePrecision`, and `.array()` on the builder.
+  `real`, `doublePrecision`, `time`, and `.array()` on the builder.
 - Added `.$onUpdate()`, applied automatically in the update builder.
 - _Tests:_ `parity: new column types render in DDL via snapshot` and
   `parity: .$onUpdate() injects a value on UPDATE` in the ORM parity test.

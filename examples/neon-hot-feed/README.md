@@ -56,14 +56,16 @@ deterministic and safe to index.
 ## Why `/new` is simple and `/hot` needs ranking
 
 - `/new` orders by `created_at desc, id desc` — a column that never changes. The
-  keyset is `(created_at, id)`, expressible directly with Sisal's builder
-  (`src/queries.ts → getNewFeed`).
+  keyset is `(created_at, id)` (`src/queries.ts → getNewFeed`).
 - `/hot` orders by `hot_score desc, created_at desc, id desc` — a _computed_
-  ranking column. The three-part keyset over a `double precision` column reads
-  more clearly as a raw `sql` template (`src/queries.ts → getHotFeed`).
+  ranking column. The three-part keyset over a `double precision` column
+  (`src/queries.ts → getHotFeed`).
 
-Both use **keyset (cursor) pagination, never `OFFSET`**, so deep pages stay
-cheap and pages don't shift when rows are inserted between requests.
+Both are built with Sisal's `.keyset({ orderBy, after })` helper: `/new` uses
+the default expanded `or`/`and` predicate and `/hot` the row-value form
+(`(hot_score, created_at, id) < (…)`). Both use **keyset (cursor) pagination,
+never `OFFSET`**, so deep pages stay cheap and pages don't shift when rows are
+inserted between requests.
 
 ## Important Neon note
 
@@ -87,15 +89,31 @@ non-interactive transactions, or database functions** for multi-step mutations.
 | Approach                                                                     | Round trips | Holds a session open?           | Good on Deno Deploy + Neon? |
 | ---------------------------------------------------------------------------- | ----------- | ------------------------------- | --------------------------- |
 | **Interactive transaction** (`db.transaction(tx => { read; write; write })`) | several     | **yes**, for the whole callback | least preferred             |
-| **Non-interactive transaction** (one batched `begin; …; commit`)             | one         | briefly                         | ok                          |
+| **Non-interactive transaction** (`db.batch([...])`)                          | one\*       | no                              | good                        |
 | **Single-statement atomic mutation** (one data-modifying CTE)                | one         | no                              | good                        |
 | **Database function** (`select * from app.vote_post(…)`)                     | one         | no                              | **preferred here**          |
 
-This example uses the **database function** `app.vote_post` (preferred) and, in
-`src/seed.ts`, a **single-statement** data-modifying `UPDATE … FROM` for the
-bulk recompute. It deliberately avoids a long `db.transaction` callback for the
-vote path. The driver _can_ do interactive transactions (the seed/test reset
-even uses small ones), but they are not the shape this example optimizes for.
+The **non-interactive transaction** is now first-class as `db.batch([...])`: it
+submits several pre-built statements as one atomic unit — no `tx => {...}`
+callback holding a connection open. The statements commit together and roll back
+on any failure, but none may read a previous one's result (use the database
+function or an interactive transaction for that):
+
+```ts
+await db.batch([
+  db.insert(postVotes).values({ postId, userId, value }),
+  db.update(posts).set({
+    score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
+  })
+    .where(eq(posts.columns.id, postId)),
+]); // atomic, non-interactive
+```
+
+This example still uses the **database function** `app.vote_post` for the vote
+(it needs to read the prior vote before writing), and a **single-statement**
+`UPDATE … FROM` for the bulk recompute. `db.batch` is the right tool when the
+writes are independent. _\*One round trip on drivers with a native batch; an
+atomic `begin; …; commit` otherwise._
 
 ## How to run
 
@@ -148,9 +166,15 @@ Point it at a scratch Neon branch, never production.
   CHECK, and index metadata (`src/schema.ts`).
 - Inserts — `db.insert(posts).values(…)`, `db.insert(postVotes).values(…)`
   (`src/seed.ts`).
-- The **`/new` feed**, including its `(created_at, id)` keyset predicate, built
-  entirely with `select / where / and / or / lt / eq / orderBy / limit`
-  (`src/queries.ts → getNewFeed`).
+- **Both feeds** — `/new` and `/hot` are built with
+  `.keyset({ orderBy, after })` (the expanded `or`/`and` form and the row-value
+  form respectively), including the `nextCursor` derivation, with no raw SQL
+  (`src/queries.ts`).
+- The **typed `app.vote_post` call** — `defineFunction(...)` +
+  `db.call(...).one()` renders
+  `select * from app.vote_post($1::uuid, $2::uuid, $3::smallint)` with the casts
+  taken from the argument column types and a typed result row, no raw `sql`
+  string (`src/vote.ts`).
 - `db.$count`, and parameterized one-off lookups via the `sql` tag.
 
 **Raw-SQL escape hatches (parameterized, isolated, justified):**
@@ -158,51 +182,39 @@ Point it at a scratch Neon branch, never production.
 - **`CREATE FUNCTION` migrations** — `app.calculate_hot_score` and
   `app.vote_post` (`migrations/0002…`, `0003…`). Sisal's snapshot DDL generator
   emits only additive table/column DDL.
-- **The typed database-function call** —
-  `select * from app.vote_post($1, $2,
-  $3)` via the `sql` tag with bound
-  params and `::uuid` / `::smallint` casts (`src/vote.ts`).
-- **The `/hot` feed** — a raw `sql` template for the three-column keyset over
-  the computed `hot_score` column (`src/queries.ts → getHotFeed`).
 - **The bulk recompute** — a data-modifying `UPDATE … FROM (… LEFT JOIN …)` that
   calls the hot-score function in its `SET` clause
   (`src/seed.ts →
   recomputeAggregates`).
-- **The migration runner** — a small dollar-quote-aware statement splitter
-  (`src/sql_split.ts`), because the Neon driver sends one statement per call.
+- **The migration runner** — `src/migrate.ts` reads each `.sql` file and applies
+  it one statement at a time (the Neon driver sends one statement per call),
+  using `splitSqlStatements` now shared from `@sisal/migrate`.
 
 ## Sisal API pressure points
 
-Honest gaps this example ran into. Each is a candidate for future Sisal work:
+Honest gaps this example ran into. Each is a candidate for future Sisal work.
+Several have since landed in v0.4.0: the **typed database-function caller**
+(`defineFunction` / `db.call`, now used by `src/vote.ts`), **keyset pagination**
+(`.keyset({ orderBy, after })`, now used by both feeds in `src/queries.ts`),
+**column-name mapping** (the default `snake_case` naming strategy, so
+`src/schema.ts` could use camelCase keys without changing the SQL), the
+**serverless-safe migration applier** (`splitSqlStatements` is now exported from
+`@sisal/migrate`, the migrator has a `splitStatements` apply mode, and the
+`sisal` CLI has a `provider: "neon"` target — `src/migrate.ts` uses the shared
+splitter), and **raw `sql` in `.set()` / `.values()`** (a scalar `sql`
+expression is now a valid column value).
 
-1. **No `CREATE FUNCTION` / function-call surface.** Migrations and the
-   `app.vote_post` call are raw SQL. A typed "call this function and map its
-   `RETURNS TABLE` to a row type" helper would remove the only stringly-typed
-   runtime SQL in the example.
-2. **No serverless-safe raw-SQL migration runner.** A `.sql` file holds several
-   statements, but the Neon driver (extended protocol) allows one per call, and
-   splitting on `;` breaks `$$ … $$` function bodies. We hand-rolled
-   `splitSqlStatements`. Sisal could ship a serverless-safe SQL migration
-   applier (and the `sisal` CLI currently targets `postgres`/`sqlite` adapters,
-   not a Neon-HTTP applier).
-3. **Snapshot DDL can't express this schema.** `generatePostgresUpStatements`
+1. **Snapshot DDL can't express this schema.** `generatePostgresUpStatements`
    emits additive `CREATE TABLE` / `ADD COLUMN` only — no **DESC index
    ordering**, no functions, no triggers, no partial/expression indexes. So the
    `.sql` migrations are the source of truth and `src/schema.ts` is a _typed
    mirror_ for the builder, not the generator's output.
-4. **No keyset-pagination helper.** Every feed re-implements the
-   `(a, b, c) < (x, y, z)` keyset by hand. A `keyset({ orderBy, after })` helper
-   (emitting either nested `or`/`and` or a row-value comparison) would make
-   `/hot` builder-native. Related: timestamp **precision** at page boundaries —
-   a JS `Date` cursor is millisecond precision while `timestamptz` is
-   microsecond, so a keyset helper should standardize comparison precision.
-5. **No SQL-function expressions in builder `SET`/`VALUES`.** We can't write
-   `set hot_score = app.calculate_hot_score(…)` or insert with a computed
-   default through the builder, so the bulk recompute is raw SQL.
-6. **No column-name mapping.** Sisal uses the property key as the physical
-   column name verbatim, so `src/schema.ts` uses snake_case keys to match the
-   SQL. A camelCase↔snake_case mapping option would let app code stay idiomatic
-   TS while the database stays idiomatic SQL.
+2. **No `UPDATE … FROM` / `INSERT … SELECT` in the builder.** Scalar `sql`
+   expressions in `.set()` / `.values()` now work, so a simple
+   `set hot_score = app.calculate_hot_score(score, created_at)` is
+   builder-native — but the bulk `recomputeAggregates` joins a derived table in
+   its `FROM`, and `UPDATE … FROM (subquery)` has no builder surface yet, so it
+   stays raw SQL.
 
 ## Tests
 
@@ -243,9 +255,8 @@ examples/neon-hot-feed/
     db.ts                   runtime vs admin connections
     schema.ts               typed defineTable models (builder access)
     hot.ts                  TypeScript mirror of the hot-score model
-    sql_split.ts            dollar-quote-aware statement splitter
-    migrate.ts              serverless-safe migration runner
-    queries.ts              getNewFeed (builder) + getHotFeed (raw sql)
+    migrate.ts              applies .sql files via @sisal/migrate splitter
+    queries.ts              getNewFeed + getHotFeed (both .keyset())
     vote.ts                 votePost → app.vote_post (single statement)
     seed.ts                 demo data + bulk recompute
     main.ts                 the demo
@@ -256,13 +267,17 @@ examples/neon-hot-feed/
 These gaps are written up in full — with proposed APIs, affected packages, and
 acceptance criteria — in the [v0.4.0 roadmap](../../docs/v0.4.0-roadmap.md).
 
-- A **typed database-function caller** (`db.fn(app.vote_post)(…)` mapping
-  `RETURNS TABLE` to a row type).
-- A **keyset/cursor pagination helper** with precision-aware comparisons.
-- A **serverless-safe SQL migration applier** (splitting +
-  one-statement-per-call execution) and a Neon target for the `sisal` CLI.
-- **Raw expressions in `SET` / `VALUES` / `DEFAULT`** (e.g. calling a SQL
-  function or `now()` in a builder mutation).
+- **`UPDATE … FROM` / `INSERT … SELECT`** in the builder (scalar `sql` in
+  `.set()` / `.values()` already works; the join-in-`FROM` form does not yet).
 - **Richer DDL generation**: DESC/partial/expression indexes, CHECK constraints,
   and (eventually) functions/triggers in the snapshot pipeline.
-- Optional **column-name mapping** (camelCase TS ↔ snake_case SQL).
+
+**Landed in v0.4.0** (this example now uses them): a **typed database-function
+caller** (`defineFunction` / `db.call`, see `src/vote.ts`), **keyset
+pagination** (`.keyset({ orderBy, after })`, see `src/queries.ts`),
+**column-name mapping** (the default `snake_case` naming strategy), a
+**serverless-safe migration applier** (`splitSqlStatements` from
+`@sisal/migrate`, the migrator's `splitStatements` mode, and the CLI's
+`provider: "neon"` target; `src/migrate.ts` uses the shared splitter), and **raw
+`sql` in `.set()` / `.values()`** (a scalar `sql` expression is now a valid
+column value).

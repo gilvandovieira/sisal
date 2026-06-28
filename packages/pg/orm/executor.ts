@@ -1,4 +1,4 @@
-import type { SqlParameter } from "@sisal/orm";
+import { normalizeTemporalSqlValue } from "@sisal/orm";
 
 import { toPgOrmError } from "./errors.ts";
 import {
@@ -171,6 +171,6 @@ class SisalPgExecutor implements PgSqlExecutor {
   }
 }
 
-function normalizeParams(params: readonly unknown[]): SqlParameter[] {
-  return params.map((param) => param as SqlParameter);
+function normalizeParams(params: readonly unknown[]): unknown[] {
+  return params.map(normalizeTemporalSqlValue);
 }

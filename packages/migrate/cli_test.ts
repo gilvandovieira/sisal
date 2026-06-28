@@ -4,6 +4,7 @@ import {
   buildMigrationFile,
   createAppliedMigration,
   createMigrationPlan,
+  defineConfig,
   type MigrateConfig,
   type MigrationFileSystem,
   readMigrationsDir,
@@ -13,49 +14,7 @@ import {
   runSisalCli,
   type SisalCliAdapter,
   type SisalCliMigrator,
-  splitSqlStatements,
 } from "./cli.ts";
-
-Deno.test("splitSqlStatements: splits on top-level semicolons", () => {
-  assertEquals(splitSqlStatements("select 1; select 2;"), [
-    "select 1;",
-    "select 2;",
-  ]);
-  // Semicolons inside strings, identifiers, and comments are not terminators.
-  assertEquals(splitSqlStatements("insert into t values ('a;b'); select 1;"), [
-    "insert into t values ('a;b');",
-    "select 1;",
-  ]);
-  assertEquals(
-    splitSqlStatements("select 1 -- a; b\n; select 2;"),
-    ["select 1 -- a; b\n;", "select 2;"],
-  );
-});
-
-Deno.test("splitSqlStatements: dollar-quoted bodies stay whole", () => {
-  // `$$ … ; … $$` — a plpgsql body's internal semicolons are not terminators.
-  const fn = "create function f() returns int as $$ begin return 1; end; $$ " +
-    "language plpgsql;";
-  assertEquals(splitSqlStatements(`${fn} select 1;`), [fn, "select 1;"]);
-
-  // Tagged dollar quotes (`$body$ … $body$`) with several internal statements.
-  const tagged =
-    "create function g() returns void as $body$ begin perform 1; perform 2; " +
-    "end; $body$ language plpgsql;";
-  assertEquals(
-    splitSqlStatements(`${tagged} create table t (id int);`),
-    [tagged, "create table t (id int);"],
-  );
-
-  // `$1`/`$2` parameter placeholders are not dollar quotes.
-  assertEquals(
-    splitSqlStatements("update t set a = $1 where id = $2; select 3;"),
-    [
-      "update t set a = $1 where id = $2;",
-      "select 3;",
-    ],
-  );
-});
 
 function fakeFs(): MigrationFileSystem & {
   readonly files: Map<string, string>;
@@ -93,7 +52,7 @@ function fakeFs(): MigrationFileSystem & {
 }
 
 const snapshotV1: SisalSchemaSnapshot = {
-  version: 1,
+  version: 2,
   dialect: "sqlite",
   tables: [
     {
@@ -107,7 +66,7 @@ const snapshotV1: SisalSchemaSnapshot = {
 };
 
 const snapshotV2: SisalSchemaSnapshot = {
-  version: 1,
+  version: 2,
   dialect: "sqlite",
   tables: [
     {
@@ -439,6 +398,95 @@ Deno.test("sisal cli - init scaffolds libsql target as sqlite dialect", async ()
   assertStringIncludes(config, 'dialect: "sqlite"');
   assertStringIncludes(config, "TURSO_DATABASE_URL");
   assertStringIncludes(config, "TURSO_AUTH_TOKEN");
+});
+
+Deno.test("sisal cli - init scaffolds neon target (postgres dialect, neon provider)", async () => {
+  const fs = fakeFs();
+
+  const code = await runSisalCli(["init", "--target", "neon"], {
+    fs,
+    stdout() {},
+    stderr() {},
+  });
+  const config = fs.files.get("sisal.migrate.ts") ?? "";
+
+  assertEquals(code, 0);
+  assertStringIncludes(config, 'dialect: "postgres"');
+  assertStringIncludes(config, 'provider: "neon"');
+  assertStringIncludes(config, "DATABASE_URL");
+});
+
+Deno.test("sisal cli - migrate applies a neon-provider config (postgres dialect)", async () => {
+  const fs = fakeFs();
+  const file = buildMigrationFile({
+    sequence: 1,
+    name: "initial",
+    statements: ['CREATE TABLE "users" ("id" TEXT NOT NULL);'],
+    snapshot: snapshotV1,
+  });
+  await writeMigrationFile(fs, "migrations", file);
+
+  const out: string[] = [];
+  let createMigratorCalled = false;
+  const adapter: SisalCliAdapter = {
+    generateUpStatements() {
+      return { statements: [], destructive: [] };
+    },
+    createMigrator() {
+      createMigratorCalled = true;
+      return Promise.resolve({
+        migrate(options) {
+          return Promise.resolve({
+            direction: "up",
+            dryRun: false,
+            executed: options.migrations.map((m) => createAppliedMigration(m)),
+            skipped: [],
+            executionMs: 0,
+          });
+        },
+        plan(options) {
+          return Promise.resolve(
+            createMigrationPlan([...options.migrations], []),
+          );
+        },
+      });
+    },
+  };
+  // Neon keeps the postgres dialect; the injected postgres adapter is used.
+  const config: MigrateConfig = {
+    dir: "migrations",
+    dialect: "postgres",
+    provider: "neon",
+    databaseUrl: "postgres://example.neon.tech/db",
+    snapshot: snapshotV1,
+  };
+
+  const code = await runSisalCli(["migrate"], {
+    config,
+    fs,
+    adapters: { postgres: adapter },
+    stdout: (line) => out.push(line),
+  });
+
+  assertEquals(code, 0);
+  assertEquals(createMigratorCalled, true);
+  assertStringIncludes(out.join("\n"), "Applied 1 migration(s): 0001_initial");
+});
+
+Deno.test("defineConfig accepts the neon provider and rejects unknown providers", () => {
+  assertEquals(
+    defineConfig({ dir: "migrations", dialect: "postgres", provider: "neon" })
+      .provider,
+    "neon",
+  );
+  let threw = false;
+  try {
+    // deno-lint-ignore no-explicit-any -- an unsupported provider value
+    defineConfig({ dir: "migrations", provider: "mysql" as any });
+  } catch {
+    threw = true;
+  }
+  assertEquals(threw, true);
 });
 
 Deno.test("sisal cli - init rejects an unknown target and lists supported ones", async () => {

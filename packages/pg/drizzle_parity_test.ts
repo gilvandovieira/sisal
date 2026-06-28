@@ -9,10 +9,12 @@
  */
 import { assert, assertEquals } from "@std/assert";
 import {
+  asc,
   check,
   columns,
   createSchemaSnapshot,
   defineTable,
+  desc,
   index,
   primaryKey,
   sql,
@@ -60,6 +62,50 @@ Deno.test("parity: table extras — composite PK, named unique, check, indexes",
   );
 });
 
+Deno.test("parity: rich indexes — direction, partial WHERE, expression keys", () => {
+  const posts = defineTable("posts", {
+    id: columns.integer(),
+    status: columns.text(),
+    hotScore: columns.integer(),
+    createdAt: columns.timestamp(),
+    email: columns.text(),
+  }, (t) => [
+    // DESC keyset ordering + a partial-index predicate.
+    index("hot_feed")
+      .where(sql`${t.status} = 'published'`)
+      .on(desc(t.hotScore), desc(t.createdAt), desc(t.id)),
+    // Mixed direction.
+    index("new_feed").on(asc(t.createdAt), desc(t.id)),
+    // Expression index key.
+    uniqueIndex("lower_email").on(sql`lower(${t.email})`),
+  ], { naming: "preserve" });
+  const { statements } = generatePostgresUpStatements(
+    createSchemaSnapshot({ dialect: "postgres", tables: [posts] }),
+  );
+  const all = statements.join("\n");
+
+  assert(
+    statements.includes(
+      'CREATE INDEX "hot_feed" ON "posts" ' +
+        '("hotScore" DESC, "createdAt" DESC, "id" DESC) ' +
+        `WHERE "status" = 'published';`,
+    ),
+    all,
+  );
+  assert(
+    statements.includes(
+      'CREATE INDEX "new_feed" ON "posts" ("createdAt" ASC, "id" DESC);',
+    ),
+    all,
+  );
+  assert(
+    statements.includes(
+      'CREATE UNIQUE INDEX "lower_email" ON "posts" ((lower("email")));',
+    ),
+    all,
+  );
+});
+
 Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => {
   assertEquals(generatePostgresColumnType({ kind: "uuid" }), "uuid");
   assertEquals(
@@ -69,11 +115,15 @@ Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => 
   assertEquals(generatePostgresColumnType({ kind: "integer" }), "integer");
   assertEquals(generatePostgresColumnType({ kind: "boolean" }), "boolean");
   assertEquals(generatePostgresColumnType({ kind: "jsonb" }), "jsonb");
-  // Divergence: `timestamp` maps to `timestamptz` in Sisal's Postgres DDL.
   assertEquals(
     generatePostgresColumnType({ kind: "timestamp" }),
+    "timestamp",
+  );
+  assertEquals(
+    generatePostgresColumnType({ kind: "timestamptz" }),
     "timestamptz",
   );
+  assertEquals(generatePostgresColumnType({ kind: "time" }), "time");
   assertEquals(generatePostgresColumnType({ kind: "bytea" }), "bytea");
   assertEquals(
     generatePostgresColumnType({ kind: "text", array: true }),
@@ -82,7 +132,6 @@ Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => 
   for (
     const [type, ddl] of [
       [{ kind: "enum", dialectType: "post_status" }, "post_status"],
-      [{ kind: "time", dialectType: "time" }, "time"],
       [{ kind: "interval", dialectType: "interval" }, "interval"],
       [{ kind: "point", dialectType: "point" }, "point"],
       [

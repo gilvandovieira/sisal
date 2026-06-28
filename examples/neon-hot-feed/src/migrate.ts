@@ -3,8 +3,13 @@
  *
  * Applies migrations/*.sql in order. Because the Neon serverless driver allows
  * one statement per call (extended protocol), each file is split into single
- * statements via {@link splitSqlStatements} and executed one at a time. All DDL
- * is idempotent (`IF NOT EXISTS` / `CREATE OR REPLACE`), so re-running is safe.
+ * statements via `splitSqlStatements` — the shared, dollar-quote-aware splitter
+ * now exported from `@sisal/migrate` — and executed one at a time. All DDL is
+ * idempotent (`IF NOT EXISTS` / `CREATE OR REPLACE`), so re-running is safe.
+ *
+ * A history-tracking alternative is `createNeonMigrator` from `@sisal/neon` (or
+ * the `sisal` CLI with a `provider: "neon"` config), which applies each `.sql`
+ * file statement-by-statement and records applied migrations.
  *
  *   deno run --env-file=.env --allow-env --allow-net --allow-read src/migrate.ts
  *   deno run --env-file=.env --allow-env --allow-net --allow-read src/migrate.ts --reset
@@ -15,9 +20,9 @@
  */
 
 import { raw } from "@sisal/orm";
+import { splitSqlStatements } from "@sisal/migrate";
 import type { NeonDatabase } from "@sisal/neon";
 import { openAdminDb } from "./db.ts";
-import { splitSqlStatements } from "./sql_split.ts";
 
 /** Migration files, applied in this order. */
 export const MIGRATION_FILES = [

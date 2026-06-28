@@ -7,7 +7,7 @@
  * @module
  */
 
-export const SCHEMA_SNAPSHOT_VERSION = 1 as const;
+export const SCHEMA_SNAPSHOT_VERSION = 2 as const;
 
 /** SQL dialect names understood by Sisal schema snapshots. */
 export type SisalDialectName =
@@ -94,11 +94,38 @@ export interface SisalPrimaryKeySnapshot {
   readonly metadata?: Record<string, unknown>;
 }
 
+/**
+ * A single key in an index: a column or a raw SQL expression, with an optional
+ * sort direction.
+ */
+export interface SisalIndexColumnSnapshot {
+  /** Column physical name, or a raw SQL expression when `expression` is true. */
+  readonly value: string;
+  /** Sort direction for this key; omit for the dialect default (ascending). */
+  readonly direction?: "asc" | "desc";
+  /**
+   * When true, `value` is a raw SQL expression emitted verbatim (an expression
+   * index such as `lower("email")`); otherwise `value` is quoted as an
+   * identifier.
+   *
+   * **Trusted input.** Expression text is emitted into DDL unsanitized — set it
+   * only from developer-authored schema code. See `docs/security.md` (SEC-006).
+   */
+  readonly expression?: boolean;
+}
+
 /** Serializable index descriptor. */
 export interface SisalIndexSnapshot {
   readonly name?: string;
-  readonly columns: readonly string[];
+  readonly columns: readonly SisalIndexColumnSnapshot[];
   readonly unique?: boolean;
+  /**
+   * Partial-index predicate, emitted verbatim as `WHERE <predicate>`.
+   *
+   * **Trusted input.** Emitted into DDL unsanitized — set it only from
+   * developer-authored schema code. See `docs/security.md` (SEC-006).
+   */
+  readonly where?: string;
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -176,7 +203,7 @@ export function validateSchemaSnapshot(
     issues.push(issue(
       "SCHEMA_INVALID_VERSION",
       "version",
-      "Schema snapshot version must be 1",
+      `Schema snapshot version must be ${SCHEMA_SNAPSHOT_VERSION}`,
     ));
   }
 
@@ -558,11 +585,22 @@ function normalizePrimaryKey(
 function normalizeIndex(value: SisalIndexSnapshot): SisalIndexSnapshot {
   return {
     ...(value.name === undefined ? {} : { name: value.name }),
-    columns: [...value.columns],
+    columns: value.columns.map(normalizeIndexColumn),
     ...(value.unique === undefined ? {} : { unique: value.unique }),
+    ...(value.where === undefined ? {} : { where: value.where }),
     ...(value.metadata === undefined
       ? {}
       : { metadata: cloneRecord(value.metadata) }),
+  };
+}
+
+function normalizeIndexColumn(
+  value: SisalIndexColumnSnapshot,
+): SisalIndexColumnSnapshot {
+  return {
+    value: value.value,
+    ...(value.direction === undefined ? {} : { direction: value.direction }),
+    ...(value.expression === undefined ? {} : { expression: value.expression }),
   };
 }
 
@@ -669,7 +707,7 @@ function validateTable(
     `${path}.primaryKey`,
     issues,
   );
-  validateNamedColumnLists(table.indexes, columns, `${path}.indexes`, issues);
+  validateIndexes(table.indexes, columns, `${path}.indexes`, issues);
   validateNamedColumnLists(
     table.uniqueConstraints,
     columns,
@@ -764,10 +802,7 @@ function validateForeignKeyTargets(
 }
 
 function validateNamedColumnLists(
-  values:
-    | readonly SisalIndexSnapshot[]
-    | readonly SisalUniqueConstraintSnapshot[]
-    | undefined,
+  values: readonly SisalUniqueConstraintSnapshot[] | undefined,
   columns: Set<string>,
   path: string,
   issues: SisalSchemaIssue[],
@@ -779,6 +814,39 @@ function validateNamedColumnLists(
       `${path}[${index}]`,
       issues,
     );
+  }
+}
+
+// Indexes carry structured keys (`{ value, direction?, expression? }`); only a
+// plain-column key references a real column, while an expression key holds raw
+// SQL and is not checked against the table's columns.
+function validateIndexes(
+  values: readonly SisalIndexSnapshot[] | undefined,
+  columns: Set<string>,
+  path: string,
+  issues: SisalSchemaIssue[],
+): void {
+  for (let index = 0; index < (values ?? []).length; index += 1) {
+    const keys = values?.[index].columns;
+    const indexPath = `${path}[${index}]`;
+    if (keys === undefined || !Array.isArray(keys) || keys.length === 0) {
+      issues.push(issue(
+        "SCHEMA_INVALID_CONSTRAINT",
+        `${indexPath}.columns`,
+        "Constraint columns must be a non-empty array",
+      ));
+      continue;
+    }
+    for (let key = 0; key < keys.length; key += 1) {
+      const column = keys[key];
+      if (column.expression !== true && !columns.has(column.value)) {
+        issues.push(issue(
+          "SCHEMA_UNKNOWN_COLUMN",
+          `${indexPath}.columns[${key}]`,
+          "Constraint column does not exist",
+        ));
+      }
+    }
   }
 }
 
@@ -838,12 +906,21 @@ function compareTables(
 }
 
 function compareNamed(
-  left: { readonly name?: string; readonly columns?: readonly string[] },
-  right: { readonly name?: string; readonly columns?: readonly string[] },
+  left: {
+    readonly name?: string;
+    readonly columns?: readonly (string | SisalIndexColumnSnapshot)[];
+  },
+  right: {
+    readonly name?: string;
+    readonly columns?: readonly (string | SisalIndexColumnSnapshot)[];
+  },
 ): number {
-  const leftKey = left.name ?? (left.columns ?? []).join(",");
-  const rightKey = right.name ?? (right.columns ?? []).join(",");
-  return leftKey.localeCompare(rightKey);
+  const key = (value: typeof left): string =>
+    value.name ??
+      (value.columns ?? [])
+        .map((column) => typeof column === "string" ? column : column.value)
+        .join(",");
+  return key(left).localeCompare(key(right));
 }
 
 function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {

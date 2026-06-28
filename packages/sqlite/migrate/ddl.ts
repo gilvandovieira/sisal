@@ -15,6 +15,7 @@ import {
   type SisalColumnDefault,
   type SisalColumnSnapshot,
   type SisalColumnType,
+  type SisalIndexColumnSnapshot,
   type SisalSchemaSnapshot,
   type SisalTableSnapshot,
 } from "@sisal/orm";
@@ -152,8 +153,21 @@ export function generateSqliteCreateTable(
 }
 
 /** Default index name when one is not provided (`table_col1_col2_idx`). */
-function sqliteIndexName(table: string, columns: readonly string[]): string {
-  return `${table}_${columns.join("_")}_idx`;
+function sqliteIndexName(
+  table: string,
+  columns: readonly SisalIndexColumnSnapshot[],
+): string {
+  return `${table}_${columns.map((column) => column.value).join("_")}_idx`;
+}
+
+/** Renders one index key: a quoted column or a raw expression, plus direction. */
+function renderSqliteIndexColumn(column: SisalIndexColumnSnapshot): string {
+  const base = column.expression === true
+    ? `(${column.value})`
+    : quoteSqliteIdent(column.value);
+  if (column.direction === "desc") return `${base} DESC`;
+  if (column.direction === "asc") return `${base} ASC`;
+  return base;
 }
 
 /** Generates `CREATE [UNIQUE] INDEX` statements for a table's indexes. */
@@ -162,13 +176,16 @@ export function generateSqliteIndexes(table: SisalTableSnapshot): string[] {
     .filter((index) => index.columns.length > 0)
     .map((index) => {
       const unique = index.unique === true ? "UNIQUE " : "";
-      const columns = index.columns.map(quoteSqliteIdent).join(", ");
+      const columns = index.columns.map(renderSqliteIndexColumn).join(", ");
       const name = quoteSqliteIdent(
         index.name ?? sqliteIndexName(table.name, index.columns),
       );
+      const where = index.where === undefined || index.where.trim() === ""
+        ? ""
+        : ` WHERE ${index.where}`;
       return `CREATE ${unique}INDEX ${name} ON ${
         quoteSqliteIdent(table.name)
-      } (${columns});`;
+      } (${columns})${where};`;
     });
 }
 

@@ -79,9 +79,9 @@ const users = defineTable("users", {
   balance: columns.numeric(12, 2).notNull().default("0.00"),
   metadata: columns.jsonb<{ role?: string }>(),
   tags: columns.text().array(),
-  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+  createdAt: columns.timestamp({ withTimezone: true, mode: "date" }).notNull(),
   // `$onUpdate` recomputes the value on every UPDATE.
-  updatedAt: columns.timestamp({ withTimezone: true })
+  updatedAt: columns.timestamp({ withTimezone: true, mode: "date" })
     .$onUpdate(() => new Date()),
 });
 
@@ -109,9 +109,9 @@ const allTypes = defineTable("all_types", {
   c_bool: columns.boolean(),
   c_json: columns.json(),
   c_jsonb: columns.jsonb(),
-  c_date: columns.date(),
-  c_ts: columns.timestamp(),
-  c_tstz: columns.timestamp({ withTimezone: true }),
+  c_date: columns.date({ mode: "date" }),
+  c_ts: columns.timestamp({ mode: "date" }),
+  c_tstz: columns.timestamp({ withTimezone: true, mode: "date" }),
   c_uuid: columns.uuid(),
   c_text_arr: columns.text().array(),
   c_blob: columns.bytea(),
@@ -165,7 +165,7 @@ function generation(): void {
       }),
       defineTable("audits", { // additive CREATE TABLE
         id: columns.uuid().primaryKey(),
-        at: columns.timestamp({ withTimezone: true }).notNull(),
+        at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull(),
       }),
     ],
   });

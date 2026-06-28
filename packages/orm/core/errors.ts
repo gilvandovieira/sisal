@@ -15,6 +15,7 @@ export type OrmErrorCode =
   | "ORM_DRIVER_MISSING"
   | "ORM_EXECUTE_FAILED"
   | "ORM_TRANSACTION_FAILED"
+  | "ORM_BATCH_FAILED"
   | "ORM_SERIALIZATION_FAILED"
   | "ORM_UNKNOWN_ERROR"
   | (string & Record<never, never>);

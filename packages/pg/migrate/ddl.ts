@@ -14,6 +14,7 @@ import {
   type SisalColumnDefault,
   type SisalColumnSnapshot,
   type SisalColumnType,
+  type SisalIndexColumnSnapshot,
   type SisalSchemaSnapshot,
   type SisalTableSnapshot,
 } from "@sisal/orm";
@@ -61,8 +62,6 @@ function pgBaseType(type: SisalColumnType): string {
     case "double":
     case "float":
       return "double precision";
-    case "timestamp":
-      return "timestamptz";
     default:
       return type.kind;
   }
@@ -137,8 +136,21 @@ export function generatePostgresCreateTable(
 }
 
 /** Default index name when one is not provided (`table_col1_col2_idx`). */
-function pgIndexName(table: string, columns: readonly string[]): string {
-  return `${table}_${columns.join("_")}_idx`;
+function pgIndexName(
+  table: string,
+  columns: readonly SisalIndexColumnSnapshot[],
+): string {
+  return `${table}_${columns.map((column) => column.value).join("_")}_idx`;
+}
+
+/** Renders one index key: a quoted column or a raw expression, plus direction. */
+function renderPgIndexColumn(column: SisalIndexColumnSnapshot): string {
+  const base = column.expression === true
+    ? `(${column.value})`
+    : quotePgIdent(column.value);
+  if (column.direction === "desc") return `${base} DESC`;
+  if (column.direction === "asc") return `${base} ASC`;
+  return base;
 }
 
 /** Generates `CREATE [UNIQUE] INDEX` statements for a table's indexes. */
@@ -147,13 +159,16 @@ export function generatePostgresIndexes(table: SisalTableSnapshot): string[] {
     .filter((index) => index.columns.length > 0)
     .map((index) => {
       const unique = index.unique === true ? "UNIQUE " : "";
-      const columns = index.columns.map(quotePgIdent).join(", ");
+      const columns = index.columns.map(renderPgIndexColumn).join(", ");
       const name = quotePgIdent(
         index.name ?? pgIndexName(table.name, index.columns),
       );
+      const where = index.where === undefined || index.where.trim() === ""
+        ? ""
+        : ` WHERE ${index.where}`;
       return `CREATE ${unique}INDEX ${name} ON ${
         pgQualifiedName(table)
-      } (${columns});`;
+      } (${columns})${where};`;
     });
 }
 

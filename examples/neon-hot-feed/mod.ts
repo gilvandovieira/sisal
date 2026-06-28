@@ -19,7 +19,8 @@
 export * from "./src/db.ts";
 export * from "./src/schema.ts";
 export * from "./src/hot.ts";
-export * from "./src/sql_split.ts";
+// The dollar-quote-aware SQL splitter now ships in @sisal/migrate.
+export { splitSqlStatements } from "@sisal/migrate";
 export * from "./src/queries.ts";
 export * from "./src/vote.ts";
 export * from "./src/seed.ts";

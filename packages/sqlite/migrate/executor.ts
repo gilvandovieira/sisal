@@ -1,5 +1,7 @@
 import { MigrationError } from "@sisal/migrate";
 
+import { normalizeTemporalSqlValue } from "@sisal/orm";
+
 import { toSqliteMigrationError } from "./errors.ts";
 import { type SqliteLikeDatabase, statementReturnsRows } from "./database.ts";
 
@@ -67,13 +69,14 @@ class SisalSqliteExecutor implements SqlExecutor {
   ): Promise<QueryResult<Row>> {
     try {
       const statement = this.#db.prepare(sql);
+      const normalizedParams = params.map(normalizeTemporalSqlValue);
 
       if (statementReturnsRows(sql)) {
-        const rows = statement.all(...params) as Row[];
+        const rows = statement.all(...normalizedParams) as Row[];
         return Promise.resolve({ rows, rowCount: rows.length });
       }
 
-      const changes = statement.run(...params);
+      const changes = statement.run(...normalizedParams);
       return Promise.resolve({
         rows: [],
         rowCount: typeof changes === "number" ? changes : 0,

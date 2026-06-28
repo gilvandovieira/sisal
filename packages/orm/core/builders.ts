@@ -7,18 +7,23 @@
 
 import type { Database, OrmQueryResult } from "./database.ts";
 import { OrmError } from "./errors.ts";
-import { asc, desc } from "./operators.ts";
+import { and, asc, desc } from "./operators.ts";
 import {
   assertCondition,
+  attachResultMetadata,
   columnToSql,
   type Condition,
+  createCondition,
   emptySql,
   fillPreparedPlan,
+  getResultMetadata,
   identifier,
   type InferProjection,
   isColumn,
+  isOrderTerm,
   isSql,
   joinSql,
+  type OrderTerm,
   paramSql,
   type PlaceholderValues,
   type PreparedPlan,
@@ -31,6 +36,7 @@ import {
   sql,
   type SqlQuery,
 } from "./sql.ts";
+import type { ResultColumnMetadata, ResultRowMetadata } from "./temporal.ts";
 import {
   assertTable,
   assertTableColumn,
@@ -52,6 +58,51 @@ type SelectFromResult<TSource extends SelectFromSource, TResult> =
       unknown extends TResult ? InferSelect<TSource> : TResult
     >
     : SelectBuilder<unknown, TResult>;
+
+/** The union of JS property keys carried by a tuple of {@link OrderTerm}s. */
+export type KeysetKeys<TTerms> = TTerms extends readonly OrderTerm<infer TKey>[]
+  ? TKey
+  : never;
+
+/** The cursor shape for a keyset over `TResult`, keyed by the ordered columns. */
+export type KeysetCursor<TResult, TKeys extends string> = {
+  readonly [K in TKeys & keyof TResult]: TResult[K];
+};
+
+/** Options for {@link SelectBuilder.keyset}. */
+export interface KeysetOptions<
+  TResult,
+  TTerms extends readonly OrderTerm[],
+> {
+  /**
+   * Ordered `asc()`/`desc()` terms. End with a unique column (e.g. the primary
+   * key) so the keyset is a total order.
+   */
+  readonly orderBy: TTerms;
+  /** The cursor to page after (a previous `nextCursor`); omit for the first page. */
+  readonly after?: KeysetCursor<TResult, KeysetKeys<TTerms>>;
+  /**
+   * Predicate shape: nested `or`/`and` (`"expanded"`, the default, works with
+   * mixed directions and every dialect) or a SQL row-value comparison
+   * (`"row-value"`, e.g. `(a, b) < (x, y)`, which requires a single direction).
+   */
+  readonly form?: "expanded" | "row-value";
+}
+
+/** A page returned by a keyset query: the rows plus the cursor for the next page. */
+export interface KeysetPage<TRow, TCursor> {
+  readonly rows: TRow[];
+  /** Cursor for the next page, or `null` when this was the last (partial) page. */
+  readonly nextCursor: TCursor | null;
+}
+
+/** A keyset-paginated select; set the page size with `.limit(n)` then run it. */
+export interface KeysetSelectBuilder<TRow, TCursor> {
+  /** Sets the page size. Required to derive a `nextCursor`. */
+  limit(count: number): KeysetSelectBuilder<TRow, TCursor>;
+  toSql(): Sql;
+  execute(): Promise<KeysetPage<TRow, TCursor>>;
+}
 
 /** Fluent builder for `SELECT` queries. */
 export interface SelectBuilder<TTable, TResult> {
@@ -108,6 +159,20 @@ export interface SelectBuilder<TTable, TResult> {
   limit(count: number): SelectBuilder<TTable, TResult>;
 
   offset(count: number): SelectBuilder<TTable, TResult>;
+
+  /**
+   * Keyset (cursor) pagination over `orderBy`. Emits the matching `WHERE`
+   * comparison against `after` (a previous page's `nextCursor`; omit for the
+   * first page) plus the `ORDER BY`, and returns a builder whose `.execute()`
+   * yields `{ rows, nextCursor }`. Set the page size with `.limit(n)`.
+   *
+   * Always end `orderBy` with a unique column (e.g. the primary key) so the
+   * comparison is total. For date/time cursors, prefer database-returned cursor
+   * values so adapter precision is preserved at page boundaries.
+   */
+  keyset<const TTerms extends readonly OrderTerm[]>(
+    options: KeysetOptions<TResult, TTerms>,
+  ): KeysetSelectBuilder<TResult, KeysetCursor<TResult, KeysetKeys<TTerms>>>;
 
   /**
    * Row-level locking (`FOR UPDATE` / `FOR SHARE`) — Postgres/MySQL only.
@@ -247,13 +312,29 @@ export interface WithQueryBuilder {
   ): SelectBuilder<unknown, InferProjection<TProjection>>;
 }
 
+/**
+ * Insert row values: each column accepts its literal type or a {@link Sql}
+ * expression. Literals bind as parameters; `Sql` values render inline.
+ */
+export type InsertValues<TTable extends TableDefinition> = {
+  readonly [K in keyof InferInsert<TTable>]: InferInsert<TTable>[K] | Sql;
+};
+
+/**
+ * Update/upsert assignments: each column set to its literal type or a `Sql`
+ * expression, all columns optional (`UPDATE ... SET`).
+ */
+export type UpdateValues<TTable extends TableDefinition> = Partial<
+  InsertValues<TTable>
+>;
+
 /** Fluent builder for `INSERT` queries. */
 export interface InsertBuilder<
   TTable extends TableDefinition,
   TReturn = InferSelect<TTable>,
 > {
   values(
-    value: InferInsert<TTable> | InferInsert<TTable>[],
+    value: InsertValues<TTable> | InsertValues<TTable>[],
   ): InsertBuilder<TTable, TReturn>;
 
   /** `ON CONFLICT [(target)] DO NOTHING`. */
@@ -265,7 +346,7 @@ export interface InsertBuilder<
   onConflictDoUpdate(
     config: {
       readonly target: unknown | readonly unknown[];
-      readonly set: Partial<InferInsert<TTable>>;
+      readonly set: UpdateValues<TTable>;
       readonly where?: Condition;
     },
   ): InsertBuilder<TTable, TReturn>;
@@ -289,7 +370,7 @@ export interface UpdateBuilder<
   TReturn = InferSelect<TTable>,
 > {
   set(
-    values: Partial<InferInsert<TTable>>,
+    values: UpdateValues<TTable>,
   ): UpdateBuilder<TTable, TReturn>;
 
   where(condition: Condition): UpdateBuilder<TTable, TReturn>;
@@ -697,6 +778,38 @@ export class SisalSelectBuilder<TTable, TResult>
     return this.#with({ offset: normalizeNonNegativeInteger(count, "offset") });
   }
 
+  keyset<const TTerms extends readonly OrderTerm[]>(
+    options: KeysetOptions<TResult, TTerms>,
+  ): KeysetSelectBuilder<TResult, KeysetCursor<TResult, KeysetKeys<TTerms>>> {
+    const terms = normalizeKeysetTerms(options.orderBy);
+    const keysetCondition = options.after === undefined
+      ? undefined
+      : createCondition(
+        keysetPredicate(
+          terms,
+          options.after as Record<string, unknown>,
+          options.form ?? "expanded",
+        ),
+      );
+    const condition = this.#state.condition === undefined
+      ? keysetCondition
+      : keysetCondition === undefined
+      ? this.#state.condition
+      : and(this.#state.condition, keysetCondition);
+    const builder = new SisalSelectBuilder<TTable, TResult>(this.#database, {
+      ...this.#state,
+      ...(condition === undefined ? {} : { condition }),
+      orderBy: terms.map((term) => term.term),
+    });
+    return new SisalKeysetSelectBuilder<
+      TResult,
+      KeysetCursor<TResult, KeysetKeys<TTerms>>
+    >(
+      builder as unknown as SelectBuilder<unknown, TResult>,
+      terms.map((term) => term.key),
+    );
+  }
+
   toSql(): Sql {
     const {
       table,
@@ -811,7 +924,10 @@ export class SisalSelectBuilder<TTable, TResult>
       }
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      selectResultMetadata(table, projection),
+    );
   }
 
   prepare(name?: string): PreparedQuery<TResult[]> {
@@ -833,6 +949,162 @@ export class SisalSelectBuilder<TTable, TResult>
     return this.#with({
       joins: [...this.#state.joins, { kind, table, on }],
     });
+  }
+}
+
+/** Internal: an order term resolved to its column, key, and direction. */
+interface NormalizedKeysetTerm {
+  readonly term: OrderTerm;
+  readonly key: string;
+  readonly column: unknown;
+  readonly direction: "asc" | "desc";
+}
+
+function normalizeKeysetTerms(
+  orderBy: readonly OrderTerm[],
+): NormalizedKeysetTerm[] {
+  if (!Array.isArray(orderBy) || orderBy.length === 0) {
+    throw new OrmError("keyset requires at least one orderBy term", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return orderBy.map((term) => {
+    if (!isOrderTerm(term)) {
+      throw new OrmError("keyset orderBy expects asc()/desc() terms", {
+        code: "ORM_INVALID_QUERY",
+      });
+    }
+    const column = term.column;
+    if (!isColumn(column)) {
+      throw new OrmError("keyset orderBy terms must be table columns", {
+        code: "ORM_INVALID_COLUMN",
+      });
+    }
+    return {
+      term,
+      key: column.propertyName ?? column.name,
+      column,
+      direction: term.direction,
+    };
+  });
+}
+
+function keysetPredicate(
+  terms: readonly NormalizedKeysetTerm[],
+  after: Record<string, unknown>,
+  form: "expanded" | "row-value",
+): Sql {
+  const values = terms.map((term) => {
+    if (!Object.hasOwn(after, term.key)) {
+      throw new OrmError("keyset cursor is missing a column value", {
+        code: "ORM_INVALID_QUERY",
+        details: { column: term.key },
+      });
+    }
+    return after[term.key];
+  });
+  return form === "row-value"
+    ? rowValueKeysetSql(terms, values)
+    : expandedKeysetSql(terms, values);
+}
+
+// `(a < $1) or (a = $2 and b < $3) or ...` — the lexicographic "after the
+// cursor" comparison, honoring each column's own direction. Always valid.
+function expandedKeysetSql(
+  terms: readonly NormalizedKeysetTerm[],
+  values: readonly unknown[],
+): Sql {
+  const clauses = terms.map((term, index) => {
+    const parts: Sql[] = [];
+    for (let j = 0; j < index; j += 1) {
+      parts.push(sql`${columnToSql(terms[j].column)} = ${values[j]}`);
+    }
+    const comparator = term.direction === "desc" ? "<" : ">";
+    parts.push(
+      sql`${columnToSql(term.column)} ${raw(comparator)} ${values[index]}`,
+    );
+    return joinSql(
+      [raw("("), joinSql(parts, raw(" and ")), raw(")")],
+      emptySql(),
+    );
+  });
+  return joinSql(clauses, raw(" or "));
+}
+
+// `(a, b, c) < ($1, $2, $3)` — a SQL row-value comparison. Requires a single
+// direction across all terms; Postgres/SQLite/MySQL support row values.
+function rowValueKeysetSql(
+  terms: readonly NormalizedKeysetTerm[],
+  values: readonly unknown[],
+): Sql {
+  if (new Set(terms.map((term) => term.direction)).size > 1) {
+    throw new OrmError(
+      'keyset form "row-value" requires a single sort direction',
+      { code: "ORM_INVALID_QUERY" },
+    );
+  }
+  const comparator = terms[0].direction === "desc" ? "<" : ">";
+  return joinSql([
+    raw("("),
+    joinSql(terms.map((term) => columnToSql(term.column)), raw(", ")),
+    raw(") "),
+    raw(comparator),
+    raw(" ("),
+    joinSql(values.map((value) => paramSql(value)), raw(", ")),
+    raw(")"),
+  ], emptySql());
+}
+
+class SisalKeysetSelectBuilder<TRow, TCursor>
+  implements KeysetSelectBuilder<TRow, TCursor> {
+  readonly #builder: SelectBuilder<unknown, TRow>;
+  readonly #keys: readonly string[];
+  readonly #limit?: number;
+
+  constructor(
+    builder: SelectBuilder<unknown, TRow>,
+    keys: readonly string[],
+    limit?: number,
+  ) {
+    this.#builder = builder;
+    this.#keys = keys;
+    if (limit !== undefined) {
+      this.#limit = limit;
+    }
+  }
+
+  limit(count: number): KeysetSelectBuilder<TRow, TCursor> {
+    return new SisalKeysetSelectBuilder<TRow, TCursor>(
+      this.#builder.limit(count),
+      this.#keys,
+      Math.floor(count),
+    );
+  }
+
+  toSql(): Sql {
+    return this.#builder.toSql();
+  }
+
+  async execute(): Promise<KeysetPage<TRow, TCursor>> {
+    const rows = await this.#builder.execute();
+    return { rows, nextCursor: this.#nextCursor(rows) };
+  }
+
+  // A nextCursor exists only when a full page came back (rows.length === limit);
+  // a short page is the last page.
+  #nextCursor(rows: readonly TRow[]): TCursor | null {
+    if (
+      this.#limit === undefined || rows.length === 0 ||
+      rows.length < this.#limit
+    ) {
+      return null;
+    }
+    const last = rows[rows.length - 1] as Record<string, unknown>;
+    const cursor: Record<string, unknown> = {};
+    for (const key of this.#keys) {
+      cursor[key] = last[key];
+    }
+    return cursor as TCursor;
   }
 }
 
@@ -985,10 +1257,15 @@ function prepareRows<T>(
   name: string | undefined,
 ): PreparedQuery<T[]> {
   const plan = renderToPlan(query, database.dialect);
-  return new SisalPreparedQuery<T[]>(plan, name, async (rendered) => {
-    const result = await database.query<T>(rendered);
-    return result.rows;
-  });
+  return new SisalPreparedQuery<T[]>(
+    plan,
+    name,
+    getResultMetadata(query),
+    async (rendered) => {
+      const result = await database.query<T>(rendered);
+      return result.rows;
+    },
+  );
 }
 
 /** Renders a builder once into a {@link PreparedQuery} returning the result. */
@@ -1001,6 +1278,7 @@ function prepareResult<T>(
   return new SisalPreparedQuery<OrmQueryResult<T>>(
     plan,
     name,
+    getResultMetadata(query),
     (rendered) => database.execute<T>(rendered),
   );
 }
@@ -1009,14 +1287,17 @@ class SisalPreparedQuery<TExecuteResult>
   implements PreparedQuery<TExecuteResult> {
   readonly name?: string;
   readonly #plan: PreparedPlan;
+  readonly #metadata?: ResultRowMetadata;
   readonly #run: (query: SqlQuery) => Promise<TExecuteResult>;
 
   constructor(
     plan: PreparedPlan,
     name: string | undefined,
+    metadata: ResultRowMetadata | undefined,
     run: (query: SqlQuery) => Promise<TExecuteResult>,
   ) {
     this.#plan = plan;
+    this.#metadata = metadata;
     if (name !== undefined) {
       this.name = name;
     }
@@ -1024,7 +1305,10 @@ class SisalPreparedQuery<TExecuteResult>
   }
 
   toSql(values: PlaceholderValues = {}): SqlQuery {
-    return fillPreparedPlan(this.#plan, values);
+    return attachResultMetadata(
+      fillPreparedPlan(this.#plan, values),
+      this.#metadata,
+    );
   }
 
   execute(values: PlaceholderValues = {}): Promise<TExecuteResult> {
@@ -1049,6 +1333,36 @@ function projectionSql(projection: SelectProjection): Sql {
   );
 }
 
+function selectResultMetadata(
+  table: TableDefinition | undefined,
+  projection: SelectProjection | undefined,
+): ResultRowMetadata | undefined {
+  if (projection !== undefined) {
+    return projectionResultMetadata(projection);
+  }
+  return table === undefined ? undefined : tableResultMetadata(table);
+}
+
+function projectionResultMetadata(
+  projection: SelectProjection,
+): ResultRowMetadata | undefined {
+  const metadata: Record<string, ResultColumnMetadata> = {};
+  for (const [alias, value] of Object.entries(projection)) {
+    if (isColumn(value)) {
+      metadata[alias] = value;
+    }
+  }
+  return Object.keys(metadata).length === 0 ? undefined : metadata;
+}
+
+function tableResultMetadata(table: TableDefinition): ResultRowMetadata {
+  const metadata: Record<string, ResultColumnMetadata> = {};
+  for (const [propertyName, column] of Object.entries(table.columns)) {
+    metadata[propertyName] = column;
+  }
+  return metadata;
+}
+
 function returningSql(
   returning: SelectProjection | boolean,
   table: TableDefinition,
@@ -1060,6 +1374,19 @@ function returningSql(
     return joinSql([raw(" returning "), tableSelectionSql(table)], emptySql());
   }
   return joinSql([raw(" returning "), projectionSql(returning)], emptySql());
+}
+
+function returningResultMetadata(
+  returning: SelectProjection | boolean,
+  table: TableDefinition,
+): ResultRowMetadata | undefined {
+  if (returning === false) {
+    return undefined;
+  }
+  if (returning === true) {
+    return tableResultMetadata(table);
+  }
+  return projectionResultMetadata(returning);
 }
 
 // The column list for `SELECT *` / `RETURNING *` over a table. When every column
@@ -1177,14 +1504,14 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
   implements InsertBuilder<TTable> {
   readonly #database: Database;
   readonly #table: TTable;
-  readonly #rows?: Array<InferInsert<TTable>>;
+  readonly #rows?: Array<InsertValues<TTable>>;
   readonly #returning: SelectProjection | boolean;
   readonly #conflict?: InsertConflict;
 
   constructor(
     database: Database,
     table: TTable,
-    rows?: Array<InferInsert<TTable>>,
+    rows?: Array<InsertValues<TTable>>,
     returning: SelectProjection | boolean = false,
     conflict?: InsertConflict,
   ) {
@@ -1196,7 +1523,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
   }
 
   values(
-    value: InferInsert<TTable> | InferInsert<TTable>[],
+    value: InsertValues<TTable> | InsertValues<TTable>[],
   ): InsertBuilder<TTable> {
     const rows = Array.isArray(value) ? value : [value];
 
@@ -1235,7 +1562,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
   onConflictDoUpdate(
     config: {
       readonly target: unknown | readonly unknown[];
-      readonly set: Partial<InferInsert<TTable>>;
+      readonly set: UpdateValues<TTable>;
       readonly where?: Condition;
     },
   ): InsertBuilder<TTable> {
@@ -1299,9 +1626,12 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
       this.#rows.map((row) =>
         sql`(${
           joinSql(
-            columnNames.map((name) =>
-              paramSql((row as Record<string, unknown>)[name])
-            ),
+            columnNames.map((name) => {
+              const value = (row as Record<string, unknown>)[name];
+              // A `Sql` expression (e.g. sql`now()`) renders inline; any other
+              // value binds as a parameter.
+              return isSql(value) ? value : paramSql(value);
+            }),
           )
         })`
       ),
@@ -1325,7 +1655,10 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
       parts.push(returning);
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      returningResultMetadata(this.#returning, this.#table),
+    );
   }
 
   prepare(name?: string): PreparedQuery<OrmQueryResult<InferSelect<TTable>>> {
@@ -1345,7 +1678,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
   implements UpdateBuilder<TTable> {
   readonly #database: Database;
   readonly #table: TTable;
-  readonly #values?: Partial<InferInsert<TTable>>;
+  readonly #values?: UpdateValues<TTable>;
   readonly #condition?: Condition;
   readonly #allowAllRows: boolean;
   readonly #returning: SelectProjection | boolean;
@@ -1353,7 +1686,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
   constructor(
     database: Database,
     table: TTable,
-    values?: Partial<InferInsert<TTable>>,
+    values?: UpdateValues<TTable>,
     condition?: Condition,
     allowAllRows = false,
     returning: SelectProjection | boolean = false,
@@ -1366,7 +1699,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
     this.#returning = returning;
   }
 
-  set(values: Partial<InferInsert<TTable>>): UpdateBuilder<TTable> {
+  set(values: UpdateValues<TTable>): UpdateBuilder<TTable> {
     return new SisalUpdateBuilder(
       this.#database,
       this.#table,
@@ -1460,7 +1793,10 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
       parts.push(returning);
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      returningResultMetadata(this.#returning, this.#table),
+    );
   }
 
   prepare(name?: string): PreparedQuery<OrmQueryResult<InferSelect<TTable>>> {
@@ -1556,7 +1892,10 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
       parts.push(returning);
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      returningResultMetadata(this.#returning, this.#table),
+    );
   }
 
   prepare(name?: string): PreparedQuery<OrmQueryResult<InferSelect<TTable>>> {
@@ -1585,7 +1924,7 @@ function physicalColumnName(
 
 function getInsertColumnNames<TTable extends TableDefinition>(
   table: TTable,
-  rows: Array<InferInsert<TTable>>,
+  rows: Array<InsertValues<TTable>>,
 ): string[] {
   const names = new Set<string>();
 
@@ -1603,7 +1942,7 @@ function getInsertColumnNames<TTable extends TableDefinition>(
 
 function getDefinedEntries<TTable extends TableDefinition>(
   table: TTable,
-  values: Partial<InferInsert<TTable>>,
+  values: UpdateValues<TTable>,
 ): Array<[string, unknown]> {
   const entries: Array<[string, unknown]> = [];
 

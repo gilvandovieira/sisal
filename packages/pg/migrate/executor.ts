@@ -1,3 +1,5 @@
+import { normalizeTemporalSqlValue } from "@sisal/orm";
+
 import { toPgMigrationError } from "./errors.ts";
 import {
   type PgClient,
@@ -188,7 +190,7 @@ class SisalPgExecutor implements SqlExecutor {
     try {
       const result: PgDriverResult<Row> = await client.queryObject<Row>(
         sql,
-        [...params],
+        params.map(normalizeTemporalSqlValue),
       );
 
       return {
