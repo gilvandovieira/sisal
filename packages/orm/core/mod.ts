@@ -172,6 +172,7 @@ export type {
 } from "./relations.ts";
 export { createDatabase, memoryOrmDriver, noopOrmDriver } from "./database.ts";
 export type {
+  BatchStatement,
   Database,
   DatabaseOptions,
   DatabaseQuery,

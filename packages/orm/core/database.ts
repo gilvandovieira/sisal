@@ -44,6 +44,7 @@ import {
   normalizeSqlInput,
   type SelectColumnRef,
   type SelectProjection,
+  type Sql,
   type SqlDialect,
   type SqlInput,
   type SqlParameter,
@@ -76,6 +77,13 @@ export interface OrmDriver {
     fn: (tx: OrmTransaction) => Promise<T>,
   ): Promise<T>;
 
+  /**
+   * Runs several pre-rendered statements as one atomic, non-interactive unit
+   * (`begin; …; commit`), ideally in a single round trip. Optional: when a
+   * driver omits it, {@link Database.batch} falls back to {@link transaction}.
+   */
+  batch?(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]>;
+
   close?(): Promise<void>;
 }
 
@@ -84,6 +92,12 @@ export interface OrmTransaction {
   query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>>;
   execute(query: SqlQuery): Promise<OrmQueryResult>;
 }
+
+/**
+ * A statement accepted by {@link Database.batch}: a query builder (anything with
+ * `toSql()`), a `` sql`...` `` fragment, or already-rendered {@link SqlQuery}.
+ */
+export type BatchStatement = { toSql(): Sql } | Sql | SqlQuery;
 
 /** Schema map used to expose `db.query.<table>` relational helpers. */
 export type DatabaseSchema = Record<string, AnyTableDefinition>;
@@ -160,6 +174,17 @@ export interface Database<
   transaction<T>(
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T>;
+
+  /**
+   * Runs several pre-built statements as one atomic, **non-interactive**
+   * transaction — ideal for Deno Deploy / Neon HTTP, where an interactive
+   * `transaction()` callback holds a connection open. Each statement is a query
+   * builder, a `` sql`...` `` fragment, or rendered SQL; they commit together and
+   * roll back on any failure, returning one result per statement. No statement
+   * may depend on a previous one's result (that is what `transaction()` and
+   * database functions are for).
+   */
+  batch(statements: readonly BatchStatement[]): Promise<OrmQueryResult[]>;
 
   close(): Promise<void>;
 }
@@ -451,6 +476,70 @@ class SisalDatabase<
         cause: error,
       });
     }
+  }
+
+  async batch(
+    statements: readonly BatchStatement[],
+  ): Promise<OrmQueryResult[]> {
+    // Render first: an unbound placeholder throws a clear OrmError here, before
+    // anything touches the database.
+    const queries = statements.map((statement) =>
+      this.#renderBatchStatement(statement)
+    );
+    if (queries.length === 0) {
+      return [];
+    }
+
+    const startedAt = performance.now();
+    this.#debug({ statements: queries.length }, "orm batch started");
+
+    try {
+      const results = await this.#runBatch(queries);
+      this.#debug(
+        { statements: queries.length, durationMs: elapsedMs(startedAt) },
+        "orm batch completed",
+      );
+      return results;
+    } catch (error) {
+      this.#error({ statements: queries.length }, "orm batch failed");
+      if (error instanceof OrmError) {
+        throw error;
+      }
+      throw new OrmError("ORM batch failed", {
+        code: "ORM_BATCH_FAILED",
+        cause: error,
+      });
+    }
+  }
+
+  #renderBatchStatement(statement: BatchStatement): SqlQuery {
+    const input = typeof (statement as { toSql?: unknown }).toSql === "function"
+      ? (statement as { toSql(): Sql }).toSql()
+      : (statement as SqlInput);
+    return normalizeSqlInput(input, undefined, this.dialect);
+  }
+
+  async #runBatch(queries: SqlQuery[]): Promise<OrmQueryResult[]> {
+    // Prefer a driver's native batch (one round trip where supported).
+    if (this.#driver.batch !== undefined) {
+      return await this.#driver.batch(queries);
+    }
+    // Otherwise wrap the statements in one atomic transaction.
+    if (this.#driver.transaction !== undefined) {
+      return await this.#driver.transaction(async (tx) => {
+        const results: OrmQueryResult[] = [];
+        for (const query of queries) {
+          results.push(await tx.execute(query));
+        }
+        return results;
+      });
+    }
+    // A minimal driver with no transaction: run sequentially (not atomic).
+    const results: OrmQueryResult[] = [];
+    for (const query of queries) {
+      results.push(await this.#driver.execute(query));
+    }
+    return results;
   }
 
   async close(): Promise<void> {
