@@ -4,6 +4,8 @@
 
 # Sisal
 
+Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
+
 Sisal is a Deno-first database toolkit, published to JSR, for typed schemas,
 safe SQL, query builders, migration planning, and small adapter packages.
 
