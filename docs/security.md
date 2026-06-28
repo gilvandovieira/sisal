@@ -23,9 +23,9 @@ private disclosure, see
 
 ## Audit basis & methodology
 
-- **Last full audit:** 2026-06-27, branch `release/0.2.0` @
-  `fac83f1f94c1d5b79cd5c5f1c8b14bd979714cf3`; Deno 2.8.3 / V8 14.9 / TypeScript
-  6.0.3; 166 tracked files.
+- **Last full audit:** 2026-06-28, branch `release/0.3.0` @
+  `3f3a9a49005af2f00695816b44af92471c5e7a28`; Deno 2.8.3 / V8 14.9 / TypeScript
+  6.0.3; 176 tracked files.
 - **Scope:** `packages/{orm,migrate,pg,sqlite,libsql,neon}`, `tools`, `scripts`,
   `.github/workflows`, `docker`, `integration`, `examples`, `benchmarks`,
   `docs`, and the root/package manifests + `deno.lock`. Binary assets were
@@ -40,17 +40,29 @@ This is a **living document**: statuses are updated as fixes land, so they may
 be ahead of the audited commit. Line citations are as of that commit unless a
 resolved finding cites current code by function name.
 
+**0.3.0 surface review.** This refresh re-examined the new public surface added
+since the 0.2.0 audit: the P7 query-builder additions (`distinctOn`, `for`
+locking, `$count`, `countDistinct`, derived-table/scalar subqueries), the
+`exists`/`notExists` predicates, the Postgres array operators, and
+`columns.customType`. Operator and subquery values remain bound parameters with
+table-qualified identifiers, so they add no new untrusted-string surface. The
+`customType` factory exposes the snapshot's existing trusted `dialectType`
+escape hatch (developer-authored, emitted verbatim into DDL), already governed
+by [SEC-006](#sec-006). The SQLite executor was hardened to serialize work on
+its single connection so unrelated calls cannot interleave inside an open
+transaction.
+
 ### Validation at the audited commit
 
 | Command                                | Result                                                                                |
 | -------------------------------------- | ------------------------------------------------------------------------------------- |
-| `deno fmt --check`                     | Pass (140 files)                                                                      |
-| `deno lint`                            | Pass (100 files)                                                                      |
+| `deno fmt --check`                     | Pass (149 files)                                                                      |
+| `deno lint`                            | Pass (105 files)                                                                      |
 | `deno task check`                      | Pass                                                                                  |
-| `deno task test`                       | Pass (113 → now 121 passed)                                                           |
-| `deno task docs:check`                 | Pass (31/31 modules; 413 → now 418 JSDoc)                                             |
+| `deno task test`                       | Pass (139 passed)                                                                     |
+| `deno task docs:check`                 | Pass (31/31 modules; 441 JSDoc)                                                       |
 | `deno publish --dry-run --allow-dirty` | Pass (two expected unanalyzable dynamic imports in `packages/migrate/cli.ts`)         |
-| `tools/check_release_version.ts 0.2.0` | Pass                                                                                  |
+| `tools/check_release_version.ts 0.3.0` | Pass                                                                                  |
 | OSV npm querybatch                     | Pass — 33 npm packages, **0 vulnerabilities**                                         |
 | OSV `JSR`/`Deno` ecosystem probe       | Limitation — OSV returns `Invalid ecosystem`; JSR advisory coverage cannot be claimed |
 

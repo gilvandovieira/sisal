@@ -55,15 +55,39 @@ class SisalSqliteExecutor implements SqliteSqlExecutor {
   readonly #db: SqliteLikeDatabase;
   readonly #ownsDatabase: boolean;
   #closed = false;
+  // Promise-chain mutex. SQLite is single-connection, so every `execute` and
+  // every `transaction` runs as one serialized unit on this tail. While a
+  // transaction's BEGIN…COMMIT slot is held, any other `execute`/`transaction`
+  // on this same facade queues behind it instead of leaking into the open
+  // transaction.
+  #tail: Promise<unknown> = Promise.resolve();
 
   constructor(db: SqliteLikeDatabase, ownsDatabase: boolean) {
     this.#db = db;
     this.#ownsDatabase = ownsDatabase;
   }
 
+  // Appends `work` to the serialization tail and returns its result. The tail
+  // swallows errors so one failed unit never blocks the queue, while callers
+  // still observe the original rejection.
+  #enqueue<T>(work: () => Promise<T>): Promise<T> {
+    const result = this.#tail.then(work, work);
+    this.#tail = result.then(() => {}, () => {});
+    return result;
+  }
+
   execute<Row = Record<string, unknown>>(
     sql: string,
     params: readonly unknown[] = [],
+  ): Promise<SqliteQueryResult<Row>> {
+    return this.#enqueue(() => this.#runStatement<Row>(sql, params));
+  }
+
+  // Runs one prepared statement directly, without touching the queue. Only call
+  // this from inside a held serialization slot (an `execute`/`transaction`).
+  #runStatement<Row>(
+    sql: string,
+    params: readonly unknown[],
   ): Promise<SqliteQueryResult<Row>> {
     try {
       const statement = this.#db.prepare(sql);
@@ -89,25 +113,40 @@ class SisalSqliteExecutor implements SqliteSqlExecutor {
   }
 
   // SQLite is single-connection, so a transaction wraps the same database in
-  // BEGIN/COMMIT and rolls back on failure.
-  async transaction<T>(
+  // BEGIN/COMMIT and rolls back on failure. The whole BEGIN…COMMIT runs in one
+  // serialization slot, and the callback receives a scoped executor whose calls
+  // run inside that held slot — so the transaction owns the connection
+  // exclusively for its duration. The scoped executor deliberately omits
+  // `transaction`, so a nested transaction runs inline (SQLite cannot nest
+  // BEGINs) rather than deadlocking on the held slot.
+  transaction<T>(
     fn: (tx: SqliteSqlExecutor) => Promise<T>,
   ): Promise<T> {
-    await this.execute("begin");
+    return this.#enqueue(async () => {
+      const tx: SqliteSqlExecutor = {
+        execute: <Row = Record<string, unknown>>(
+          sql: string,
+          params: readonly unknown[] = [],
+        ): Promise<SqliteQueryResult<Row>> =>
+          this.#runStatement<Row>(sql, params),
+      };
 
-    try {
-      const result = await fn(this);
-      await this.execute("commit");
-      return result;
-    } catch (error) {
+      await this.#runStatement("begin", []);
+
       try {
-        await this.execute("rollback");
-      } catch {
-        // Preserve the original query/transaction failure.
-      }
+        const result = await fn(tx);
+        await this.#runStatement("commit", []);
+        return result;
+      } catch (error) {
+        try {
+          await this.#runStatement("rollback", []);
+        } catch {
+          // Preserve the original query/transaction failure.
+        }
 
-      throw error;
-    }
+        throw error;
+      }
+    });
   }
 
   close(): Promise<void> {

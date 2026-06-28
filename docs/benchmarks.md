@@ -50,24 +50,31 @@ Pure, synchronous generation: build the statement and render it to
 of **one simple query** — building and rendering a single parameterized
 `SELECT … WHERE id = ?` (the baseline, `1.0×`).
 
-| Operation                                |     Relative cost |
-| ---------------------------------------- | ----------------: |
-| Render a prepared query (AST → SQL)      |              0.4× |
-| Build a simple query (`toSql`)           |              0.5× |
-| Delete                                   |              0.7× |
-| **Build + render a simple query**        |   **1.0×** (base) |
-| Select                                   |              1.1× |
-| Insert (1 row, returning)                |              1.3× |
-| Update                                   |              1.5× |
-| `and(...)` — 4 conditions                |              2.8× |
-| Build + render a complex query¹          |             10.5× |
-| `and(...)` — 32 conditions               |             16.4× |
-| Insert (100 rows)                        |               31× |
-| Schema snapshot — 1 / 3 / 12 tables      | 1.3× / 2.7× / 10× |
-| Migration DDL — CREATE (3 tables)        |              2.1× |
-| Migration DDL — additive diff (+1 table) |              3.6× |
+| Operation                                |       Relative cost |
+| ---------------------------------------- | ------------------: |
+| Render a prepared query (AST → SQL)      |               ~0.4× |
+| Build a simple query (`toSql`)           |               ~0.5× |
+| Delete                                   |               ~0.7× |
+| **Build + render a simple query**        |     **1.0×** (base) |
+| Select                                   |                 ~1× |
+| Insert (1 row, returning)                |                 ~1× |
+| Update                                   |               ~1.5× |
+| `and(...)` — 4 conditions                |                 ~3× |
+| CTE / union / intersect + except²        | ~5× / ~3.5× / ~4.5× |
+| Build + render a complex query¹          |                ~10× |
+| `and(...)` — 32 conditions               |                ~16× |
+| Insert (100 rows)                        |                ~30× |
+| Schema snapshot — 1 / 3 / 12 tables      |  ~1.5× / ~3× / ~10× |
+| Migration DDL — CREATE (3 tables)        |               ~2.5× |
+| Migration DDL — additive diff (+1 table) |                 ~4× |
 
-¹ A join + group + having + order query.
+¹ A join + group + having + order query. ² Build + render a CTE (`WITH …`), a
+two-select `UNION`, and a three-select `INTERSECT`/`EXCEPT` chain.
+
+Microbenchmarks are noisy, so every figure here is **rounded to an order of
+magnitude** — read them as "about the same," "a few ×," or "~10× / ~30×", not as
+exact ratios. Re-run `deno task bench` and the absolute timings (and the small
+ratios) will wobble; the magnitudes hold.
 
 **Takeaways.**
 
@@ -77,8 +84,8 @@ of **one simple query** — building and rendering a single parameterized
   renderer**: the immutable, clone-per-method builder chain is where the time
   goes, not the SQL string rendering.
 - **Dialect is free.** Rendering the same AST for Postgres (`$1`, native
-  `ILIKE`) vs SQLite (`?`, `ilike → like`) differs by ~2% — the operator
-  translation costs nothing measurable.
+  `ILIKE`) vs SQLite (`?`, `ilike → like`) differs by only a few percent —
+  within run-to-run noise, so the operator translation costs nothing measurable.
 - Bulk insert, snapshot, and DDL costs scale **linearly** with table/row count.
 
 > The migration-DDL path was made **~2× cheaper** by computing the schema diff
@@ -98,16 +105,17 @@ Postgres backs `@sisal/pg` and `@sisal/neon`; SQLite backs `@sisal/sqlite` and
 
 | Operation             | Postgres — Sisal vs Drizzle | SQLite — Sisal vs Drizzle |
 | --------------------- | :-------------------------: | :-----------------------: |
-| simple select         |         2.1× faster         |        2.1× faster        |
-| filtered select       |         2.7× faster         |        2.5× faster        |
-| insert + returning    |         5.8× faster         |        4.4× faster        |
-| bulk insert (50 rows) |        10.8× faster         |        4.8× faster        |
-| update                |         4.8× faster         |        3.5× faster        |
-| delete                |         3.7× faster         |        3.2× faster        |
+| simple select         |        ~2.5× faster         |        ~2× faster         |
+| filtered select       |        ~2.5× faster         |       ~2.5× faster        |
+| CTE select            |        ~2.5× faster         |       ~2.5× faster        |
+| insert + returning    |         ~6× faster          |        ~5× faster         |
+| bulk insert (50 rows) |         ~10× faster         |        ~5× faster         |
+| update                |         ~5× faster          |       ~3.5× faster        |
+| delete                |        ~3.5× faster         |        ~3× faster         |
 
 **Takeaways.**
 
-- Sisal generates SQL **~2×–11× faster** than Drizzle across every operation and
+- Sisal generates SQL **~2×–10× faster** than Drizzle across every operation and
   both dialects.
 - The widest gap is **Postgres bulk insert** — Drizzle's per-row parameter
   encoding for the pg dialect is its costliest step, and it compounds with row
@@ -127,11 +135,11 @@ each ORM's dispatch + row mapping. Row count is the stressor.
 
 | Result size | Postgres — Sisal vs Drizzle | SQLite — Sisal vs Drizzle |
 | ----------- | :-------------------------: | :-----------------------: |
-| 1 row       |         2.1× faster         |        2.1× faster        |
-| 100 rows    |         4.8× faster         |        4.6× faster        |
-| 1000 rows   |        14.9× faster         |       15.6× faster        |
+| 1 row       |         ~2× faster          |        ~2× faster         |
+| 100 rows    |        ~4.5× faster         |       ~4.5× faster        |
+| 1000 rows   |         ~15× faster         |        ~15× faster        |
 
-Per row, Drizzle's mapping costs roughly **26× as much as Sisal's**.
+Per row, Drizzle's mapping costs **well over 10× as much as Sisal's**.
 
 **Takeaways.**
 

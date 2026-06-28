@@ -12,41 +12,44 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (21 tests)     |
-| Last run      | 2026-06-27 — **21 / 21 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (24 tests)     |
+| Last run      | 2026-06-28 — **24 / 24 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
 
 ## Matrix
 
-| Feature                                                      | SQLite 3.46 |
-| ------------------------------------------------------------ | :---------: |
-| **Connection** — `connect({ path })`, parameterized SQL      |     ✅      |
-| **Generated DDL applies** — affinity mapping of all types    |     ✅      |
-| **Insert** — `values`, multi-row, `returning`                |     ✅      |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`             |     ✅      |
-| **Pattern** — `like` / `notLike`                             |     ✅      |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)      |     ✅      |
-| **Range** — `between` / `notBetween`                         |     ✅      |
-| **Set** — `inArray` / `notInArray`                           |     ✅      |
-| **Null** — `isNull` / `isNotNull`                            |     ✅      |
-| **Logical** — `and` `or` `not`                               |     ✅      |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`    |     ✅      |
-| **Distinct**                                                 |     ✅      |
-| **Joins** — `inner` / `left`                                 |     ✅      |
-| **Joins** — `right` / `full` (SQLite ≥ 3.39)                 |     ✅      |
-| **Aggregates** — `count` `sum` `avg` `min` `max`             |     ✅      |
-| **Group / filter** — `groupBy`, `having`                     |     ✅      |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`        |     ✅      |
-| **Delete** — `where`, `returning`                            |     ✅      |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`    |     ✅      |
-| **Transactions** — commit + rollback on error                |     ✅      |
-| **Boolean** — round-trip                                     |     ⚠️      |
-| **JSON / JSONB** — object round-trip                         |     ⚠️      |
-| **Arrays** — `text[]` round-trip                             |     ⚠️      |
-| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)        |     ✅      |
-| **Migrator** — apply, plan, history table, idempotent re-run |     ✅      |
+| Feature                                                            | SQLite 3.46 |
+| ------------------------------------------------------------------ | :---------: |
+| **Connection** — `connect({ path })`, parameterized SQL            |     ✅      |
+| **Generated DDL applies** — affinity mapping of all types          |     ✅      |
+| **Insert** — `values`, multi-row, `returning`                      |     ✅      |
+| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                   |     ✅      |
+| **Pattern** — `like` / `notLike`                                   |     ✅      |
+| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)            |     ✅      |
+| **Range** — `between` / `notBetween`                               |     ✅      |
+| **Set** — `inArray` / `notInArray`                                 |     ✅      |
+| **Null** — `isNull` / `isNotNull`                                  |     ✅      |
+| **Logical** — `and` `or` `not`                                     |     ✅      |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`          |     ✅      |
+| **Distinct**                                                       |     ✅      |
+| **Joins** — `inner` / `left`                                       |     ✅      |
+| **Joins** — `right` / `full` (SQLite ≥ 3.39)                       |     ✅      |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                   |     ✅      |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`        |     ✅      |
+| **Subquery** — `exists` / `notExists` (correlated)                 |     ✅      |
+| **Subquery** — derived table `.as()`, scalar, `inArray(subquery)`  |     ✅      |
+| **Group / filter** — `groupBy`, `having`                           |     ✅      |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`              |     ✅      |
+| **Delete** — `where`, `returning`                                  |     ✅      |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`          |     ✅      |
+| **Transactions** — commit + rollback, single-connection serialized |     ✅      |
+| **Boolean** — round-trip                                           |     ⚠️      |
+| **JSON / JSONB** — object round-trip                               |     ⚠️      |
+| **Arrays** — `text[]` round-trip                                   |     ⚠️      |
+| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)              |     ✅      |
+| **Migrator** — apply, plan, history table, idempotent re-run       |     ✅      |
 
 ### Column types via the DDL test
 
@@ -79,6 +82,10 @@ Every generated type maps onto one of SQLite's five affinities and the
   under a table-level `PRIMARY KEY`, which is not SQLite's rowid alias — provide
   ids yourself, or use a single `INTEGER PRIMARY KEY` column for rowid behavior.
 - **`right`/`full` joins need SQLite ≥ 3.39** (the bundled engine is 3.46).
+- **Postgres-only operators are not available here.** `.distinctOn(...)`,
+  `.for("update" | "share")` row locking, and the array operators
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`) target PostgreSQL; SQLite
+  has no equivalent.
 
 ## Reproduce
 

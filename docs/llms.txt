@@ -1,0 +1,35 @@
+# Sisal
+
+> Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
+
+Workspace package version: 0.3.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
+
+Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
+
+## Primary Documentation
+
+- [Full LLM Context](https://gilvandovieira.github.io/sisal/llms-full.txt): Generated combined context from Sisal docs, package manifests, and exported API docs.
+- [API Reference](https://gilvandovieira.github.io/sisal/api.html): Complete reference for the public API of every Sisal package, generated from a full read of the source. Sisal is a Deno-first database toolkit, published to JSR, made of six packages with strict boundaries:
+- [Migration Notes](https://gilvandovieira.github.io/sisal/migration-notes.html): Sisal replaces the earlier ORM and migration package direction with a focused database toolkit.
+- [Drizzle Parity](https://gilvandovieira.github.io/sisal/drizzle-parity.html): This is the guiding document for how Sisal's API evolves. It maps every relevant part of the Drizzle ORM 0.45.2 surface to Sisal, records where we intentionally diverge, and lays out the roadmap to close the gaps...
+- [PostgreSQL compatibility](https://gilvandovieira.github.io/sisal/pg-compatibility.html): Sisal's PostgreSQL adapter (@sisal/pg) is verified end-to-end against a real server on every supported major version. The suite connects with the bundled jsr:@db/postgres@0.19.5 driver, applies generated DDL, and...
+- [Neon compatibility](https://gilvandovieira.github.io/sisal/neon-compatibility.html): Sisal's Neon adapter (@sisal/neon) targets Neon serverless PostgreSQL. It speaks the Postgres wire protocol over a WebSocket via jsr:@neon/serverless and **reuses the Postgres SQL dialect and DDL**, so its feature...
+- [SQLite compatibility](https://gilvandovieira.github.io/sisal/sqlite-compatibility.html): Sisal's SQLite adapter (@sisal/sqlite) is verified end-to-end against a real, embedded SQLite database. The suite opens a temp file with the bundled jsr:@db/sqlite driver, applies generated DDL, and exercises every...
+- [libSQL / Turso compatibility](https://gilvandovieira.github.io/sisal/libsql-compatibility.html): Sisal's libSQL adapter (@sisal/libsql) is verified end-to-end against a real libSQL database. libSQL is a SQLite fork, so the SQL surface matches SQLite; what differs is the **connection** — a local file:, an...
+- [Benchmarks](https://gilvandovieira.github.io/sisal/benchmarks.html): Sisal benchmarks measure the work the **library** does — building SQL, rendering it, and turning driver rows into typed results — in isolation from the database and the network. A query's wall-clock time is dominated...
+- [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
+
+## Package APIs
+
+- [@sisal/orm](https://jsr.io/@sisal/orm): Driverless schema, typed SQL, and ORM primitives for Sisal. Exports: ., ./core, ./error, ./logger, ./schema.
+- [@sisal/migrate](https://jsr.io/@sisal/migrate): Migration planning, diffing, and running primitives for Sisal. Exports: ., ./cli, ./core, ./workflow.
+- [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL and Turso adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/neon](https://jsr.io/@sisal/neon): Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+
+## Project Context
+
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first database toolkit, published to JSR, for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
+- [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md): This is the canonical changelog for Sisal workspace releases.
+- [Repository](https://github.com/gilvandovieira/sisal): Source code, issues, examples, workflows, and package directories.

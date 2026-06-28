@@ -67,34 +67,48 @@ generic types rather than phantom properties on the value.
 
 ### Column types
 
-| Drizzle (`pg-core`)                            | Sisal                                            | Status |
-| ---------------------------------------------- | ------------------------------------------------ | ------ |
-| `text`                                         | `columns.text()`                                 | ✅     |
-| `varchar({ length })`                          | `columns.varchar(n)`                             | ✅     |
-| `integer`                                      | `columns.integer()`                              | ✅     |
-| `bigint({ mode })`                             | `columns.bigint()` (string-typed)                | 🟡     |
-| `boolean`                                      | `columns.boolean()`                              | ✅     |
-| `timestamp({ withTimezone })`                  | `columns.timestamp({ withTimezone })`            | ✅     |
-| `date`                                         | `columns.date()`                                 | ✅     |
-| `uuid`                                         | `columns.uuid()`                                 | ✅     |
-| `json` / `jsonb`                               | `columns.json<T>()` / `columns.jsonb<T>()`       | ✅     |
-| `serial` / `bigserial`                         | `columns.serial()` / `columns.bigserial()`       | ✅     |
-| `real` / `doublePrecision`                     | `columns.real()` / `columns.doublePrecision()`   | ✅     |
-| `numeric` / `decimal`                          | `columns.numeric(p, s)` / `columns.decimal(...)` | ✅     |
-| `char`                                         | `columns.char(n)`                                | ✅     |
-| `smallint`                                     | `columns.smallint()`                             | ✅     |
-| `bytea` / `blob`                               | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)    | ✅     |
-| `*.array()`                                    | `.array()`                                       | ✅     |
-| custom `pgEnum`                                | —                                                | ❌     |
-| `time` / `interval`                            | —                                                | ❌     |
-| `generatedAlwaysAsIdentity()`                  | — (`serial`/`bigserial` only)                    | ❌     |
-| `customType(...)`                              | — (snapshot has a `dialectType` escape hatch)    | ❌     |
-| `point`/geometry/`inet`/`vector`/`bit`/`money` | —                                                | ❌     |
+| Drizzle (`pg-core`)                            | Sisal                                                  | Status |
+| ---------------------------------------------- | ------------------------------------------------------ | ------ |
+| `text`                                         | `columns.text()`                                       | ✅     |
+| `varchar({ length })`                          | `columns.varchar(n)`                                   | ✅     |
+| `integer`                                      | `columns.integer()`                                    | ✅     |
+| `bigint({ mode })`                             | `columns.bigint()` (string-typed)                      | 🟡     |
+| `boolean`                                      | `columns.boolean()`                                    | ✅     |
+| `timestamp({ withTimezone })`                  | `columns.timestamp({ withTimezone })`                  | ✅     |
+| `date`                                         | `columns.date()`                                       | ✅     |
+| `uuid`                                         | `columns.uuid()`                                       | ✅     |
+| `json` / `jsonb`                               | `columns.json<T>()` / `columns.jsonb<T>()`             | ✅     |
+| `serial` / `bigserial`                         | `columns.serial()` / `columns.bigserial()`             | ✅     |
+| `real` / `doublePrecision`                     | `columns.real()` / `columns.doublePrecision()`         | ✅     |
+| `numeric` / `decimal`                          | `columns.numeric(p, s)` / `columns.decimal(...)`       | ✅     |
+| `char`                                         | `columns.char(n)`                                      | ✅     |
+| `smallint`                                     | `columns.smallint()`                                   | ✅     |
+| `bytea` / `blob`                               | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)          | ✅     |
+| `*.array()`                                    | `.array()`                                             | ✅     |
+| custom `pgEnum`                                | `columns.customType<T>({ kind: "enum", dialectType })` | 🟡     |
+| `time` / `interval`                            | `columns.customType<T>({ kind, dialectType })`         | ✅     |
+| `generatedAlwaysAsIdentity()`                  | `columns.customType<number>(...).optional()`           | ✅     |
+| `customType(...)`                              | `columns.customType<T>({ kind, dialectType })`         | ✅     |
+| `point`/geometry/`inet`/`vector`/`bit`/`money` | `columns.customType<T>({ kind, dialectType })`         | ✅     |
 
 `numeric`/`decimal`/`bigint`/`bigserial` are string-typed to preserve precision.
 `serial`/`bigserial` are optional on insert (DB-generated). `.array()` emits
-Postgres `type[]`; SQLite stores it under the element's affinity. Remaining
-column gap: `pgEnum`.
+Postgres `type[]`; SQLite stores it under the element's affinity.
+`columns.customType<T>({ kind, dialectType })` is the trusted escape hatch for
+dialect-specific DDL types; Postgres emits `dialectType` verbatim, while SQLite
+continues to map by affinity from `kind`. For Postgres/Neon, `customType` covers
+the remaining type-emission rows in this table. The only partial row left here
+is `pgEnum`: enum **columns** can point at an existing enum type, but Sisal does
+not yet create/drop Postgres enum types as structured schema objects. Identity
+DDL is reachable through `customType`, but Sisal does not yet model it as
+structured metadata beyond the trusted dialect type string:
+
+```ts
+columns.customType<number>({
+  kind: "integer",
+  dialectType: "integer generated always as identity",
+}).optional();
+```
 
 ### Column modifiers
 
@@ -174,8 +188,9 @@ INDEX` statements (auto-named when unnamed).
 | `notLike`, `notIlike`                              | same            | ✅     |
 | `asc`, `desc` (order helpers)                      | same            | ✅     |
 | `count`, `sum`, `avg`, `min`, `max`                | same            | ✅³    |
-| `exists`, `notExists`                              | —               | ❌     |
-| `arrayContains`, `arrayContained`, `arrayOverlaps` | —               | ❌     |
+| `countDistinct`                                    | same            | ✅⁷    |
+| `exists`, `notExists`                              | same            | ✅     |
+| `arrayContains`, `arrayContained`, `arrayOverlaps` | same            | ✅⁸    |
 
 ¹ **Divergence:** Drizzle throws on an empty `inArray`; Sisal returns a constant
 condition (`1 = 0` / `1 = 1`) so dynamic filters with no values are safe.
@@ -187,6 +202,11 @@ arguments, so conditional filters need no pre-filtering.
 (`db.select({ total: count() })`); `count()` infers `number`, `sum`/`avg` infer
 `number | null`, `min`/`max` infer `T | null`.
 
+⁸ `exists`/`notExists` take a select subquery and render `EXISTS (…)` /
+`NOT EXISTS (…)`. The array operators are **Postgres-only** — `arrayContains`
+(`@>`), `arrayContained` (`<@`), and `arrayOverlaps` (`&&`) emit the Postgres
+array operators; SQLite/libSQL/MySQL have no equivalent.
+
 **Output divergence:** Sisal always renders column references **table-qualified
 and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 `"id" = 42`. Behavior is equivalent; the text differs.
@@ -195,35 +215,35 @@ and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
 
 ## 3. Query builder
 
-| Drizzle 0.45.2                              | Sisal                              | Status |
-| ------------------------------------------- | ---------------------------------- | ------ |
-| `db.select().from(t)`                       | same                               | ✅     |
-| `db.select({ projection })`                 | same                               | ✅     |
-| `.where(...)`                               | same                               | ✅     |
-| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`   | ✅     |
-| `.limit(n)` / `.offset(n)`                  | same                               | ✅     |
-| `.innerJoin` / `.leftJoin`                  | same                               | ✅     |
-| `.rightJoin` / `.fullJoin`                  | same                               | ✅     |
-| `.groupBy(...)` / `.having(...)`            | same                               | ✅     |
-| `.distinct()`                               | same                               | ✅     |
-| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                 | ✅⁵    |
-| `union` / `unionAll`                        | `.union()` / `.unionAll()`         | ✅⁵    |
-| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()` | ✅⁵    |
-| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`       | ✅⁵    |
-| `.$dynamic()`                               | —                                  | ❌     |
-| subquery as derived table / scalar subquery | —                                  | ❌     |
-| `inArray(col, subquery)`                    | array literal only                 | ❌     |
-| `.for("update" \| "share")` (locking)       | —                                  | ❌     |
-| `db.$count(table, where?)`                  | —                                  | ❌     |
-| `.distinctOn(...)` (Postgres)               | —                                  | ❌     |
-| `db.insert(t).values(v)`                    | same                               | ✅     |
-| `.returning(projection?)`                   | same                               | ✅     |
-| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)             | ✅⁴    |
-| `db.update(t).set(v).where(...)`            | same                               | ✅     |
-| `db.delete(t).where(...)`                   | same                               | ✅     |
-| update/delete without `where`               | allowed (full-table)               | 🔷     |
-| `db.transaction(fn)`                        | same                               | ✅     |
-| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`       | ✅     |
+| Drizzle 0.45.2                              | Sisal                               | Status |
+| ------------------------------------------- | ----------------------------------- | ------ |
+| `db.select().from(t)`                       | same                                | ✅     |
+| `db.select({ projection })`                 | same                                | ✅     |
+| `.where(...)`                               | same                                | ✅     |
+| `.orderBy(asc(c), desc(c))`                 | same, plus `.orderBy(c, "desc")`    | ✅     |
+| `.limit(n)` / `.offset(n)`                  | same                                | ✅     |
+| `.innerJoin` / `.leftJoin`                  | same                                | ✅     |
+| `.rightJoin` / `.fullJoin`                  | same                                | ✅     |
+| `.groupBy(...)` / `.having(...)`            | same                                | ✅     |
+| `.distinct()`                               | same                                | ✅     |
+| `db.$with(n).as(q)` + `db.with(c)`          | same — fluent CTEs                  | ✅⁵    |
+| `union` / `unionAll`                        | `.union()` / `.unionAll()`          | ✅⁵    |
+| `intersect` / `intersectAll`                | `.intersect()` / `.intersectAll()`  | ✅⁵    |
+| `except` / `exceptAll`                      | `.except()` / `.exceptAll()`        | ✅⁵    |
+| `.$dynamic()`                               | —                                   | ❌     |
+| subquery as derived table / scalar subquery | `.as(alias)` + scalar embed         | ✅⁷    |
+| `inArray(col, subquery)`                    | same                                | ✅⁷    |
+| `.for("update" \| "share")` (locking)       | `.for(...)` + `skipLocked`/`noWait` | ✅⁷    |
+| `db.$count(table, where?)`                  | same                                | ✅⁷    |
+| `.distinctOn(...)` (Postgres)               | `.distinctOn(...)`                  | ✅⁷    |
+| `db.insert(t).values(v)`                    | same                                | ✅     |
+| `.returning(projection?)`                   | same                                | ✅     |
+| `.onConflictDoNothing/DoUpdate`             | same (`on conflict …`)              | ✅⁴    |
+| `db.update(t).set(v).where(...)`            | same                                | ✅     |
+| `db.delete(t).where(...)`                   | same                                | ✅     |
+| update/delete without `where`               | allowed (full-table)                | 🔷     |
+| `db.transaction(fn)`                        | same                                | ✅     |
+| Relational queries `db.query.t.findMany`    | `relations()` + `db.query.t`        | ✅     |
 
 **Divergence (safety):** a `where`-less `update`/`delete` throws in Sisal unless
 you call `.unsafeAllowAllRows()`. Drizzle runs it. We consider the rail worth
@@ -253,6 +273,18 @@ Relational queries are enabled with `createDatabase({ schema, relations })`.
 `db.query` remains callable for raw SQL (``db.query(sql`...`)``) and gains
 schema-keyed helpers (`db.query.users.findMany(...)`) when a schema map is
 provided.
+
+⁷ **Query-builder ergonomics & subqueries (P7).** `.distinctOn(...)` emits
+Postgres `SELECT DISTINCT ON (...)`.
+`.for("update" | "share", { skipLocked?,
+noWait?, of? })` appends row-level
+locking (Postgres/MySQL; SQLite has no locking clause).
+`db.$count(table, where?)` runs `select count(*)` and returns a `number`.
+`countDistinct(col)` is `count(distinct col)`. A select aliased with `.as("x")`
+becomes a derived table usable in `.from(...)`, with its projected columns
+referenceable as `x.col`; the same builder embeds as a parenthesized **scalar
+subquery** in projections and `where` conditions, and as the right side of
+`inArray(col, subquery)` / `notInArray`.
 
 ---
 
@@ -284,14 +316,23 @@ splits runtime `migrate()` from the `drizzle-kit` CLI (`generate`, `migrate`,
 | `migrate(db, { migrationsFolder })` | `createMigrator(...).up()` / adapter `createPgMigrator` | 🔷     |
 | `drizzle-kit generate`              | `sisal generate` + `generate*UpStatements`              | ✅     |
 | `drizzle-kit migrate`               | `sisal migrate`                                         | ✅     |
-| `drizzle-kit push`                  | —                                                       | ❌     |
-| `drizzle-kit studio`                | —                                                       | ❌     |
+| `drizzle-kit check` (consistency)   | `sisal drift` (snapshot/checksum drift report)          | 🔷     |
+| — (config authored by hand)         | `sisal init` (scaffold config + chosen DB target)       | 🔷     |
+| — (no status command)               | `sisal status` (applied vs. pending summary)            | 🔷     |
+| `drizzle-kit push`                  | — (out of scope by design)                              | ❌     |
+| `drizzle-kit studio`                | — (deferred; possible post-1.0)                         | ❌     |
 | journal / snapshot files            | `.snapshot.json` + `readMigrationsDir`                  | 🔷     |
 | checksum drift detection            | `checkDrift` + checksum mismatch in `plan()`            | ✅     |
 | destructive change handling         | always withheld + returned in `destructive`             | 🔷     |
 
 Sisal additionally offers programmatic migrations, advisory-locked runs, dry
 runs, and `down`/`to` rollback — all adapter-neutral.
+
+`drizzle-kit push` (apply the schema straight to the database without a
+migration file) is intentionally **out of scope** — Sisal always routes changes
+through generated, checksummed migration files. A `studio`-style database GUI is
+**deferred**: a possibility to revisit after 1.0, but not on the near-term
+roadmap.
 
 ---
 
@@ -353,7 +394,9 @@ insert-optional like Drizzle (today it stays required unless
 - Added `.$onUpdate()`, applied automatically in the update builder.
 - _Tests:_ `parity: new column types render in DDL via snapshot` and
   `parity: .$onUpdate() injects a value on UPDATE` in the ORM parity test.
-- Remaining column gap: `pgEnum` and `.generatedAlwaysAs()`.
+- Remaining dedicated-helper gap: `pgEnum` type creation and Drizzle-style
+  generated column modifiers. Postgres/Neon DDL for those column shapes is
+  reachable via `columns.customType`.
 
 ### P4 — relational queries ✅ done
 
@@ -399,22 +442,42 @@ and the DDL emitters. Both are now closed.
   `parity: table extras — composite PK, named unique, check, index(es)` in the
   pg and sqlite parity tests.
 
-### P7 — query-builder ergonomics & subqueries ❌ next
+### P7 — query-builder ergonomics & subqueries ✅ done
 
-Small, pure-SQL, driver-free additions, plus the larger subquery work.
+Both the small pure-SQL additions and the larger subquery work landed together.
 
-- `.for("update" | "share")` row locking (`skip locked` / `no wait`).
-- `db.$count(table, where?)` and `distinctOn(...)`.
-- Subqueries as derived tables (`.from(sub.as("x"))`) and scalar /
-  `inArray(col, subquery)` subqueries.
-- `countDistinct`; window-function helpers (already expressible via `sql`).
+- ✅ **Row locking** — `.for("update" | "share", { skipLocked?, noWait?, of? })`
+  appends `FOR UPDATE` / `FOR SHARE` (with `SKIP LOCKED` / `NOWAIT` / `OF`),
+  Postgres/MySQL only.
+- ✅ **`db.$count(table, where?)`** runs `select count(*)` and returns a
+  `number`; **`.distinctOn(...)`** emits Postgres `SELECT DISTINCT ON (...)`;
+  **`countDistinct(col)`** is `count(distinct col)`.
+- ✅ **Subqueries** — `select.as("x")` is a derived table for `.from(...)` with
+  alias-qualified column refs; the same builder embeds as a parenthesized scalar
+  subquery in projections/`where`, and as the operand of
+  `inArray(col, subquery)` / `notInArray`.
+- _Tests:_ `parity: .distinctOn(...) renders Postgres DISTINCT ON`,
+  `parity: .for() row locking …`, `parity: countDistinct(column) aggregate`,
+  `parity: subquery as a derived table via .as(alias)`,
+  `parity: scalar subquery in projection and where`,
+  `parity: inArray(col, subquery) renders IN (select ...)`, and
+  `parity: db.$count(table, where?) returns a number` in the ORM parity test.
+- Remaining query-builder gap: `.$dynamic()` and window-function helpers (the
+  latter already expressible via the `` sql`...` `` template).
 
-### P8 — column-type escape hatch ❌ later
+### P8 — column-type escape hatch ✅ done
 
-Expose the snapshot's existing `dialectType` field through a `customType(...)`
-factory so `time`, `interval`, identity columns, and niche Postgres types
-(`vector`, `inet`, geometry, `bit`, `money`) are reachable without one method
-per type. `pgEnum` and `.generatedAlwaysAs()` carry over from P3.
+`columns.customType<T>({ kind, dialectType, length?, precision?, scale? })`
+exposes the snapshot's existing trusted `dialectType` escape hatch. Postgres DDL
+emits `dialectType` verbatim (plus `[]` when `.array()` is used), so `time`,
+`interval`, identity syntax, and niche Postgres types (`vector`, `inet`,
+geometry, `bit`, `money`) are reachable without one method per type. SQLite
+keeps using affinity mapping from `kind` and ignores Postgres-specific
+`dialectType`. _Tests:_ `parity: customType exposes dialectType escape hatch` in
+the ORM parity test and custom `dialectType` checks in the pg/sqlite parity
+tests. Dedicated `pgEnum` type creation and Drizzle-style generated column
+modifiers carry over as future convenience/metadata gaps, not Postgres/Neon DDL
+reachability gaps.
 
 ---
 

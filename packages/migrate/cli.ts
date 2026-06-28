@@ -188,7 +188,7 @@ interface SqliteMigrateModule {
 }
 
 const DEFAULT_CONFIG_FILE = "sisal.migrate.ts";
-const DEFAULT_ADAPTER_VERSION = "^0.2.0";
+const DEFAULT_ADAPTER_VERSION = "^0.3.0";
 const DEFAULT_ADAPTER_IMPORTS = {
   pgDdl: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/ddl`,
   pgMigrate: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/migrate`,

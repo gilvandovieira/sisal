@@ -57,7 +57,8 @@ export type ColumnDataType =
   | "timestamp"
   | "timestamptz"
   | "uuid"
-  | "bytea";
+  | "bytea"
+  | (string & Record<never, never>);
 
 /** JavaScript runtime value types represented by ORM columns. */
 export type ColumnRuntimeType =
@@ -91,6 +92,7 @@ export interface ColumnDefinition<T> {
   readonly precision?: number;
   readonly scale?: number;
   readonly array?: boolean;
+  readonly dialectType?: string;
   readonly nullable: boolean;
   readonly hasDefault: boolean;
   readonly primaryKey: boolean;
@@ -103,6 +105,22 @@ export interface ColumnDefinition<T> {
   };
   readonly defaultValue?: T | (() => T);
   readonly onUpdate?: () => unknown;
+}
+
+/**
+ * Trusted custom column type metadata for {@link columns.customType}.
+ *
+ * `dialectType` is emitted verbatim by dialects that support it (currently
+ * Postgres DDL), so only pass developer-authored schema literals.
+ */
+export interface CustomColumnTypeOptions {
+  /** Dialect-neutral type kind kept in the serializable schema snapshot. */
+  readonly kind: string;
+  /** Raw dialect type emitted verbatim into DDL instead of `kind`. */
+  readonly dialectType?: string;
+  readonly length?: number;
+  readonly precision?: number;
+  readonly scale?: number;
 }
 
 /** Immutable column builder used to define table schemas. */
@@ -450,6 +468,9 @@ export interface Database<
   /** Begins a query whose `WITH` clause provides the given CTEs. */
   with(...ctes: Cte[]): WithQueryBuilder;
 
+  /** Counts rows in a table, optionally filtered, returning a `number`. */
+  $count(table: TableDefinition, where?: Condition): Promise<number>;
+
   insert<TTable extends TableDefinition>(
     table: TTable,
   ): InsertBuilder<TTable>;
@@ -499,8 +520,11 @@ export interface SelectColumnRef {
   readonly defaultValue?: unknown;
 }
 
-/** A value usable in a select projection: a column reference or SQL expression. */
-export type SelectProjectionValue = SelectColumnRef | Sql;
+/**
+ * A value usable in a select projection: a column reference, a SQL expression,
+ * or a select/compound builder embedded as a scalar subquery.
+ */
+export type SelectProjectionValue = SelectColumnRef | Sql | SubquerySource;
 
 /** Map of result key to selected column or expression, for `db.select({ ... })`. */
 export type SelectProjection = Record<string, SelectProjectionValue>;
@@ -763,21 +787,35 @@ export interface RelationalTableQuery<
   ): Promise<RelationalQueryResult<TTable, TRelations, TConfig> | undefined>;
 }
 
+/** A `from(...)` argument: a table, a CTE, or a subquery derived table. */
+type SelectFromSource = TableDefinition | Record<string, SelectColumnRef>;
+
+/**
+ * Result of `from(source)`: a table seeds the row type from its columns, while a
+ * CTE/subquery keeps the current projection type.
+ */
+type SelectFromResult<TSource extends SelectFromSource, TResult> =
+  TSource extends TableDefinition ? SelectBuilder<
+      TSource,
+      unknown extends TResult ? InferSelect<TSource> : TResult
+    >
+    : SelectBuilder<unknown, TResult>;
+
 /** Fluent builder for `SELECT` queries. */
 export interface SelectBuilder<TTable, TResult> {
-  from<TNewTable extends TableDefinition>(
-    table: TNewTable,
-  ): SelectBuilder<
-    TNewTable,
-    unknown extends TResult ? InferSelect<TNewTable> : TResult
-  >;
-  /** Selects from a common table expression created via {@link Database.with}. */
-  from<TColumns extends Record<string, SelectColumnRef>>(
-    cte: Cte<TColumns>,
-  ): SelectBuilder<unknown, TResult>;
+  /**
+   * Selects from a table, common table expression ({@link Database.with}), or
+   * subquery aliased as a derived table via {@link SelectBuilder.as}.
+   */
+  from<TSource extends SelectFromSource>(
+    source: TSource,
+  ): SelectFromResult<TSource, TResult>;
 
   /** Emits `SELECT DISTINCT`. */
   distinct(): SelectBuilder<TTable, TResult>;
+
+  /** Postgres `SELECT DISTINCT ON (...)`: keeps the first row per expression. */
+  distinctOn(...columns: unknown[]): SelectBuilder<TTable, TResult>;
 
   innerJoin(
     table: TableDefinition,
@@ -818,6 +856,24 @@ export interface SelectBuilder<TTable, TResult> {
   limit(count: number): SelectBuilder<TTable, TResult>;
 
   offset(count: number): SelectBuilder<TTable, TResult>;
+
+  /**
+   * Row-level locking (`FOR UPDATE` / `FOR SHARE`) — Postgres/MySQL only.
+   * Pass `{ skipLocked }` or `{ noWait }` to control contention and `{ of }` to
+   * lock only specific tables. SQLite has no locking clause.
+   */
+  for(
+    strength: "update" | "share",
+    options?: ForLockOptions,
+  ): SelectBuilder<TTable, TResult>;
+
+  /**
+   * Aliases this query as a derived table for `.from(...)`, exposing its
+   * projected columns as references (e.g. `const t = sub.as("t"); t.id`).
+   */
+  as(
+    alias: string,
+  ): Subquery<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
 
   /** `UNION` with another query (duplicate rows removed). */
   union(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
@@ -872,6 +928,11 @@ export interface CompoundSelectBuilder<TResult> {
   /** Offsets the whole compound. */
   offset(count: number): CompoundSelectBuilder<TResult>;
 
+  /** Aliases the compound as a derived table for `.from(...)`. */
+  as(
+    alias: string,
+  ): Subquery<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
+
   toSql(): Sql;
 
   execute(): Promise<TResult[]>;
@@ -889,6 +950,28 @@ export type Cte<
     SelectColumnRef
   >,
 > = TColumns;
+
+/**
+ * A query aliased as a derived table via {@link SelectBuilder.as}. Its keys are
+ * the inner query's projected columns, each usable as a reference once the
+ * subquery is passed to `.from(...)`.
+ */
+export type Subquery<
+  TColumns extends Record<string, SelectColumnRef> = Record<
+    string,
+    SelectColumnRef
+  >,
+> = TColumns;
+
+/** Options for {@link SelectBuilder.for} row-level locking. */
+export interface ForLockOptions {
+  /** Restricts the lock to specific tables (`FOR UPDATE OF t1, t2`). */
+  readonly of?: TableDefinition | readonly TableDefinition[];
+  /** Skips rows already locked by another transaction (`SKIP LOCKED`). */
+  readonly skipLocked?: boolean;
+  /** Fails immediately instead of waiting on a locked row (`NOWAIT`). */
+  readonly noWait?: boolean;
+}
 
 /** Intermediate returned by {@link Database.$with}; complete it with `.as`. */
 export interface CteBuilder {
@@ -1056,6 +1139,15 @@ interface ColumnsFactory {
   uuid(): ColumnBuilder<string | null>;
   /** Binary data: Postgres `bytea`, SQLite/libSQL `BLOB`. */
   bytea(): ColumnBuilder<Uint8Array | null>;
+  /**
+   * Trusted escape hatch for custom/dialect-specific column types.
+   *
+   * Example: `columns.customType<number[]>({ kind: "vector",
+   * dialectType: "vector(1536)" })`.
+   */
+  customType<T = unknown>(
+    options: CustomColumnTypeOptions,
+  ): ColumnBuilder<T | null>;
 }
 
 /**
@@ -1159,6 +1251,13 @@ export const columns: ColumnsFactory = Object.freeze({
 
   bytea(): ColumnBuilder<Uint8Array | null> {
     return createColumnBuilder<Uint8Array>("bytea");
+  },
+
+  customType<T = unknown>(
+    options: CustomColumnTypeOptions,
+  ): ColumnBuilder<T | null> {
+    const normalized = normalizeCustomColumnTypeOptions(options);
+    return createColumnBuilder<T>(normalized.kind, normalized);
   },
 });
 
@@ -1335,6 +1434,9 @@ export function sql(
 
       if (isSql(value)) {
         chunks.push({ kind: "sql", value });
+      } else if (isQueryBuilder(value)) {
+        // A select/compound builder embeds as a parenthesized scalar subquery.
+        chunks.push({ kind: "sql", value: subquerySql(value) });
       } else if (isColumn(value)) {
         // A column reference renders as a validated, quoted identifier (e.g. in
         // a `check()` expression), not a bound parameter.
@@ -1548,19 +1650,23 @@ export function notBetween(
 /**
  * `column IN (...)`. Each value is a bound parameter. An empty array yields a
  * constant always-false condition (`1 = 0`) rather than invalid `IN ()` SQL, so
- * dynamic filters with no values are safe.
+ * dynamic filters with no values are safe. A select builder renders as a
+ * subquery (`column IN (select ...)`).
  */
 export function inArray(
   column: unknown,
-  values: readonly unknown[],
+  values: readonly unknown[] | SubquerySource,
 ): Condition {
   return inArrayCondition(column, values, false);
 }
 
-/** `column NOT IN (...)`. An empty array yields a constant always-true condition. */
+/**
+ * `column NOT IN (...)`. An empty array yields a constant always-true condition;
+ * a select builder renders as a subquery.
+ */
 export function notInArray(
   column: unknown,
-  values: readonly unknown[],
+  values: readonly unknown[] | SubquerySource,
 ): Condition {
   return inArrayCondition(column, values, true);
 }
@@ -1573,6 +1679,36 @@ export function isNull(column: unknown): Condition {
 /** `column IS NOT NULL` SQL condition. */
 export function isNotNull(column: unknown): Condition {
   return createCondition(sql`${columnToSql(column)} is not null`);
+}
+
+/** `EXISTS (subquery)` — true when the subquery returns any row. */
+export function exists(subquery: SubquerySource): Condition {
+  assertSubquery(subquery);
+  return createCondition(sql`exists ${subquery}`);
+}
+
+/** `NOT EXISTS (subquery)` — true when the subquery returns no rows. */
+export function notExists(subquery: SubquerySource): Condition {
+  assertSubquery(subquery);
+  return createCondition(sql`not exists ${subquery}`);
+}
+
+/**
+ * Postgres array `@>` — true when `column` contains every element of `value`.
+ * SQLite/libSQL/MySQL have no array containment operator.
+ */
+export function arrayContains(column: unknown, value: unknown): Condition {
+  return binaryCondition(column, "@>", value);
+}
+
+/** Postgres array `<@` — true when `column` is contained by `value`. */
+export function arrayContained(column: unknown, value: unknown): Condition {
+  return binaryCondition(column, "<@", value);
+}
+
+/** Postgres array `&&` — true when `column` and `value` share any element. */
+export function arrayOverlaps(column: unknown, value: unknown): Condition {
+  return binaryCondition(column, "&&", value);
 }
 
 /** Combines conditions with SQL `AND`, ignoring nullish values. */
@@ -1609,6 +1745,11 @@ export function desc(column: unknown): Sql {
 export function count(column?: unknown): SqlExpression<number> {
   const target = column === undefined ? raw("*") : columnToSql(column);
   return sql`count(${target})` as SqlExpression<number>;
+}
+
+/** `count(distinct column)` aggregate expression. */
+export function countDistinct(column: unknown): SqlExpression<number> {
+  return sql`count(distinct ${columnToSql(column)})` as SqlExpression<number>;
 }
 
 /** `sum(column)` aggregate expression. */
@@ -2089,6 +2230,18 @@ class SisalDatabase<
           ...(projection === undefined ? {} : { projection }),
         }),
     } as WithQueryBuilder;
+  }
+
+  async $count(table: TableDefinition, where?: Condition): Promise<number> {
+    assertTable(table);
+    let builder = this.select({ count: count() }).from(table);
+    if (where !== undefined) {
+      assertCondition(where);
+      builder = builder.where(where);
+    }
+    const rows = await builder.execute();
+    const value = (rows[0] as { count?: unknown } | undefined)?.count;
+    return typeof value === "bigint" ? Number(value) : Number(value ?? 0);
   }
 
   insert<TTable extends TableDefinition>(
@@ -2843,9 +2996,11 @@ interface SelectJoin {
 interface SelectState {
   readonly table?: TableDefinition;
   readonly fromCte?: string;
+  readonly fromSubquery?: SubqueryDefinition;
   readonly ctes?: readonly CteDefinition[];
   readonly projection?: SelectProjection;
   readonly distinct?: boolean;
+  readonly distinctOn?: readonly Sql[];
   readonly joins: readonly SelectJoin[];
   readonly condition?: Condition;
   readonly groupBy?: readonly Sql[];
@@ -2853,6 +3008,20 @@ interface SelectState {
   readonly orderBy?: readonly Sql[];
   readonly limit?: number;
   readonly offset?: number;
+  readonly forLock?: ForLockState;
+}
+
+/** Internal: a `FOR UPDATE`/`FOR SHARE` clause resolved from {@link ForLockOptions}. */
+interface ForLockState {
+  readonly strength: "update" | "share";
+  readonly of?: readonly TableDefinition[];
+  readonly mode?: "skip locked" | "nowait";
+}
+
+/** Internal definition behind a {@link Subquery}: its alias and rendered query. */
+interface SubqueryDefinition {
+  readonly alias: string;
+  readonly query: Sql;
 }
 
 /** Internal definition behind a {@link Cte}: its name and rendered query. */
@@ -2877,6 +3046,33 @@ const CTE_DEFINITIONS = new WeakMap<object, CteDefinition>();
 function isCte(value: unknown): value is Record<string, SelectColumnRef> {
   return typeof value === "object" && value !== null &&
     CTE_DEFINITIONS.has(value);
+}
+
+// Derived-table (subquery) column maps carry their alias + SQL out-of-band, the
+// same way CTEs do, so the map's keys stay the projected column names.
+const SUBQUERY_DEFINITIONS = new WeakMap<object, SubqueryDefinition>();
+
+function isSubquery(value: unknown): value is Record<string, SelectColumnRef> {
+  return typeof value === "object" && value !== null &&
+    SUBQUERY_DEFINITIONS.has(value);
+}
+
+// Builds the column-reference map for a subquery aliased via `.as(alias)`.
+function makeSubqueryColumns(
+  alias: string,
+  keys: readonly string[],
+  query: Sql,
+): Record<string, SelectColumnRef> {
+  const columns: Record<string, SelectColumnRef> = {};
+  for (const key of keys) {
+    columns[key] = {
+      name: key,
+      tableName: alias,
+      dataType: "unknown",
+    } as unknown as SelectColumnRef;
+  }
+  SUBQUERY_DEFINITIONS.set(columns, { alias, query });
+  return columns;
 }
 
 function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
@@ -2922,32 +3118,34 @@ class SisalSelectBuilder<TTable, TResult>
     });
   }
 
-  from<TNewTable extends TableDefinition>(
-    table: TNewTable,
-  ): SelectBuilder<
-    TNewTable,
-    unknown extends TResult ? InferSelect<TNewTable> : TResult
-  >;
-  from<TColumns extends Record<string, SelectColumnRef>>(
-    cte: Cte<TColumns>,
-  ): SelectBuilder<unknown, TResult>;
-  from(
-    source: TableDefinition | Record<string, SelectColumnRef>,
-  ): SelectBuilder<TableDefinition, unknown> {
+  from<TSource extends SelectFromSource>(
+    source: TSource,
+  ): SelectFromResult<TSource, TResult> {
+    if (isSubquery(source)) {
+      const definition = SUBQUERY_DEFINITIONS.get(source)!;
+      return new SisalSelectBuilder(this.#database, {
+        ...this.#state,
+        table: undefined,
+        fromCte: undefined,
+        fromSubquery: definition,
+      }) as unknown as SelectFromResult<TSource, TResult>;
+    }
     if (isCte(source)) {
       const definition = CTE_DEFINITIONS.get(source)!;
       return new SisalSelectBuilder(this.#database, {
         ...this.#state,
         table: undefined,
+        fromSubquery: undefined,
         fromCte: definition.name,
-      });
+      }) as unknown as SelectFromResult<TSource, TResult>;
     }
     assertTable(source);
     return new SisalSelectBuilder(this.#database, {
       ...this.#state,
       table: source,
       fromCte: undefined,
-    });
+      fromSubquery: undefined,
+    }) as unknown as SelectFromResult<TSource, TResult>;
   }
 
   /** Column names of this select's projection (internal, for CTE inference). */
@@ -2993,6 +3191,62 @@ class SisalSelectBuilder<TTable, TResult>
 
   distinct(): SelectBuilder<TTable, TResult> {
     return this.#with({ distinct: true });
+  }
+
+  distinctOn(...columns: unknown[]): SelectBuilder<TTable, TResult> {
+    if (columns.length === 0) {
+      throw new OrmError("distinctOn requires at least one column", {
+        code: "ORM_INVALID_QUERY",
+      });
+    }
+    return this.#with({
+      distinctOn: columns.map((column) =>
+        isSql(column) ? column : columnToSql(column)
+      ),
+    });
+  }
+
+  for(
+    strength: "update" | "share",
+    options: ForLockOptions = {},
+  ): SelectBuilder<TTable, TResult> {
+    if (strength !== "update" && strength !== "share") {
+      throw new OrmError('for() strength must be "update" or "share"', {
+        code: "ORM_INVALID_QUERY",
+      });
+    }
+    if (options.skipLocked === true && options.noWait === true) {
+      throw new OrmError("for() cannot combine skipLocked and noWait", {
+        code: "ORM_INVALID_QUERY",
+      });
+    }
+    const of = options.of === undefined
+      ? undefined
+      : Array.isArray(options.of)
+      ? options.of
+      : [options.of];
+    of?.forEach(assertTable);
+    return this.#with({
+      forLock: {
+        strength,
+        ...(of === undefined ? {} : { of }),
+        ...(options.skipLocked === true
+          ? { mode: "skip locked" as const }
+          : options.noWait === true
+          ? { mode: "nowait" as const }
+          : {}),
+      },
+    });
+  }
+
+  as(
+    alias: string,
+  ): Subquery<{ readonly [K in keyof TResult]-?: SelectColumnRef }> {
+    return makeSubqueryColumns(
+      alias,
+      this.projectionKeys() ?? [],
+      this.toSql(),
+    ) as Subquery<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
   }
 
   innerJoin(
@@ -3082,9 +3336,11 @@ class SisalSelectBuilder<TTable, TResult>
     const {
       table,
       fromCte,
+      fromSubquery,
       ctes,
       projection,
       distinct,
+      distinctOn,
       joins,
       condition,
       groupBy,
@@ -3092,12 +3348,20 @@ class SisalSelectBuilder<TTable, TResult>
       orderBy,
       limit,
       offset,
+      forLock,
     } = this.#state;
 
     const fromName = table !== undefined
       ? identifier(table.name)
       : fromCte !== undefined
       ? identifier(fromCte)
+      : fromSubquery !== undefined
+      ? joinSql([
+        raw("("),
+        fromSubquery.query,
+        raw(") as "),
+        identifier(fromSubquery.alias),
+      ], emptySql())
       : undefined;
 
     if (fromName === undefined) {
@@ -3110,7 +3374,15 @@ class SisalSelectBuilder<TTable, TResult>
     if (ctes !== undefined && ctes.length > 0) {
       parts.push(withPrefixSql(ctes));
     }
-    parts.push(raw(distinct ? "select distinct " : "select "));
+    if (distinctOn !== undefined && distinctOn.length > 0) {
+      parts.push(
+        raw("select distinct on ("),
+        joinSql([...distinctOn], raw(", ")),
+        raw(") "),
+      );
+    } else {
+      parts.push(raw(distinct ? "select distinct " : "select "));
+    }
     parts.push(projection === undefined ? raw("*") : projectionSql(projection));
     parts.push(raw(" from "), fromName);
 
@@ -3149,6 +3421,23 @@ class SisalSelectBuilder<TTable, TResult>
 
     if (offset !== undefined) {
       parts.push(raw(" offset "), paramSql(offset));
+    }
+
+    if (forLock !== undefined) {
+      parts.push(
+        raw(forLock.strength === "share" ? " for share" : " for update"),
+      );
+      if (forLock.of !== undefined && forLock.of.length > 0) {
+        parts.push(
+          raw(" of "),
+          joinSql(forLock.of.map((t) => identifier(t.name)), raw(", ")),
+        );
+      }
+      if (forLock.mode === "skip locked") {
+        parts.push(raw(" skip locked"));
+      } else if (forLock.mode === "nowait") {
+        parts.push(raw(" nowait"));
+      }
     }
 
     return joinSql(parts, emptySql());
@@ -3260,6 +3549,16 @@ class SisalCompoundSelectBuilder<TResult>
     return this.#state.projection === undefined
       ? undefined
       : Object.keys(this.#state.projection);
+  }
+
+  as(
+    alias: string,
+  ): Subquery<{ readonly [K in keyof TResult]-?: SelectColumnRef }> {
+    return makeSubqueryColumns(
+      alias,
+      this.projectionKeys() ?? [],
+      this.toSql(),
+    ) as Subquery<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
   }
 
   toSql(): Sql {
@@ -3780,6 +4079,7 @@ interface ColumnTypeExtra {
   readonly length?: number;
   readonly precision?: number;
   readonly scale?: number;
+  readonly dialectType?: string;
 }
 
 function createColumnBuilder<T>(
@@ -3792,6 +4092,9 @@ function createColumnBuilder<T>(
       ...(extra.length === undefined ? {} : { length: extra.length }),
       ...(extra.precision === undefined ? {} : { precision: extra.precision }),
       ...(extra.scale === undefined ? {} : { scale: extra.scale }),
+      ...(extra.dialectType === undefined
+        ? {}
+        : { dialectType: extra.dialectType }),
       nullable: true,
       hasDefault: false,
       primaryKey: false,
@@ -3828,6 +4131,45 @@ function numericExtra(
     ...(precision === undefined ? {} : { precision }),
     ...(scale === undefined ? {} : { scale }),
   };
+}
+
+function normalizeCustomColumnTypeOptions(
+  options: CustomColumnTypeOptions,
+): { readonly kind: ColumnDataType } & ColumnTypeExtra {
+  if (!isRecord(options)) {
+    throw new OrmError("customType requires an options object", {
+      code: "ORM_INVALID_COLUMN",
+    });
+  }
+
+  return {
+    kind: normalizeCustomTypePart(options.kind, "kind"),
+    ...(options.length === undefined ? {} : { length: options.length }),
+    ...(options.precision === undefined
+      ? {}
+      : { precision: options.precision }),
+    ...(options.scale === undefined ? {} : { scale: options.scale }),
+    ...(options.dialectType === undefined ? {} : {
+      dialectType: normalizeCustomTypePart(
+        options.dialectType,
+        "dialectType",
+      ),
+    }),
+  };
+}
+
+function normalizeCustomTypePart(
+  value: unknown,
+  name: "kind" | "dialectType",
+): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new OrmError(`customType ${name} must be a non-empty string`, {
+      code: "ORM_INVALID_COLUMN",
+      details: { [name]: value },
+    });
+  }
+
+  return value;
 }
 
 function tableToSnapshot(
@@ -3910,6 +4252,9 @@ function tableToSnapshot(
           : { precision: column.precision }),
         ...(column.scale === undefined ? {} : { scale: column.scale }),
         ...(column.array === undefined ? {} : { array: column.array }),
+        ...(column.dialectType === undefined
+          ? {}
+          : { dialectType: column.dialectType }),
       },
       nullable: column.nullable,
       ...(column.references === undefined ? {} : {
@@ -3963,6 +4308,9 @@ function cloneColumnDefinition<T>(
       : { precision: definition.precision }),
     ...(definition.scale === undefined ? {} : { scale: definition.scale }),
     ...(definition.array === undefined ? {} : { array: definition.array }),
+    ...(definition.dialectType === undefined
+      ? {}
+      : { dialectType: definition.dialectType }),
     nullable: definition.nullable,
     hasDefault: definition.hasDefault,
     primaryKey: definition.primaryKey,
@@ -4102,9 +4450,17 @@ function betweenCondition(
 
 function inArrayCondition(
   column: unknown,
-  values: readonly unknown[],
+  values: readonly unknown[] | SubquerySource,
   negated: boolean,
 ): Condition {
+  if (isQueryBuilder(values)) {
+    return createCondition(
+      sql`${columnToSql(column)} ${raw(negated ? "not in" : "in")} ${
+        subquerySql(values)
+      }`,
+    );
+  }
+
   if (!Array.isArray(values)) {
     throw new OrmError("inArray requires an array of values", {
       code: "ORM_INVALID_QUERY",
@@ -4178,6 +4534,10 @@ function columnToSql(column: unknown): Sql {
     return column;
   }
 
+  if (isQueryBuilder(column)) {
+    return subquerySql(column);
+  }
+
   if (isColumn(column)) {
     return identifier(`${column.tableName}.${column.name}`);
   }
@@ -4189,6 +4549,31 @@ function columnToSql(column: unknown): Sql {
   throw new OrmError("Expected a SQL column", {
     code: "ORM_INVALID_COLUMN",
   });
+}
+
+/** A select/compound builder usable as a subquery (derived table or scalar). */
+export interface SubquerySource {
+  /** Renders the builder to a SQL fragment. */
+  toSql(): Sql;
+}
+
+/** True for Sisal's select and compound-select builders. */
+function isQueryBuilder(value: unknown): value is SubquerySource {
+  return value instanceof SisalSelectBuilder ||
+    value instanceof SisalCompoundSelectBuilder;
+}
+
+/** Wraps a builder's SQL in parentheses for use as a subquery. */
+function subquerySql(source: SubquerySource): Sql {
+  return joinSql([raw("("), source.toSql(), raw(")")], emptySql());
+}
+
+function assertSubquery(value: unknown): asserts value is SubquerySource {
+  if (!isQueryBuilder(value)) {
+    throw new OrmError("exists/notExists require a select subquery", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
 }
 
 function assertTable(value: unknown): asserts value is TableDefinition {

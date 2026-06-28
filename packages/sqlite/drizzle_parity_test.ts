@@ -82,6 +82,10 @@ Deno.test("parity: SQLite type affinity mapping", () => {
   assertEquals(generateSqliteColumnType({ kind: "uuid" }), "TEXT");
   assertEquals(generateSqliteColumnType({ kind: "blob" }), "BLOB");
   assertEquals(generateSqliteColumnType({ kind: "bytea" }), "BLOB");
+  assertEquals(
+    generateSqliteColumnType({ kind: "vector", dialectType: "vector(3)" }),
+    "TEXT",
+  );
 });
 
 Deno.test("parity: defineTable -> SQLite CREATE TABLE (nullable by default)", () => {

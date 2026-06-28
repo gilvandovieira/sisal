@@ -79,6 +79,39 @@ Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => 
     generatePostgresColumnType({ kind: "text", array: true }),
     "text[]",
   );
+  for (
+    const [type, ddl] of [
+      [{ kind: "enum", dialectType: "post_status" }, "post_status"],
+      [{ kind: "time", dialectType: "time" }, "time"],
+      [{ kind: "interval", dialectType: "interval" }, "interval"],
+      [{ kind: "point", dialectType: "point" }, "point"],
+      [
+        { kind: "geometry", dialectType: "geometry(Point,4326)" },
+        "geometry(Point,4326)",
+      ],
+      [{ kind: "inet", dialectType: "inet" }, "inet"],
+      [{ kind: "vector", dialectType: "vector(3)" }, "vector(3)"],
+      [{ kind: "bit", dialectType: "bit(8)" }, "bit(8)"],
+      [{ kind: "money", dialectType: "money" }, "money"],
+      [
+        {
+          kind: "integer",
+          dialectType: "integer generated always as identity",
+        },
+        "integer generated always as identity",
+      ],
+    ] as const
+  ) {
+    assertEquals(generatePostgresColumnType(type), ddl);
+  }
+  assertEquals(
+    generatePostgresColumnType({
+      kind: "vector",
+      dialectType: "vector(3)",
+      array: true,
+    }),
+    "vector(3)[]",
+  );
 });
 
 Deno.test("parity: defineTable -> Postgres CREATE TABLE", () => {

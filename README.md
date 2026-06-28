@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="./assets/sisal-banner.png" alt="Sisal - a Deno-first database toolkit published to JSR: typed schemas, planned migrations, and small database adapters" width="900">
+  <img src="./assets/brand/og-image.png" alt="Sisal — a Deno-first, JSR-native database toolkit" width="900">
 </p>
 
 # Sisal
+
+Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
 
 Sisal is a Deno-first database toolkit, published to JSR, for typed schemas,
 safe SQL, query builders, migration planning, and small adapter packages.
@@ -22,8 +24,8 @@ and the benchmarks compare against `npm:drizzle-orm`.
 With Deno and JSR, either import packages directly:
 
 ```ts
-import { columns, defineTable } from "jsr:@sisal/orm@0.2";
-import { connect } from "jsr:@sisal/sqlite@0.2";
+import { columns, defineTable } from "jsr:@sisal/orm@0.3";
+import { connect } from "jsr:@sisal/sqlite@0.3";
 ```
 
 Or add an import map in `deno.json`:
@@ -31,14 +33,14 @@ Or add an import map in `deno.json`:
 ```json
 {
   "imports": {
-    "@sisal/orm": "jsr:@sisal/orm@0.2",
-    "@sisal/migrate": "jsr:@sisal/migrate@0.2",
-    "@sisal/migrate/cli": "jsr:@sisal/migrate@0.2/cli",
-    "@sisal/migrate/workflow": "jsr:@sisal/migrate@0.2/workflow",
-    "@sisal/pg": "jsr:@sisal/pg@0.2",
-    "@sisal/neon": "jsr:@sisal/neon@0.2",
-    "@sisal/sqlite": "jsr:@sisal/sqlite@0.2",
-    "@sisal/libsql": "jsr:@sisal/libsql@0.2"
+    "@sisal/orm": "jsr:@sisal/orm@0.3",
+    "@sisal/migrate": "jsr:@sisal/migrate@0.3",
+    "@sisal/migrate/cli": "jsr:@sisal/migrate@0.3/cli",
+    "@sisal/migrate/workflow": "jsr:@sisal/migrate@0.3/workflow",
+    "@sisal/pg": "jsr:@sisal/pg@0.3",
+    "@sisal/neon": "jsr:@sisal/neon@0.3",
+    "@sisal/sqlite": "jsr:@sisal/sqlite@0.3",
+    "@sisal/libsql": "jsr:@sisal/libsql@0.3"
   }
 }
 ```
@@ -214,6 +216,10 @@ columns.timestamp();
 columns.timestamp({ withTimezone: true });
 columns.uuid();
 columns.bytea(); // Postgres bytea, SQLite/libSQL BLOB
+columns.customType<number[]>({
+  kind: "vector",
+  dialectType: "vector(1536)", // trusted, emitted verbatim by Postgres DDL
+});
 ```
 
 Column modifiers:
@@ -826,8 +832,8 @@ deno task publish:dry-run
 
 Publishing is handled by `.github/workflows/publish.yml`. Manual dispatch runs a
 dry-run by default; setting `dry_run` to `false` publishes from `main`. Pushing
-a release tag like `v0.2.0` publishes automatically after the workflow checks
-that every package manifest is also at `0.2.0`. JSR trusted publishing uses
+a release tag like `v0.3.0` publishes automatically after the workflow checks
+that every package manifest is also at `0.3.0`. JSR trusted publishing uses
 GitHub Actions OIDC, so each `@sisal/*` package must be connected to this GitHub
 repository in JSR package settings.
 
@@ -848,7 +854,7 @@ weekly schedule and by manual dispatch. It covers PostgreSQL 16/17/18 through
 Docker, Neon through the bundled local WebSocket proxy, and local SQLite/libSQL
 execution.
 
-The main CI workflow uses Deno `v2.8.3`, installs with `--frozen`, checks
+The main CI workflow uses Deno `v2.9.0`, installs with `--frozen`, checks
 formatting, linting, docs coverage, workspace type-checking, package tests, a
 workspace publish dry-run, and publish dry-runs for each workspace package.
 

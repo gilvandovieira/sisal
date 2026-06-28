@@ -14,8 +14,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (21 tests)       |
-| Last run      | 2026-06-27 — **21 / 21 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (24 tests)       |
+| Last run      | 2026-06-28 — **24 / 24 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
@@ -38,6 +38,9 @@ unsupported (SQLite-family).
 | **Distinct**                                                 |   ✅   |
 | **Joins** — `inner` / `left` / `right` / `full`              |   ✅   |
 | **Aggregates** — `count` `sum` `avg` `min` `max`             |   ✅   |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`  |   ✅   |
+| **Subquery** — `exists` / `notExists` (correlated)           |   ✅   |
+| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`  |   ✅   |
 | **Group / filter** — `groupBy`, `having`                     |   ✅   |
 | **Update** — `set`, `where`, `returning`, `$onUpdate`        |   ✅   |
 | **Delete** — `where`, `returning`                            |   ✅   |
@@ -64,6 +67,9 @@ libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
   affinity and return as numbers.
 - **`serial`/`bigserial`** map to `INTEGER` under a table-level `PRIMARY KEY`
   (not the rowid auto-increment).
+- **Postgres-only operators are unavailable** — `.distinctOn(...)`,
+  `.for("update" | "share")` locking, and the array operators
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`).
 
 What is **specific to libSQL/Turso**:
 

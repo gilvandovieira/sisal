@@ -7,6 +7,44 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
+## 0.3.0 - 2026-06-28
+
+### Added
+
+- Added `columns.customType<T>({ kind, dialectType })` as a trusted column-type
+  escape hatch that preserves `dialectType` in schema snapshots and lets
+  PostgreSQL DDL emit custom dialect types such as `vector(1536)`, `inet`,
+  `time`, `interval`, or identity syntax.
+- Added query-builder ergonomics and subqueries: `.distinctOn(...)` (Postgres
+  `SELECT DISTINCT ON`),
+  `.for("update" | "share", { skipLocked?, noWait?, of? })` row locking,
+  `db.$count(table, where?)` returning a `number`, and the
+  `countDistinct(column)` aggregate. A select aliased with `.as("x")` becomes a
+  derived table for `.from(...)` (columns referenceable as `x.col`); the same
+  builder embeds as a parenthesized scalar subquery in projections and `where`,
+  and as the operand of `inArray(col, subquery)` / `notInArray`.
+- Added the `exists(subquery)` / `notExists(subquery)` predicates and the
+  Postgres array operators `arrayContains` (`@>`), `arrayContained` (`<@`), and
+  `arrayOverlaps` (`&&`).
+- Added generated `llms.txt` and `llms-full.txt` files for GitHub Pages, sourced
+  from the API reference, docs, package manifests, and exported API
+  documentation.
+
+### Changed
+
+- Bumped workspace package manifests, example/benchmark manifests, and the
+  migration CLI's scaffolded adapter imports to `0.3.0`.
+- Updated CI, publish, and Pages workflows to verify or regenerate the LLM docs
+  files from `deno task docs:llms`.
+- Expanded the API reference to cover the current public relation-query,
+  table-constraint, workflow, CLI, adapter utility, and DDL helper surfaces.
+- Serialized SQLite ORM executor work so statements issued on the same executor
+  queue behind an open transaction instead of interleaving inside its
+  `BEGIN`/`COMMIT` window.
+- Pinned CI, publish, Pages, advisory, and integration workflows — and the
+  Docker integration runner image (`denoland/deno:2.9.0`, digest-pinned) — to
+  Deno `v2.9.0`.
+
 ## 0.2.0 - 2026-06-27
 
 ### Added
