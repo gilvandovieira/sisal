@@ -210,7 +210,10 @@ function functionCallSql(
   args: Record<string, unknown>,
 ): Sql {
   const argParts = definition.args.map((arg) =>
-    joinSql([paramSql(args[arg.name]), raw(`::${arg.castType}`)], emptySql())
+    joinSql(
+      [paramSql(args[arg.name]), raw("::"), raw(arg.castType)],
+      emptySql(),
+    )
   );
   const callExpr = joinSql([
     identifier(definition.name),
