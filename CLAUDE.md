@@ -80,10 +80,22 @@ are detected and returned in a separate `destructive` array, never emitted.
 `packages/orm/schema.ts` holds this snapshot contract and deliberately has no
 dependency on the rest of the ORM core.
 
-**`packages/orm/core/mod.ts` is the heart** (large, single file): `defineTable`
-and the `columns` factory, the `sql` tagged template + fragment/predicate
-helpers, the immutable Select/Insert/Update/Delete builders, the `Database`
-facade and `OrmDriver` contract, and `createSchemaSnapshot`.
+**`packages/orm/core/` is the heart**, split into coherent modules behind a
+barrel `mod.ts` (which re-exports the public surface and keeps the `@module`
+doc). The internal value-import graph is a strict DAG: `errors` ← `sql` ←
+{`operators`, `columns`} ← `table` ← {`builders`, `relations`} ← `database`. The
+files: `errors.ts` (`OrmError`); `sql.ts` (the `sql` tag, identifier/parameter
+rendering, the dialect-aware renderer, prepared-statement plans, `Condition`
+wrappers); `operators.ts` (`eq`/`and`/`inArray`/aggregates/`asc`/`desc`);
+`columns.ts` (the `columns` factory + `ColumnBuilder`); `table.ts`
+(`defineTable`, table constraints, type inference, introspection,
+`createSchemaSnapshot`); `builders.ts` (immutable Select/Insert/Update/Delete +
+compound + CTE/subquery + prepared queries); `relations.ts` (`relations()` + the
+`db.query.<table>` runtime); `database.ts` (the `Database` facade, `OrmDriver`
+contract, and built-in drivers). To avoid a runtime cycle, `sql.ts` detects a
+query builder via the `QUERY_BUILDER_BRAND` symbol the builder classes stamp on
+themselves, rather than importing `./builders.ts`. Add a public symbol to its
+concern file **and** to the barrel's re-export list together.
 
 **Every adapter has the same internal shape**, so they are interchangeable to
 read: `<adapter>/orm/` = `{ dialect, executor, driver, pool|database, errors }`

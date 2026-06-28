@@ -7,6 +7,34 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
+## Unreleased
+
+### Added
+
+- Added the prepared-statement API to `@sisal/orm`: `placeholder(name)` creates
+  a deferred parameter slot (Drizzle's `sql.placeholder`) usable in the
+  `` sql`...` `` tag and operators, and every builder
+  (`select`/`insert`/`update`/`delete` and compound selects) gains
+  `prepare(name?)`, returning a `PreparedQuery` run with `execute(values)` /
+  `toSql(values)`. The SQL is rendered once and re-bound per call; rendering a
+  query that still holds an unbound placeholder is refused. Moves the
+  `sql.placeholder` / prepared-statement rows in `docs/drizzle-parity.md` off
+  the roadmap.
+
+### Changed
+
+- Split the `@sisal/orm` core (`packages/orm/core/mod.ts`) into coherent modules
+  behind a barrel: `errors`, `sql`, `operators`, `columns`, `table`, `builders`,
+  `relations`, and `database`. `mod.ts` now re-exports the same public surface
+  (no API change) and the internal value-import graph is an acyclic DAG — `sql`
+  detects query builders via a brand symbol instead of importing `builders`.
+
+### Removed
+
+- Removed the Performance/benchmark section (and its nav link and styles) from
+  the docs homepage `docs/index.html`. The standalone `benchmarks.html` page and
+  its footer link are unchanged.
+
 ## 0.3.0 - 2026-06-28
 
 ### Added
