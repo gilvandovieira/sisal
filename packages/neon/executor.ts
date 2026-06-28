@@ -8,6 +8,7 @@ import {
   type NeonQueryResult,
   normalizeNeonResult,
 } from "./client.ts";
+import { normalizeTemporalSqlValue } from "@sisal/orm";
 
 /** Rows and affected-row count returned by a Neon executor. */
 export interface NeonSqlResult<Row = Record<string, unknown>> {
@@ -164,7 +165,7 @@ class SisalNeonExecutor implements NeonSqlExecutor {
     try {
       const result: NeonQueryResult<Row> = await queryable.query<Row>(
         sql,
-        [...params],
+        params.map(normalizeTemporalSqlValue),
       );
 
       return normalizeNeonResult(result);

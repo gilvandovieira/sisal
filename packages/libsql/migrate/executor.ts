@@ -1,4 +1,5 @@
 import { MigrationError } from "@sisal/migrate";
+import { normalizeTemporalSqlValue } from "@sisal/orm";
 
 import {
   createLibsqlClient,
@@ -207,6 +208,11 @@ function normalizeLibsqlParams(params: readonly unknown[]): LibsqlInValue[] {
 }
 
 function normalizeLibsqlParam(value: unknown): LibsqlInValue {
+  const normalized = normalizeTemporalSqlValue(value);
+  if (normalized !== value) {
+    return normalizeLibsqlParam(normalized);
+  }
+
   if (value === undefined) {
     return null;
   }

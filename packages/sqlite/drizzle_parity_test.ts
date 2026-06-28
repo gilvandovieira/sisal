@@ -80,6 +80,10 @@ Deno.test("parity: SQLite type affinity mapping", () => {
   assertEquals(generateSqliteColumnType({ kind: "number" }), "REAL");
   assertEquals(generateSqliteColumnType({ kind: "text" }), "TEXT");
   assertEquals(generateSqliteColumnType({ kind: "uuid" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "date" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "time" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "timestamp" }), "TEXT");
+  assertEquals(generateSqliteColumnType({ kind: "timestamptz" }), "TEXT");
   assertEquals(generateSqliteColumnType({ kind: "blob" }), "BLOB");
   assertEquals(generateSqliteColumnType({ kind: "bytea" }), "BLOB");
   assertEquals(

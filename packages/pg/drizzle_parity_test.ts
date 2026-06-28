@@ -69,11 +69,15 @@ Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => 
   assertEquals(generatePostgresColumnType({ kind: "integer" }), "integer");
   assertEquals(generatePostgresColumnType({ kind: "boolean" }), "boolean");
   assertEquals(generatePostgresColumnType({ kind: "jsonb" }), "jsonb");
-  // Divergence: `timestamp` maps to `timestamptz` in Sisal's Postgres DDL.
   assertEquals(
     generatePostgresColumnType({ kind: "timestamp" }),
+    "timestamp",
+  );
+  assertEquals(
+    generatePostgresColumnType({ kind: "timestamptz" }),
     "timestamptz",
   );
+  assertEquals(generatePostgresColumnType({ kind: "time" }), "time");
   assertEquals(generatePostgresColumnType({ kind: "bytea" }), "bytea");
   assertEquals(
     generatePostgresColumnType({ kind: "text", array: true }),
@@ -82,7 +86,6 @@ Deno.test("parity: Postgres column type mapping mirrors drizzle pg-core", () => 
   for (
     const [type, ddl] of [
       [{ kind: "enum", dialectType: "post_status" }, "post_status"],
-      [{ kind: "time", dialectType: "time" }, "time"],
       [{ kind: "interval", dialectType: "interval" }, "interval"],
       [{ kind: "point", dialectType: "point" }, "point"],
       [

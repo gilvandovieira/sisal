@@ -30,6 +30,48 @@ function fakeDatabase(log: string[]): SqliteLikeDatabase {
   };
 }
 
+function recordingDatabase(
+  calls: Array<{ readonly sql: string; readonly params: readonly unknown[] }>,
+): SqliteLikeDatabase {
+  return {
+    prepare(sql: string) {
+      return {
+        all(...params: readonly unknown[]) {
+          calls.push({ sql, params });
+          return [];
+        },
+        run(...params: readonly unknown[]) {
+          calls.push({ sql, params });
+          return 0;
+        },
+      };
+    },
+    close() {},
+  };
+}
+
+Deno.test("sqlite executor: normalizes Temporal params", async () => {
+  const calls: Array<
+    { readonly sql: string; readonly params: readonly unknown[] }
+  > = [];
+  const executor = createSqliteExecutor({ database: recordingDatabase(calls) });
+
+  await executor.execute("insert into events values (?, ?)", [
+    Temporal.PlainDate.from("2026-06-28"),
+    [Temporal.Instant.from("2026-06-28T12:00:00.123456789Z")],
+  ]);
+
+  assertEquals(calls, [
+    {
+      sql: "insert into events values (?, ?)",
+      params: [
+        "2026-06-28",
+        ["2026-06-28T12:00:00.123456789Z"],
+      ],
+    },
+  ]);
+});
+
 Deno.test("sqlite executor: outside work queues behind an open transaction", async () => {
   const log: string[] = [];
   const executor = createSqliteExecutor({ database: fakeDatabase(log) });

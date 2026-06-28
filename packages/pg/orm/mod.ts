@@ -7,7 +7,7 @@
  * @module
  */
 
-import type { Logger } from "@sisal/orm";
+import type { Logger, TemporalParsingOptions } from "@sisal/orm";
 
 import {
   createDatabase,
@@ -44,6 +44,7 @@ export interface PgDatabase extends Database {
 /** Options for opening a PostgreSQL-backed database facade. */
 export interface CreatePgDbOptions extends PgOrmDriverOptions {
   readonly logger?: Logger;
+  readonly temporal?: TemporalParsingOptions;
 }
 
 /** Opens a PostgreSQL-backed database facade. */
@@ -57,6 +58,7 @@ export function createPgDb(
       driver,
       dialect: POSTGRES_DIALECT,
       logger: options.logger,
+      temporal: options.temporal,
     }) as PgDatabase,
   );
 }

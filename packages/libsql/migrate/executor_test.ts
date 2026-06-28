@@ -59,6 +59,30 @@ Deno.test("@sisal/libsql - migration executor isolates transaction handle", asyn
   ]);
 });
 
+Deno.test("@sisal/libsql - migration executor normalizes Temporal params", async () => {
+  let seen: LibsqlStatement | undefined;
+  const client: LibsqlClient = {
+    execute(statement) {
+      seen = statement as LibsqlStatement;
+      return Promise.resolve({ rows: [], rowsAffected: 1 });
+    },
+  };
+  const executor = createLibsqlExecutor({ client });
+
+  await executor.execute("insert into migrations values (?, ?)", [
+    Temporal.PlainDate.from("2026-06-28"),
+    [Temporal.Instant.from("2026-06-28T12:00:00.123456789Z")],
+  ]);
+
+  assertEquals(seen, {
+    sql: "insert into migrations values (?, ?)",
+    args: [
+      "2026-06-28",
+      '["2026-06-28T12:00:00.123456789Z"]',
+    ],
+  });
+});
+
 Deno.test("@sisal/libsql - migration driver uses scoped transaction executor", async () => {
   const outerQueries: QueryCall[] = [];
   const transactionQueries: QueryCall[] = [];

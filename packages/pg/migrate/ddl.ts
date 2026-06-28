@@ -61,8 +61,6 @@ function pgBaseType(type: SisalColumnType): string {
     case "double":
     case "float":
       return "double precision";
-    case "timestamp":
-      return "timestamptz";
     default:
       return type.kind;
   }
