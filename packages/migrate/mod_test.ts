@@ -111,7 +111,7 @@ function recordingMigrationStore(): {
 
 const snapshot = (
   tables: SisalSchemaSnapshot["tables"],
-): SisalSchemaSnapshot => ({ version: 1, tables });
+): SisalSchemaSnapshot => ({ version: 2, tables });
 
 Deno.test("@sisal/migrate - checksum ignores line-ending and trailing-whitespace differences", () => {
   const unix = defineSqlMigration({
@@ -202,13 +202,13 @@ Deno.test("@sisal/migrate - plan helpers", () => {
 
 Deno.test("@sisal/migrate - schema migration plan accepts validated snapshots", () => {
   const from = {
-    version: 1 as const,
+    version: 2 as const,
     tables: [
       { name: "users", columns: [{ name: "id", type: { kind: "text" } }] },
     ],
   };
   const to = {
-    version: 1 as const,
+    version: 2 as const,
     tables: [
       { name: "posts", columns: [{ name: "id", type: { kind: "text" } }] },
       { name: "users", columns: [{ name: "id", type: { kind: "text" } }] },
@@ -222,7 +222,7 @@ Deno.test("@sisal/migrate - schema migration plan accepts validated snapshots", 
   assertThrows(() =>
     defineSchemaMigrationPlan({
       to: {
-        version: 2 as 1,
+        version: 1 as 2,
         tables: [],
       },
     })

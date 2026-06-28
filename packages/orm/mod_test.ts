@@ -282,7 +282,7 @@ Deno.test("@sisal/orm - createSchemaSnapshot maps table metadata", () => {
   });
   const table = snapshot.tables[0];
 
-  assertEquals(snapshot.version, 1);
+  assertEquals(snapshot.version, 2);
   assertEquals(snapshot.dialect, "postgres");
   assertEquals(table.name, "users");
   assertEquals(table.primaryKey?.columns, ["id"]);

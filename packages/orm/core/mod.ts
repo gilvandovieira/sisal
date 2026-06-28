@@ -116,6 +116,7 @@ export type {
   CreateSchemaSnapshotInput,
   CreateSchemaSnapshotOptions,
   DefineTableOptions,
+  IndexColumnSpec,
   IndexConstraintBuilder,
   InferInsert,
   InferSelect,

@@ -31,14 +31,14 @@ Deno.test("@sisal/sqlite - generates SQLite CREATE TABLE SQL", () => {
 
 Deno.test("@sisal/sqlite - generates additive SQLite migration SQL", () => {
   const from: SisalSchemaSnapshot = {
-    version: 1,
+    version: 2,
     tables: [{
       name: "notes",
       columns: [{ name: "id", type: { kind: "text" }, nullable: false }],
     }],
   };
   const to: SisalSchemaSnapshot = {
-    version: 1,
+    version: 2,
     tables: [notes],
   };
 

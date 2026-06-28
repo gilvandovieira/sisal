@@ -7,9 +7,11 @@
 
 import {
   defineSchemaSnapshot,
+  SCHEMA_SNAPSHOT_VERSION,
   type SisalCheckConstraintSnapshot,
   type SisalColumnDefault,
   type SisalDialectName,
+  type SisalIndexColumnSnapshot,
   type SisalIndexSnapshot,
   type SisalSchemaSnapshot,
   type SisalUniqueConstraintSnapshot,
@@ -24,6 +26,7 @@ import { OrmError } from "./errors.ts";
 import {
   type ColumnName,
   isColumn,
+  isOrderTerm,
   isRecord,
   isSql,
   normalizeColumnName,
@@ -165,8 +168,10 @@ export type TableConstraint =
   | {
     readonly kind: "index";
     readonly name?: string;
-    readonly columns: readonly string[];
+    readonly columns: readonly IndexColumnSpec[];
     readonly unique: boolean;
+    /** Partial-index predicate (`WHERE …`), set via `.where(...)`. */
+    readonly where?: Sql;
   }
   | { readonly kind: "primaryKey"; readonly columns: readonly string[] }
   | {
@@ -176,9 +181,34 @@ export type TableConstraint =
   }
   | { readonly kind: "check"; readonly name: string; readonly expression: Sql };
 
+/**
+ * A single key in a table index produced by `index().on(...)`: either a column
+ * (optionally with a sort direction) or a raw SQL expression.
+ */
+export type IndexColumnSpec =
+  | {
+    readonly kind: "column";
+    readonly name: string;
+    readonly direction?: "asc" | "desc";
+  }
+  | {
+    readonly kind: "expression";
+    readonly sql: Sql;
+    readonly direction?: "asc" | "desc";
+  };
+
 /** Fluent builder returned by {@link index} / {@link uniqueIndex}. */
 export interface IndexConstraintBuilder {
-  /** Sets the indexed columns (column references or names). */
+  /**
+   * Restricts the index to rows matching a predicate (a partial index). Chain
+   * before `.on(...)`.
+   */
+  where(predicate: Sql): IndexConstraintBuilder;
+  /**
+   * Sets the indexed keys and finishes the index. Each key may be a column
+   * reference, a column name, an `asc()`/`desc()` term (to set a sort
+   * direction), or a `Sql` expression (an expression index).
+   */
   on(...columns: readonly unknown[]): TableConstraint;
 }
 
@@ -207,28 +237,69 @@ function constraintColumnNames(columns: readonly unknown[]): string[] {
   });
 }
 
-/** A table index (`CREATE INDEX`); complete it with `.on(...columns)`. */
-export function index(name?: string): IndexConstraintBuilder {
+// Resolves one `.on(...)` argument into an index key. An `asc()`/`desc()` term
+// wraps a column or expression and contributes a direction; a bare column/name
+// is an undirected column key; a `sql` fragment is an expression key.
+function indexColumnSpec(column: unknown): IndexColumnSpec {
+  if (isOrderTerm(column)) {
+    return { ...indexColumnSpec(column.column), direction: column.direction };
+  }
+  if (typeof column === "string") {
+    return { kind: "column", name: normalizeColumnName(column) };
+  }
+  if (isColumn(column)) {
+    return { kind: "column", name: column.name };
+  }
+  if (isSql(column)) {
+    return { kind: "expression", sql: column };
+  }
+  throw new OrmError(
+    "Index key must be a column, column name, asc()/desc() term, or sql`...` expression",
+    { code: "ORM_INVALID_COLUMN" },
+  );
+}
+
+function indexColumnSpecs(columns: readonly unknown[]): IndexColumnSpec[] {
+  if (columns.length === 0) {
+    throw new OrmError("A constraint requires at least one column", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return columns.map(indexColumnSpec);
+}
+
+function makeIndexBuilder(
+  name: string | undefined,
+  unique: boolean,
+  where: Sql | undefined,
+): IndexConstraintBuilder {
   return {
+    where: (predicate) => {
+      if (!isSql(predicate)) {
+        throw new OrmError("index().where() expects a sql`...` expression", {
+          code: "ORM_INVALID_QUERY",
+        });
+      }
+      return makeIndexBuilder(name, unique, predicate);
+    },
     on: (...columns) => ({
       kind: "index",
       ...(name === undefined ? {} : { name }),
-      columns: constraintColumnNames(columns),
-      unique: false,
+      columns: indexColumnSpecs(columns),
+      unique,
+      ...(where === undefined ? {} : { where }),
     }),
   };
 }
 
+/** A table index (`CREATE INDEX`); complete it with `.on(...columns)`. */
+export function index(name?: string): IndexConstraintBuilder {
+  return makeIndexBuilder(name, false, undefined);
+}
+
 /** A unique table index (`CREATE UNIQUE INDEX`); complete with `.on(...)`. */
 export function uniqueIndex(name?: string): IndexConstraintBuilder {
-  return {
-    on: (...columns) => ({
-      kind: "index",
-      ...(name === undefined ? {} : { name }),
-      columns: constraintColumnNames(columns),
-      unique: true,
-    }),
-  };
+  return makeIndexBuilder(name, true, undefined);
 }
 
 /** A composite/table-level primary key over the given columns. */
@@ -257,6 +328,34 @@ export function check(name: string, expression: Sql): TableConstraint {
     });
   }
   return { kind: "check", name, expression };
+}
+
+// Renders a table-scoped `sql` expression to portable DDL text: identifiers stay
+// double-quoted (valid on Postgres and SQLite/libSQL), but the table prefix is
+// stripped so the same text reuses across dialects. Shared by CHECK constraints,
+// expression index keys, and partial-index `WHERE` predicates.
+function renderPortableExpression(expression: Sql, tableName: string): string {
+  return renderSql(expression, { dialect: "postgres" }).text.replaceAll(
+    `"${tableName}".`,
+    "",
+  );
+}
+
+function indexColumnToSnapshot(
+  spec: IndexColumnSpec,
+  tableName: string,
+): SisalIndexColumnSnapshot {
+  if (spec.kind === "expression") {
+    return {
+      value: renderPortableExpression(spec.sql, tableName),
+      expression: true,
+      ...(spec.direction === undefined ? {} : { direction: spec.direction }),
+    };
+  }
+  return {
+    value: spec.name,
+    ...(spec.direction === undefined ? {} : { direction: spec.direction }),
+  };
 }
 
 /** Extracts the selected (read) value type a column builder produces. */
@@ -407,7 +506,7 @@ export function createSchemaSnapshot(
     : Object.values(input.tables);
 
   return defineSchemaSnapshot({
-    version: 1,
+    version: SCHEMA_SNAPSHOT_VERSION,
     ...(input.dialect === undefined ? {} : { dialect: input.dialect }),
     tables: tables.map(tableToSnapshot),
     ...(input.metadata === undefined
@@ -475,8 +574,13 @@ function tableToSnapshot(
       case "index":
         indexes.push({
           ...(constraint.name === undefined ? {} : { name: constraint.name }),
-          columns: [...constraint.columns],
+          columns: constraint.columns.map((spec) =>
+            indexColumnToSnapshot(spec, table.name)
+          ),
           ...(constraint.unique ? { unique: true } : {}),
+          ...(constraint.where === undefined ? {} : {
+            where: renderPortableExpression(constraint.where, table.name),
+          }),
         });
         break;
       case "primaryKey":
@@ -491,10 +595,10 @@ function tableToSnapshot(
       case "check":
         checks.push({
           name: constraint.name,
-          // CHECK constraints reference the table's own columns by unqualified
-          // name (portable across Postgres/SQLite), so strip the table prefix.
-          expression: renderSql(constraint.expression, { dialect: "postgres" })
-            .text.replaceAll(`"${table.name}".`, ""),
+          expression: renderPortableExpression(
+            constraint.expression,
+            table.name,
+          ),
         });
         break;
     }

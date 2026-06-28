@@ -52,7 +52,7 @@ function fakeFs(): MigrationFileSystem & {
 }
 
 const snapshotV1: SisalSchemaSnapshot = {
-  version: 1,
+  version: 2,
   dialect: "sqlite",
   tables: [
     {
@@ -66,7 +66,7 @@ const snapshotV1: SisalSchemaSnapshot = {
 };
 
 const snapshotV2: SisalSchemaSnapshot = {
-  version: 1,
+  version: 2,
   dialect: "sqlite",
   tables: [
     {
