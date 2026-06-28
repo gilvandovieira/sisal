@@ -33,7 +33,7 @@ Adapters may depend on `@sisal/orm`; the ORM must not depend on adapters.
 - `deno task docs:check`: verify documented API coverage.
 - `deno task bench`: run benchmarks.
 
-CI uses Deno `v2.8.3`, runs `deno install --frozen`, formatting, linting, docs
+CI uses Deno `v2.9.0`, runs `deno install --frozen`, formatting, linting, docs
 coverage, workspace type-checking, package-level tests, and
 `deno publish --dry-run --allow-dirty` for each workspace package.
 

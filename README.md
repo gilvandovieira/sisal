@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/sisal-banner.png" alt="Sisal - a Deno-first database toolkit published to JSR: typed schemas, planned migrations, and small database adapters" width="900">
+  <img src="./assets/brand/og-image.png" alt="Sisal — a Deno-first, JSR-native database toolkit" width="900">
 </p>
 
 # Sisal
@@ -854,7 +854,7 @@ weekly schedule and by manual dispatch. It covers PostgreSQL 16/17/18 through
 Docker, Neon through the bundled local WebSocket proxy, and local SQLite/libSQL
 execution.
 
-The main CI workflow uses Deno `v2.8.3`, installs with `--frozen`, checks
+The main CI workflow uses Deno `v2.9.0`, installs with `--frozen`, checks
 formatting, linting, docs coverage, workspace type-checking, package tests, a
 workspace publish dry-run, and publish dry-runs for each workspace package.
 

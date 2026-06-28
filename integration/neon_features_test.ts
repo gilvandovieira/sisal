@@ -22,15 +22,20 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import {
   and,
+  arrayContained,
+  arrayContains,
+  arrayOverlaps,
   asc,
   avg,
   between,
   columns,
   count,
+  countDistinct,
   createSchemaSnapshot,
   defineTable,
   desc,
   eq,
+  exists,
   gt,
   gte,
   ilike,
@@ -45,6 +50,7 @@ import {
   ne,
   not,
   notBetween,
+  notExists,
   notIlike,
   notInArray,
   notLike,
@@ -324,6 +330,98 @@ neonTest("neon: aggregates + groupBy + having", async (db) => {
     .execute();
   assertEquals(grouped.length, 1);
   assertEquals(Number(grouped[0].n), 2);
+});
+
+neonTest("neon: $count + countDistinct", async (db) => {
+  assertEquals(await db.$count(users), 4);
+  assertEquals(await db.$count(users, isNotNull(users.columns.age)), 3);
+
+  const distinct = await db
+    .select({ orgs: countDistinct(users.columns.orgId) })
+    .from(users).execute();
+  assertEquals(Number(distinct[0].orgs), 2);
+});
+
+neonTest("neon: exists / notExists (correlated subquery)", async (db) => {
+  const withUsers = db.select({ one: users.columns.id }).from(users)
+    .where(eq(users.columns.orgId, orgs.columns.id));
+  assertEquals(
+    (await db.select().from(orgs).where(exists(withUsers)).execute()).length,
+    2,
+  );
+  assertEquals(
+    (await db.select().from(orgs).where(notExists(withUsers)).execute()).length,
+    0,
+  );
+});
+
+neonTest("neon: subqueries (derived table, scalar, inArray)", async (db) => {
+  const counts = db.select({ orgId: users.columns.orgId, n: count() })
+    .from(users).where(isNotNull(users.columns.orgId))
+    .groupBy(users.columns.orgId).as("counts");
+  assertEquals(
+    (await db.select({ orgId: counts.orgId, n: counts.n }).from(counts)
+      .execute()).length,
+    2,
+  );
+
+  const scalar = await db.select({
+    id: orgs.columns.id,
+    members: db.select({ c: count() }).from(users)
+      .where(eq(users.columns.orgId, orgs.columns.id)),
+  }).from(orgs).orderBy(asc(orgs.columns.id)).execute();
+  assertEquals(scalar.map((r) => Number(r.members)), [2, 1]);
+
+  const acme = await db.select().from(users).where(
+    inArray(
+      users.columns.orgId,
+      db.select({ id: orgs.columns.id }).from(orgs)
+        .where(eq(orgs.columns.name, "Acme")),
+    ),
+  ).execute();
+  assertEquals(acme.length, 2);
+});
+
+neonTest("neon: distinctOn (SELECT DISTINCT ON)", async (db) => {
+  const rows = await db
+    .select({ orgId: users.columns.orgId, id: users.columns.id })
+    .from(users)
+    .where(isNotNull(users.columns.orgId))
+    .distinctOn(users.columns.orgId)
+    .orderBy(asc(users.columns.orgId), asc(users.columns.id))
+    .execute();
+  assertEquals(rows.map((r) => [Number(r.orgId), Number(r.id)]), [[1, 1], [
+    2,
+    3,
+  ]]);
+});
+
+neonTest("neon: for update / skip locked row locking", async (db) => {
+  await db.transaction(async (tx) => {
+    const locked = await tx.select().from(users)
+      .where(eq(users.columns.id, 1)).for("update").execute();
+    assertEquals(locked.length, 1);
+
+    const skipped = await tx.select().from(users)
+      .where(eq(users.columns.id, 2)).for("update", { skipLocked: true })
+      .execute();
+    assertEquals(skipped.length, 1);
+  });
+});
+
+neonTest("neon: array operators (@> / <@ / &&)", async (db) => {
+  const contains = await db.select().from(users)
+    .where(arrayContains(users.columns.tags, ["x"])).execute();
+  assertEquals(contains.map((r) => r.id), [1]);
+
+  const contained = await db.select().from(users)
+    .where(arrayContained(users.columns.tags, ["x", "y", "z"]))
+    .orderBy(asc(users.columns.id)).execute();
+  assertEquals(contained.map((r) => r.id), [1, 2, 3]);
+
+  const overlaps = await db.select().from(users)
+    .where(arrayOverlaps(users.columns.tags, ["z", "q"])).execute();
+  assertEquals(overlaps.map((r) => r.id), [3]);
 });
 
 neonTest("neon: update + returning + $onUpdate", async (db) => {

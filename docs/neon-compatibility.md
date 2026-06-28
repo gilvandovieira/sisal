@@ -14,10 +14,12 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | ------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** via the Neon serverless driver        |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)         |
-| Suite         | `integration/neon_features_test.ts` (17 feature groups) |
+| Suite         | `integration/neon_features_test.ts` (23 feature groups) |
 | Last run      | 2026-06-27 — **17 / 17 passed**                         |
 
-✅ = verified on a live server.
+✅ = verified on a live server · 🆕 = integration test added 2026-06-28,
+awaiting the next live run (six new operator groups; covered by the unit parity
+tests meanwhile).
 
 ## Matrix
 
@@ -36,6 +38,12 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | **Distinct**                                                   |  ✅  |
 | **Joins** — `inner` / `left` / `right` / `full`                |  ✅  |
 | **Aggregates** — `count` `sum` `avg` `min` `max`               |  ✅  |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`    |  🆕  |
+| **Subquery** — `exists` / `notExists` (correlated)             |  🆕  |
+| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`    |  🆕  |
+| **`distinctOn`** — `SELECT DISTINCT ON (...)`                  |  🆕  |
+| **Row locking** — `.for("update"/"share")`, `skipLocked`       |  🆕  |
+| **Array ops** — `arrayContains`/`Contained`/`Overlaps`         |  🆕  |
 | **Group / filter** — `groupBy`, `having`                       |  ✅  |
 | **Update** — `set`, `where`, `returning`, `$onUpdate`          |  ✅  |
 | **Delete** — `where`, `returning`                              |  ✅  |

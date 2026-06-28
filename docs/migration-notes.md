@@ -14,7 +14,9 @@ database toolkit.
 | Core ORM/schema pieces              | `@sisal/orm`     |
 | Core migration pieces               | `@sisal/migrate` |
 | PostgreSQL ORM and migration pieces | `@sisal/pg`      |
+| Neon serverless PostgreSQL pieces   | `@sisal/neon`    |
 | SQLite ORM and migration pieces     | `@sisal/sqlite`  |
+| libSQL/Turso ORM and migration      | `@sisal/libsql`  |
 
 ## Important Boundary Changes
 

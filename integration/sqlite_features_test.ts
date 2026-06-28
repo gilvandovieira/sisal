@@ -24,10 +24,12 @@ import {
   between,
   columns,
   count,
+  countDistinct,
   createSchemaSnapshot,
   defineTable,
   desc,
   eq,
+  exists,
   gt,
   gte,
   ilike,
@@ -42,6 +44,7 @@ import {
   ne,
   not,
   notBetween,
+  notExists,
   notInArray,
   notLike,
   or,
@@ -356,6 +359,63 @@ sqliteTest("sqlite: aggregates + groupBy + having", async (db) => {
   assertEquals(grouped.length, 1);
   assertEquals(Number(grouped[0].n), 2);
 });
+
+sqliteTest("sqlite: $count + countDistinct", async (db) => {
+  assertEquals(await db.$count(users), 4);
+  assertEquals(await db.$count(users, isNotNull(users.columns.age)), 3);
+
+  const distinct = await db
+    .select({ orgs: countDistinct(users.columns.orgId) })
+    .from(users).execute();
+  assertEquals(Number(distinct[0].orgs), 2); // org ids {1, 2}; null excluded
+});
+
+sqliteTest("sqlite: exists / notExists (correlated subquery)", async (db) => {
+  const withUsers = db.select({ one: users.columns.id }).from(users)
+    .where(eq(users.columns.orgId, orgs.columns.id));
+  // Both orgs have at least one member.
+  assertEquals(
+    (await db.select().from(orgs).where(exists(withUsers)).execute()).length,
+    2,
+  );
+  assertEquals(
+    (await db.select().from(orgs).where(notExists(withUsers)).execute()).length,
+    0,
+  );
+});
+
+sqliteTest(
+  "sqlite: subqueries (derived table, scalar, inArray)",
+  async (db) => {
+    // Derived table: per-org counts wrapped as `from (…) as counts`.
+    const counts = db.select({ orgId: users.columns.orgId, n: count() })
+      .from(users).where(isNotNull(users.columns.orgId))
+      .groupBy(users.columns.orgId).as("counts");
+    assertEquals(
+      (await db.select({ orgId: counts.orgId, n: counts.n }).from(counts)
+        .execute()).length,
+      2,
+    );
+
+    // Scalar subquery in a projection.
+    const scalar = await db.select({
+      id: orgs.columns.id,
+      members: db.select({ c: count() }).from(users)
+        .where(eq(users.columns.orgId, orgs.columns.id)),
+    }).from(orgs).orderBy(asc(orgs.columns.id)).execute();
+    assertEquals(scalar.map((r) => Number(r.members)), [2, 1]);
+
+    // inArray(col, subquery): users whose org is named "Acme".
+    const acme = await db.select().from(users).where(
+      inArray(
+        users.columns.orgId,
+        db.select({ id: orgs.columns.id }).from(orgs)
+          .where(eq(orgs.columns.name, "Acme")),
+      ),
+    ).execute();
+    assertEquals(acme.length, 2); // Alice + Bob (org 1)
+  },
+);
 
 sqliteTest("sqlite: update + returning + $onUpdate", async (db) => {
   await db.insert(posts).values({ id: 1, title: "first", updatedAt: null })

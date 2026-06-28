@@ -12,8 +12,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (21 tests)     |
-| Last run      | 2026-06-27 — **21 / 21 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (24 tests)     |
+| Last run      | 2026-06-28 — **24 / 24 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
@@ -37,6 +37,9 @@ unsupported on SQLite.
 | **Joins** — `inner` / `left`                                       |     ✅      |
 | **Joins** — `right` / `full` (SQLite ≥ 3.39)                       |     ✅      |
 | **Aggregates** — `count` `sum` `avg` `min` `max`                   |     ✅      |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`        |     ✅      |
+| **Subquery** — `exists` / `notExists` (correlated)                 |     ✅      |
+| **Subquery** — derived table `.as()`, scalar, `inArray(subquery)`  |     ✅      |
 | **Group / filter** — `groupBy`, `having`                           |     ✅      |
 | **Update** — `set`, `where`, `returning`, `$onUpdate`              |     ✅      |
 | **Delete** — `where`, `returning`                                  |     ✅      |
@@ -79,6 +82,10 @@ Every generated type maps onto one of SQLite's five affinities and the
   under a table-level `PRIMARY KEY`, which is not SQLite's rowid alias — provide
   ids yourself, or use a single `INTEGER PRIMARY KEY` column for rowid behavior.
 - **`right`/`full` joins need SQLite ≥ 3.39** (the bundled engine is 3.46).
+- **Postgres-only operators are not available here.** `.distinctOn(...)`,
+  `.for("update" | "share")` row locking, and the array operators
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`) target PostgreSQL; SQLite
+  has no equivalent.
 
 ## Reproduce
 

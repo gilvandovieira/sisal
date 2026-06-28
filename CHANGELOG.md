@@ -41,6 +41,9 @@ Sisal-specific history after that baseline through `1f05448`.
 - Serialized SQLite ORM executor work so statements issued on the same executor
   queue behind an open transaction instead of interleaving inside its
   `BEGIN`/`COMMIT` window.
+- Pinned CI, publish, Pages, advisory, and integration workflows — and the
+  Docker integration runner image (`denoland/deno:2.9.0`, digest-pinned) — to
+  Deno `v2.9.0`.
 
 ## 0.2.0 - 2026-06-27
 
