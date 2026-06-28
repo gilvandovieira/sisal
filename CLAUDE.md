@@ -130,6 +130,19 @@ the parity test together.** Per-engine behavior is similarly pinned by
   `.optional()` is an **insert-only** axis and does _not_ change column
   nullability — a plain nullable column is still required on insert unless
   `.optional()`/`.default()`.
+- **Column names are `snake_case` by default** (since 0.4.0). The `defineTable`
+  property key stays the JS-side name; the physical column name is derived by a
+  naming strategy that defaults to `snake_case` (`hotScore` → `hot_score`;
+  idempotent on keys that are already snake_case). The builder maps key↔physical
+  on both write and read (`SELECT *`/`RETURNING *` alias `phys AS key`), so code
+  that stays inside the builder is transparent to it. Override per table with
+  the `naming` option (`"snake_case"` | `"camelCase"` | `"preserve"` | a
+  `(key)
+  => name` fn), per column with `.named(...)` (always wins), or
+  process-wide with `setDefaultColumnNaming(strategy)` (affects tables defined
+  after the call). Use `naming: "preserve"` for the pre-0.4.0 verbatim behavior.
+  Tests that assert literal SQL for camelCase-keyed tables must set
+  `naming: "preserve"`.
 - **Query builders are immutable** — every method returns a new builder.
 - **Safety rail:** `update`/`delete` with no `where` throw unless you first call
   `.unsafeAllowAllRows()`.

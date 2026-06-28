@@ -58,7 +58,7 @@ const users = defineTable("users", {
   birthday: columns.date().optional(),
   createdAt: columns.timestamp().default(() => new Date()),
   orgId: columns.uuid().references("organizations", "id"),
-});
+}, { naming: "preserve" });
 
 Deno.test("@sisal/orm - Postgres column types map into a valid schema snapshot", () => {
   const accounts = defineTable("accounts", {
@@ -67,7 +67,7 @@ Deno.test("@sisal/orm - Postgres column types map into a valid schema snapshot",
     balance: columns.bigint().notNull(),
     settings: columns.jsonb<{ theme: string }>().optional(),
     createdAt: columns.timestamp({ withTimezone: true }).notNull(),
-  });
+  }, { naming: "preserve" });
 
   // Inference: bigint is typed as string (precision-safe); jsonb keeps its generic.
   const insert: InferInsert<typeof accounts> = {
@@ -312,7 +312,7 @@ Deno.test("@sisal/orm - createSchemaSnapshot output order is deterministic", () 
   const posts = defineTable("posts", {
     id: columns.text().primaryKey(),
     userId: columns.text().references("users", "id"),
-  });
+  }, { naming: "preserve" });
   const snapshot = createSchemaSnapshot({
     tables: [users, posts],
   });
@@ -354,7 +354,7 @@ Deno.test("@sisal/orm - joins and projected select generate SQL", () => {
     id: columns.uuid().primaryKey(),
     userId: columns.uuid().notNull(),
     title: columns.text().notNull(),
-  });
+  }, { naming: "preserve" });
 
   const projected = db.select({
     userId: users.columns.id,

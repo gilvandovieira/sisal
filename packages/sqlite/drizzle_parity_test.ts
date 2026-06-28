@@ -34,7 +34,7 @@ Deno.test("parity: table extras — composite PK, named unique, check, index", (
     unique("uq_email").on(t.email),
     check("age_check", sql`${t.age} >= 0`),
     index("members_email_idx").on(t.email),
-  ]);
+  ], { naming: "preserve" });
   const { statements } = generateSqliteUpStatements(
     createSchemaSnapshot({ dialect: "sqlite", tables: [members] }),
   );
@@ -56,7 +56,7 @@ Deno.test("parity: SQLite emits UNIQUE + inline FOREIGN KEY with actions", () =>
     id: columns.integer().primaryKey(),
     email: columns.text().notNull().unique(),
     orgId: columns.integer().references("orgs", "id", { onDelete: "set null" }),
-  });
+  }, { naming: "preserve" });
   const { statements } = generateSqliteUpStatements(
     createSchemaSnapshot({ dialect: "sqlite", tables: [orgs, users] }),
   );

@@ -3,8 +3,11 @@
  *
  * These mirror migrations/0001_init.sql and give the query builder typed
  * columns and row inference (see src/queries.ts and src/seed.ts). Column keys
- * are snake_case on purpose: Sisal uses column names verbatim, so the keys must
- * match the physical column names in the SQL migrations.
+ * are kept snake_case here so they line up 1:1 with the raw SQL this example
+ * still uses (the `app.vote_post` RETURNS TABLE columns and the hand-written
+ * `recomputeAggregates` UPDATE). They could be camelCase: since 0.4.0 Sisal's
+ * default naming strategy maps keys to snake_case columns (and snake_case keys
+ * pass through unchanged), so the physical SQL would be identical either way.
  *
  * The `.sql` migrations remain the source of truth for the database shape:
  * Sisal's snapshot DDL generator does not express DESC index ordering, this

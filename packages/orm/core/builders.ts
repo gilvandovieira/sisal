@@ -748,7 +748,13 @@ export class SisalSelectBuilder<TTable, TResult>
     } else {
       parts.push(raw(distinct ? "select distinct " : "select "));
     }
-    parts.push(projection === undefined ? raw("*") : projectionSql(projection));
+    parts.push(
+      projection !== undefined
+        ? projectionSql(projection)
+        : table !== undefined
+        ? tableSelectionSql(table)
+        : raw("*"),
+    );
     parts.push(raw(" from "), fromName);
 
     for (const join of joins) {
@@ -1043,14 +1049,40 @@ function projectionSql(projection: SelectProjection): Sql {
   );
 }
 
-function returningSql(returning: SelectProjection | boolean): Sql | undefined {
+function returningSql(
+  returning: SelectProjection | boolean,
+  table: TableDefinition,
+): Sql | undefined {
   if (returning === false) {
     return undefined;
   }
   if (returning === true) {
-    return raw(" returning *");
+    return joinSql([raw(" returning "), tableSelectionSql(table)], emptySql());
   }
   return joinSql([raw(" returning "), projectionSql(returning)], emptySql());
+}
+
+// The column list for `SELECT *` / `RETURNING *` over a table. When every column
+// name equals its property key this stays `*`; once any column is renamed (an
+// explicit `.named(...)` or a naming strategy) it expands to an aliased
+// projection (`"t"."phys" as "prop"`) so result rows come back keyed by the JS
+// property names the inferred row type expects.
+function tableSelectionSql(table: TableDefinition): Sql {
+  const entries = Object.entries(table.columns) as Array<
+    [string, { readonly name: string }]
+  >;
+  const renamed = entries.some(([property, column]) =>
+    column.name !== property
+  );
+  if (!renamed) {
+    return raw("*");
+  }
+  return joinSql(
+    entries.map(([property, column]) =>
+      sql`${columnToSql(column)} as ${identifier(property)}`
+    ),
+    raw(", "),
+  );
 }
 
 function toConflictTargets(
@@ -1059,13 +1091,17 @@ function toConflictTargets(
   return Array.isArray(target) ? target : [target];
 }
 
-function conflictTargetSql(target: unknown): Sql {
+function conflictTargetSql(target: unknown, table: TableDefinition): Sql {
   // Conflict targets are unqualified column names, e.g. `on conflict ("id")`.
   if (isColumn(target)) {
     return identifier(target.name);
   }
   if (typeof target === "string") {
-    return identifier(target);
+    // A bare string may be a JS property key (mapped to its physical name) or
+    // an already-physical column name; fall back to the literal otherwise.
+    return Object.hasOwn(table.columns, target)
+      ? identifier(physicalColumnName(table, target))
+      : identifier(target);
   }
   if (isSql(target)) {
     return target;
@@ -1084,9 +1120,10 @@ function conflictSql(
   }
 
   const targets = conflict.target ?? [];
-  const targetList = targets.length === 0
-    ? undefined
-    : joinSql([...targets].map(conflictTargetSql), raw(", "));
+  const targetList = targets.length === 0 ? undefined : joinSql(
+    [...targets].map((target) => conflictTargetSql(target, table)),
+    raw(", "),
+  );
 
   if (conflict.kind === "nothing") {
     return targetList === undefined ? raw(" on conflict do nothing") : joinSql(
@@ -1109,7 +1146,9 @@ function conflictSql(
   }
 
   const setSql = joinSql(
-    entries.map(([name, value]) => sql`${identifier(name)} = ${value}`),
+    entries.map(([name, value]) =>
+      sql`${identifier(physicalColumnName(table, name))} = ${value}`
+    ),
   );
   const parts = [
     raw(" on conflict ("),
@@ -1251,7 +1290,11 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
       });
     }
 
-    const columnSql = joinSql(columnNames.map((name) => identifier(name)));
+    const columnSql = joinSql(
+      columnNames.map((name) =>
+        identifier(physicalColumnName(this.#table, name))
+      ),
+    );
     const valuesSql = joinSql(
       this.#rows.map((row) =>
         sql`(${
@@ -1277,7 +1320,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
       parts.push(conflict);
     }
 
-    const returning = returningSql(this.#returning);
+    const returning = returningSql(this.#returning, this.#table);
     if (returning !== undefined) {
       parts.push(returning);
     }
@@ -1391,7 +1434,9 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
     }
 
     const setSql = joinSql(
-      entries.map(([name, value]) => sql`${identifier(name)} = ${value}`),
+      entries.map(([name, value]) =>
+        sql`${identifier(physicalColumnName(this.#table, name))} = ${value}`
+      ),
     );
     const parts = [
       raw("update "),
@@ -1410,7 +1455,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
       parts.push(raw(" where "), this.#condition.sql);
     }
 
-    const returning = returningSql(this.#returning);
+    const returning = returningSql(this.#returning, this.#table);
     if (returning !== undefined) {
       parts.push(returning);
     }
@@ -1506,7 +1551,7 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
       parts.push(raw(" where "), this.#condition.sql);
     }
 
-    const returning = returningSql(this.#returning);
+    const returning = returningSql(this.#returning, this.#table);
     if (returning !== undefined) {
       parts.push(returning);
     }
@@ -1525,6 +1570,17 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
   execute(): Promise<OrmQueryResult<InferSelect<TTable>>> {
     return this.#database.execute<InferSelect<TTable>>(this.toSql());
   }
+}
+
+// Resolves a JS property key to the physical SQL column name a table renders.
+// Callers validate membership with assertTableColumn first.
+function physicalColumnName(
+  table: TableDefinition,
+  propertyKey: string,
+): string {
+  return (table.columns as Record<string, { readonly name: string }>)[
+    propertyKey
+  ].name;
 }
 
 function getInsertColumnNames<TTable extends TableDefinition>(
