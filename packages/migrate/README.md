@@ -52,4 +52,16 @@ By default it loads `sisal.migrate.ts`, which should export `default` or
 `config` from `defineConfig({ dir, dialect, snapshot, ... })`. SQLite uses
 `databasePath`; PostgreSQL uses `databaseUrl`; Turso/libSQL uses
 `dialect: "sqlite"` with a libSQL `databaseUrl` and optional
-`databaseAuthToken`.
+`databaseAuthToken`. **Neon** (serverless PostgreSQL) uses `dialect: "postgres"`
+with `provider: "neon"` (scaffold it with `sisal init --neon`); `sisal migrate`
+then applies through `@sisal/neon` over HTTP, one statement per call.
+
+## Serverless / single-statement apply
+
+`splitSqlStatements(sql)` splits a `.sql` script into individual statements on
+top-level `;`, ignoring semicolons inside strings, quoted identifiers, comments,
+and dollar-quoted (`$$ … $$`, `$tag$ … $tag$`) bodies. Pair it with the
+migrator's `splitStatements` option (also `createPgMigrator` /
+`createNeonMigrator`) to apply a multi-statement migration one statement per
+`driver.execute(...)` call — required for transports that accept only one
+statement per query, such as Neon's HTTP driver (where it defaults to on).

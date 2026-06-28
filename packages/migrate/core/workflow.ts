@@ -144,10 +144,19 @@ export function nextMigrationSequence(
   ) + 1;
 }
 
+/** A migration runtime provider that refines a dialect's default adapter. */
+export type MigrateProvider = "neon";
+
 /** Validated migration configuration (`sisal.migrate.ts`). */
 export interface MigrateConfig {
   readonly dir: string;
   readonly dialect?: SisalDialectName;
+  /**
+   * Runtime adapter override for a dialect. `"neon"` keeps the `postgres`
+   * dialect (PostgreSQL DDL) but applies migrations through `@sisal/neon`'s
+   * serverless/HTTP transport, statement-by-statement.
+   */
+  readonly provider?: MigrateProvider;
   /** Prebuilt snapshot from the app (via `@sisal/orm`); omit for SQL-first. */
   readonly snapshot?: SisalSchemaSnapshot;
   /** PostgreSQL connection URL. Also accepted as a SQLite path fallback. */
@@ -168,9 +177,17 @@ export function defineConfig(config: MigrateConfig): MigrateConfig {
     });
   }
 
+  if (config.provider !== undefined && config.provider !== "neon") {
+    throw new MigrationError("Unknown migration provider", {
+      code: "MIGRATION_INVALID",
+      details: { provider: config.provider },
+    });
+  }
+
   return Object.freeze({
     dir: config.dir.trim(),
     ...(config.dialect === undefined ? {} : { dialect: config.dialect }),
+    ...(config.provider === undefined ? {} : { provider: config.provider }),
     ...(config.snapshot === undefined
       ? {}
       : { snapshot: normalizeSchemaSnapshot(config.snapshot) }),

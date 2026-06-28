@@ -170,30 +170,29 @@ Point it at a scratch Neon branch, never production.
   calls the hot-score function in its `SET` clause
   (`src/seed.ts →
   recomputeAggregates`).
-- **The migration runner** — a small dollar-quote-aware statement splitter
-  (`src/sql_split.ts`), because the Neon driver sends one statement per call.
+- **The migration runner** — `src/migrate.ts` reads each `.sql` file and applies
+  it one statement at a time (the Neon driver sends one statement per call),
+  using `splitSqlStatements` now shared from `@sisal/migrate`.
 
 ## Sisal API pressure points
 
 Honest gaps this example ran into. Each is a candidate for future Sisal work.
-Three have since landed in v0.4.0: the **typed database-function caller**
+Four have since landed in v0.4.0: the **typed database-function caller**
 (`defineFunction` / `db.call`, now used by `src/vote.ts`), **keyset pagination**
-(`.keyset({ orderBy, after })`, now used by both feeds in `src/queries.ts`), and
+(`.keyset({ orderBy, after })`, now used by both feeds in `src/queries.ts`),
 **column-name mapping** (the default `snake_case` naming strategy, so
-`src/schema.ts` could use camelCase keys without changing the SQL).
+`src/schema.ts` could use camelCase keys without changing the SQL), and the
+**serverless-safe migration applier** (`splitSqlStatements` is now exported from
+`@sisal/migrate`, the migrator has a `splitStatements` apply mode, and the
+`sisal` CLI has a `provider: "neon"` target — `src/migrate.ts` uses the shared
+splitter).
 
-1. **No serverless-safe raw-SQL migration runner.** A `.sql` file holds several
-   statements, but the Neon driver (extended protocol) allows one per call, and
-   splitting on `;` breaks `$$ … $$` function bodies. We hand-rolled
-   `splitSqlStatements`. Sisal could ship a serverless-safe SQL migration
-   applier (and the `sisal` CLI currently targets `postgres`/`sqlite` adapters,
-   not a Neon-HTTP applier).
-2. **Snapshot DDL can't express this schema.** `generatePostgresUpStatements`
+1. **Snapshot DDL can't express this schema.** `generatePostgresUpStatements`
    emits additive `CREATE TABLE` / `ADD COLUMN` only — no **DESC index
    ordering**, no functions, no triggers, no partial/expression indexes. So the
    `.sql` migrations are the source of truth and `src/schema.ts` is a _typed
    mirror_ for the builder, not the generator's output.
-3. **No SQL-function expressions in builder `SET`/`VALUES`.** We can't write
+2. **No SQL-function expressions in builder `SET`/`VALUES`.** We can't write
    `set hot_score = app.calculate_hot_score(…)` or insert with a computed
    default through the builder, so the bulk recompute is raw SQL.
 
@@ -236,8 +235,7 @@ examples/neon-hot-feed/
     db.ts                   runtime vs admin connections
     schema.ts               typed defineTable models (builder access)
     hot.ts                  TypeScript mirror of the hot-score model
-    sql_split.ts            dollar-quote-aware statement splitter
-    migrate.ts              serverless-safe migration runner
+    migrate.ts              applies .sql files via @sisal/migrate splitter
     queries.ts              getNewFeed + getHotFeed (both .keyset())
     vote.ts                 votePost → app.vote_post (single statement)
     seed.ts                 demo data + bulk recompute
@@ -249,8 +247,6 @@ examples/neon-hot-feed/
 These gaps are written up in full — with proposed APIs, affected packages, and
 acceptance criteria — in the [v0.4.0 roadmap](../../docs/v0.4.0-roadmap.md).
 
-- A **serverless-safe SQL migration applier** (splitting +
-  one-statement-per-call execution) and a Neon target for the `sisal` CLI.
 - **Raw expressions in `SET` / `VALUES` / `DEFAULT`** (e.g. calling a SQL
   function or `now()` in a builder mutation).
 - **Richer DDL generation**: DESC/partial/expression indexes, CHECK constraints,
@@ -258,5 +254,10 @@ acceptance criteria — in the [v0.4.0 roadmap](../../docs/v0.4.0-roadmap.md).
 
 **Landed in v0.4.0** (this example now uses them): a **typed database-function
 caller** (`defineFunction` / `db.call`, see `src/vote.ts`), **keyset
-pagination** (`.keyset({ orderBy, after })`, see `src/queries.ts`), and
-**column-name mapping** (the default `snake_case` naming strategy).
+pagination** (`.keyset({ orderBy, after })`, see `src/queries.ts`),
+**column-name mapping** (the default `snake_case` naming strategy), and a
+**serverless-safe migration applier** (`splitSqlStatements` from
+`@sisal/migrate`
+
+- the migrator's `splitStatements` mode + the CLI's `provider: "neon"` target;
+  `src/migrate.ts` uses the shared splitter).

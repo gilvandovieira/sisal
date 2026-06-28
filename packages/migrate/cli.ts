@@ -19,6 +19,7 @@ import {
   type DiscoveredMigration,
   type DriftReport,
   type MigrateConfig,
+  type MigrateProvider,
   type Migration,
   MigrationError,
   type MigrationFileSystem,
@@ -28,6 +29,7 @@ import {
   nextMigrationSequence,
   readMigrationsDir,
   type SchemaChange,
+  splitSqlStatements,
   writeMigrationFile,
 } from "./mod.ts";
 
@@ -48,6 +50,8 @@ interface InitTarget {
   readonly aliases: readonly string[];
   readonly label: string;
   readonly dialect: CliDialect;
+  /** Runtime adapter override written to the config (e.g. Neon over HTTP). */
+  readonly provider?: MigrateProvider;
   readonly connection: readonly string[];
 }
 
@@ -58,6 +62,17 @@ const INIT_TARGETS: readonly InitTarget[] = [
     label: "PostgreSQL",
     dialect: "postgres",
     connection: ['  // databaseUrl: Deno.env.get("DATABASE_URL"),'],
+  },
+  {
+    id: "neon",
+    aliases: ["neon-http"],
+    label: "Neon (serverless PostgreSQL)",
+    dialect: "postgres",
+    provider: "neon",
+    connection: [
+      "  // Neon serverless (HTTP) — migrations apply one statement per call:",
+      '  // databaseUrl: Deno.env.get("DATABASE_URL"),',
+    ],
   },
   {
     id: "sqlite",
@@ -164,6 +179,18 @@ interface PostgresMigrateModule {
   }) => Promise<SisalCliMigrator>;
 }
 
+interface NeonDdlModule {
+  readonly generatePostgresUpStatements:
+    SisalCliAdapter["generateUpStatements"];
+}
+
+interface NeonMigrateModule {
+  readonly createNeonMigrator: (options: {
+    readonly url: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
 interface LibsqlDdlModule {
   readonly generateLibsqlUpStatements: SisalCliAdapter["generateUpStatements"];
 }
@@ -192,6 +219,8 @@ const DEFAULT_ADAPTER_VERSION = "^0.3.0";
 const DEFAULT_ADAPTER_IMPORTS = {
   pgDdl: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/ddl`,
   pgMigrate: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/migrate`,
+  neonDdl: `jsr:@sisal/neon@${DEFAULT_ADAPTER_VERSION}/ddl`,
+  neonMigrate: `jsr:@sisal/neon@${DEFAULT_ADAPTER_VERSION}/migrate`,
   libsqlDdl: `jsr:@sisal/libsql@${DEFAULT_ADAPTER_VERSION}/ddl`,
   libsqlMigrate: `jsr:@sisal/libsql@${DEFAULT_ADAPTER_VERSION}/migrate`,
   sqliteDdl: `jsr:@sisal/sqlite@${DEFAULT_ADAPTER_VERSION}/ddl`,
@@ -205,6 +234,7 @@ const VALUE_FLAGS = new Set([
   "dialect",
   "dir",
   "history-table",
+  "provider",
   "steps",
   "target",
 ]);
@@ -223,6 +253,7 @@ Options:
       --target <id>         init target: ${initTargetIds()}
       --dir <dir>           Override migrations directory
       --dialect <dialect>   postgres or sqlite; init also accepts target ids
+      --provider <p>        Runtime adapter override (e.g. neon for Neon HTTP)
       --database-url <url>  PostgreSQL URL, libSQL URL, or SQLite path fallback
       --database-auth-token <t>
                             libSQL/Turso auth token
@@ -345,7 +376,11 @@ import { defineConfig } from "@sisal/migrate/workflow";
 export default defineConfig({
   dir: ${JSON.stringify(dir)},
   dialect: ${JSON.stringify(target.dialect)},
-  // snapshot: createSchemaSnapshot({ dialect: ${
+${
+    target.provider === undefined
+      ? ""
+      : `  provider: ${JSON.stringify(target.provider)},\n`
+  }  // snapshot: createSchemaSnapshot({ dialect: ${
     JSON.stringify(target.dialect)
   }, tables: [/* ... */] }),
 ${target.connection.join("\n")}
@@ -565,6 +600,9 @@ async function loadConfig(
     ...(stringFlag(parsed.flags, "dialect") === undefined
       ? {}
       : { dialect: stringFlag(parsed.flags, "dialect")! as SisalDialectName }),
+    ...(stringFlag(parsed.flags, "provider") === undefined
+      ? {}
+      : { provider: stringFlag(parsed.flags, "provider")! as MigrateProvider }),
     ...(databaseUrl === undefined ? {} : { databaseUrl }),
     ...(databaseAuthToken === undefined ? {} : { databaseAuthToken }),
     ...(databasePath === undefined ? {} : { databasePath }),
@@ -593,6 +631,34 @@ async function loadDefaultAdapter(
   dialect: CliDialect,
   config: MigrateConfig,
 ): Promise<SisalCliAdapter> {
+  if (dialect === "postgres" && config.provider === "neon") {
+    // Neon keeps PostgreSQL DDL but applies migrations over the serverless/HTTP
+    // transport — statement-by-statement (createNeonMigrator's defaults).
+    const ddl = await importDefaultAdapterModule<NeonDdlModule>(
+      DEFAULT_ADAPTER_IMPORTS.neonDdl,
+    );
+    const migrate = await importDefaultAdapterModule<NeonMigrateModule>(
+      DEFAULT_ADAPTER_IMPORTS.neonMigrate,
+    );
+
+    return {
+      generateUpStatements: ddl.generatePostgresUpStatements,
+      createMigrator(options) {
+        if (options.config.databaseUrl === undefined) {
+          throw new MigrationError("Neon databaseUrl is required", {
+            code: "MIGRATION_DRIVER_MISSING",
+            status: 400,
+          });
+        }
+
+        return migrate.createNeonMigrator({
+          url: options.config.databaseUrl,
+          historyTable: options.config.historyTable,
+        }) as Promise<SisalCliMigrator>;
+      },
+    };
+  }
+
   if (dialect === "postgres") {
     const ddl = await importDefaultAdapterModule<PostgresDdlModule>(
       DEFAULT_ADAPTER_IMPORTS.pgDdl,
@@ -950,127 +1016,6 @@ function toFileUrl(path: string): URL {
 
 function joinPath(dir: string, name: string): string {
   return dir.endsWith("/") ? `${dir}${name}` : `${dir}/${name}`;
-}
-
-// A Postgres dollar-quote delimiter: `$$` or `$tag$` (tag is an identifier).
-const DOLLAR_QUOTE_TAG = /\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/y;
-
-/** Returns the dollar-quote delimiter (`$$`, `$tag$`) opening at `index`, else undefined. */
-function dollarTagAt(text: string, index: number): string | undefined {
-  DOLLAR_QUOTE_TAG.lastIndex = index;
-  const match = DOLLAR_QUOTE_TAG.exec(text);
-  return match !== null ? match[0] : undefined;
-}
-
-/**
- * Splits a SQL script into individual statements on top-level `;`, ignoring
- * semicolons inside string literals, identifiers, line/block comments, and
- * PostgreSQL dollar-quoted bodies (`$$ … $$`, `$tag$ … $tag$`). Exported for
- * regression testing.
- */
-export function splitSqlStatements(text: string): string[] {
-  const statements: string[] = [];
-  let start = 0;
-  let singleQuoted = false;
-  let doubleQuoted = false;
-  let lineComment = false;
-  let blockComment = false;
-  // The open dollar-quote delimiter (`$$`, `$tag$`), or undefined outside one.
-  // Postgres treats everything inside a dollar-quoted body verbatim, `;` too.
-  let dollarTag: string | undefined;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
-
-    if (lineComment) {
-      if (char === "\n") {
-        lineComment = false;
-      }
-      continue;
-    }
-
-    if (blockComment) {
-      if (char === "*" && next === "/") {
-        blockComment = false;
-        index += 1;
-      }
-      continue;
-    }
-
-    if (dollarTag !== undefined) {
-      // Inside a dollar-quoted body: only the matching closer ends it.
-      if (text.startsWith(dollarTag, index)) {
-        index += dollarTag.length - 1;
-        dollarTag = undefined;
-      }
-      continue;
-    }
-
-    if (singleQuoted) {
-      if (char === "'" && next === "'") {
-        index += 1;
-      } else if (char === "'") {
-        singleQuoted = false;
-      }
-      continue;
-    }
-
-    if (doubleQuoted) {
-      if (char === '"' && next === '"') {
-        index += 1;
-      } else if (char === '"') {
-        doubleQuoted = false;
-      }
-      continue;
-    }
-
-    if (char === "-" && next === "-") {
-      lineComment = true;
-      index += 1;
-      continue;
-    }
-
-    if (char === "/" && next === "*") {
-      blockComment = true;
-      index += 1;
-      continue;
-    }
-
-    if (char === "$") {
-      const opener = dollarTagAt(text, index);
-      if (opener !== undefined) {
-        dollarTag = opener;
-        index += opener.length - 1;
-        continue;
-      }
-    }
-
-    if (char === "'") {
-      singleQuoted = true;
-      continue;
-    }
-
-    if (char === '"') {
-      doubleQuoted = true;
-      continue;
-    }
-
-    if (char === ";") {
-      const statement = text.slice(start, index + 1).trim();
-      if (statement.length > 0) {
-        statements.push(statement);
-      }
-      start = index + 1;
-    }
-  }
-
-  const tail = text.slice(start).trim();
-  if (tail.length > 0) {
-    statements.push(tail);
-  }
-
-  return statements;
 }
 
 function getCwd(): string {

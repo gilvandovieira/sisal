@@ -11,6 +11,20 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added a serverless-safe SQL migration applier and a Neon CLI target (roadmap
+  item 2). `@sisal/migrate` now exports `splitSqlStatements(sql)` — a
+  dollar-quote/`$tag$`/string/quoted-identifier/comment-aware statement splitter
+  (hardened to drop empty/stray semicolons) — and the core migrator gained a
+  `splitStatements` apply mode that runs each `.sql` `up`/`down` step one
+  statement per `driver.execute(...)` call (still recording history), forwarded
+  through `createPgMigrator` and `createNeonMigrator`. `createNeonMigrator`
+  defaults `splitStatements` to `true` and `useTransaction` to `false` for the
+  Neon HTTP transport. The `sisal` CLI adds a **Neon target**:
+  `sisal init --neon` scaffolds a `dialect: "postgres"` + `provider: "neon"`
+  config (a new `MigrateConfig.provider` discriminator), and `sisal migrate`
+  then applies through `@sisal/neon` over HTTP. The `examples/neon-hot-feed`
+  example switches to the shared `splitSqlStatements` and drops its local copy.
+  Covered by `packages/migrate/{sql_split,split_apply,cli}_test.ts`.
 - Added keyset (cursor) pagination to `@sisal/orm` (roadmap item 3):
   `SelectBuilder.keyset({ orderBy, after, form? })` infers the cursor type from
   the `orderBy` columns, emits the keyset comparison against `after` (omit for
