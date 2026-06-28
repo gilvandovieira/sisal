@@ -36,6 +36,8 @@ Sisal-specific history after that baseline through `1f05448`.
   migration CLI's scaffolded adapter imports to `0.3.0`.
 - Updated CI, publish, and Pages workflows to verify or regenerate the LLM docs
   files from `deno task docs:llms`.
+- Updated README installation guidance to use `deno add` with the published
+  `0.3.0` JSR packages and pinned direct CLI examples.
 - Expanded the API reference to cover the current public relation-query,
   table-constraint, workflow, CLI, adapter utility, and DDL helper surfaces.
 - Serialized SQLite ORM executor work so statements issued on the same executor

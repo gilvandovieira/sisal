@@ -21,28 +21,30 @@ and the benchmarks compare against `npm:drizzle-orm`.
 
 ## Installing
 
-With Deno and JSR, either import packages directly:
+Install the Sisal packages you use with Deno's JSR-aware dependency command:
 
-```ts
-import { columns, defineTable } from "jsr:@sisal/orm@0.3";
-import { connect } from "jsr:@sisal/sqlite@0.3";
+```sh
+deno add jsr:@sisal/orm@0.3.0 \
+  jsr:@sisal/migrate@0.3.0 \
+  jsr:@sisal/pg@0.3.0 \
+  jsr:@sisal/neon@0.3.0 \
+  jsr:@sisal/sqlite@0.3.0 \
+  jsr:@sisal/libsql@0.3.0
 ```
 
-Or add an import map in `deno.json`:
+This writes the package aliases to `deno.json`; application code can then use
+the bare Sisal specifiers:
 
-```json
-{
-  "imports": {
-    "@sisal/orm": "jsr:@sisal/orm@0.3",
-    "@sisal/migrate": "jsr:@sisal/migrate@0.3",
-    "@sisal/migrate/cli": "jsr:@sisal/migrate@0.3/cli",
-    "@sisal/migrate/workflow": "jsr:@sisal/migrate@0.3/workflow",
-    "@sisal/pg": "jsr:@sisal/pg@0.3",
-    "@sisal/neon": "jsr:@sisal/neon@0.3",
-    "@sisal/sqlite": "jsr:@sisal/sqlite@0.3",
-    "@sisal/libsql": "jsr:@sisal/libsql@0.3"
-  }
-}
+```ts
+import { columns, defineTable } from "@sisal/orm";
+import { connect } from "@sisal/sqlite";
+```
+
+For one-off scripts, direct JSR specifiers are still supported:
+
+```ts
+import { columns, defineTable } from "jsr:@sisal/orm@0.3.0";
+import { connect } from "jsr:@sisal/sqlite@0.3.0";
 ```
 
 Adapter subpaths are available when you want narrower boundaries:
@@ -579,7 +581,7 @@ From JSR, run the published CLI directly:
 
 ```sh
 deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate/cli --help
+  jsr:@sisal/migrate@0.3.0/cli --help
 ```
 
 Use the same permission set for commands that read config, write migration
@@ -587,13 +589,13 @@ files, inspect environment variables, or open databases:
 
 ```sh
 deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate/cli init --target postgres
+  jsr:@sisal/migrate@0.3.0/cli init --target postgres
 
 deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate/cli generate create users
+  jsr:@sisal/migrate@0.3.0/cli generate create users
 
 deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate/cli migrate
+  jsr:@sisal/migrate@0.3.0/cli migrate
 ```
 
 ### CLI Targets
