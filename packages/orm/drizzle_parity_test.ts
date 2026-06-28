@@ -15,18 +15,23 @@ import { assertEquals, assertThrows } from "@std/assert";
 import * as orm from "./mod.ts";
 import {
   and,
+  arrayContained,
+  arrayContains,
+  arrayOverlaps,
   asc,
   avg,
   between,
   columns,
   type Condition,
   count,
+  countDistinct,
   createDatabase,
   createSchemaSnapshot,
   defineTable,
   desc,
   emptySql,
   eq,
+  exists,
   gt,
   gte,
   identifier,
@@ -45,6 +50,7 @@ import {
   ne,
   not,
   notBetween,
+  notExists,
   notIlike,
   notInArray,
   notLike,
@@ -178,22 +184,38 @@ Deno.test("parity: and / or / not (nullish args ignored)", () => {
   );
 });
 
-Deno.test("roadmap: Drizzle operators not yet implemented are absent", () => {
-  for (
-    const name of [
-      "exists",
-      "notExists",
-      "arrayContains",
-      "arrayContained",
-      "arrayOverlaps",
-    ]
-  ) {
-    assertEquals(
-      api[name],
-      undefined,
-      `${name} is now exported — move it to ✅ in docs/drizzle-parity.md`,
-    );
-  }
+Deno.test("parity: exists / notExists (subquery predicates)", () => {
+  const sub = db.select({ one: users.columns.id }).from(users)
+    .where(eq(users.columns.id, 1));
+  assertEquals(
+    render(exists(sub)).text,
+    'exists (select "users"."id" as "one" from "users" where "users"."id" = $1)',
+  );
+  assertEquals(
+    render(notExists(sub)).text,
+    'not exists (select "users"."id" as "one" from "users" ' +
+      'where "users"."id" = $1)',
+  );
+  // exists/notExists require a select subquery, not an array.
+  assertThrows(() => exists([1, 2] as unknown as never));
+});
+
+Deno.test("parity: arrayContains / arrayContained / arrayOverlaps (Postgres)", () => {
+  const articles = defineTable("articles", {
+    id: columns.integer().primaryKey(),
+    tags: columns.text().array(),
+  });
+  const contains = render(arrayContains(articles.columns.tags, ["a", "b"]));
+  assertEquals(contains.text, '"articles"."tags" @> $1');
+  assertEquals(contains.params, [["a", "b"]]);
+  assertEquals(
+    render(arrayContained(articles.columns.tags, ["a"])).text,
+    '"articles"."tags" <@ $1',
+  );
+  assertEquals(
+    render(arrayOverlaps(articles.columns.tags, ["a"])).text,
+    '"articles"."tags" && $1',
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -224,6 +246,7 @@ Deno.test("parity: column type factories exist", () => {
       "json",
       "jsonb",
       "date",
+      "customType",
     ]
   ) {
     assertEquals(typeof factory[name], "function", `columns.${name}`);
@@ -286,6 +309,81 @@ Deno.test("parity: new column types render in DDL via snapshot", () => {
     tags: null,
   };
   assertEquals(_insert.code, "ABCD");
+});
+
+Deno.test("parity: customType exposes dialectType escape hatch", () => {
+  const extensions = defineTable("extensions", {
+    status: columns.customType<"draft" | "published">({
+      kind: "enum",
+      dialectType: "post_status",
+    }),
+    embedding: columns.customType<number[]>({
+      kind: "vector",
+      dialectType: "vector(3)",
+    }).notNull(),
+    activeAt: columns.customType<Date>({
+      kind: "time",
+      dialectType: "time",
+    }),
+    retention: columns.customType<string>({
+      kind: "interval",
+      dialectType: "interval",
+    }),
+    address: columns.customType<string>({
+      kind: "inet",
+      dialectType: "inet",
+    }),
+    identity: columns.customType<number>({
+      kind: "integer",
+      dialectType: "integer generated always as identity",
+    }).optional(),
+  });
+  const snapshot = createSchemaSnapshot({
+    dialect: "postgres",
+    tables: [extensions],
+  });
+  const typeOf = (name: string) =>
+    snapshot.tables[0].columns.find((c) => c.name === name)!.type;
+
+  assertEquals(typeOf("status"), {
+    kind: "enum",
+    dialectType: "post_status",
+  });
+  assertEquals(typeOf("embedding"), {
+    kind: "vector",
+    dialectType: "vector(3)",
+  });
+  assertEquals(typeOf("activeAt"), { kind: "time", dialectType: "time" });
+  assertEquals(typeOf("retention"), {
+    kind: "interval",
+    dialectType: "interval",
+  });
+  assertEquals(typeOf("address"), { kind: "inet", dialectType: "inet" });
+  assertEquals(typeOf("identity"), {
+    kind: "integer",
+    dialectType: "integer generated always as identity",
+  });
+
+  const row: InferSelect<typeof extensions> = {
+    status: "draft",
+    embedding: [1, 2, 3],
+    activeAt: null,
+    retention: null,
+    address: null,
+    identity: null,
+  };
+  const insert: InferInsert<typeof extensions> = {
+    status: null,
+    embedding: [1, 2, 3],
+    activeAt: null,
+    retention: null,
+    address: null,
+  };
+  assertEquals(row.status, "draft");
+  assertEquals(row.embedding, [1, 2, 3]);
+  assertEquals(insert.embedding, [1, 2, 3]);
+  assertThrows(() => columns.customType({ kind: "" }));
+  assertThrows(() => columns.customType({ kind: "vector", dialectType: "" }));
 });
 
 Deno.test("parity: .$onUpdate() injects a value on UPDATE", () => {
@@ -735,5 +833,140 @@ Deno.test("parity: common table expressions (db.$with / db.with)", () => {
     'with "adults" as (select "users"."id" as "id", "users"."age" as "age" ' +
       'from "users" where "users"."age" > $1) select "adults"."id" as "id" ' +
       'from "adults" order by "adults"."id" asc',
+  );
+});
+
+// ---------------------------------------------------------------------------
+// 3. Query builder — P7 ergonomics & subqueries (docs/drizzle-parity.md §3)
+// ---------------------------------------------------------------------------
+
+const posts = defineTable("posts", {
+  id: columns.integer().primaryKey(),
+  userId: columns.integer().notNull(),
+});
+
+Deno.test("parity: .distinctOn(...) renders Postgres DISTINCT ON", () => {
+  const query = db.select().from(users)
+    .distinctOn(users.columns.name)
+    .orderBy(asc(users.columns.name))
+    .toSql();
+  assertEquals(
+    renderSql(query, { dialect: "postgres" }).text,
+    'select distinct on ("users"."name") * from "users" ' +
+      'order by "users"."name" asc',
+  );
+});
+
+Deno.test("parity: .for() row locking (update/share, skipLocked/noWait/of)", () => {
+  const base = db.select().from(users);
+  assertEquals(
+    renderSql(base.for("update").toSql(), { dialect: "postgres" }).text,
+    'select * from "users" for update',
+  );
+  assertEquals(
+    renderSql(base.for("share", { skipLocked: true }).toSql(), {
+      dialect: "postgres",
+    }).text,
+    'select * from "users" for share skip locked',
+  );
+  assertEquals(
+    renderSql(base.for("update", { noWait: true }).toSql(), {
+      dialect: "postgres",
+    }).text,
+    'select * from "users" for update nowait',
+  );
+  assertEquals(
+    renderSql(base.for("update", { of: users }).toSql(), {
+      dialect: "postgres",
+    }).text,
+    'select * from "users" for update of "users"',
+  );
+  // skipLocked and noWait are mutually exclusive.
+  assertThrows(() => base.for("update", { skipLocked: true, noWait: true }));
+});
+
+Deno.test("parity: countDistinct(column) aggregate", () => {
+  assertEquals(typeof api.countDistinct, "function", "countDistinct exported");
+  const query = db.select({ n: countDistinct(users.columns.name) })
+    .from(users).toSql();
+  assertEquals(
+    renderSql(query, { dialect: "postgres" }).text,
+    'select count(distinct "users"."name") as "n" from "users"',
+  );
+});
+
+Deno.test("parity: subquery as a derived table via .as(alias)", () => {
+  const recent = db.select({ id: users.columns.id, age: users.columns.age })
+    .from(users).where(gt(users.columns.age, 18)).as("recent");
+  // Derived-table columns are referenceable (recent.id) and qualify by alias.
+  const query = db.select({ id: recent.id }).from(recent).toSql();
+  assertEquals(
+    renderSql(query, { dialect: "postgres" }).text,
+    'select "recent"."id" as "id" from (select "users"."id" as "id", ' +
+      '"users"."age" as "age" from "users" where "users"."age" > $1) ' +
+      'as "recent"',
+  );
+});
+
+Deno.test("parity: scalar subquery in projection and where", () => {
+  const projected = db.select({
+    name: users.columns.name,
+    posts: db.select({ c: count() }).from(posts)
+      .where(eq(posts.columns.userId, users.columns.id)),
+  }).from(users).toSql();
+  assertEquals(
+    renderSql(projected, { dialect: "postgres" }).text,
+    'select "users"."name" as "name", (select count(*) as "c" from "posts" ' +
+      'where "posts"."userId" = "users"."id") as "posts" from "users"',
+  );
+
+  const filtered = db.select().from(users)
+    .where(eq(
+      users.columns.id,
+      db.select({ id: posts.columns.userId })
+        .from(posts).limit(1),
+    ))
+    .toSql();
+  assertEquals(
+    renderSql(filtered, { dialect: "postgres" }).text,
+    'select * from "users" where "users"."id" = ' +
+      '(select "posts"."userId" as "id" from "posts" limit $1)',
+  );
+});
+
+Deno.test("parity: inArray(col, subquery) renders IN (select ...)", () => {
+  const query = db.select().from(users)
+    .where(inArray(
+      users.columns.id,
+      db.select({ userId: posts.columns.userId }).from(posts),
+    ))
+    .toSql();
+  assertEquals(
+    renderSql(query, { dialect: "postgres" }).text,
+    'select * from "users" where "users"."id" in ' +
+      '(select "posts"."userId" as "userId" from "posts")',
+  );
+});
+
+Deno.test("parity: db.$count(table, where?) returns a number", async () => {
+  const captured: SqlQuery[] = [];
+  const driver: OrmDriver = {
+    query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
+      captured.push(query);
+      return Promise.resolve(
+        { rows: [{ count: 7 }] as unknown as T[] },
+      );
+    },
+    execute(query: SqlQuery): Promise<OrmQueryResult> {
+      captured.push(query);
+      return Promise.resolve({ rows: [] });
+    },
+  };
+  const counted = createDatabase({ dialect: "postgres", driver });
+  const total = await counted.$count(users, gt(users.columns.age, 18));
+  assertEquals(total, 7);
+  assertEquals(
+    captured[0].text,
+    'select count(*) as "count" from "users" where "users"."age" > $1',
   );
 });
