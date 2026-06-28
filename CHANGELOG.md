@@ -23,6 +23,9 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Updated the pre-commit hook to regenerate and stage `docs/llms.txt` and
+  `docs/llms-full.txt`, keeping the generated LLM docs in sync before CI's
+  `docs:llms:check` gate.
 - Split the `@sisal/orm` core (`packages/orm/core/mod.ts`) into coherent modules
   behind a barrel: `errors`, `sql`, `operators`, `columns`, `table`, `builders`,
   `relations`, and `database`. `mod.ts` now re-exports the same public surface

@@ -215,6 +215,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `OrmErrorOptions` (interface): Options accepted when constructing an {@link OrmError}.
 - `OrmQueryResult` (interface): Result returned by ORM drivers and database execution methods.
 - `OrmTransaction` (interface): Driver transaction facade exposed to transaction callbacks.
+- `placeholder` (function): Creates a named placeholder fragment for a prepared statement.
+- `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
+- `PreparedQuery` (interface): A query rendered once that is executed many times with different {@link placeholder} values bound in.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
 - `raw` (function): Creates an unsafe raw SQL fragment.
@@ -309,8 +312,6 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `ColumnName` (typeAlias): Normalized simple column name.
 - `ColumnRuntimeType` (typeAlias): JavaScript runtime value types represented by ORM columns.
 - `columns` (variable): Column builder factory for table schemas.
-- `ColumnsFactory` (interface): The columns builder factory: one method per supported column type.
-- `ColumnValueFromBuilder` (typeAlias): Extracts the selected (read) value type a column builder produces.
 - `CompoundSelectBuilder` (interface): A combined query produced by a set operation. Trailing orderBy/limit/ offset apply to the whole compound, and further set operations may be chained.
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
@@ -333,7 +334,6 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
-- `FalseSelectionKeys` (typeAlias): The keys of a column selection explicitly set to false.
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
 - `getTableColumns` (function): Returns table columns.
 - `getTableName` (function): Returns the normalized table name.
@@ -348,7 +348,6 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `InferProjection` (typeAlias): Inferred row type for a projected select.
 - `InferSelect` (typeAlias): Infers the row shape returned when selecting from a table.
 - `InsertBuilder` (interface): Fluent builder for INSERT queries.
-- `InsertOptionalFromBuilder` (typeAlias): True when a column may be omitted on insert — it is .optional() or has a default.
 - `isColumn` (function): Returns true when a value has the public column definition shape.
 - `isNotNull` (function): column IS NOT NULL SQL condition.
 - `isNull` (function): column IS NULL SQL condition.
@@ -363,7 +362,6 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `memoryOrmDriver` (function): Creates a tiny in-memory driver that records no data and returns empty rows.
 - `MemoryOrmDriverOptions` (interface): Options for the in-memory ORM driver.
 - `min` (function): min(column) aggregate expression.
-- `NamedRelationDefinitionMap` (typeAlias): Rebinds each relation in a config map to carry its own key as the relation name.
 - `ne` (function): column <> value SQL condition.
 - `noopOrmDriver` (function): Creates a driver that never touches a real database.
 - `normalizeColumnName` (function): Normalizes a simple column name.
@@ -375,7 +373,6 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `notIlike` (function): Case-insensitive NOT ILIKE; degrades to NOT LIKE off Postgres.
 - `notInArray` (function): column NOT IN (...). An empty array yields a constant always-true condition; a select builder renders as a subquery.
 - `notLike` (function): column NOT LIKE value SQL condition.
-- `OptionalInsertKeys` (typeAlias): The column keys that may be omitted when inserting a row.
 - `or` (function): Combines conditions with SQL OR, ignoring nullish values.
 - `OrmDriver` (interface): Async-first driver contract for future database adapters.
 - `OrmError` (class): Error thrown for schema, SQL, execution, and transaction failures.
@@ -383,8 +380,10 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `OrmErrorOptions` (interface): Options accepted when constructing an {@link OrmError}.
 - `OrmQueryResult` (interface): Result returned by ORM drivers and database execution methods.
 - `OrmTransaction` (interface): Driver transaction facade exposed to transaction callbacks.
+- `placeholder` (function): Creates a named placeholder fragment for a prepared statement.
+- `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
+- `PreparedQuery` (interface): A query rendered once that is executed many times with different {@link placeholder} values bound in.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
-- `ProjectionColumnValue` (typeAlias): Resolves the value a projection entry (column or expression) yields in a result row.
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
 - `raw` (function): Creates an unsafe raw SQL fragment.
 - `RawQueryExecutor` (interface): A raw SQL query executor.
@@ -394,27 +393,16 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `RelationalFindOptions` (interface): Options accepted by db.query..findMany/findFirst.
 - `RelationalQueryResult` (typeAlias): Result type for relational queries after columns and with are applied.
 - `RelationalTableQuery` (interface): Query helpers exposed at db.query..
-- `RelationalWithResult` (typeAlias): The combined shape of every relation loaded through a query's with clause.
 - `RelationConfig` (interface): Explicit relation column mapping.
-- `RelationConfigValue` (typeAlias): Normalizes a with entry to its nested config object, dropping booleans/nullish.
 - `RelationDefinition` (interface): Relation metadata produced by {@link relations}.
 - `RelationDefinitionMap` (typeAlias): Relation map returned from a relations(table, ...) callback.
 - `RelationHelpers` (interface): Helpers passed to {@link relations}.
 - `RelationMode` (typeAlias): One-to-one or one-to-many relation shape.
-- `RelationObjectFallback` (typeAlias): Partial fallback shape for a related row when no nested selection is given.
-- `RelationResultValue` (typeAlias): The attached value of one relation — an array for many, a nullable object for one.
 - `relations` (function): Defines named relations for a table, Drizzle-style.
-- `RelationsForTable` (typeAlias): Looks up the relation map declared for a table within a relations list.
 - `RelationsList` (typeAlias): Relational metadata list accepted by {@link createDatabase}.
-- `RelationTarget` (typeAlias): The target table definition a relation points at, defaulting to any table.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
-- `RequiredInsertKeys` (typeAlias): The column keys that must be provided when inserting a row.
-- `SelectableKeys` (typeAlias): Narrows a set of keys to those that are real selectable columns of a table.
 - `SelectBuilder` (interface): Fluent builder for SELECT queries.
 - `SelectColumnRef` (interface): A column reference usable in a select projection.
-- `SelectedRelationalColumns` (typeAlias): The row shape a relational query returns for its columns selection (all / include / exclude).
-- `SelectFromResult` (typeAlias): Result of from(source): a table seeds the row type from its columns, while a CTE/subquery keeps the current projection type.
-- `SelectFromSource` (typeAlias): A from(...) argument: a table, a CTE, or a subquery derived table.
 - `SelectProjection` (typeAlias): Map of result key to selected column or expression, for db.select({ ... }).
 - `SelectProjectionValue` (typeAlias): A value usable in a select projection: a column reference, a SQL expression, or a select/compound builder embedded as a scalar subquery.
 - `serializeSqlValue` (function): Converts a JS value into a SQL parameter.
@@ -437,7 +425,6 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `TableName` (typeAlias): Normalized table name, optionally including a validated schema path.
 - `TableRelations` (interface): Relation collection for one table.
 - `toSql` (function): Converts a SQL fragment or condition into SQL.
-- `TrueSelectionKeys` (typeAlias): The keys of a column selection explicitly set to true.
 - `unique` (function): A named/composite UNIQUE constraint; complete it with .on(...columns).
 - `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
 - `uniqueIndex` (function): A unique table index (CREATE UNIQUE INDEX); complete with .on(...).
@@ -2048,6 +2035,37 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
+## Unreleased
+
+### Added
+
+- Added the prepared-statement API to `@sisal/orm`: `placeholder(name)` creates
+  a deferred parameter slot (Drizzle's `sql.placeholder`) usable in the
+  `` sql`...` `` tag and operators, and every builder
+  (`select`/`insert`/`update`/`delete` and compound selects) gains
+  `prepare(name?)`, returning a `PreparedQuery` run with `execute(values)` /
+  `toSql(values)`. The SQL is rendered once and re-bound per call; rendering a
+  query that still holds an unbound placeholder is refused. Moves the
+  `sql.placeholder` / prepared-statement rows in `docs/drizzle-parity.md` off
+  the roadmap.
+
+### Changed
+
+- Updated the pre-commit hook to regenerate and stage `docs/llms.txt` and
+  `docs/llms-full.txt`, keeping the generated LLM docs in sync before CI's
+  `docs:llms:check` gate.
+- Split the `@sisal/orm` core (`packages/orm/core/mod.ts`) into coherent modules
+  behind a barrel: `errors`, `sql`, `operators`, `columns`, `table`, `builders`,
+  `relations`, and `database`. `mod.ts` now re-exports the same public surface
+  (no API change) and the internal value-import graph is an acyclic DAG — `sql`
+  detects query builders via a brand symbol instead of importing `builders`.
+
+### Removed
+
+- Removed the Performance/benchmark section (and its nav link and styles) from
+  the docs homepage `docs/index.html`. The standalone `benchmarks.html` page and
+  its footer link are unchanged.
+
 ## 0.3.0 - 2026-06-28
 
 ### Added
@@ -3431,11 +3449,24 @@ subquery** in projections and `where` conditions, and as the right side of
 | `sql.identifier(s)`                | `identifier(s)`       | ✅     |
 | `sql.join(parts, sep)`             | `joinSql(parts, sep)` | ✅     |
 | `sql.empty()`                      | `emptySql()`          | ✅     |
-| `sql.placeholder(name)`            | —                     | ❌     |
-| prepared statements / `.prepare()` | —                     | ❌     |
+| `sql.placeholder(name)`            | `placeholder(name)`   | ✅     |
+| prepared statements / `.prepare()` | `.prepare(name?)`     | 🟡     |
 
 Names are namespaced as standalone functions rather than methods on `sql`, but
 the capabilities line up.
+
+`placeholder(name)` is a deferred parameter slot usable anywhere a bound value
+is (inside the `` sql`...` `` tag or as an operator's right side, e.g.
+`eq(users.columns.id, placeholder("id"))`). Every builder
+(`select`/`insert`/`update`/`delete` and compound selects) gains
+`prepare(name?)`, which returns a `PreparedQuery` you run via `execute(values)`
+/ `toSql(values)` with a `{ name: value }` map. Rendering a query that still
+holds an **unbound** placeholder is refused, so a forgotten binding fails loudly
+instead of becoming `null`. **Divergence (🟡):** because the core is driverless,
+`prepare` is a _render-once, bind-many_ statement — it renders the SQL text and
+parameter layout a single time and only re-binds values per `execute`, rather
+than issuing a driver-level `PREPARE` (the `name` is carried as metadata for a
+future server-side prepared path).
 
 ---
 
@@ -3612,6 +3643,21 @@ the ORM parity test and custom `dialectType` checks in the pg/sqlite parity
 tests. Dedicated `pgEnum` type creation and Drizzle-style generated column
 modifiers carry over as future convenience/metadata gaps, not Postgres/Neon DDL
 reachability gaps.
+
+### P9 — placeholders & prepared statements ✅ done
+
+- ✅ **`placeholder(name)`** — a deferred parameter slot (Drizzle's
+  `sql.placeholder`), usable inside the `` sql`...` `` tag and as an operator's
+  right side.
+- ✅ **`prepare(name?)`** on every builder (`select`/`insert`/`update`/`delete`
+  and compound selects) returns a `PreparedQuery` run with `execute(values)` /
+  `toSql(values)`. The plan is rendered once and re-bound per call; rendering a
+  query with an unbound placeholder is refused.
+- 🟡 **Divergence:** driverless, so `prepare` is render-once/bind-many rather
+  than a server-side `PREPARE`; the `name` is carried for a future driver path.
+- _Tests:_ `parity: placeholder() is a deferred parameter slot` and
+  `parity: prepared statement (.prepare/.execute) binds placeholders` in the ORM
+  parity test (they replaced the old `roadmap: sql.placeholder …` ledger test).
 
 ---
 

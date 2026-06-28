@@ -2,9 +2,13 @@
 set -eu
 
 if ! command -v deno >/dev/null 2>&1; then
-  echo "deno is required to run pre-commit formatting checks." >&2
+  echo "deno is required to run pre-commit checks." >&2
   exit 1
 fi
+
+echo "Regenerating LLM docs..."
+deno task docs:llms
+git add -- docs/llms.txt docs/llms-full.txt
 
 echo "Running deno fmt --check..."
 deno fmt --check
