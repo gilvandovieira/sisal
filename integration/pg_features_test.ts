@@ -943,6 +943,107 @@ pgTest("pg: prepared statement binds placeholders", async (db) => {
   assertEquals((await byId.execute({ id: 999 })).length, 0);
 });
 
+pgTest("pg: sql expressions in SET / VALUES / onConflict", async (db) => {
+  const expr = defineTable("it_expr", {
+    id: columns.integer().primaryKey(),
+    label: columns.text().notNull(),
+    score: columns.integer().notNull(),
+    upvotes: columns.integer().notNull(),
+    downvotes: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_expr cascade"));
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [expr] }),
+    ).statements
+  ) {
+    await db.execute(stmt);
+  }
+  const get = async () =>
+    (await db.select().from(expr).where(eq(expr.columns.id, 1)).execute())[0];
+
+  // INSERT: a `sql` expression renders inline and is evaluated by the server
+  // (abs(-5) -> 5); the literal values still bind as parameters.
+  await db.insert(expr).values({
+    id: 1,
+    label: "hi",
+    score: sql`abs(-5)`,
+    upvotes: 3,
+    downvotes: 1,
+  }).execute();
+  let row = await get();
+  assertEquals(Number(row.score), 5);
+  assertEquals(row.label, "hi");
+
+  // UPDATE SET computed from other columns: score = upvotes - downvotes.
+  await db.update(expr).set({
+    score: sql`${expr.columns.upvotes} - ${expr.columns.downvotes}`,
+  }).where(eq(expr.columns.id, 1)).execute();
+  assertEquals(Number((await get()).score), 2);
+
+  // UPDATE SET calling a SQL function on a column: label = upper(label).
+  await db.update(expr).set({ label: sql`upper(${expr.columns.label})` })
+    .where(eq(expr.columns.id, 1)).execute();
+  assertEquals((await get()).label, "HI");
+
+  // ON CONFLICT DO UPDATE with a `sql` expression: score = score + 10.
+  await db.insert(expr).values({
+    id: 1,
+    label: "x",
+    score: 0,
+    upvotes: 0,
+    downvotes: 0,
+  }).onConflictDoUpdate({
+    target: expr.columns.id,
+    set: { score: sql`${expr.columns.score} + 10` },
+  }).execute();
+  assertEquals(Number((await get()).score), 12);
+});
+
+pgTest(
+  "pg: batch runs statements atomically (commit + rollback)",
+  async (db) => {
+    const batchT = defineTable("it_batch", {
+      id: columns.integer().primaryKey(),
+      score: columns.integer().notNull(),
+    });
+    await db.execute(raw("drop table if exists it_batch cascade"));
+    for (
+      const stmt of generatePostgresUpStatements(
+        createSchemaSnapshot({ dialect: "postgres", tables: [batchT] }),
+      ).statements
+    ) {
+      await db.execute(stmt);
+    }
+    const all = async () => (await db.select().from(batchT).orderBy(
+      asc(batchT.columns.id),
+    ).execute());
+
+    // A batch of independent writes commits together; one result per statement.
+    const results = await db.batch([
+      db.insert(batchT).values({ id: 1, score: 10 }),
+      db.insert(batchT).values({ id: 2, score: 20 }),
+      db.update(batchT).set({ score: sql`${batchT.columns.score} + 5` })
+        .where(eq(batchT.columns.id, 1)),
+    ]);
+    assertEquals(results.length, 3);
+    assertEquals((await all()).map((r) => [Number(r.id), Number(r.score)]), [
+      [1, 15],
+      [2, 20],
+    ]);
+
+    // A failing statement (duplicate PK) rolls the whole batch back: the row that
+    // would have been inserted before it is not persisted.
+    await assertRejects(() =>
+      db.batch([
+        db.insert(batchT).values({ id: 3, score: 30 }),
+        db.insert(batchT).values({ id: 1, score: 99 }), // PK collision
+      ])
+    );
+    assertEquals((await all()).map((r) => Number(r.id)), [1, 2]);
+  },
+);
+
 pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   void db;
   const migrator = await createPgMigrator({
@@ -974,7 +1075,7 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch cascade",
     ),
   );
   await db.execute(
