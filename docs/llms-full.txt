@@ -1564,6 +1564,26 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added the `examples/postgres-rising-feed` example: the **normal database**
+  version of the `/rising` feed on **PostgreSQL 18** via `@sisal/pg` (regular
+  TCP session, its own `docker-compose.yml` with `postgres:18`). It completes a
+  three-way comparison of the same product feature — normal database
+  (`postgres-rising-feed`) vs. constrained runtime (`neon-rising-feed`,
+  serverless/single-statement) vs. feature-limited database
+  (`libsql-rising-feed`, no stored procedures). It reuses the rising-feed model
+  (5-minute buckets, unique-actor dedup, weighted score, stored time-dependent
+  `rising_score`, explicit `p_now`, `/new` + `/rising` keyset pagination) with
+  the corrected `app.calculate_rising_score` (windows bounded `<= p_now`, so
+  future buckets never count) and `#variable_conflict use_column` recorder. Uses
+  `mode: "date"` timestamps; since `@sisal/pg` returns `double precision` as a
+  string (v0.5.0 roadmap item 11), it `Number(...)`-coerces `rising_score` /
+  `activity_score` at the boundary. As a normal-Postgres extra it ships an
+  optional interactive-transaction recorder
+  (`recordPostActivityWithTransaction`, `db.transaction(...)`) alongside the
+  primary `db.call(app.record_post_activity)` path; the gated suite
+  (`SISAL_POSTGRES_RISING_FEED_IT=1`) asserts both agree. Network-free unit
+  tests + the gated DB suite pass against local `postgres:18`; registered in the
+  workspace and the `check` task.
 - Added the `examples/neon-rising-feed` and `examples/libsql-rising-feed`
   examples: a Reddit-style **`/rising`** timeline built on **time-bucketed
   activity** and a **moving-window** score, as a matched Neon/PostgreSQL ↔
@@ -1584,13 +1604,34 @@ Sisal-specific history after that baseline through `1f05448`.
   end-to-end against a local SQLite file. Both are registered in the workspace
   and the `check` task. The READMEs document the moving-average model and the
   Sisal API pressure points the pair surfaced (see the v0.5.0 roadmap).
+- Hardened the rising-feed examples after running them against real databases:
+  fixed `app.calculate_rising_score` (neon-rising-feed) to bound the recent
+  windows at `<= p_now` so a bucket dated after `p_now` can never inflate
+  `last_15m`/`last_60m` (matches `src/rising.ts`); fixed a latent ambiguity in
+  `app.record_post_activity` where the `RETURNS TABLE (...)` output names
+  shadowed table columns (`#variable_conflict use_column`); and limited
+  `recomputePostRisingScore` (libsql-rising-feed) to the 120-minute window like
+  the all-post path. Added future/old-bucket regression tests (network-free and
+  gated DB) to both examples and brief "Production notes" to both READMEs. Also
+  switched `neon-rising-feed` to Sisal's **default Temporal date types**
+  (`columns.timestamp({ withTimezone: true })` → `Temporal.Instant`, opened with
+  `temporal: { parse: true }` so reads — feed rows, cursors, `db.call` results —
+  are `Temporal.Instant`), with a `Temporal.Instant | Date` fallback in the
+  scoring helpers (`toInstant(...)` normalizes the `Date` fallback at the
+  `db.call` edge); `libsql-rising-feed` keeps ISO-string `TEXT` since SQLite has
+  no native timestamp type. Verified end-to-end against PostgreSQL 18
+  (`@sisal/pg`) and the libSQL native client, and the Neon path via the bundled
+  `neon-proxy`.
 - Recorded new v0.5.0 roadmap pressure points surfaced by the rising-feed
   examples: a portable "transaction script" abstraction for the no-stored-
   procedures gap (so the recorder reads identically across engines),
   `FILTER`-clause aggregates + interval/date math in the builder (the
   moving-window sums currently need raw SQL), a portable `dateTrunc`/time-bucket
-  helper, and a note that `.optional()` widens the inferred SELECT row type with
-  `undefined` (it should affect only the insert type).
+  helper, a note that `.optional()` widens the inferred SELECT row type with
+  `undefined` (it should affect only the insert type), and a driver-parity gap
+  where **`@sisal/pg` returns `double precision` as a string** while
+  `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` all return a `number` (verified
+  against real databases).
 - Added richer index DDL generation (roadmap item 5). Table-level `index()` /
   `uniqueIndex()` now accept per-column sort direction via `asc()`/`desc()`
   terms, raw `` sql`...` `` **expression** keys (an expression index), and a
@@ -5224,24 +5265,25 @@ limit:
 
 ## Priority summary
 
-| #  | Item                                                    | Priority | Rough effort | Status |
-| -- | ------------------------------------------------------- | -------- | ------------ | ------ |
-| 1  | libSQL integration coverage parity                      | P1       | S            | 🔴     |
-| 2  | Neon integration coverage parity                        | P1       | M            | 🔴     |
-| 3  | Unified cross-driver feature matrix (the **outcome**)   | P1       | M            | 🔴     |
-| 4  | Typed dialect guards for Postgres-only builders         | P2       | M            | 🔴     |
-| 5  | Document principled divergences & round-trip behavior   | P2       | S            | 🔴     |
-| 6  | Coverage-honesty: CHANGELOG fix + CI parity guard       | P3       | S            | 🔴     |
-| 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)   | P2       | L            | 🔴     |
-| 8  | Portable atomic "transaction script" (procedure parity) | P2       | L            | 🔴     |
-| 9  | `FILTER` aggregates + interval/date math + `dateTrunc`  | P2       | M            | 🔴     |
-| 10 | `.optional()` should not widen the SELECT row type      | P3       | S            | 🔴     |
+| #  | Item                                                          | Priority | Rough effort | Status |
+| -- | ------------------------------------------------------------- | -------- | ------------ | ------ |
+| 1  | libSQL integration coverage parity                            | P1       | S            | 🔴     |
+| 2  | Neon integration coverage parity                              | P1       | M            | 🔴     |
+| 3  | Unified cross-driver feature matrix (the **outcome**)         | P1       | M            | 🔴     |
+| 4  | Typed dialect guards for Postgres-only builders               | P2       | M            | 🔴     |
+| 5  | Document principled divergences & round-trip behavior         | P2       | S            | 🔴     |
+| 6  | Coverage-honesty: CHANGELOG fix + CI parity guard             | P3       | S            | 🔴     |
+| 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)         | P2       | L            | 🔴     |
+| 8  | Portable atomic "transaction script" (procedure parity)       | P2       | L            | 🔴     |
+| 9  | `FILTER` aggregates + interval/date math + `dateTrunc`        | P2       | M            | 🔴     |
+| 10 | `.optional()` should not widen the SELECT row type            | P3       | S            | 🔴     |
+| 11 | `@sisal/pg` float8 → `number` (only adapter returning string) | P2       | M            | 🔴     |
 
-Items 8–10 were surfaced by the
+Items 8–11 were surfaced by the
 [`neon-rising-feed`](../examples/neon-rising-feed/README.md) ↔
 [`libsql-rising-feed`](../examples/libsql-rising-feed/README.md) example pair
 (June 2026) — a `/rising` moving-window feed built on both engines. See
-[§ 8–10](#8-portable-atomic-transaction-script--p2) below.
+[§ 8–11](#8-portable-atomic-transaction-script--p2) below.
 
 P1 items 1–2 are the achievable-parity work and unblock item 3 (the matrix can
 only claim a ✅ once a test backs it). Items 4–6 cover the parity that is _not_
@@ -5583,6 +5625,67 @@ optionality), leaving `InferSelect` as `T | null`. **Affected.** `@sisal/orm`
 column/type inference. **Acceptance:** an `.optional()` nullable column infers
 `T | null` on select and `T | null | undefined`-omittable on insert; a type test
 pins both; the example can use `.optional()` without widening the feed row.
+
+---
+
+## 11. Coerce numeric reads to `number` (float8 returns as string) — P2
+
+**Context.** Surfaced while validating the
+[`neon-rising-feed`](../examples/neon-rising-feed/README.md) example against
+real databases (June 2026). **`@sisal/pg` is the only adapter that returns
+`double precision` as a string** — a driver-parity gap, which is exactly this
+roadmap's theme. Verified first-hand, all reading the same
+`306.0::double
+precision`:
+
+| Adapter         | `double precision` read | Notes                                        |
+| --------------- | ----------------------- | -------------------------------------------- |
+| `@sisal/pg`     | `"306"` (**string**)    | `jsr:@db/postgres` decodes `float8` → string |
+| `@sisal/neon`   | `306` (number)          | `@neon/serverless` decodes `float8` → number |
+| `@sisal/sqlite` | `306` (number)          | SQLite `REAL` → number                       |
+| `@sisal/libsql` | `306` (number)          | SQLite `REAL` → number                       |
+
+Integers (`int2`/`int4`) come back as numbers on `@sisal/pg`, and `timestamptz`
+maps to `Temporal`/`Date`, so only the float types are inconsistent.
+
+**Problem.** A column declared `columns.doublePrecision()` infers `number`, but
+on `@sisal/pg` the runtime value is a `string`. This is a silent type lie with
+real consequences:
+
+- client-side numeric work breaks — `score.toFixed(2)` throws (`"306".toFixed`
+  is not a function), and `Array.sort`/comparisons run lexicographically
+  (`"180" < "72"` is `true`);
+- a keyset/ORDER BY whose tiebreaker is a float column still _orders correctly
+  in the database_ (the DB casts the bound string param), so the bug hides until
+  a consumer touches the value in JS.
+
+**Where it surfaced.** Running the `neon-rising-feed` TypeScript path against a
+local PostgreSQL 18 via `@sisal/pg`: `rising_score` came back as a string, so
+the feed's `non-increasing` ordering check failed lexicographically and
+`rising_score.toFixed(...)` would throw. The example itself uses
+**`@sisal/neon`** (which returns a number), so it is _not_ affected and was left
+uncoerced; but `@sisal/pg` (and `neon-hot-feed`'s `hot_score`, if run through
+`@sisal/pg`) is.
+
+**Proposed work.** Decode `float4`/`float8` to `number` in the `@sisal/pg`
+result path so a `columns.doublePrecision` column reads back as the `number` it
+infers, matching the other three adapters. `numeric`/`bigint` stay strings by
+necessity (precision) and belong in the round-trip reference (item 5); this item
+is specifically about the float types, where `number` is the correct, lossless
+mapping.
+
+**Affected.** `@sisal/pg` result decoding (`jsr:@db/postgres` type parsers) only
+— `@sisal/neon` already returns a number;
+[round-trip reference](#5-document-principled-divergences--round-trip-behavior-p2)
+(item 5); the unified matrix (item 3) gains a tested "float round-trip" row.
+
+**Acceptance criteria.**
+
+- A `double precision` column read through `@sisal/pg` yields a JS `number`,
+  matching `@sisal/neon` / `@sisal/sqlite` / `@sisal/libsql`.
+- Integration coverage on pg asserts the runtime `typeof` is `number`.
+- The float round-trip is added to the round-trip reference (item 5) and the
+  unified matrix (item 3).
 
 ---
 

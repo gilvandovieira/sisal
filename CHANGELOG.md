@@ -11,6 +11,26 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added the `examples/postgres-rising-feed` example: the **normal database**
+  version of the `/rising` feed on **PostgreSQL 18** via `@sisal/pg` (regular
+  TCP session, its own `docker-compose.yml` with `postgres:18`). It completes a
+  three-way comparison of the same product feature — normal database
+  (`postgres-rising-feed`) vs. constrained runtime (`neon-rising-feed`,
+  serverless/single-statement) vs. feature-limited database
+  (`libsql-rising-feed`, no stored procedures). It reuses the rising-feed model
+  (5-minute buckets, unique-actor dedup, weighted score, stored time-dependent
+  `rising_score`, explicit `p_now`, `/new` + `/rising` keyset pagination) with
+  the corrected `app.calculate_rising_score` (windows bounded `<= p_now`, so
+  future buckets never count) and `#variable_conflict use_column` recorder. Uses
+  `mode: "date"` timestamps; since `@sisal/pg` returns `double precision` as a
+  string (v0.5.0 roadmap item 11), it `Number(...)`-coerces `rising_score` /
+  `activity_score` at the boundary. As a normal-Postgres extra it ships an
+  optional interactive-transaction recorder
+  (`recordPostActivityWithTransaction`, `db.transaction(...)`) alongside the
+  primary `db.call(app.record_post_activity)` path; the gated suite
+  (`SISAL_POSTGRES_RISING_FEED_IT=1`) asserts both agree. Network-free unit
+  tests + the gated DB suite pass against local `postgres:18`; registered in the
+  workspace and the `check` task.
 - Added the `examples/neon-rising-feed` and `examples/libsql-rising-feed`
   examples: a Reddit-style **`/rising`** timeline built on **time-bucketed
   activity** and a **moving-window** score, as a matched Neon/PostgreSQL ↔
@@ -31,13 +51,34 @@ Sisal-specific history after that baseline through `1f05448`.
   end-to-end against a local SQLite file. Both are registered in the workspace
   and the `check` task. The READMEs document the moving-average model and the
   Sisal API pressure points the pair surfaced (see the v0.5.0 roadmap).
+- Hardened the rising-feed examples after running them against real databases:
+  fixed `app.calculate_rising_score` (neon-rising-feed) to bound the recent
+  windows at `<= p_now` so a bucket dated after `p_now` can never inflate
+  `last_15m`/`last_60m` (matches `src/rising.ts`); fixed a latent ambiguity in
+  `app.record_post_activity` where the `RETURNS TABLE (...)` output names
+  shadowed table columns (`#variable_conflict use_column`); and limited
+  `recomputePostRisingScore` (libsql-rising-feed) to the 120-minute window like
+  the all-post path. Added future/old-bucket regression tests (network-free and
+  gated DB) to both examples and brief "Production notes" to both READMEs. Also
+  switched `neon-rising-feed` to Sisal's **default Temporal date types**
+  (`columns.timestamp({ withTimezone: true })` → `Temporal.Instant`, opened with
+  `temporal: { parse: true }` so reads — feed rows, cursors, `db.call` results —
+  are `Temporal.Instant`), with a `Temporal.Instant | Date` fallback in the
+  scoring helpers (`toInstant(...)` normalizes the `Date` fallback at the
+  `db.call` edge); `libsql-rising-feed` keeps ISO-string `TEXT` since SQLite has
+  no native timestamp type. Verified end-to-end against PostgreSQL 18
+  (`@sisal/pg`) and the libSQL native client, and the Neon path via the bundled
+  `neon-proxy`.
 - Recorded new v0.5.0 roadmap pressure points surfaced by the rising-feed
   examples: a portable "transaction script" abstraction for the no-stored-
   procedures gap (so the recorder reads identically across engines),
   `FILTER`-clause aggregates + interval/date math in the builder (the
   moving-window sums currently need raw SQL), a portable `dateTrunc`/time-bucket
-  helper, and a note that `.optional()` widens the inferred SELECT row type with
-  `undefined` (it should affect only the insert type).
+  helper, a note that `.optional()` widens the inferred SELECT row type with
+  `undefined` (it should affect only the insert type), and a driver-parity gap
+  where **`@sisal/pg` returns `double precision` as a string** while
+  `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` all return a `number` (verified
+  against real databases).
 - Added richer index DDL generation (roadmap item 5). Table-level `index()` /
   `uniqueIndex()` now accept per-column sort direction via `asc()`/`desc()`
   terms, raw `` sql`...` `` **expression** keys (an expression index), and a
