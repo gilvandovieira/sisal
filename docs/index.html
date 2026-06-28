@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sisal — a Deno-first database toolkit published to JSR</title>
+    <title>Sisal — Deno-first database tooling with explicit adapters</title>
     <meta
       name="description"
-      content="Sisal is a Deno-first database toolkit published to JSR: typed schemas, planned migrations, and small Postgres, Neon, SQLite & libSQL adapters. The ORM is driverless and never imports an adapter."
+      content="Sisal is a Deno-first database toolkit published to JSR: a driverless ORM and migration core, typed SQL, planned migrations, and explicit Postgres, Neon, SQLite, and libSQL/Turso adapters."
     >
     <link rel="canonical" href="https://gilvandovieira.github.io/sisal/">
 
@@ -42,11 +42,11 @@
     <meta property="og:type" content="website">
     <meta
       property="og:title"
-      content="Sisal — a Deno-first database toolkit published to JSR"
+      content="Sisal — Deno-first database tooling with explicit adapters"
     >
     <meta
       property="og:description"
-      content="Typed schemas, planned migrations, and small Postgres, Neon, SQLite & libSQL adapters — woven from six clean packages with strict boundaries."
+      content="Driverless core packages, planned migrations, and explicit Postgres, Neon, SQLite, and libSQL/Turso adapters with runtime dependencies kept at adapter boundaries."
     >
     <meta property="og:url" content="https://gilvandovieira.github.io/sisal/">
     <meta
@@ -56,7 +56,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta
       name="twitter:title"
-      content="Sisal — a Deno-first database toolkit published to JSR"
+      content="Sisal — Deno-first database tooling with explicit adapters"
     >
     <meta
       name="twitter:image"
@@ -479,11 +479,55 @@
       color: var(--raffia);
     }
 
-    /* ---------- Packages weave ---------- */
-    .threads {
+    /* ---------- Packages ---------- */
+    .package-groups {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
+      gap: 24px;
+    }
+
+    .package-group {
+      display: grid;
+      gap: 16px;
+    }
+
+    .package-group__label {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+
+    .package-group__label h3 {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--raffia-light);
+      margin: 0;
+    }
+
+    .package-group__label p {
+      color: var(--paper-dim);
+      font-size: 0.94rem;
+      margin: 0;
+      max-width: 54ch;
+    }
+
+    .section__head code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--raffia-light);
+    }
+
+    .package-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .package-grid--adapters {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
 
     .pkg {
@@ -510,6 +554,19 @@
       border-radius: 2px;
       background: var(--thread, var(--raffia));
       opacity: 0.85;
+    }
+
+    .pkg--core {
+      background: rgba(14, 14, 15, 0.72);
+      border-color: rgba(185, 168, 133, 0.18);
+    }
+
+    .pkg--adapter {
+      background: rgba(24, 24, 28, 0.92);
+    }
+
+    .pkg--orm {
+      --thread: var(--raffia-light);
     }
 
     .pkg--migrate {
@@ -554,6 +611,12 @@
       margin: 14px 0 18px;
     }
 
+    .pkg__desc code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--raffia-light);
+    }
+
     .pkg__paths {
       display: flex;
       flex-wrap: wrap;
@@ -570,66 +633,35 @@
       padding: 2px 8px;
     }
 
-    /* Foundation card = the warp thread the others rest on. */
-    .foundation {
-      position: relative;
-      margin-top: 18px;
-      background: linear-gradient(
-        180deg,
-        rgba(185, 168, 133, 0.08),
-        rgba(185, 168, 133, 0.02)
-      );
+    .package-note {
+      margin-top: 24px;
       border: 1px solid var(--line-strong);
       border-radius: 14px;
-      padding: 28px 26px;
+      padding: 20px 22px;
+      background: var(--ink-2);
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 22px;
-      align-items: center;
+      gap: 8px;
     }
 
-    .foundation::before {
-      content: "";
-      position: absolute;
-      left: 26px;
-      right: 26px;
-      top: 0;
-      height: 3px;
-      border-radius: 3px;
-      background: linear-gradient(
-        90deg,
-        var(--sage),
-        var(--raffia),
-        var(--olive)
-      );
-    }
-
-    .foundation__name {
-      font-family: var(--mono);
-      font-size: 1.1rem;
-      color: var(--paper);
-      margin: 0 0 6px;
-    }
-
-    .foundation__desc {
-      color: var(--paper-dim);
-      font-size: 0.97rem;
-      margin: 0;
-      max-width: 62ch;
-    }
-
-    .foundation__rule {
+    .package-note h3 {
       font-family: var(--mono);
       font-size: 0.8rem;
-      line-height: 1.6;
-      color: var(--paper-dim);
-      border-left: 2px solid var(--raffia);
-      padding-left: 16px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--raffia-light);
+      margin: 0;
     }
 
-    .foundation__rule b {
-      color: var(--paper);
-      font-weight: 500;
+    .package-note p {
+      color: var(--paper-dim);
+      font-size: 0.94rem;
+      margin: 0;
+    }
+
+    .package-note code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      color: var(--raffia-light);
     }
 
     /* ---------- Principles ---------- */
@@ -864,6 +896,22 @@
       border-top: 1px solid var(--line);
     }
 
+    .docs-note {
+      margin: 32px 0 0;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--ink-2);
+      color: var(--paper-dim);
+      font-size: 0.92rem;
+      max-width: 78ch;
+    }
+
+    .docs-note b {
+      color: var(--paper);
+      font-weight: 600;
+    }
+
     .footer__bottom small {
       color: var(--paper-faint);
       font-size: 0.84rem;
@@ -918,12 +966,9 @@
         grid-template-columns: 1fr;
       }
 
-      .threads {
-        grid-template-columns: 1fr;
-      }
-
-      .foundation {
-        grid-template-columns: 1fr;
+      .package-group__label {
+        display: grid;
+        gap: 8px;
       }
 
       .principles {
@@ -982,8 +1027,8 @@
         </a>
         <nav class="site-nav" aria-label="Primary">
           <a class="nav-collapse" href="api.html">Docs</a>
+          <a class="nav-collapse" href="#packages">Packages</a>
           <a class="nav-collapse" href="#compat">Compatibility</a>
-          <a class="nav-collapse" href="drizzle-parity.html">Drizzle parity</a>
           <a class="nav-cta" href="https://github.com/gilvandovieira/sisal"
           >GitHub</a>
         </nav>
@@ -1001,17 +1046,19 @@
         >
         <div class="wrap hero__inner">
           <div class="hero__copy">
-            <p class="eyebrow reveal">Deno-first · JSR packages · pre-1.0</p>
+            <p class="eyebrow reveal">
+              Deno-first · JSR packages · explicit adapters
+            </p>
             <h1 class="reveal d1">
               Database tooling,<br>
-              woven from six<br>
-              <span class="accent">clean threads.</span>
+              woven from a<br>
+              <span class="accent">portable core.</span>
             </h1>
             <p class="lede reveal d2">
-              Sisal is a Deno-first toolkit, published to JSR, for typed
-              schemas, planned migrations, and small Postgres, Neon, SQLite, and
-              libSQL adapters. The ORM is driverless and never imports an
-              adapter.
+              Sisal pairs driverless schemas, typed SQL builders, and planned
+              migrations with explicit Postgres, Neon, SQLite, and libSQL/Turso
+              adapter boundaries. The core stays portable; adapters handle
+              database drivers and runtime details.
             </p>
             <div class="cta-row reveal d3">
               <a class="btn btn-primary" href="api.html">Read the docs</a>
@@ -1051,101 +1098,160 @@
 
       <hr class="weave-rule">
 
-      <!-- ───────── The four threads ───────── -->
+      <!-- ───────── Packages ───────── -->
       <section class="section" id="packages">
         <div class="wrap">
           <div class="section__head">
-            <span class="section-eyebrow">Six packages, one weave</span>
-            <h2 class="h-display">Threads that never tangle</h2>
+            <span class="section-eyebrow">Core and adapters</span>
+            <h2 class="h-display">
+              Threads can be added without tangling the core
+            </h2>
             <p>
-              Each package owns one boundary and depends only on what it must.
-              Import the smallest surface your app needs.
+              The core owns portable schema and migration logic. Adapters
+              attach real engines at explicit boundaries, so new database
+              threads can be woven in without pulling drivers into
+              <code>@sisal/orm</code>.
             </p>
           </div>
 
-          <div class="threads">
-            <article class="pkg pkg--migrate">
-              <p class="pkg__role">Adapter-neutral</p>
-              <p class="pkg__name">@sisal/migrate</p>
-              <p class="pkg__desc">
-                Migration definitions, checksums, planning, drift checks, the
-                file workflow, and a generic runner.
-              </p>
-              <div class="pkg__paths">
-                <span>./core</span>
-                <span>./workflow</span>
+          <div class="package-groups">
+            <section
+              class="package-group package-group--core"
+              aria-labelledby="core-packages-heading"
+            >
+              <div class="package-group__label">
+                <h3 id="core-packages-heading">Core packages</h3>
+                <p>
+                  Portable surfaces that stay driverless or adapter-neutral.
+                </p>
               </div>
-            </article>
 
-            <article class="pkg pkg--pg">
-              <p class="pkg__role">PostgreSQL</p>
-              <p class="pkg__name">@sisal/pg</p>
-              <p class="pkg__desc">
-                Postgres execution, advisory-locked history, a migrator, and
-                additive DDL generation.
-              </p>
-              <div class="pkg__paths">
-                <span>./orm</span>
-                <span>./migrate</span>
-                <span>./ddl</span>
-              </div>
-            </article>
+              <div class="package-grid">
+                <article class="pkg pkg--core pkg--orm">
+                  <p class="pkg__role">Driverless ORM</p>
+                  <p class="pkg__name">@sisal/orm</p>
+                  <p class="pkg__desc">
+                    Schema definitions, typed SQL, builders, snapshots,
+                    structured errors, and logger contracts.
+                  </p>
+                  <div class="pkg__paths">
+                    <span>./core</span>
+                    <span>./schema</span>
+                    <span>./error</span>
+                    <span>./logger</span>
+                  </div>
+                </article>
 
-            <article class="pkg pkg--neon">
-              <p class="pkg__role">Neon serverless</p>
-              <p class="pkg__name">@sisal/neon</p>
-              <p class="pkg__desc">
-                Neon serverless Postgres over WebSockets, reusing the Postgres
-                SQL rendering, DDL, and migrator.
-              </p>
-              <div class="pkg__paths">
-                <span>./orm</span>
-                <span>./migrate</span>
-                <span>./ddl</span>
+                <article class="pkg pkg--core pkg--migrate">
+                  <p class="pkg__role">Adapter-neutral migrations</p>
+                  <p class="pkg__name">@sisal/migrate</p>
+                  <p class="pkg__desc">
+                    Migration definitions, checksums, planning, drift checks,
+                    workflow helpers, a generic runner, and the CLI boundary.
+                  </p>
+                  <div class="pkg__paths">
+                    <span>./cli</span>
+                    <span>./core</span>
+                    <span>./workflow</span>
+                  </div>
+                </article>
               </div>
-            </article>
+            </section>
 
-            <article class="pkg pkg--sqlite">
-              <p class="pkg__role">SQLite</p>
-              <p class="pkg__name">@sisal/sqlite</p>
-              <p class="pkg__desc">
-                SQLite execution with a lazily-opened database, history storage,
-                a migrator, and DDL.
-              </p>
-              <div class="pkg__paths">
-                <span>./orm</span>
-                <span>./migrate</span>
-                <span>./ddl</span>
+            <section
+              class="package-group package-group--adapters"
+              aria-labelledby="adapter-packages-heading"
+            >
+              <div class="package-group__label">
+                <h3 id="adapter-packages-heading">Adapter packages</h3>
+                <p>
+                  Runtime boundaries for concrete databases, drivers, history
+                  storage, migrators, and dialect-specific DDL.
+                </p>
               </div>
-            </article>
 
-            <article class="pkg pkg--libsql">
-              <p class="pkg__role">libSQL / Turso</p>
-              <p class="pkg__name">@sisal/libsql</p>
-              <p class="pkg__desc">
-                libSQL/Turso execution — local files, remote Turso, or
-                embedded replicas — reusing SQLite-compatible DDL.
-              </p>
-              <div class="pkg__paths">
-                <span>./orm</span>
-                <span>./migrate</span>
-                <span>./ddl</span>
+              <div class="package-grid package-grid--adapters">
+                <article class="pkg pkg--adapter pkg--pg">
+                  <p class="pkg__role">PostgreSQL</p>
+                  <p class="pkg__name">@sisal/pg</p>
+                  <p class="pkg__desc">
+                    PostgreSQL execution, pool boundary, history, migrator, and
+                    PostgreSQL DDL generation.
+                  </p>
+                  <div class="pkg__paths">
+                    <span>./orm</span>
+                    <span>./migrate</span>
+                    <span>./ddl</span>
+                  </div>
+                </article>
+
+                <article class="pkg pkg--adapter pkg--neon">
+                  <p class="pkg__role">Neon serverless</p>
+                  <p class="pkg__name">@sisal/neon</p>
+                  <p class="pkg__desc">
+                    Neon serverless PostgreSQL over <code>@neon/serverless</code>,
+                    reusing PostgreSQL SQL, DDL, and migrator behavior where it
+                    fits.
+                  </p>
+                  <div class="pkg__paths">
+                    <span>./orm</span>
+                    <span>./migrate</span>
+                    <span>./ddl</span>
+                  </div>
+                </article>
+
+                <article class="pkg pkg--adapter pkg--sqlite">
+                  <p class="pkg__role">SQLite</p>
+                  <p class="pkg__name">@sisal/sqlite</p>
+                  <p class="pkg__desc">
+                    SQLite execution via <code>jsr:@db/sqlite</code>, history,
+                    migrator, and SQLite DDL generation.
+                  </p>
+                  <div class="pkg__paths">
+                    <span>./orm</span>
+                    <span>./migrate</span>
+                    <span>./ddl</span>
+                  </div>
+                </article>
+
+                <article class="pkg pkg--adapter pkg--libsql">
+                  <p class="pkg__role">libSQL / Turso</p>
+                  <p class="pkg__name">@sisal/libsql</p>
+                  <p class="pkg__desc">
+                    libSQL/Turso execution via
+                    <code>npm:@libsql/client</code>, history, migrator, and
+                    SQLite-compatible DDL aliases.
+                  </p>
+                  <div class="pkg__paths">
+                    <span>./orm</span>
+                    <span>./migrate</span>
+                    <span>./ddl</span>
+                  </div>
+                </article>
               </div>
-            </article>
+            </section>
           </div>
 
-          <div class="foundation">
-            <div>
-              <p class="foundation__name">@sisal/orm</p>
-              <p class="foundation__desc">
-                The driverless core: schema definitions, typed SQL fragments,
-                predicates, immutable query builders, structured errors, and
-                serializable schema snapshots.
-              </p>
-            </div>
-            <p class="foundation__rule">
-              Adapters depend on <b>@sisal/orm</b>.<br>
-              The ORM never depends on an adapter.
+          <div class="package-note">
+            <h3>Distribution boundary</h3>
+            <p>
+              Every Sisal package is published to JSR. The core packages,
+              <code>@sisal/orm</code> and <code>@sisal/migrate</code>, are pure
+              JSR; adapter packages may cross runtime dependency boundaries
+              when a database driver requires it.
+            </p>
+            <p>
+              The libSQL/Turso adapter imports
+              <code>npm:@libsql/client</code>; Neon uses
+              <code>jsr:@neon/serverless</code> and inherits its transitive
+              dependency shape. Benchmarks can compare against
+              <code>npm:drizzle-orm</code>, but that is not runtime code for
+              Sisal's core or adapters.
+            </p>
+            <p>
+              Core packages stay driverless or adapter-neutral. Adapter
+              packages are where database drivers and runtime-specific
+              dependencies belong.
             </p>
           </div>
         </div>
@@ -1203,10 +1309,12 @@
               </p>
             </div>
             <div class="principle">
-              <h3>Drizzle parity</h3>
+              <h3>Familiar vocabulary</h3>
               <p>
-                A compatibility map against Drizzle ORM 0.45.2, with the few
-                Sisal divergences documented on purpose.
+                Sisal is inspired by useful Drizzle vocabulary like
+                <code>sql</code>, <code>eq</code>, and fluent builders, but
+                keeps its own driverless core, snapshot workflow, and
+                documented divergences.
               </p>
             </div>
           </div>
@@ -1229,7 +1337,7 @@
             <ul class="docs-links">
               <li><a href="api.html">API reference</a></li>
               <li><a href="migration-notes.html">Migration notes</a></li>
-              <li><a href="drizzle-parity.html">Drizzle parity</a></li>
+              <li><a href="#compat">Compatibility matrices</a></li>
             </ul>
           </div>
 
@@ -1385,6 +1493,12 @@
             </div>
           </div>
         </div>
+        <p class="docs-note">
+          <b>Docs note:</b> The API reference and LLM context files are
+          generated from source, package manifests, and exported API
+          documentation, then checked in CI. Narrative pages are maintained
+          alongside the code.
+        </p>
         <div class="footer__bottom">
           <small>© 2026 Sisal · Built for Deno &amp; JSR</small>
           <div class="swatches" aria-hidden="true">
