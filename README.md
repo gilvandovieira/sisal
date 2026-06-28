@@ -213,9 +213,11 @@ columns.doublePrecision();
 columns.boolean();
 columns.json<{ ok: boolean }>();
 columns.jsonb<{ tags: string[] }>();
-columns.date();
-columns.timestamp();
-columns.timestamp({ withTimezone: true });
+columns.date(); // Temporal.PlainDate by default
+columns.time(); // Temporal.PlainTime by default
+columns.timestamp(); // Temporal.PlainDateTime by default
+columns.timestamp({ withTimezone: true }); // Temporal.Instant / timestamptz
+columns.timestamp({ withTimezone: true, mode: "date" }); // legacy Date mode
 columns.uuid();
 columns.bytea(); // Postgres bytea, SQLite/libSQL BLOB
 columns.customType<number[]>({
@@ -234,7 +236,7 @@ const posts = defineTable("posts", {
   tags: columns.text().array(),
   published: columns.boolean().default(false),
   updatedAt: columns.timestamp({ withTimezone: true })
-    .$onUpdate(() => new Date()),
+    .$onUpdate(() => Temporal.Now.instant()),
 });
 ```
 
@@ -264,7 +266,7 @@ const query = sql`
   select *
   from ${identifier("public.users")}
   where email = ${"ada@example.com"}
-    and created_at <= ${new Date()}
+    and created_at <= ${Temporal.Now.instant()}
   order by ${raw("created_at desc")}
 `;
 
@@ -297,7 +299,7 @@ const alice = await db.insert(users).values({
   id: crypto.randomUUID(),
   email: "alice@example.com",
   active: true,
-  createdAt: new Date(),
+  createdAt: Temporal.Now.instant(),
 }).returning({
   id: users.columns.id,
   email: users.columns.email,
@@ -399,7 +401,7 @@ await db.transaction(async (tx) => {
     email: "tx@example.com",
     orgId: 10,
     active: true,
-    createdAt: new Date(),
+    createdAt: Temporal.Now.instant(),
   }).execute();
 });
 ```

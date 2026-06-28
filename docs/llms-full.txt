@@ -141,6 +141,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `ColumnNamingStrategy` (typeAlias): A column-naming strategy: how a JavaScript property key maps to the physical SQL column name when a column does not declare an explicit .named(...).
 - `ColumnRuntimeType` (typeAlias): JavaScript runtime value types represented by ORM columns.
 - `columns` (variable): Column builder factory for table schemas.
+- `ColumnValueMode` (typeAlias): Runtime value mode for date/time-ish columns.
 - `CompoundSelectBuilder` (interface): A combined query produced by a set operation. Trailing orderBy/limit/ offset apply to the whole compound, and further set operations may be chained.
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
@@ -157,6 +158,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
+- `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineSchemaSnapshot` (function): Normalizes and validates a schema snapshot.
 - `defineTable` (function): Defines a typed table schema.
@@ -220,6 +222,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `normalizeSchemaSnapshot` (function): Returns a deterministic clone of a schema snapshot.
 - `normalizeSqlInput` (function): Normalizes manual or builder SQL into the driver query contract.
 - `normalizeTableName` (function): Normalizes a table name.
+- `normalizeTemporalSqlValue` (function): Normalizes Temporal values nested inside arrays before driver execution.
 - `not` (function): Negates a SQL condition with NOT (...).
 - `notBetween` (function): column NOT BETWEEN min AND max SQL condition.
 - `notExists` (function): NOT EXISTS (subquery) — true when the subquery returns no rows.
@@ -303,6 +306,10 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `TableDefinition` (interface): Table schema definition returned by defineTable.
 - `TableName` (typeAlias): Normalized table name, optionally including a validated schema path.
 - `TableRelations` (interface): Relation collection for one table.
+- `TemporalParsingOptions` (interface): Options for Temporal result parsing in a database facade.
+- `TemporalSqlValue` (typeAlias): Temporal values accepted as SQL parameters.
+- `TimeColumnMode` (typeAlias): Runtime modes for SQL time columns.
+- `TimestampColumnMode` (typeAlias): Runtime modes for SQL timestamp / timestamptz columns.
 - `toSql` (function): Converts a SQL fragment or condition into SQL.
 - `unique` (function): A named/composite UNIQUE constraint; complete it with .on(...columns).
 - `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
@@ -333,6 +340,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `ColumnNamingStrategy` (typeAlias): A column-naming strategy: how a JavaScript property key maps to the physical SQL column name when a column does not declare an explicit .named(...).
 - `ColumnRuntimeType` (typeAlias): JavaScript runtime value types represented by ORM columns.
 - `columns` (variable): Column builder factory for table schemas.
+- `ColumnValueMode` (typeAlias): Runtime value mode for date/time-ish columns.
 - `CompoundSelectBuilder` (interface): A combined query produced by a set operation. Trailing orderBy/limit/ offset apply to the whole compound, and further set operations may be chained.
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
@@ -349,6 +357,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
+- `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
@@ -404,6 +413,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `normalizeColumnName` (function): Normalizes a simple column name.
 - `normalizeSqlInput` (function): Normalizes manual or builder SQL into the driver query contract.
 - `normalizeTableName` (function): Normalizes a table name.
+- `normalizeTemporalSqlValue` (function): Normalizes Temporal values nested inside arrays before driver execution.
 - `not` (function): Negates a SQL condition with NOT (...).
 - `notBetween` (function): column NOT BETWEEN min AND max SQL condition.
 - `notExists` (function): NOT EXISTS (subquery) — true when the subquery returns no rows.
@@ -463,6 +473,10 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `TableDefinition` (interface): Table schema definition returned by defineTable.
 - `TableName` (typeAlias): Normalized table name, optionally including a validated schema path.
 - `TableRelations` (interface): Relation collection for one table.
+- `TemporalParsingOptions` (interface): Options for Temporal result parsing in a database facade.
+- `TemporalSqlValue` (typeAlias): Temporal values accepted as SQL parameters.
+- `TimeColumnMode` (typeAlias): Runtime modes for SQL time columns.
+- `TimestampColumnMode` (typeAlias): Runtime modes for SQL timestamp / timestamptz columns.
 - `toSql` (function): Converts a SQL fragment or condition into SQL.
 - `unique` (function): A named/composite UNIQUE constraint; complete it with .on(...columns).
 - `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
@@ -550,6 +564,7 @@ Migration planning and execution primitives for Sisal database tooling.
 - `memoryMigrationStore` (function): Creates an in-memory migration history store for tests and scaffolding.
 - `MemoryMigrationStoreOptions` (interface): Options for the in-memory migration history store.
 - `MigrateConfig` (interface): Validated migration configuration (sisal.migrate.ts).
+- `MigrateProvider` (typeAlias): A migration runtime provider that refines a dialect's default adapter.
 - `Migration` (typeAlias): Any migration definition accepted by a Sisal migrator.
 - `MigrationBase` (interface): Common metadata shared by all migration definitions.
 - `MigrationChecksum` (typeAlias): Deterministic checksum used to detect edited migrations.
@@ -588,6 +603,7 @@ Migration planning and execution primitives for Sisal database tooling.
 - `SchemaMigrationPlanInput` (interface): Input snapshots for creating a schema migration plan.
 - `slugifyMigrationName` (function): Lowercases a migration name into an underscore slug (Add Users → add_users).
 - `sortMigrations` (function): Returns a new migration list sorted by id.
+- `splitSqlStatements` (function): Splits a SQL script into individual statements on top-level ;, ignoring semicolons inside string literals, quoted identifiers, line/block comments, and PostgreSQL dollar-quoted bodies ($$ … $$, $tag$ … $tag$). Each...
 - `SqlMigration` (interface): SQL migration definition.
 - `validateMigration` (function): Validates one migration definition.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
@@ -604,7 +620,6 @@ sisal migration CLI.
 - `SisalCliGeneratedStatements` (interface): Additive DDL generated by a dialect adapter.
 - `SisalCliMigrator` (interface): Minimal migrator facade used by the CLI.
 - `SisalCliOptions` (interface): Test/runtime injection points for the CLI runner.
-- `splitSqlStatements` (function): Splits a SQL script into individual statements on top-level ;, ignoring semicolons inside string literals, identifiers, line/block comments, and PostgreSQL dollar-quoted bodies ($$ … $$, $tag$ … $tag$). Exported for...
 
 ### @sisal/migrate ./core (packages/migrate/core/mod.ts)
 
@@ -637,6 +652,7 @@ Migration definitions, planning, history stores, and runner contracts.
 - `memoryMigrationStore` (function): Creates an in-memory migration history store for tests and scaffolding.
 - `MemoryMigrationStoreOptions` (interface): Options for the in-memory migration history store.
 - `MigrateConfig` (interface): Validated migration configuration (sisal.migrate.ts).
+- `MigrateProvider` (typeAlias): A migration runtime provider that refines a dialect's default adapter.
 - `Migration` (typeAlias): Any migration definition accepted by a Sisal migrator.
 - `MigrationBase` (interface): Common metadata shared by all migration definitions.
 - `MigrationChecksum` (typeAlias): Deterministic checksum used to detect edited migrations.
@@ -675,6 +691,7 @@ Migration definitions, planning, history stores, and runner contracts.
 - `SchemaMigrationPlanInput` (interface): Input snapshots for creating a schema migration plan.
 - `slugifyMigrationName` (function): Lowercases a migration name into an underscore slug (Add Users → add_users).
 - `sortMigrations` (function): Returns a new migration list sorted by id.
+- `splitSqlStatements` (function): Splits a SQL script into individual statements on top-level ;, ignoring semicolons inside string literals, quoted identifiers, line/block comments, and PostgreSQL dollar-quoted bodies ($$ … $$, $tag$ … $tag$). Each...
 - `SqlMigration` (interface): SQL migration definition.
 - `validateMigration` (function): Validates one migration definition.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
@@ -695,6 +712,7 @@ SQL-first migration workflow: an injectable filesystem, generated-migration file
 - `DriftReport` (interface): Result of a drift check.
 - `GeneratedMigrationFile` (interface): A generated migration ready to be written to disk.
 - `MigrateConfig` (interface): Validated migration configuration (sisal.migrate.ts).
+- `MigrateProvider` (typeAlias): A migration runtime provider that refines a dialect's default adapter.
 - `MigrationFileSystem` (interface): Minimal filesystem surface used by the migration workflow.
 - `nextMigrationSequence` (function): Returns the next sequence number after the highest discovered migration.
 - `parseMigrationSequence` (function): Extracts the leading numeric sequence from a migration id (0002_x → 2).
@@ -1410,9 +1428,11 @@ columns.doublePrecision();
 columns.boolean();
 columns.json<{ ok: boolean }>();
 columns.jsonb<{ tags: string[] }>();
-columns.date();
-columns.timestamp();
-columns.timestamp({ withTimezone: true });
+columns.date(); // Temporal.PlainDate by default
+columns.time(); // Temporal.PlainTime by default
+columns.timestamp(); // Temporal.PlainDateTime by default
+columns.timestamp({ withTimezone: true }); // Temporal.Instant / timestamptz
+columns.timestamp({ withTimezone: true, mode: "date" }); // legacy Date mode
 columns.uuid();
 columns.bytea(); // Postgres bytea, SQLite/libSQL BLOB
 columns.customType<number[]>({
@@ -1431,7 +1451,7 @@ const posts = defineTable("posts", {
   tags: columns.text().array(),
   published: columns.boolean().default(false),
   updatedAt: columns.timestamp({ withTimezone: true })
-    .$onUpdate(() => new Date()),
+    .$onUpdate(() => Temporal.Now.instant()),
 });
 ```
 
@@ -1461,7 +1481,7 @@ const query = sql`
   select *
   from ${identifier("public.users")}
   where email = ${"ada@example.com"}
-    and created_at <= ${new Date()}
+    and created_at <= ${Temporal.Now.instant()}
   order by ${raw("created_at desc")}
 `;
 
@@ -1494,7 +1514,7 @@ const alice = await db.insert(users).values({
   id: crypto.randomUUID(),
   email: "alice@example.com",
   active: true,
-  createdAt: new Date(),
+  createdAt: Temporal.Now.instant(),
 }).returning({
   id: users.columns.id,
   email: users.columns.email,
@@ -1596,7 +1616,7 @@ await db.transaction(async (tx) => {
     email: "tx@example.com",
     orgId: 10,
     active: true,
-    createdAt: new Date(),
+    createdAt: Temporal.Now.instant(),
   }).execute();
 });
 ```
@@ -2078,6 +2098,37 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added Temporal-aware date/time support across ORM and adapters for v0.4.0:
+  `columns.date()` now defaults to `Temporal.PlainDate`, `columns.time()` was
+  added and defaults to `Temporal.PlainTime`, `columns.timestamp()` defaults to
+  `Temporal.PlainDateTime`, and `columns.timestamp({ withTimezone: true })`
+  defaults to `Temporal.Instant`. Explicit `mode: "date"` and `mode: "string"`
+  keep legacy JS `Date` or raw string values. `SqlParameter` /
+  `serializeSqlValue()` normalize Temporal values (including arrays and
+  `Temporal.ZonedDateTime`) to ISO strings before adapters receive them.
+  Database facades accept `temporal: { parse: true }` to opt into
+  metadata-driven result decoding for ORM-built selects, `returning()`,
+  relational queries, and `db.call(...)`; raw SQL rows are left driver-shaped.
+- Added gated pg/neon/sqlite/libSQL integration coverage for Temporal date/time
+  modes, including parse-enabled ORM rows, parse-disabled rows, raw SQL
+  behavior, string modes, legacy `Date` modes, and `Temporal.ZonedDateTime`
+  parameter normalization.
+- Added Date-vs-Temporal benchmark scenarios covering raw JS date APIs, Sisal
+  parameter serialization/rendering, and database-free ORM result parsing.
+- Added a serverless-safe SQL migration applier and a Neon CLI target (roadmap
+  item 2). `@sisal/migrate` now exports `splitSqlStatements(sql)` — a
+  dollar-quote/`$tag$`/string/quoted-identifier/comment-aware statement splitter
+  (hardened to drop empty/stray semicolons) — and the core migrator gained a
+  `splitStatements` apply mode that runs each `.sql` `up`/`down` step one
+  statement per `driver.execute(...)` call (still recording history), forwarded
+  through `createPgMigrator` and `createNeonMigrator`. `createNeonMigrator`
+  defaults `splitStatements` to `true` and `useTransaction` to `false` for the
+  Neon HTTP transport. The `sisal` CLI adds a **Neon target**:
+  `sisal init --neon` scaffolds a `dialect: "postgres"` + `provider: "neon"`
+  config (a new `MigrateConfig.provider` discriminator), and `sisal migrate`
+  then applies through `@sisal/neon` over HTTP. The `examples/neon-hot-feed`
+  example switches to the shared `splitSqlStatements` and drops its local copy.
+  Covered by `packages/migrate/{sql_split,split_apply,cli}_test.ts`.
 - Added keyset (cursor) pagination to `@sisal/orm` (roadmap item 3):
   `SelectBuilder.keyset({ orderBy, after, form? })` infers the cursor type from
   the `orderBy` columns, emits the keyset comparison against `after` (omit for
@@ -2156,6 +2207,12 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **BREAKING:** PostgreSQL DDL now emits `timestamp` for `columns.timestamp()`
+  and `timestamptz` only for `columns.timestamp({ withTimezone: true })`.
+  Existing users who relied on the old instant/timestamptz behavior should opt
+  into `withTimezone: true`; users who want legacy JS `Date` values should also
+  set `mode: "date"`, e.g.
+  `columns.timestamp({ withTimezone: true, mode: "date" })`.
 - Extended the PostgreSQL (`integration/pg_features_test.ts`) and SQLite
   (`integration/sqlite_features_test.ts`) feature suites to cover the new v0.4.0
   surfaces — column naming (snake_case default / `.named()` / `preserve`),
@@ -2444,7 +2501,7 @@ const users = defineTable(
     name: columns.text().notNull(),
     age: columns.integer().optional(),
     createdAt: columns.timestamp({ withTimezone: true }).default(() =>
-      new Date()
+      Temporal.Now.instant()
     ),
     orgId: columns.uuid().references("organizations", "id", {
       onDelete: "cascade",
@@ -2476,34 +2533,80 @@ Table-level helpers:
 `columns` is a frozen object of constructors. Each returns an immutable
 `ColumnBuilder`.
 
-| Factory                               | Value type   | Notes                                     |
-| ------------------------------------- | ------------ | ----------------------------------------- |
-| `columns.text()`                      | `string`     |                                           |
-| `columns.varchar(length?)`            | `string`     | `varchar(n)` when `length` given          |
-| `columns.char(length?)`               | `string`     | `char(n)` when `length` given             |
-| `columns.integer()`                   | `number`     |                                           |
-| `columns.smallint()`                  | `number`     |                                           |
-| `columns.bigint()`                    | `string`     | string-typed to preserve 64-bit precision |
-| `columns.serial()`                    | `number`     | auto-increment; optional on insert        |
-| `columns.bigserial()`                 | `string`     | auto-increment; optional on insert        |
-| `columns.numeric(precision?, scale?)` | `string`     | string-typed to preserve precision        |
-| `columns.decimal(precision?, scale?)` | `string`     | alias of `numeric`                        |
-| `columns.real()`                      | `number`     |                                           |
-| `columns.doublePrecision()`           | `number`     | Postgres `double precision`               |
-| `columns.number()`                    | `number`     | generic numeric                           |
-| `columns.boolean()`                   | `boolean`    |                                           |
-| `columns.json<T>()`                   | `T`          | defaults `T = Record<string, unknown>`    |
-| `columns.jsonb<T>()`                  | `T`          | Postgres `jsonb`                          |
-| `columns.date()`                      | `Date`       |                                           |
-| `columns.timestamp(options?)`         | `Date`       | `{ withTimezone: true }` → `timestamptz`  |
-| `columns.uuid()`                      | `string`     |                                           |
-| `columns.bytea()`                     | `Uint8Array` | Postgres `bytea`; SQLite/libSQL `BLOB`    |
-| `columns.customType<T>(options)`      | `T`          | trusted dialect type escape hatch         |
+| Factory                               | Value type               | Notes                                                                      |
+| ------------------------------------- | ------------------------ | -------------------------------------------------------------------------- |
+| `columns.text()`                      | `string`                 |                                                                            |
+| `columns.varchar(length?)`            | `string`                 | `varchar(n)` when `length` given                                           |
+| `columns.char(length?)`               | `string`                 | `char(n)` when `length` given                                              |
+| `columns.integer()`                   | `number`                 |                                                                            |
+| `columns.smallint()`                  | `number`                 |                                                                            |
+| `columns.bigint()`                    | `string`                 | string-typed to preserve 64-bit precision                                  |
+| `columns.serial()`                    | `number`                 | auto-increment; optional on insert                                         |
+| `columns.bigserial()`                 | `string`                 | auto-increment; optional on insert                                         |
+| `columns.numeric(precision?, scale?)` | `string`                 | string-typed to preserve precision                                         |
+| `columns.decimal(precision?, scale?)` | `string`                 | alias of `numeric`                                                         |
+| `columns.real()`                      | `number`                 |                                                                            |
+| `columns.doublePrecision()`           | `number`                 | Postgres `double precision`                                                |
+| `columns.number()`                    | `number`                 | generic numeric                                                            |
+| `columns.boolean()`                   | `boolean`                |                                                                            |
+| `columns.json<T>()`                   | `T`                      | defaults `T = Record<string, unknown>`                                     |
+| `columns.jsonb<T>()`                  | `T`                      | Postgres `jsonb`                                                           |
+| `columns.date(options?)`              | `Temporal.PlainDate`     | `{ mode: "date" }` → `Date`; `{ mode: "string" }` → `string`               |
+| `columns.time(options?)`              | `Temporal.PlainTime`     | `{ mode: "string" }` → `string`                                            |
+| `columns.timestamp(options?)`         | `Temporal.PlainDateTime` | `{ withTimezone: true }` → `Temporal.Instant` / `timestamptz`; modes below |
+| `columns.uuid()`                      | `string`                 |                                                                            |
+| `columns.bytea()`                     | `Uint8Array`             | Postgres `bytea`; SQLite/libSQL `BLOB`                                     |
+| `columns.customType<T>(options)`      | `T`                      | trusted dialect type escape hatch                                          |
+
+Date/time columns use semantic Temporal types by default:
+
+| SQL concept                   | Sisal column                                | Default JS type          |
+| ----------------------------- | ------------------------------------------- | ------------------------ |
+| `date`                        | `columns.date()`                            | `Temporal.PlainDate`     |
+| `time`                        | `columns.time()`                            | `Temporal.PlainTime`     |
+| `timestamp without time zone` | `columns.timestamp()`                       | `Temporal.PlainDateTime` |
+| `timestamp with time zone`    | `columns.timestamp({ withTimezone: true })` | `Temporal.Instant`       |
+
+Use `mode: "date"` to keep JS `Date` values where supported:
+`columns.date({ mode: "date" })` or
+`columns.timestamp({ withTimezone: true, mode: "date" })`. Use `mode: "string"`
+when you want raw database/driver text. Temporal values are serialized to ISO
+strings before adapters receive params; arrays are normalized recursively.
+Result parsing is opt-in with `createDatabase({ temporal:
+{ parse: true } })`;
+without it, rows keep the driver-returned shape. The reusable mode types are
+exported as `DateColumnMode`, `TimeColumnMode`, `TimestampColumnMode`, and
+`ColumnValueMode`.
+
+Migration notes for v0.4.0:
+
+```ts
+// Before: inferred Date; Postgres DDL emitted timestamptz.
+createdAt: columns.timestamp();
+
+// After: inferred Temporal.PlainDateTime; Postgres DDL emits timestamp.
+createdAt: columns.timestamp();
+
+// Keep instant semantics.
+createdAt: columns.timestamp({ withTimezone: true });
+
+// Keep legacy JS Date values.
+createdAt: columns.timestamp({ withTimezone: true, mode: "date" });
+
+// Keep raw string values.
+createdAt: columns.timestamp({ withTimezone: true, mode: "string" });
+```
+
+Precision: Temporal can represent nanoseconds, PostgreSQL stores timestamps at
+microsecond precision, and JS `Date` stores milliseconds. Sisal does not promise
+nanosecond round-trips through any database. For keyset pagination over
+date/time columns, prefer DB-returned cursor values and always include a unique
+final tiebreaker such as a primary key.
 
 `columns.customType<T>({ kind, dialectType })` preserves `kind` in snapshots and
 lets Postgres DDL emit a trusted, developer-authored `dialectType` verbatim. Use
-it for types such as `time`, `interval`, `vector(1536)`, `inet`, or identity
-syntax when a dedicated Sisal factory does not exist.
+it for types such as `interval`, `vector(1536)`, `inet`, or identity syntax when
+a dedicated Sisal factory does not exist.
 
 ### Column modifiers (`ColumnBuilder`)
 
@@ -2564,6 +2667,7 @@ const frag = sql`id = ${userId} and active = ${true}`;
 | `quoteIdentifier(name, dialect?)`             | Quotes/validates an identifier (`"` or backtick for mysql) |
 | `toSql(sqlOrCondition)`                       | Unwraps a `Sql` or `Condition` to `Sql`                    |
 | `serializeSqlValue(value)`                    | Coerces a JS value into a `SqlParameter`                   |
+| `normalizeTemporalSqlValue(value)`            | Converts Temporal values (including arrays) to ISO strings |
 | `isSql(v)` / `isSqlQuery(v)`                  | Type guards                                                |
 
 Rendering is dialect-aware: parameters render as `$1, $2, …` for `postgres` and
@@ -2622,6 +2726,7 @@ function createDatabase(options?: {
   logger?: Logger;
   schema?: DatabaseSchema;
   relations?: RelationsList;
+  temporal?: { parse?: boolean };
 }): Database;
 ```
 
@@ -2630,6 +2735,12 @@ function createDatabase(options?: {
 `$count(table, where?)`, `insert`, `update`, `delete`, `transaction`, and
 `close`. Query builders are immutable and lazy — call `.toSql()` to inspect or
 `.execute()` to run.
+
+`temporal.parse` defaults to `false`. When set to `true`, ORM-built queries that
+carry column metadata (`select` from known tables/projections, `returning()`,
+relational queries, and `db.call(defineFunction(...))`) decode known date/time
+columns to their declared Temporal/string/Date mode. Raw `db.query(sql\`...\`)`
+results do not auto-parse because they have no semantic column metadata.
 
 ```ts
 const db = createDatabase({ dialect: "postgres", driver });
@@ -3339,8 +3450,9 @@ generic types rather than phantom properties on the value.
 | `integer`                                      | `columns.integer()`                                    | ✅     |
 | `bigint({ mode })`                             | `columns.bigint()` (string-typed)                      | 🟡     |
 | `boolean`                                      | `columns.boolean()`                                    | ✅     |
-| `timestamp({ withTimezone })`                  | `columns.timestamp({ withTimezone })`                  | ✅     |
-| `date`                                         | `columns.date()`                                       | ✅     |
+| `timestamp({ withTimezone, mode })`            | `columns.timestamp({ withTimezone, mode })`            | ✅     |
+| `date`                                         | `columns.date({ mode? })`                              | ✅     |
+| `time`                                         | `columns.time({ mode? })`                              | ✅     |
 | `uuid`                                         | `columns.uuid()`                                       | ✅     |
 | `json` / `jsonb`                               | `columns.json<T>()` / `columns.jsonb<T>()`             | ✅     |
 | `serial` / `bigserial`                         | `columns.serial()` / `columns.bigserial()`             | ✅     |
@@ -3351,7 +3463,7 @@ generic types rather than phantom properties on the value.
 | `bytea` / `blob`                               | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)          | ✅     |
 | `*.array()`                                    | `.array()`                                             | ✅     |
 | custom `pgEnum`                                | `columns.customType<T>({ kind: "enum", dialectType })` | 🟡     |
-| `time` / `interval`                            | `columns.customType<T>({ kind, dialectType })`         | ✅     |
+| `interval`                                     | `columns.customType<T>({ kind, dialectType })`         | ✅     |
 | `generatedAlwaysAsIdentity()`                  | `columns.customType<number>(...).optional()`           | ✅     |
 | `customType(...)`                              | `columns.customType<T>({ kind, dialectType })`         | ✅     |
 | `point`/geometry/`inet`/`vector`/`bit`/`money` | `columns.customType<T>({ kind, dialectType })`         | ✅     |
@@ -3367,6 +3479,13 @@ is `pgEnum`: enum **columns** can point at an existing enum type, but Sisal does
 not yet create/drop Postgres enum types as structured schema objects. Identity
 DDL is reachable through `customType`, but Sisal does not yet model it as
 structured metadata beyond the trusted dialect type string:
+
+Date/time columns default to Temporal rather than JS `Date`: SQL `date` maps to
+`Temporal.PlainDate`, `time` to `Temporal.PlainTime`, `timestamp` to
+`Temporal.PlainDateTime`, and `timestamptz` to `Temporal.Instant`. Use
+`mode: "date"` for legacy JS `Date` behavior or `mode: "string"` for raw text.
+Postgres DDL now emits `timestamp` for `columns.timestamp()` and `timestamptz`
+only when `withTimezone: true`.
 
 ```ts
 columns.customType<number>({
@@ -3571,9 +3690,11 @@ from the `orderBy` columns, emits the matching predicate (the default expanded
 `or`/`and` form, or a `"row-value"` comparison for a uniform sort direction)
 plus the `ORDER BY`, and returns a builder whose `.limit(n).execute()` yields
 `{ rows, nextCursor }` (a `nextCursor` only when a full page came back). End
-`orderBy` with a unique column (e.g. the primary key) so the order is total —
-this also avoids the millisecond-`Date` vs microsecond-`timestamptz` boundary
-pitfall. Asserted by `packages/orm/keyset_test.ts`.
+`orderBy` with a unique column (e.g. the primary key) so the order is total. For
+date/time cursors, prefer DB-returned cursor values and keep a unique final
+tiebreaker; PostgreSQL timestamps store microseconds, JS `Date` stores
+milliseconds, and Temporal can represent nanoseconds. Asserted by
+`packages/orm/keyset_test.ts`.
 
 ---
 
@@ -3692,7 +3813,7 @@ insert-optional like Drizzle (today it stays required unless
 ### P3 — column surface ✅ done
 
 - Exposed `numeric`/`decimal`, `char`, `smallint`, `serial`, `bigserial`,
-  `real`, `doublePrecision`, and `.array()` on the builder.
+  `real`, `doublePrecision`, `time`, and `.array()` on the builder.
 - Added `.$onUpdate()`, applied automatically in the update builder.
 - _Tests:_ `parity: new column types render in DDL via snapshot` and
   `parity: .$onUpdate() injects a value on UPDATE` in the ORM parity test.
@@ -3832,48 +3953,49 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (27 tests)                |
+| Suite           | `integration/pg_features_test.ts` (28 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-28 — **27 / 27 passed on every version**            |
+| Last run        | 2026-06-28 — **28 / 28 passed on every version**            |
 
 ✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
 
 ## Matrix
 
-| Feature                                                        | pg16 | pg17 | pg18 |
-| -------------------------------------------------------------- | :--: | :--: | :--: |
-| **Connection** — `connect({ url })`, pooled, parameterized SQL |  ✅  |  ✅  |  ✅  |
-| **Generated DDL applies** — all column types below             |  ✅  |  ✅  |  ✅  |
-| **Insert** — `values`, multi-row, `returning`                  |  ✅  |  ✅  |  ✅  |
-| **Comparison ops** — `eq` `ne` `gt` `gte` `lt` `lte`           |  ✅  |  ✅  |  ✅  |
-| **Pattern ops** — `like` `ilike` `notLike` `notIlike`          |  ✅  |  ✅  |  ✅  |
-| **Range ops** — `between` `notBetween`                         |  ✅  |  ✅  |  ✅  |
-| **Set ops** — `inArray` `notInArray`                           |  ✅  |  ✅  |  ✅  |
-| **Null ops** — `isNull` `isNotNull`                            |  ✅  |  ✅  |  ✅  |
-| **Logical** — `and` `or` `not`                                 |  ✅  |  ✅  |  ✅  |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`      |  ✅  |  ✅  |  ✅  |
-| **Distinct** — `select().distinct()`                           |  ✅  |  ✅  |  ✅  |
-| **Joins** — `inner` / `left` / `right` / `full`                |  ✅  |  ✅  |  ✅  |
-| **Aggregates** — `count` `sum` `avg` `min` `max`               |  ✅  |  ✅  |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`    |  ✅  |  ✅  |  ✅  |
-| **Subquery** — `exists` / `notExists` (correlated)             |  ✅  |  ✅  |  ✅  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`    |  ✅  |  ✅  |  ✅  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                  |  ✅  |  ✅  |  ✅  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`       |  ✅  |  ✅  |  ✅  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`         |  ✅  |  ✅  |  ✅  |
-| **Group / filter** — `groupBy`, `having`                       |  ✅  |  ✅  |  ✅  |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`          |  ✅  |  ✅  |  ✅  |
-| **Delete** — `where`, `returning`                              |  ✅  |  ✅  |  ✅  |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`      |  ✅  |  ✅  |  ✅  |
-| **Column naming** — snake_case default, `.named()`, `preserve` |  ✅  |  ✅  |  ✅  |
-| **Keyset pagination** — `.keyset(...)`, expanded + row-value   |  ✅  |  ✅  |  ✅  |
-| **Function caller** — `defineFunction` / `db.call`, casts      |  ✅  |  ✅  |  ✅  |
-| **Prepared** — `placeholder()` + `.prepare()`                  |  ✅  |  ✅  |  ✅  |
-| **Transactions** — commit + rollback on error                  |  ✅  |  ✅  |  ✅  |
-| **JSONB** — object round-trip                                  |  ✅  |  ✅  |  ✅  |
-| **Arrays** — `text[]` round-trip                               |  ✅  |  ✅  |  ✅  |
-| **Binary** — `bytea` round-trip (`Uint8Array`)                 |  ✅  |  ✅  |  ✅  |
-| **Migrator** — apply, plan, history table, idempotent re-run   |  ✅  |  ✅  |  ✅  |
+| Feature                                                                 | pg16 | pg17 | pg18 |
+| ----------------------------------------------------------------------- | :--: | :--: | :--: |
+| **Connection** — `connect({ url })`, pooled, parameterized SQL          |  ✅  |  ✅  |  ✅  |
+| **Generated DDL applies** — all column types below                      |  ✅  |  ✅  |  ✅  |
+| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |  ✅  |  ✅  |  ✅  |
+| **Insert** — `values`, multi-row, `returning`                           |  ✅  |  ✅  |  ✅  |
+| **Comparison ops** — `eq` `ne` `gt` `gte` `lt` `lte`                    |  ✅  |  ✅  |  ✅  |
+| **Pattern ops** — `like` `ilike` `notLike` `notIlike`                   |  ✅  |  ✅  |  ✅  |
+| **Range ops** — `between` `notBetween`                                  |  ✅  |  ✅  |  ✅  |
+| **Set ops** — `inArray` `notInArray`                                    |  ✅  |  ✅  |  ✅  |
+| **Null ops** — `isNull` `isNotNull`                                     |  ✅  |  ✅  |  ✅  |
+| **Logical** — `and` `or` `not`                                          |  ✅  |  ✅  |  ✅  |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |  ✅  |  ✅  |  ✅  |
+| **Distinct** — `select().distinct()`                                    |  ✅  |  ✅  |  ✅  |
+| **Joins** — `inner` / `left` / `right` / `full`                         |  ✅  |  ✅  |  ✅  |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                        |  ✅  |  ✅  |  ✅  |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |  ✅  |  ✅  |  ✅  |
+| **Subquery** — `exists` / `notExists` (correlated)                      |  ✅  |  ✅  |  ✅  |
+| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |  ✅  |  ✅  |  ✅  |
+| **`distinctOn`** — `SELECT DISTINCT ON (...)`                           |  ✅  |  ✅  |  ✅  |
+| **Row locking** — `.for("update"/"share")`, `skipLocked`                |  ✅  |  ✅  |  ✅  |
+| **Array ops** — `arrayContains`/`Contained`/`Overlaps`                  |  ✅  |  ✅  |  ✅  |
+| **Group / filter** — `groupBy`, `having`                                |  ✅  |  ✅  |  ✅  |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |  ✅  |  ✅  |
+| **Delete** — `where`, `returning`                                       |  ✅  |  ✅  |  ✅  |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |  ✅  |  ✅  |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |  ✅  |  ✅  |
+| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |  ✅  |  ✅  |
+| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |  ✅  |  ✅  |
+| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |  ✅  |  ✅  |
+| **Transactions** — commit + rollback on error                           |  ✅  |  ✅  |  ✅  |
+| **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
+| **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
+| **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |
+| **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |  ✅  |  ✅  |
 
 ### Column types proven by the DDL test
 
@@ -3882,8 +4004,8 @@ each server and the column count is verified:
 
 `text` · `varchar(n)` · `char(n)` · `integer` · `smallint` · `bigint` · `serial`
 · `bigserial` · `numeric(p,s)` · `real` · `double precision` · `boolean` ·
-`json` · `jsonb` · `date` · `timestamp` · `timestamptz` · `uuid` · `text[]` ·
-`bytea`.
+`json` · `jsonb` · `date` · `time` · `timestamp` · `timestamptz` · `uuid` ·
+`text[]` · `bytea`.
 
 ## Behavior notes (driver-level, not version-specific)
 
@@ -3900,6 +4022,16 @@ each server and the column count is verified:
   as `string` for the same reason.
 - **`json` vs `jsonb`.** `jsonb` round-trips as a parsed object; some `json`
   paths may return text — parse defensively if you mix them.
+- **Date/time semantics.** Sisal maps SQL `date` to `Temporal.PlainDate`, `time`
+  to `Temporal.PlainTime`, `timestamp` to `Temporal.PlainDateTime`, and
+  `timestamptz` to `Temporal.Instant` at the type level. Result parsing is
+  opt-in with `temporal: { parse: true }`; otherwise rows keep the
+  `@db/postgres` driver shape. Use `mode: "date"` to keep JS `Date` values or
+  `mode: "string"` to keep raw text. PostgreSQL stores timestamps at microsecond
+  precision; JS `Date` stores milliseconds.
+- **`timestamp` vs `timestamptz`.** `columns.timestamp()` now emits `timestamp`.
+  Use `columns.timestamp({ withTimezone: true })` for `timestamptz` / instant
+  semantics.
 - **The typed function caller is PostgreSQL-oriented.** `db.call(fn, args)`
   renders `value::type` casts from the declared argument column types and maps a
   `RETURNS TABLE (...)` function to typed rows (a scalar return is aliased as
@@ -3949,58 +4081,65 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 
 | Item          | Value                                                   |
 | ------------- | ------------------------------------------------------- |
-| Engine tested | **PostgreSQL 17** via the Neon serverless driver        |
+| Engine tested | **PostgreSQL 17** via Neon serverless driver + wsproxy  |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)         |
-| Suite         | `integration/neon_features_test.ts` (23 feature groups) |
-| Last run      | 2026-06-27 — **17 / 17 passed**                         |
+| Suite         | `integration/neon_features_test.ts` (24 feature groups) |
+| Last run      | 2026-06-28 — **24 / 24 passed** via Docker `neon-proxy` |
 
-✅ = verified on a live server · 🆕 = integration test added 2026-06-28,
-awaiting the next live run (six new operator groups; covered by the unit parity
-tests meanwhile).
+✅ = verified through the Neon serverless driver against Docker `neon-proxy`
+bridging to PostgreSQL 17.
 
 ## Matrix
 
-| Feature                                                        | Neon |
-| -------------------------------------------------------------- | :--: |
-| **Connection** — `connect({ url })`, pooled, parameterized SQL |  ✅  |
-| **Generated DDL applies** — all Postgres column types          |  ✅  |
-| **Insert** — `values`, multi-row, `returning`                  |  ✅  |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`               |  ✅  |
-| **Pattern** — `like` `ilike` `notLike` `notIlike`              |  ✅  |
-| **Range** — `between` `notBetween`                             |  ✅  |
-| **Set** — `inArray` `notInArray`                               |  ✅  |
-| **Null** — `isNull` `isNotNull`                                |  ✅  |
-| **Logical** — `and` `or` `not`                                 |  ✅  |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`      |  ✅  |
-| **Distinct**                                                   |  ✅  |
-| **Joins** — `inner` / `left` / `right` / `full`                |  ✅  |
-| **Aggregates** — `count` `sum` `avg` `min` `max`               |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`    |  🆕  |
-| **Subquery** — `exists` / `notExists` (correlated)             |  🆕  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`    |  🆕  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                  |  🆕  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`       |  🆕  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`         |  🆕  |
-| **Group / filter** — `groupBy`, `having`                       |  ✅  |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`          |  ✅  |
-| **Delete** — `where`, `returning`                              |  ✅  |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`      |  ✅  |
-| **Transactions** — commit + rollback on error                  |  ✅  |
-| **JSONB** — object round-trip                                  |  ✅  |
-| **Arrays** — `text[]` round-trip                               |  ✅  |
-| **Binary** — `bytea` round-trip (`Uint8Array`)                 |  ✅  |
-| **Migrator** — apply, plan, history table, idempotent re-run   |  ✅  |
+| Feature                                                                 | Neon |
+| ----------------------------------------------------------------------- | :--: |
+| **Connection** — `connect({ url })`, pooled, parameterized SQL          |  ✅  |
+| **Generated DDL applies** — all Postgres column types                   |  ✅  |
+| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |  ✅  |
+| **Insert** — `values`, multi-row, `returning`                           |  ✅  |
+| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |  ✅  |
+| **Pattern** — `like` `ilike` `notLike` `notIlike`                       |  ✅  |
+| **Range** — `between` `notBetween`                                      |  ✅  |
+| **Set** — `inArray` `notInArray`                                        |  ✅  |
+| **Null** — `isNull` `isNotNull`                                         |  ✅  |
+| **Logical** — `and` `or` `not`                                          |  ✅  |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |  ✅  |
+| **Distinct**                                                            |  ✅  |
+| **Joins** — `inner` / `left` / `right` / `full`                         |  ✅  |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                        |  ✅  |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |  ✅  |
+| **Subquery** — `exists` / `notExists` (correlated)                      |  ✅  |
+| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |  ✅  |
+| **`distinctOn`** — `SELECT DISTINCT ON (...)`                           |  ✅  |
+| **Row locking** — `.for("update"/"share")`, `skipLocked`                |  ✅  |
+| **Array ops** — `arrayContains`/`Contained`/`Overlaps`                  |  ✅  |
+| **Group / filter** — `groupBy`, `having`                                |  ✅  |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |
+| **Delete** — `where`, `returning`                                       |  ✅  |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |
+| **Transactions** — commit + rollback on error                           |  ✅  |
+| **JSONB** — object round-trip                                           |  ✅  |
+| **Arrays** — `text[]` round-trip                                        |  ✅  |
+| **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |
+| **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |
 
 The generated DDL test exercises the full Postgres type set (`text`,
 `varchar(n)`, `char(n)`, `integer`, `smallint`, `bigint`, `serial`, `bigserial`,
 `numeric(p,s)`, `real`, `double precision`, `boolean`, `json`, `jsonb`, `date`,
-`timestamp`, `timestamptz`, `uuid`, `text[]`, `bytea`).
+`time`, `timestamp`, `timestamptz`, `uuid`, `text[]`, `bytea`).
 
 ## Behavior notes
 
 - **Same SQL as `@sisal/pg`.** Neon is PostgreSQL, so values come back typed the
   way Postgres returns them — `jsonb`/arrays parsed, `bytea` as `Uint8Array`,
   `numeric`/`bigint` as precision-preserving strings, native `ILIKE`.
+- **Date/time semantics.** The ORM defaults to Temporal: `date` ->
+  `Temporal.PlainDate`, `time` -> `Temporal.PlainTime`, `timestamp` ->
+  `Temporal.PlainDateTime`, and `timestamptz` -> `Temporal.Instant`. Enable
+  result decoding with `temporal: { parse: true }`; use explicit `mode: "date"`
+  or `mode: "string"` for legacy/runtime-specific behavior.
+  `columns.timestamp()` emits `timestamp`; pass `{ withTimezone: true }` for
+  `timestamptz`.
 - **Serverless transport.** The adapter uses the WebSocket `Pool` from
   `@neon/serverless` (full protocol, real transactions), not the HTTP one-shot
   `neon()` function. Real usage just needs a Neon connection string:
@@ -4046,59 +4185,60 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (27 tests)     |
-| Last run      | 2026-06-28 — **27 / 27 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (28 tests)     |
+| Last run      | 2026-06-28 — **28 / 28 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
 
 ## Matrix
 
-| Feature                                                            | SQLite 3.46 |
-| ------------------------------------------------------------------ | :---------: |
-| **Connection** — `connect({ path })`, parameterized SQL            |     ✅      |
-| **Generated DDL applies** — affinity mapping of all types          |     ✅      |
-| **Insert** — `values`, multi-row, `returning`                      |     ✅      |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                   |     ✅      |
-| **Pattern** — `like` / `notLike`                                   |     ✅      |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)            |     ✅      |
-| **Range** — `between` / `notBetween`                               |     ✅      |
-| **Set** — `inArray` / `notInArray`                                 |     ✅      |
-| **Null** — `isNull` / `isNotNull`                                  |     ✅      |
-| **Logical** — `and` `or` `not`                                     |     ✅      |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`          |     ✅      |
-| **Distinct**                                                       |     ✅      |
-| **Joins** — `inner` / `left`                                       |     ✅      |
-| **Joins** — `right` / `full` (SQLite ≥ 3.39)                       |     ✅      |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                   |     ✅      |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`        |     ✅      |
-| **Subquery** — `exists` / `notExists` (correlated)                 |     ✅      |
-| **Subquery** — derived table `.as()`, scalar, `inArray(subquery)`  |     ✅      |
-| **Group / filter** — `groupBy`, `having`                           |     ✅      |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`              |     ✅      |
-| **Delete** — `where`, `returning`                                  |     ✅      |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`          |     ✅      |
-| **Column naming** — snake_case default, `.named()`, `preserve`     |     ✅      |
-| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms  |     ✅      |
-| **Prepared statements** — `placeholder()` + `.prepare()`           |     ✅      |
-| **Transactions** — commit + rollback, single-connection serialized |     ✅      |
-| **Boolean** — round-trip                                           |     ⚠️      |
-| **JSON / JSONB** — object round-trip                               |     ⚠️      |
-| **Arrays** — `text[]` round-trip                                   |     ⚠️      |
-| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)              |     ✅      |
-| **Migrator** — apply, plan, history table, idempotent re-run       |     ✅      |
+| Feature                                                                 | SQLite 3.46 |
+| ----------------------------------------------------------------------- | :---------: |
+| **Connection** — `connect({ path })`, parameterized SQL                 |     ✅      |
+| **Generated DDL applies** — affinity mapping of all types               |     ✅      |
+| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |     ✅      |
+| **Insert** — `values`, multi-row, `returning`                           |     ✅      |
+| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |     ✅      |
+| **Pattern** — `like` / `notLike`                                        |     ✅      |
+| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)                 |     ✅      |
+| **Range** — `between` / `notBetween`                                    |     ✅      |
+| **Set** — `inArray` / `notInArray`                                      |     ✅      |
+| **Null** — `isNull` / `isNotNull`                                       |     ✅      |
+| **Logical** — `and` `or` `not`                                          |     ✅      |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |     ✅      |
+| **Distinct**                                                            |     ✅      |
+| **Joins** — `inner` / `left`                                            |     ✅      |
+| **Joins** — `right` / `full` (SQLite ≥ 3.39)                            |     ✅      |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                        |     ✅      |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |     ✅      |
+| **Subquery** — `exists` / `notExists` (correlated)                      |     ✅      |
+| **Subquery** — derived table `.as()`, scalar, `inArray(subquery)`       |     ✅      |
+| **Group / filter** — `groupBy`, `having`                                |     ✅      |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |     ✅      |
+| **Delete** — `where`, `returning`                                       |     ✅      |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |     ✅      |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |     ✅      |
+| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |     ✅      |
+| **Prepared statements** — `placeholder()` + `.prepare()`                |     ✅      |
+| **Transactions** — commit + rollback, single-connection serialized      |     ✅      |
+| **Boolean** — round-trip                                                |     ⚠️      |
+| **JSON / JSONB** — object round-trip                                    |     ⚠️      |
+| **Arrays** — `text[]` round-trip                                        |     ⚠️      |
+| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)                   |     ✅      |
+| **Migrator** — apply, plan, history table, idempotent re-run            |     ✅      |
 
 ### Column types via the DDL test
 
 Every generated type maps onto one of SQLite's five affinities and the
 `CREATE TABLE` is executed live:
 
-| Sisal column                                                     | SQLite affinity |
-| ---------------------------------------------------------------- | --------------- |
-| `integer` `smallint` `bigint` `serial` `bigserial` `boolean`     | `INTEGER`       |
-| `numeric` `real` `doublePrecision` `number`                      | `REAL`          |
-| `text` `varchar` `char` `uuid` `date` `timestamp` `json` `jsonb` | `TEXT`          |
-| `bytea` / `blob`                                                 | `BLOB`          |
+| Sisal column                                                                          | SQLite affinity |
+| ------------------------------------------------------------------------------------- | --------------- |
+| `integer` `smallint` `bigint` `serial` `bigserial` `boolean`                          | `INTEGER`       |
+| `numeric` `real` `doublePrecision` `number`                                           | `REAL`          |
+| `text` `varchar` `char` `uuid` `date` `time` `timestamp` `timestamptz` `json` `jsonb` | `TEXT`          |
+| `bytea` / `blob`                                                                      | `BLOB`          |
 
 ## Behavior notes (SQLite vs PostgreSQL)
 
@@ -4110,6 +4250,13 @@ Every generated type maps onto one of SQLite's five affinities and the
   to a JSON `TEXT` value on insert (`{"note":"x"}`, `["a","b"]`) and come back
   as a **string** — `JSON.parse` on read. PostgreSQL `jsonb`/arrays return
   already parsed values. ⚠️ marks this difference, not a failure.
+- **Date/time values are `TEXT`.** SQLite has no native date/time storage class,
+  so `date`, `time`, `timestamp`, and `timestamptz` store ISO text. Temporal
+  params are normalized to strings before execution. Enable
+  `temporal: { parse: true }` on the database facade to decode known ORM-built
+  result columns back into `Temporal.PlainDate`, `Temporal.PlainTime`,
+  `Temporal.PlainDateTime`, or `Temporal.Instant`; raw SQL rows are untouched.
+  ISO text sorts lexicographically when all values use a consistent format.
 - **Booleans are `INTEGER` `0`/`1`.** SQLite has no boolean type; values
   round-trip as `0`/`1` numbers. Coerce with `Boolean(Number(x))`.
 - **`numeric`/`bigint` are not precision-preserving.** They map to `REAL`/
@@ -4163,43 +4310,44 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (24 tests)       |
-| Last run      | 2026-06-28 — **24 / 24 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (25 tests)       |
+| Last run      | 2026-06-28 — **25 / 25 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
 
 ## Matrix
 
-| Feature                                                      | libSQL |
-| ------------------------------------------------------------ | :----: |
-| **Connection** — `connect({ url, authToken? })`              |   ✅   |
-| **Generated DDL applies** — affinity mapping of all types    |   ✅   |
-| **Insert** — `values`, multi-row, `returning`                |   ✅   |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`             |   ✅   |
-| **Pattern** — `like` / `notLike`                             |   ✅   |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)      |   ✅   |
-| **Range** — `between` / `notBetween`                         |   ✅   |
-| **Set** — `inArray` / `notInArray`                           |   ✅   |
-| **Null** — `isNull` / `isNotNull`                            |   ✅   |
-| **Logical** — `and` `or` `not`                               |   ✅   |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`    |   ✅   |
-| **Distinct**                                                 |   ✅   |
-| **Joins** — `inner` / `left` / `right` / `full`              |   ✅   |
-| **Aggregates** — `count` `sum` `avg` `min` `max`             |   ✅   |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`  |   ✅   |
-| **Subquery** — `exists` / `notExists` (correlated)           |   ✅   |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`  |   ✅   |
-| **Group / filter** — `groupBy`, `having`                     |   ✅   |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`        |   ✅   |
-| **Delete** — `where`, `returning`                            |   ✅   |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`    |   ✅   |
-| **Transactions** — commit + rollback on error                |   ✅   |
-| **Boolean** — round-trip                                     |   ⚠️   |
-| **JSON / JSONB** — object round-trip                         |   ⚠️   |
-| **Arrays** — `text[]` round-trip                             |   ⚠️   |
-| **Binary** — `bytea`/`BLOB` round-trip                       |   ⚠️   |
-| **Migrator** — apply, plan, history table, idempotent re-run |   ✅   |
+| Feature                                                                 | libSQL |
+| ----------------------------------------------------------------------- | :----: |
+| **Connection** — `connect({ url, authToken? })`                         |   ✅   |
+| **Generated DDL applies** — affinity mapping of all types               |   ✅   |
+| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |   ✅   |
+| **Insert** — `values`, multi-row, `returning`                           |   ✅   |
+| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |   ✅   |
+| **Pattern** — `like` / `notLike`                                        |   ✅   |
+| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)                 |   ✅   |
+| **Range** — `between` / `notBetween`                                    |   ✅   |
+| **Set** — `inArray` / `notInArray`                                      |   ✅   |
+| **Null** — `isNull` / `isNotNull`                                       |   ✅   |
+| **Logical** — `and` `or` `not`                                          |   ✅   |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |   ✅   |
+| **Distinct**                                                            |   ✅   |
+| **Joins** — `inner` / `left` / `right` / `full`                         |   ✅   |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                        |   ✅   |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |   ✅   |
+| **Subquery** — `exists` / `notExists` (correlated)                      |   ✅   |
+| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |   ✅   |
+| **Group / filter** — `groupBy`, `having`                                |   ✅   |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |   ✅   |
+| **Delete** — `where`, `returning`                                       |   ✅   |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |   ✅   |
+| **Transactions** — commit + rollback on error                           |   ✅   |
+| **Boolean** — round-trip                                                |   ⚠️   |
+| **JSON / JSONB** — object round-trip                                    |   ⚠️   |
+| **Arrays** — `text[]` round-trip                                        |   ⚠️   |
+| **Binary** — `bytea`/`BLOB` round-trip                                  |   ⚠️   |
+| **Migrator** — apply, plan, history table, idempotent re-run            |   ✅   |
 
 ## Behavior notes
 
@@ -4212,6 +4360,11 @@ libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
   wrap with `new Uint8Array(value)`.
 - **JSON and arrays round-trip as text** — auto-serialized to JSON `TEXT`;
   `JSON.parse` on read.
+- **Date/time values are `TEXT`** — `date`, `time`, `timestamp`, and
+  `timestamptz` store ISO strings. Temporal params are normalized before
+  reaching `@libsql/client`; enable `temporal: { parse: true }` to decode known
+  ORM-built result columns back into Temporal values. Raw SQL rows are not
+  inferred from names or storage text.
 - **Booleans are `INTEGER` `0`/`1`**; `numeric`/`bigint` map to `REAL`/`INTEGER`
   affinity and return as numbers.
 - **`serial`/`bigserial`** map to `INTEGER` under a table-level `PRIMARY KEY`
@@ -4416,6 +4569,26 @@ Per row, Drizzle's mapping costs **well over 10× as much as Sisal's**.
 
 ---
 
+## 4. Date vs Temporal
+
+The `date api parse`, `date api format`, `sisal temporal params`, and
+`sisal temporal row parsing · N rows` groups compare JavaScript `Date` with the
+ECMAScript Temporal API in database-shaped paths:
+
+- Raw construction and formatting: `new Date(...)`, `date.toISOString()`, and
+  the equivalent `Temporal.Instant`, `PlainDate`, `PlainTime`, `PlainDateTime`,
+  and `ZonedDateTime` operations.
+- Sisal parameter handling: `serializeSqlValue(...)` and rendering SQL with Date
+  or Temporal bound parameters, including arrays and mixed date/time statements.
+- ORM result parsing: a fake `OrmDriver` returns rows shaped like database
+  date/time text, then the benchmark compares parse-disabled selects,
+  parse-enabled Temporal decoding, and manual `Date`/`Temporal.Instant` mapping.
+
+`Date` may be cheaper for simple instant-only work in microbenchmarks. Temporal
+is still Sisal's preferred model for SQL date/time because it matches the
+database semantics: `date` is a calendar date, `time` is a wall-clock time,
+`timestamp` is a local date-time, and `timestamptz` is an instant.
+
 ## Honest framing
 
 These benchmarks measure **CPU efficiency and headroom**, not end-to-end request
@@ -4432,11 +4605,12 @@ real work for the event loop.
 deno task bench                 # the whole suite
 ```
 
-The generation, Drizzle generation, and Drizzle execution scenarios live in
-`benchmarks/scenarios/{sql_generation,vs_drizzle,vs_drizzle_execute}.ts`. The
-suite is network- and engine-free: it runs entirely against the in-memory fake
-driver, so it needs no database and no special permissions beyond `--allow-read`
-(plus `--allow-run=deno` for the migration-CLI scenarios).
+The generation, Drizzle generation, Drizzle execution, and Date-vs-Temporal
+scenarios live in
+`benchmarks/scenarios/{sql_generation,vs_drizzle,vs_drizzle_execute,temporal}.ts`.
+The suite is network- and engine-free: it runs entirely against the in-memory
+fake driver, so it needs no database and no special permissions beyond
+`--allow-read` (plus `--allow-run=deno` for the migration-CLI scenarios).
 ```
 
 ### docs/security.md
@@ -4862,12 +5036,13 @@ the two documents stay in step.
 | # | Item                                              | Priority | Rough effort | Status |
 | - | ------------------------------------------------- | -------- | ------------ | ------ |
 | 1 | Typed database-function caller                    | P1       | M            | 🟢     |
-| 2 | Serverless-safe SQL migration applier + Neon CLI  | P1       | M–L          | 🔴     |
+| 2 | Serverless-safe SQL migration applier + Neon CLI  | P1       | M–L          | 🟢     |
 | 3 | Keyset / cursor pagination helper                 | P1       | M            | 🟢     |
 | 4 | Raw expressions in builder `SET` / `VALUES`       | P2       | M            | 🔴     |
 | 5 | Richer DDL generation (indexes, CHECK, functions) | P2       | L            | 🔴     |
 | 6 | Non-interactive (batched) transaction API         | P2       | M            | 🔴     |
 | 7 | Column-name mapping (camelCase ↔ snake_case)      | P3       | M–L          | 🟢     |
+| 8 | Temporal date/time semantics                      | P3       | M            | 🟢     |
 
 P1 items together close the "I had to write raw SQL for the core feed/mutation"
 story; they should land first.
@@ -4960,7 +5135,22 @@ return shapes; OUT parameters. Start with positional args + `RETURNS TABLE`.
 
 ---
 
-## 2. Serverless-safe SQL migration applier + Neon CLI target — P1
+## 2. Serverless-safe SQL migration applier + Neon CLI target — P1 — 🟢 Done
+
+**Shipped.** `splitSqlStatements(sql)` is now exported from `@sisal/migrate` (a
+dollar-quote/`$tag$`/string/quoted-identifier/comment-aware splitter, hardened
+to drop empty/stray semicolons), covered by
+`packages/migrate/sql_split_test.ts`; the CLI and the `neon-hot-feed` example
+both use it (the example dropped its local copy). The migrator gained a
+`splitStatements` apply mode (core `createMigrator`, forwarded through
+`createPgMigrator` and `createNeonMigrator`): a string `up`/`down` step is split
+and run one statement per `driver.execute(...)` call, still recording history —
+`createNeonMigrator` defaults it to `true` (and `useTransaction` to `false`) for
+the HTTP transport. The `sisal` CLI gained a **Neon target**:
+`sisal init --neon` scaffolds a `dialect: "postgres"` + `provider: "neon"`
+config, and `sisal migrate` then applies through `@sisal/neon` over HTTP (one
+`INIT_TARGETS` entry + a `provider` discriminator on `MigrateConfig`). Covered
+by `packages/migrate/{sql_split,split_apply,cli}_test.ts`.
 
 **Problem.** A `.sql` migration file holds several statements separated by `;`,
 but the Neon serverless driver sends each query through PostgreSQL's extended
@@ -5025,13 +5215,14 @@ dialect) and `"row-value"` (`(a, b, c) < (x, y, z)`, a uniform sort direction).
 To enable this, `asc()`/`desc()` now return an `OrderTerm` (a `Sql` subtype that
 also carries the column + direction; backward compatible), and a column's
 `propertyName` is a literal type so the cursor keys infer. Precision: ending
-`orderBy` with a unique key (e.g. `id`) makes the order total and sidesteps the
-millisecond-`Date` vs microsecond-`timestamptz` boundary pitfall (documented on
-the method and the parity row). Exports `OrderTerm`, `KeysetOptions`,
-`KeysetCursor`, `KeysetKeys`, `KeysetPage`, `KeysetSelectBuilder`. The example's
-`getNewFeed` (expanded) and `getHotFeed` (row-value) are both builder-native;
-covered by `packages/orm/keyset_test.ts`. Adds the divergence-by-design row
-(footnote ⁸) to [drizzle-parity](drizzle-parity.md).
+`orderBy` with a unique key (e.g. `id`) makes the order total; for date/time
+cursors, use DB-returned cursor values because Temporal can represent
+nanoseconds, PostgreSQL stores microseconds, and JS `Date` stores milliseconds.
+Exports `OrderTerm`, `KeysetOptions`, `KeysetCursor`, `KeysetKeys`,
+`KeysetPage`, `KeysetSelectBuilder`. The example's `getNewFeed` (expanded) and
+`getHotFeed` (row-value) are both builder-native; covered by
+`packages/orm/keyset_test.ts`. Adds the divergence-by-design row (footnote ⁸) to
+[drizzle-parity](drizzle-parity.md).
 
 **Problem.** Every feed re-implemented the keyset comparison
 `(a, b, c) < (x, y, z)` by hand. The `/new` feed could do it with nested
@@ -5070,12 +5261,11 @@ const page = await db.select().from(posts)
 It should be able to emit either the expanded nested `or`/`and` form or a SQL
 row-value comparison `(a, b, c) < (x, y, z)` where the dialect supports it.
 
-**Timestamp-precision caveat (must be handled).** A JavaScript `Date` cursor is
-millisecond precision, while PostgreSQL `timestamptz` is microsecond precision.
-A keyset over a timestamp tiebreaker can therefore skip or duplicate rows at a
-page boundary if the comparison precision is not standardized. The helper should
-normalize comparison precision (e.g. compare at microseconds, or document that
-timestamp tiebreakers must be paired with a unique final key such as `id`).
+**Timestamp-precision caveat.** Temporal can represent nanoseconds, PostgreSQL
+timestamps store microseconds, and JS `Date` stores milliseconds. A keyset over
+a timestamp tiebreaker can skip or duplicate rows at a page boundary if the
+cursor value is re-created at a different precision. Prefer DB-returned cursor
+values and always include a unique final key such as `id`.
 
 **Affected packages.** `@sisal/orm` (builder method + cursor inference).
 
@@ -5292,6 +5482,35 @@ inference and `db.query.<table>` relational helpers.
 **Drizzle reference.** Drizzle supports explicit column names
 (`integer("snake_case")`) and a `casing` option. This is a parity item; add/move
 the row in [drizzle-parity](drizzle-parity.md).
+
+---
+
+## 8. Temporal date/time semantics — P3 — 🟢 Done
+
+**Shipped.** Sisal v0.4.0 treats Temporal as the preferred date/time model.
+`columns.date()` infers `Temporal.PlainDate`, `columns.time()` infers
+`Temporal.PlainTime`, `columns.timestamp()` infers `Temporal.PlainDateTime`, and
+`columns.timestamp({ withTimezone: true })` infers `Temporal.Instant`. Explicit
+`mode: "date"` and `mode: "string"` keep legacy JS `Date` or raw string
+behavior. SQL parameters normalize Temporal values to ISO strings before
+adapters see them, including arrays.
+
+PostgreSQL DDL now maps `timestamp` to `timestamp` and `timestamptz` to
+`timestamptz`; existing instant columns should use
+`columns.timestamp({ withTimezone: true })`. SQLite/libSQL keep date-like values
+as `TEXT`. Result parsing remains opt-in through
+`createDatabase({ temporal: { parse: true } })` and only applies to ORM-built
+queries carrying column metadata, so raw SQL rows are left untouched.
+
+**Acceptance criteria met.**
+
+- Semantic SQL-to-Temporal column inference and explicit legacy modes.
+- Temporal parameter serialization in ORM SQL rendering and direct adapter
+  executors.
+- Opt-in read parsing for selects, `returning()`, relational queries, and typed
+  function calls.
+- Drizzle parity, adapter compatibility docs, API reference, and migration notes
+  updated.
 
 ---
 

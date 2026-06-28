@@ -74,8 +74,9 @@ generic types rather than phantom properties on the value.
 | `integer`                                      | `columns.integer()`                                    | ✅     |
 | `bigint({ mode })`                             | `columns.bigint()` (string-typed)                      | 🟡     |
 | `boolean`                                      | `columns.boolean()`                                    | ✅     |
-| `timestamp({ withTimezone })`                  | `columns.timestamp({ withTimezone })`                  | ✅     |
-| `date`                                         | `columns.date()`                                       | ✅     |
+| `timestamp({ withTimezone, mode })`            | `columns.timestamp({ withTimezone, mode })`            | ✅     |
+| `date`                                         | `columns.date({ mode? })`                              | ✅     |
+| `time`                                         | `columns.time({ mode? })`                              | ✅     |
 | `uuid`                                         | `columns.uuid()`                                       | ✅     |
 | `json` / `jsonb`                               | `columns.json<T>()` / `columns.jsonb<T>()`             | ✅     |
 | `serial` / `bigserial`                         | `columns.serial()` / `columns.bigserial()`             | ✅     |
@@ -86,7 +87,7 @@ generic types rather than phantom properties on the value.
 | `bytea` / `blob`                               | `columns.bytea()` (pg `bytea`, sqlite `BLOB`)          | ✅     |
 | `*.array()`                                    | `.array()`                                             | ✅     |
 | custom `pgEnum`                                | `columns.customType<T>({ kind: "enum", dialectType })` | 🟡     |
-| `time` / `interval`                            | `columns.customType<T>({ kind, dialectType })`         | ✅     |
+| `interval`                                     | `columns.customType<T>({ kind, dialectType })`         | ✅     |
 | `generatedAlwaysAsIdentity()`                  | `columns.customType<number>(...).optional()`           | ✅     |
 | `customType(...)`                              | `columns.customType<T>({ kind, dialectType })`         | ✅     |
 | `point`/geometry/`inet`/`vector`/`bit`/`money` | `columns.customType<T>({ kind, dialectType })`         | ✅     |
@@ -102,6 +103,13 @@ is `pgEnum`: enum **columns** can point at an existing enum type, but Sisal does
 not yet create/drop Postgres enum types as structured schema objects. Identity
 DDL is reachable through `customType`, but Sisal does not yet model it as
 structured metadata beyond the trusted dialect type string:
+
+Date/time columns default to Temporal rather than JS `Date`: SQL `date` maps to
+`Temporal.PlainDate`, `time` to `Temporal.PlainTime`, `timestamp` to
+`Temporal.PlainDateTime`, and `timestamptz` to `Temporal.Instant`. Use
+`mode: "date"` for legacy JS `Date` behavior or `mode: "string"` for raw text.
+Postgres DDL now emits `timestamp` for `columns.timestamp()` and `timestamptz`
+only when `withTimezone: true`.
 
 ```ts
 columns.customType<number>({
@@ -306,9 +314,11 @@ from the `orderBy` columns, emits the matching predicate (the default expanded
 `or`/`and` form, or a `"row-value"` comparison for a uniform sort direction)
 plus the `ORDER BY`, and returns a builder whose `.limit(n).execute()` yields
 `{ rows, nextCursor }` (a `nextCursor` only when a full page came back). End
-`orderBy` with a unique column (e.g. the primary key) so the order is total —
-this also avoids the millisecond-`Date` vs microsecond-`timestamptz` boundary
-pitfall. Asserted by `packages/orm/keyset_test.ts`.
+`orderBy` with a unique column (e.g. the primary key) so the order is total. For
+date/time cursors, prefer DB-returned cursor values and keep a unique final
+tiebreaker; PostgreSQL timestamps store microseconds, JS `Date` stores
+milliseconds, and Temporal can represent nanoseconds. Asserted by
+`packages/orm/keyset_test.ts`.
 
 ---
 
@@ -427,7 +437,7 @@ insert-optional like Drizzle (today it stays required unless
 ### P3 — column surface ✅ done
 
 - Exposed `numeric`/`decimal`, `char`, `smallint`, `serial`, `bigserial`,
-  `real`, `doublePrecision`, and `.array()` on the builder.
+  `real`, `doublePrecision`, `time`, and `.array()` on the builder.
 - Added `.$onUpdate()`, applied automatically in the update builder.
 - _Tests:_ `parity: new column types render in DDL via snapshot` and
   `parity: .$onUpdate() injects a value on UPDATE` in the ORM parity test.

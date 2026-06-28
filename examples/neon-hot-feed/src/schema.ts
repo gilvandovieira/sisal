@@ -36,12 +36,10 @@ export const posts = defineTable("posts", {
   upvotes: columns.integer().notNull().default(0),
   downvotes: columns.integer().notNull().default(0),
   hot_score: columns.doublePrecision().notNull().default(0),
-  created_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
-  updated_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
+  created_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
+  updated_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
 }, (c) => [
   index("posts_new_feed_idx").on(c.status, c.created_at, c.id),
   index("posts_hot_feed_idx").on(c.status, c.hot_score, c.created_at, c.id),
@@ -54,12 +52,10 @@ export const postVotes = defineTable("post_votes", {
   }),
   user_id: columns.uuid().notNull(),
   value: columns.smallint().notNull(),
-  created_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
-  updated_at: columns.timestamp({ withTimezone: true }).notNull().default(
-    () => new Date(),
-  ),
+  created_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
+  updated_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
+    .default(() => new Date()),
 }, (c) => [
   primaryKey({ columns: [c.post_id, c.user_id] }),
   check("post_votes_value_check", sql`value in (-1, 1)`),

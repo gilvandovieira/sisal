@@ -84,7 +84,7 @@ const users = defineTable(
     name: columns.text().notNull(),
     age: columns.integer().optional(),
     createdAt: columns.timestamp({ withTimezone: true }).default(() =>
-      new Date()
+      Temporal.Now.instant()
     ),
     orgId: columns.uuid().references("organizations", "id", {
       onDelete: "cascade",
@@ -116,34 +116,80 @@ Table-level helpers:
 `columns` is a frozen object of constructors. Each returns an immutable
 `ColumnBuilder`.
 
-| Factory                               | Value type   | Notes                                     |
-| ------------------------------------- | ------------ | ----------------------------------------- |
-| `columns.text()`                      | `string`     |                                           |
-| `columns.varchar(length?)`            | `string`     | `varchar(n)` when `length` given          |
-| `columns.char(length?)`               | `string`     | `char(n)` when `length` given             |
-| `columns.integer()`                   | `number`     |                                           |
-| `columns.smallint()`                  | `number`     |                                           |
-| `columns.bigint()`                    | `string`     | string-typed to preserve 64-bit precision |
-| `columns.serial()`                    | `number`     | auto-increment; optional on insert        |
-| `columns.bigserial()`                 | `string`     | auto-increment; optional on insert        |
-| `columns.numeric(precision?, scale?)` | `string`     | string-typed to preserve precision        |
-| `columns.decimal(precision?, scale?)` | `string`     | alias of `numeric`                        |
-| `columns.real()`                      | `number`     |                                           |
-| `columns.doublePrecision()`           | `number`     | Postgres `double precision`               |
-| `columns.number()`                    | `number`     | generic numeric                           |
-| `columns.boolean()`                   | `boolean`    |                                           |
-| `columns.json<T>()`                   | `T`          | defaults `T = Record<string, unknown>`    |
-| `columns.jsonb<T>()`                  | `T`          | Postgres `jsonb`                          |
-| `columns.date()`                      | `Date`       |                                           |
-| `columns.timestamp(options?)`         | `Date`       | `{ withTimezone: true }` → `timestamptz`  |
-| `columns.uuid()`                      | `string`     |                                           |
-| `columns.bytea()`                     | `Uint8Array` | Postgres `bytea`; SQLite/libSQL `BLOB`    |
-| `columns.customType<T>(options)`      | `T`          | trusted dialect type escape hatch         |
+| Factory                               | Value type               | Notes                                                                      |
+| ------------------------------------- | ------------------------ | -------------------------------------------------------------------------- |
+| `columns.text()`                      | `string`                 |                                                                            |
+| `columns.varchar(length?)`            | `string`                 | `varchar(n)` when `length` given                                           |
+| `columns.char(length?)`               | `string`                 | `char(n)` when `length` given                                              |
+| `columns.integer()`                   | `number`                 |                                                                            |
+| `columns.smallint()`                  | `number`                 |                                                                            |
+| `columns.bigint()`                    | `string`                 | string-typed to preserve 64-bit precision                                  |
+| `columns.serial()`                    | `number`                 | auto-increment; optional on insert                                         |
+| `columns.bigserial()`                 | `string`                 | auto-increment; optional on insert                                         |
+| `columns.numeric(precision?, scale?)` | `string`                 | string-typed to preserve precision                                         |
+| `columns.decimal(precision?, scale?)` | `string`                 | alias of `numeric`                                                         |
+| `columns.real()`                      | `number`                 |                                                                            |
+| `columns.doublePrecision()`           | `number`                 | Postgres `double precision`                                                |
+| `columns.number()`                    | `number`                 | generic numeric                                                            |
+| `columns.boolean()`                   | `boolean`                |                                                                            |
+| `columns.json<T>()`                   | `T`                      | defaults `T = Record<string, unknown>`                                     |
+| `columns.jsonb<T>()`                  | `T`                      | Postgres `jsonb`                                                           |
+| `columns.date(options?)`              | `Temporal.PlainDate`     | `{ mode: "date" }` → `Date`; `{ mode: "string" }` → `string`               |
+| `columns.time(options?)`              | `Temporal.PlainTime`     | `{ mode: "string" }` → `string`                                            |
+| `columns.timestamp(options?)`         | `Temporal.PlainDateTime` | `{ withTimezone: true }` → `Temporal.Instant` / `timestamptz`; modes below |
+| `columns.uuid()`                      | `string`                 |                                                                            |
+| `columns.bytea()`                     | `Uint8Array`             | Postgres `bytea`; SQLite/libSQL `BLOB`                                     |
+| `columns.customType<T>(options)`      | `T`                      | trusted dialect type escape hatch                                          |
+
+Date/time columns use semantic Temporal types by default:
+
+| SQL concept                   | Sisal column                                | Default JS type          |
+| ----------------------------- | ------------------------------------------- | ------------------------ |
+| `date`                        | `columns.date()`                            | `Temporal.PlainDate`     |
+| `time`                        | `columns.time()`                            | `Temporal.PlainTime`     |
+| `timestamp without time zone` | `columns.timestamp()`                       | `Temporal.PlainDateTime` |
+| `timestamp with time zone`    | `columns.timestamp({ withTimezone: true })` | `Temporal.Instant`       |
+
+Use `mode: "date"` to keep JS `Date` values where supported:
+`columns.date({ mode: "date" })` or
+`columns.timestamp({ withTimezone: true, mode: "date" })`. Use `mode: "string"`
+when you want raw database/driver text. Temporal values are serialized to ISO
+strings before adapters receive params; arrays are normalized recursively.
+Result parsing is opt-in with `createDatabase({ temporal:
+{ parse: true } })`;
+without it, rows keep the driver-returned shape. The reusable mode types are
+exported as `DateColumnMode`, `TimeColumnMode`, `TimestampColumnMode`, and
+`ColumnValueMode`.
+
+Migration notes for v0.4.0:
+
+```ts
+// Before: inferred Date; Postgres DDL emitted timestamptz.
+createdAt: columns.timestamp();
+
+// After: inferred Temporal.PlainDateTime; Postgres DDL emits timestamp.
+createdAt: columns.timestamp();
+
+// Keep instant semantics.
+createdAt: columns.timestamp({ withTimezone: true });
+
+// Keep legacy JS Date values.
+createdAt: columns.timestamp({ withTimezone: true, mode: "date" });
+
+// Keep raw string values.
+createdAt: columns.timestamp({ withTimezone: true, mode: "string" });
+```
+
+Precision: Temporal can represent nanoseconds, PostgreSQL stores timestamps at
+microsecond precision, and JS `Date` stores milliseconds. Sisal does not promise
+nanosecond round-trips through any database. For keyset pagination over
+date/time columns, prefer DB-returned cursor values and always include a unique
+final tiebreaker such as a primary key.
 
 `columns.customType<T>({ kind, dialectType })` preserves `kind` in snapshots and
 lets Postgres DDL emit a trusted, developer-authored `dialectType` verbatim. Use
-it for types such as `time`, `interval`, `vector(1536)`, `inet`, or identity
-syntax when a dedicated Sisal factory does not exist.
+it for types such as `interval`, `vector(1536)`, `inet`, or identity syntax when
+a dedicated Sisal factory does not exist.
 
 ### Column modifiers (`ColumnBuilder`)
 
@@ -204,6 +250,7 @@ const frag = sql`id = ${userId} and active = ${true}`;
 | `quoteIdentifier(name, dialect?)`             | Quotes/validates an identifier (`"` or backtick for mysql) |
 | `toSql(sqlOrCondition)`                       | Unwraps a `Sql` or `Condition` to `Sql`                    |
 | `serializeSqlValue(value)`                    | Coerces a JS value into a `SqlParameter`                   |
+| `normalizeTemporalSqlValue(value)`            | Converts Temporal values (including arrays) to ISO strings |
 | `isSql(v)` / `isSqlQuery(v)`                  | Type guards                                                |
 
 Rendering is dialect-aware: parameters render as `$1, $2, …` for `postgres` and
@@ -262,6 +309,7 @@ function createDatabase(options?: {
   logger?: Logger;
   schema?: DatabaseSchema;
   relations?: RelationsList;
+  temporal?: { parse?: boolean };
 }): Database;
 ```
 
@@ -270,6 +318,12 @@ function createDatabase(options?: {
 `$count(table, where?)`, `insert`, `update`, `delete`, `transaction`, and
 `close`. Query builders are immutable and lazy — call `.toSql()` to inspect or
 `.execute()` to run.
+
+`temporal.parse` defaults to `false`. When set to `true`, ORM-built queries that
+carry column metadata (`select` from known tables/projections, `returning()`,
+relational queries, and `db.call(defineFunction(...))`) decode known date/time
+columns to their declared Temporal/string/Date mode. Raw `db.query(sql\`...\`)`
+results do not auto-parse because they have no semantic column metadata.
 
 ```ts
 const db = createDatabase({ dialect: "postgres", driver });

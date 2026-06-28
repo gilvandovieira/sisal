@@ -12,59 +12,60 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (27 tests)     |
-| Last run      | 2026-06-28 — **27 / 27 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (28 tests)     |
+| Last run      | 2026-06-28 — **28 / 28 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
 
 ## Matrix
 
-| Feature                                                            | SQLite 3.46 |
-| ------------------------------------------------------------------ | :---------: |
-| **Connection** — `connect({ path })`, parameterized SQL            |     ✅      |
-| **Generated DDL applies** — affinity mapping of all types          |     ✅      |
-| **Insert** — `values`, multi-row, `returning`                      |     ✅      |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                   |     ✅      |
-| **Pattern** — `like` / `notLike`                                   |     ✅      |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)            |     ✅      |
-| **Range** — `between` / `notBetween`                               |     ✅      |
-| **Set** — `inArray` / `notInArray`                                 |     ✅      |
-| **Null** — `isNull` / `isNotNull`                                  |     ✅      |
-| **Logical** — `and` `or` `not`                                     |     ✅      |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`          |     ✅      |
-| **Distinct**                                                       |     ✅      |
-| **Joins** — `inner` / `left`                                       |     ✅      |
-| **Joins** — `right` / `full` (SQLite ≥ 3.39)                       |     ✅      |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                   |     ✅      |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`        |     ✅      |
-| **Subquery** — `exists` / `notExists` (correlated)                 |     ✅      |
-| **Subquery** — derived table `.as()`, scalar, `inArray(subquery)`  |     ✅      |
-| **Group / filter** — `groupBy`, `having`                           |     ✅      |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`              |     ✅      |
-| **Delete** — `where`, `returning`                                  |     ✅      |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`          |     ✅      |
-| **Column naming** — snake_case default, `.named()`, `preserve`     |     ✅      |
-| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms  |     ✅      |
-| **Prepared statements** — `placeholder()` + `.prepare()`           |     ✅      |
-| **Transactions** — commit + rollback, single-connection serialized |     ✅      |
-| **Boolean** — round-trip                                           |     ⚠️      |
-| **JSON / JSONB** — object round-trip                               |     ⚠️      |
-| **Arrays** — `text[]` round-trip                                   |     ⚠️      |
-| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)              |     ✅      |
-| **Migrator** — apply, plan, history table, idempotent re-run       |     ✅      |
+| Feature                                                                 | SQLite 3.46 |
+| ----------------------------------------------------------------------- | :---------: |
+| **Connection** — `connect({ path })`, parameterized SQL                 |     ✅      |
+| **Generated DDL applies** — affinity mapping of all types               |     ✅      |
+| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |     ✅      |
+| **Insert** — `values`, multi-row, `returning`                           |     ✅      |
+| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |     ✅      |
+| **Pattern** — `like` / `notLike`                                        |     ✅      |
+| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)                 |     ✅      |
+| **Range** — `between` / `notBetween`                                    |     ✅      |
+| **Set** — `inArray` / `notInArray`                                      |     ✅      |
+| **Null** — `isNull` / `isNotNull`                                       |     ✅      |
+| **Logical** — `and` `or` `not`                                          |     ✅      |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |     ✅      |
+| **Distinct**                                                            |     ✅      |
+| **Joins** — `inner` / `left`                                            |     ✅      |
+| **Joins** — `right` / `full` (SQLite ≥ 3.39)                            |     ✅      |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                        |     ✅      |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |     ✅      |
+| **Subquery** — `exists` / `notExists` (correlated)                      |     ✅      |
+| **Subquery** — derived table `.as()`, scalar, `inArray(subquery)`       |     ✅      |
+| **Group / filter** — `groupBy`, `having`                                |     ✅      |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |     ✅      |
+| **Delete** — `where`, `returning`                                       |     ✅      |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |     ✅      |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |     ✅      |
+| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |     ✅      |
+| **Prepared statements** — `placeholder()` + `.prepare()`                |     ✅      |
+| **Transactions** — commit + rollback, single-connection serialized      |     ✅      |
+| **Boolean** — round-trip                                                |     ⚠️      |
+| **JSON / JSONB** — object round-trip                                    |     ⚠️      |
+| **Arrays** — `text[]` round-trip                                        |     ⚠️      |
+| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)                   |     ✅      |
+| **Migrator** — apply, plan, history table, idempotent re-run            |     ✅      |
 
 ### Column types via the DDL test
 
 Every generated type maps onto one of SQLite's five affinities and the
 `CREATE TABLE` is executed live:
 
-| Sisal column                                                     | SQLite affinity |
-| ---------------------------------------------------------------- | --------------- |
-| `integer` `smallint` `bigint` `serial` `bigserial` `boolean`     | `INTEGER`       |
-| `numeric` `real` `doublePrecision` `number`                      | `REAL`          |
-| `text` `varchar` `char` `uuid` `date` `timestamp` `json` `jsonb` | `TEXT`          |
-| `bytea` / `blob`                                                 | `BLOB`          |
+| Sisal column                                                                          | SQLite affinity |
+| ------------------------------------------------------------------------------------- | --------------- |
+| `integer` `smallint` `bigint` `serial` `bigserial` `boolean`                          | `INTEGER`       |
+| `numeric` `real` `doublePrecision` `number`                                           | `REAL`          |
+| `text` `varchar` `char` `uuid` `date` `time` `timestamp` `timestamptz` `json` `jsonb` | `TEXT`          |
+| `bytea` / `blob`                                                                      | `BLOB`          |
 
 ## Behavior notes (SQLite vs PostgreSQL)
 
@@ -76,6 +77,13 @@ Every generated type maps onto one of SQLite's five affinities and the
   to a JSON `TEXT` value on insert (`{"note":"x"}`, `["a","b"]`) and come back
   as a **string** — `JSON.parse` on read. PostgreSQL `jsonb`/arrays return
   already parsed values. ⚠️ marks this difference, not a failure.
+- **Date/time values are `TEXT`.** SQLite has no native date/time storage class,
+  so `date`, `time`, `timestamp`, and `timestamptz` store ISO text. Temporal
+  params are normalized to strings before execution. Enable
+  `temporal: { parse: true }` on the database facade to decode known ORM-built
+  result columns back into `Temporal.PlainDate`, `Temporal.PlainTime`,
+  `Temporal.PlainDateTime`, or `Temporal.Instant`; raw SQL rows are untouched.
+  ISO text sorts lexicographically when all values use a consistent format.
 - **Booleans are `INTEGER` `0`/`1`.** SQLite has no boolean type; values
   round-trip as `0`/`1` numbers. Coerce with `Boolean(Number(x))`.
 - **`numeric`/`bigint` are not precision-preserving.** They map to `REAL`/

@@ -11,6 +11,23 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added Temporal-aware date/time support across ORM and adapters for v0.4.0:
+  `columns.date()` now defaults to `Temporal.PlainDate`, `columns.time()` was
+  added and defaults to `Temporal.PlainTime`, `columns.timestamp()` defaults to
+  `Temporal.PlainDateTime`, and `columns.timestamp({ withTimezone: true })`
+  defaults to `Temporal.Instant`. Explicit `mode: "date"` and `mode: "string"`
+  keep legacy JS `Date` or raw string values. `SqlParameter` /
+  `serializeSqlValue()` normalize Temporal values (including arrays and
+  `Temporal.ZonedDateTime`) to ISO strings before adapters receive them.
+  Database facades accept `temporal: { parse: true }` to opt into
+  metadata-driven result decoding for ORM-built selects, `returning()`,
+  relational queries, and `db.call(...)`; raw SQL rows are left driver-shaped.
+- Added gated pg/neon/sqlite/libSQL integration coverage for Temporal date/time
+  modes, including parse-enabled ORM rows, parse-disabled rows, raw SQL
+  behavior, string modes, legacy `Date` modes, and `Temporal.ZonedDateTime`
+  parameter normalization.
+- Added Date-vs-Temporal benchmark scenarios covering raw JS date APIs, Sisal
+  parameter serialization/rendering, and database-free ORM result parsing.
 - Added a serverless-safe SQL migration applier and a Neon CLI target (roadmap
   item 2). `@sisal/migrate` now exports `splitSqlStatements(sql)` — a
   dollar-quote/`$tag$`/string/quoted-identifier/comment-aware statement splitter
@@ -103,6 +120,12 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **BREAKING:** PostgreSQL DDL now emits `timestamp` for `columns.timestamp()`
+  and `timestamptz` only for `columns.timestamp({ withTimezone: true })`.
+  Existing users who relied on the old instant/timestamptz behavior should opt
+  into `withTimezone: true`; users who want legacy JS `Date` values should also
+  set `mode: "date"`, e.g.
+  `columns.timestamp({ withTimezone: true, mode: "date" })`.
 - Extended the PostgreSQL (`integration/pg_features_test.ts`) and SQLite
   (`integration/sqlite_features_test.ts`) feature suites to cover the new v0.4.0
   surfaces — column naming (snake_case default / `.named()` / `preserve`),

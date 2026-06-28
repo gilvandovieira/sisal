@@ -159,6 +159,26 @@ Per row, Drizzle's mapping costs **well over 10× as much as Sisal's**.
 
 ---
 
+## 4. Date vs Temporal
+
+The `date api parse`, `date api format`, `sisal temporal params`, and
+`sisal temporal row parsing · N rows` groups compare JavaScript `Date` with the
+ECMAScript Temporal API in database-shaped paths:
+
+- Raw construction and formatting: `new Date(...)`, `date.toISOString()`, and
+  the equivalent `Temporal.Instant`, `PlainDate`, `PlainTime`, `PlainDateTime`,
+  and `ZonedDateTime` operations.
+- Sisal parameter handling: `serializeSqlValue(...)` and rendering SQL with Date
+  or Temporal bound parameters, including arrays and mixed date/time statements.
+- ORM result parsing: a fake `OrmDriver` returns rows shaped like database
+  date/time text, then the benchmark compares parse-disabled selects,
+  parse-enabled Temporal decoding, and manual `Date`/`Temporal.Instant` mapping.
+
+`Date` may be cheaper for simple instant-only work in microbenchmarks. Temporal
+is still Sisal's preferred model for SQL date/time because it matches the
+database semantics: `date` is a calendar date, `time` is a wall-clock time,
+`timestamp` is a local date-time, and `timestamptz` is an instant.
+
 ## Honest framing
 
 These benchmarks measure **CPU efficiency and headroom**, not end-to-end request
@@ -175,8 +195,9 @@ real work for the event loop.
 deno task bench                 # the whole suite
 ```
 
-The generation, Drizzle generation, and Drizzle execution scenarios live in
-`benchmarks/scenarios/{sql_generation,vs_drizzle,vs_drizzle_execute}.ts`. The
-suite is network- and engine-free: it runs entirely against the in-memory fake
-driver, so it needs no database and no special permissions beyond `--allow-read`
-(plus `--allow-run=deno` for the migration-CLI scenarios).
+The generation, Drizzle generation, Drizzle execution, and Date-vs-Temporal
+scenarios live in
+`benchmarks/scenarios/{sql_generation,vs_drizzle,vs_drizzle_execute,temporal}.ts`.
+The suite is network- and engine-free: it runs entirely against the in-memory
+fake driver, so it needs no database and no special permissions beyond
+`--allow-read` (plus `--allow-run=deno` for the migration-CLI scenarios).
