@@ -115,8 +115,8 @@ adapter resolved from the config's `dialect`. `sisal init` targets are a single
 (id, aliases, dialect, connection hints).
 
 **Drizzle parity is the evolution discipline.** `docs/drizzle-parity.md` is a
-living ✅/🟡/🔷/❌ matrix paired with
-`packages/{orm,pg,sqlite}/drizzle_parity_test.ts`. Some tests assert that
+living ✅/🟡/🔷/❌ matrix paired with `packages/orm/drizzle_parity/*_test.ts`
+and `packages/{pg,sqlite}/drizzle_parity_test.ts`. Some tests assert that
 _unbuilt_ Drizzle features are still absent, so adding one fails a test that
 points back at the doc. **Implement a feature, move its matrix row, and update
 the parity test together.** Per-engine behavior is similarly pinned by

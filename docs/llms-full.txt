@@ -3209,7 +3209,7 @@ gaps that matter.
 It is paired with executable parity tests so the map cannot silently rot:
 
 ```text
-packages/orm/drizzle_parity_test.ts      operators, columns, builders, sql, inference
+packages/orm/drizzle_parity/*_test.ts    operators, columns, builders, relations, sql, inference
 packages/pg/drizzle_parity_test.ts       Postgres type mapping + CREATE TABLE
 packages/sqlite/drizzle_parity_test.ts   SQLite affinity mapping + CREATE TABLE
 ```
