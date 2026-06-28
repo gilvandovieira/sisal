@@ -11,6 +11,23 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added the `examples/neon-hot-feed` example: a Reddit-style hot feed on
+  Neon/PostgreSQL that demonstrates a `/new` (created_at) and `/hot` timeline
+  backed by a stored, indexable `hot_score`, keyset (cursor) pagination, and an
+  atomic vote mutation through a `app.vote_post` PostgreSQL function — a single
+  parameterized statement rather than an interactive `db.transaction` callback,
+  for Deno Deploy / Neon HTTP friendliness. Includes hand-written SQL migrations
+  (`CREATE FUNCTION` + an `IMMUTABLE` hot-score function), a serverless-safe
+  dollar-quote-aware SQL statement splitter, network-free unit tests, and a
+  gated database integration test. The README documents the Neon execution-mode
+  constraint and the Sisal API pressure points the example surfaced. Registered
+  the example in the workspace and the `check` task.
+- Added `docs/v0.4.0-roadmap.md`, the working backlog of API gaps surfaced by
+  the `neon-hot-feed` example (typed database-function caller, serverless-safe
+  SQL migration applier + Neon CLI target, keyset/cursor pagination helper, raw
+  expressions in builder `SET`/`VALUES`, richer DDL generation, non-interactive
+  batched transactions, and column-name mapping), each with a proposed API,
+  affected packages, and acceptance criteria.
 - Added the prepared-statement API to `@sisal/orm`: `placeholder(name)` creates
   a deferred parameter slot (Drizzle's `sql.placeholder`) usable in the
   `` sql`...` `` tag and operators, and every builder

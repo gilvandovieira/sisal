@@ -299,6 +299,12 @@
           "npm:drizzle-orm@0.45.2"
         ]
       },
+      "examples/neon-hot-feed": {
+        "dependencies": [
+          "jsr:@neon/serverless@1",
+          "jsr:@std/assert@1"
+        ]
+      },
       "packages/neon": {
         "dependencies": [
           "jsr:@neon/serverless@1"
