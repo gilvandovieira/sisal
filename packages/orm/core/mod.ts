@@ -132,6 +132,7 @@ export type {
   DeleteBuilder,
   ForLockOptions,
   InsertBuilder,
+  InsertValues,
   KeysetCursor,
   KeysetKeys,
   KeysetOptions,
@@ -142,6 +143,7 @@ export type {
   SetOperand,
   Subquery,
   UpdateBuilder,
+  UpdateValues,
   WithQueryBuilder,
 } from "./builders.ts";
 export { defineFunction } from "./functions.ts";

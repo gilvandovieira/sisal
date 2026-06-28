@@ -312,13 +312,29 @@ export interface WithQueryBuilder {
   ): SelectBuilder<unknown, InferProjection<TProjection>>;
 }
 
+/**
+ * Insert row values: each column accepts its literal type or a {@link Sql}
+ * expression. Literals bind as parameters; `Sql` values render inline.
+ */
+export type InsertValues<TTable extends TableDefinition> = {
+  readonly [K in keyof InferInsert<TTable>]: InferInsert<TTable>[K] | Sql;
+};
+
+/**
+ * Update/upsert assignments: each column set to its literal type or a `Sql`
+ * expression, all columns optional (`UPDATE ... SET`).
+ */
+export type UpdateValues<TTable extends TableDefinition> = Partial<
+  InsertValues<TTable>
+>;
+
 /** Fluent builder for `INSERT` queries. */
 export interface InsertBuilder<
   TTable extends TableDefinition,
   TReturn = InferSelect<TTable>,
 > {
   values(
-    value: InferInsert<TTable> | InferInsert<TTable>[],
+    value: InsertValues<TTable> | InsertValues<TTable>[],
   ): InsertBuilder<TTable, TReturn>;
 
   /** `ON CONFLICT [(target)] DO NOTHING`. */
@@ -330,7 +346,7 @@ export interface InsertBuilder<
   onConflictDoUpdate(
     config: {
       readonly target: unknown | readonly unknown[];
-      readonly set: Partial<InferInsert<TTable>>;
+      readonly set: UpdateValues<TTable>;
       readonly where?: Condition;
     },
   ): InsertBuilder<TTable, TReturn>;
@@ -354,7 +370,7 @@ export interface UpdateBuilder<
   TReturn = InferSelect<TTable>,
 > {
   set(
-    values: Partial<InferInsert<TTable>>,
+    values: UpdateValues<TTable>,
   ): UpdateBuilder<TTable, TReturn>;
 
   where(condition: Condition): UpdateBuilder<TTable, TReturn>;
@@ -1488,14 +1504,14 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
   implements InsertBuilder<TTable> {
   readonly #database: Database;
   readonly #table: TTable;
-  readonly #rows?: Array<InferInsert<TTable>>;
+  readonly #rows?: Array<InsertValues<TTable>>;
   readonly #returning: SelectProjection | boolean;
   readonly #conflict?: InsertConflict;
 
   constructor(
     database: Database,
     table: TTable,
-    rows?: Array<InferInsert<TTable>>,
+    rows?: Array<InsertValues<TTable>>,
     returning: SelectProjection | boolean = false,
     conflict?: InsertConflict,
   ) {
@@ -1507,7 +1523,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
   }
 
   values(
-    value: InferInsert<TTable> | InferInsert<TTable>[],
+    value: InsertValues<TTable> | InsertValues<TTable>[],
   ): InsertBuilder<TTable> {
     const rows = Array.isArray(value) ? value : [value];
 
@@ -1546,7 +1562,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
   onConflictDoUpdate(
     config: {
       readonly target: unknown | readonly unknown[];
-      readonly set: Partial<InferInsert<TTable>>;
+      readonly set: UpdateValues<TTable>;
       readonly where?: Condition;
     },
   ): InsertBuilder<TTable> {
@@ -1610,9 +1626,12 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
       this.#rows.map((row) =>
         sql`(${
           joinSql(
-            columnNames.map((name) =>
-              paramSql((row as Record<string, unknown>)[name])
-            ),
+            columnNames.map((name) => {
+              const value = (row as Record<string, unknown>)[name];
+              // A `Sql` expression (e.g. sql`now()`) renders inline; any other
+              // value binds as a parameter.
+              return isSql(value) ? value : paramSql(value);
+            }),
           )
         })`
       ),
@@ -1659,7 +1678,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
   implements UpdateBuilder<TTable> {
   readonly #database: Database;
   readonly #table: TTable;
-  readonly #values?: Partial<InferInsert<TTable>>;
+  readonly #values?: UpdateValues<TTable>;
   readonly #condition?: Condition;
   readonly #allowAllRows: boolean;
   readonly #returning: SelectProjection | boolean;
@@ -1667,7 +1686,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
   constructor(
     database: Database,
     table: TTable,
-    values?: Partial<InferInsert<TTable>>,
+    values?: UpdateValues<TTable>,
     condition?: Condition,
     allowAllRows = false,
     returning: SelectProjection | boolean = false,
@@ -1680,7 +1699,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
     this.#returning = returning;
   }
 
-  set(values: Partial<InferInsert<TTable>>): UpdateBuilder<TTable> {
+  set(values: UpdateValues<TTable>): UpdateBuilder<TTable> {
     return new SisalUpdateBuilder(
       this.#database,
       this.#table,
@@ -1905,7 +1924,7 @@ function physicalColumnName(
 
 function getInsertColumnNames<TTable extends TableDefinition>(
   table: TTable,
-  rows: Array<InferInsert<TTable>>,
+  rows: Array<InsertValues<TTable>>,
 ): string[] {
   const names = new Set<string>();
 
@@ -1923,7 +1942,7 @@ function getInsertColumnNames<TTable extends TableDefinition>(
 
 function getDefinedEntries<TTable extends TableDefinition>(
   table: TTable,
-  values: Partial<InferInsert<TTable>>,
+  values: UpdateValues<TTable>,
 ): Array<[string, unknown]> {
   const entries: Array<[string, unknown]> = [];
 
