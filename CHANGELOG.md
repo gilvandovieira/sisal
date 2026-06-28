@@ -11,6 +11,28 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
+  moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
+  functions** — every multi-step mutation is one **data-modifying CTE**
+  statement. `recordPostActivity` is a single
+  `WITH … INSERT … ON CONFLICT … RETURNING` (validate kind, inline 5-minute
+  bucket, dedupe actor, upsert counters, recompute `activity_score`);
+  `recomputePostRisingScore` / `recomputeAllRisingScores` are single
+  `WITH … UPDATE … FROM … RETURNING` statements with `FILTER`ed moving-window
+  aggregates (windows bounded `<= now` so future buckets never count). The feeds
+  stay builder-native (`.keyset(...)` handles the three-column `/rising`
+  predicate — not a raw-SQL gap). Network-free unit tests + a gated DB suite
+  (`SISAL_NEON_RISING_CTE_FEED_IT=1`) cover dedup, weights, report penalty,
+  recompute = TS model, bulk recompute, ordering, keyset pagination, window
+  decay, future-bucket exclusion, determinism, and invalid-kind rejection; all
+  three gated tests were run end-to-end against PostgreSQL 18 via the bundled
+  `neon-proxy`. Registered in the workspace and the `check` task. Surfaced
+  v0.5.0 roadmap items 12 (data-modifying CTE builder) and 13 (typed raw-query
+  result mapping); see the example README "Sisal API pressure points".
+- Recorded v0.5.0 roadmap items **12** (a data-modifying CTE builder —
+  `WITH … INSERT/UPDATE/DELETE … RETURNING`; Sisal's `$with`/`with` are
+  SELECT-only) and **13** (typed raw-query result mapping for `db.query`),
+  surfaced by `neon-rising-feed-ctes`.
 - Added the `examples/postgres-rising-feed` example: the **normal database**
   version of the `/rising` feed on **PostgreSQL 18** via `@sisal/pg` (regular
   TCP session, its own `docker-compose.yml` with `postgres:18`). It completes a

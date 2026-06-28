@@ -316,6 +316,12 @@
           "jsr:@std/assert@1"
         ]
       },
+      "examples/neon-rising-feed-ctes": {
+        "dependencies": [
+          "jsr:@neon/serverless@1",
+          "jsr:@std/assert@1"
+        ]
+      },
       "examples/postgres-rising-feed": {
         "dependencies": [
           "jsr:@std/assert@1"
