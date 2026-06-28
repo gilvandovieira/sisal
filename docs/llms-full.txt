@@ -190,6 +190,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `ilike` (function): Case-insensitive ILIKE match. Renders ILIKE on Postgres and degrades to the (case-insensitive) LIKE on SQLite/libSQL/MySQL, which have no ILIKE.
 - `inArray` (function): column IN (...). Each value is a bound parameter. An empty array yields a constant always-false condition (1 = 0) rather than invalid IN () SQL, so dynamic filters with no values are safe. A select builder renders as...
 - `index` (function): A table index (CREATE INDEX); complete it with .on(...columns).
+- `IndexColumnSpec` (typeAlias): A single key in a table index produced by index().on(...): either a column (optionally with a sort direction) or a raw SQL expression.
 - `IndexConstraintBuilder` (interface): Fluent builder returned by {@link index} / {@link uniqueIndex}.
 - `InferInsert` (typeAlias): Infers the accepted insert shape for a table, honoring defaults and optional fields.
 - `InferProjection` (typeAlias): Inferred row type for a projected select.
@@ -282,6 +283,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SisalErrorOptions` (interface): Options accepted by {@link SisalError}.
 - `SisalErrorSeverity` (typeAlias): Severity attached to structured Sisal errors.
 - `SisalForeignKeySnapshot` (interface): Serializable foreign-key constraint descriptor.
+- `SisalIndexColumnSnapshot` (interface): A single key in an index: a column or a raw SQL expression, with an optional sort direction.
 - `SisalIndexSnapshot` (interface): Serializable index descriptor.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
@@ -388,6 +390,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `ilike` (function): Case-insensitive ILIKE match. Renders ILIKE on Postgres and degrades to the (case-insensitive) LIKE on SQLite/libSQL/MySQL, which have no ILIKE.
 - `inArray` (function): column IN (...). Each value is a bound parameter. An empty array yields a constant always-false condition (1 = 0) rather than invalid IN () SQL, so dynamic filters with no values are safe. A select builder renders as...
 - `index` (function): A table index (CREATE INDEX); complete it with .on(...columns).
+- `IndexColumnSpec` (typeAlias): A single key in a table index produced by index().on(...): either a column (optionally with a sort direction) or a raw SQL expression.
 - `IndexConstraintBuilder` (interface): Fluent builder returned by {@link index} / {@link uniqueIndex}.
 - `InferInsert` (typeAlias): Infers the accepted insert shape for a table, honoring defaults and optional fields.
 - `InferProjection` (typeAlias): Inferred row type for a projected select.
@@ -528,6 +531,7 @@ Public entrypoint for @sisal/orm.
 - `SisalColumnType` (interface): Dialect-neutral column type descriptor.
 - `SisalDialectName` (typeAlias): SQL dialect names understood by Sisal schema snapshots.
 - `SisalForeignKeySnapshot` (interface): Serializable foreign-key constraint descriptor.
+- `SisalIndexColumnSnapshot` (interface): A single key in an index: a column or a raw SQL expression, with an optional sort direction.
 - `SisalIndexSnapshot` (interface): Serializable index descriptor.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
@@ -2105,6 +2109,24 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added richer index DDL generation (roadmap item 5). Table-level `index()` /
+  `uniqueIndex()` now accept per-column sort direction via `asc()`/`desc()`
+  terms, raw `` sql`...` `` **expression** keys (an expression index), and a
+  partial-index predicate via a new `.where(predicate)` builder method — e.g.
+  ``index("hot").where(sql`${t.status} = 'published'`).on(desc(t.hotScore), desc(t.id))``
+  or ``uniqueIndex().on(sql`lower(${t.email})`)``. The
+  `generate{Postgres,Sqlite,Libsql}UpStatements` DDL generators emit the
+  `col DESC`/`ASC` ordering, parenthesized expression keys, and the trailing
+  `WHERE` clause; expression keys and predicates render portably (table prefix
+  stripped, identifiers double-quoted) like CHECK constraints. Adds the public
+  `IndexColumnSpec` type and the `SisalIndexColumnSnapshot` schema descriptor.
+  **BREAKING (snapshot format):** the serialized index shape changed —
+  `SisalIndexSnapshot.columns` is now a list of
+  `{ value, direction?, expression? }` objects (was `string[]`) and gains an
+  optional `where`, so `SCHEMA_SNAPSHOT_VERSION` is bumped to **2**; regenerate
+  `.snapshot.json` files. Covered by the pg/sqlite Drizzle-parity tests and the
+  gated pg (16/17/18), SQLite, and libSQL integration suites; moves the parity
+  index row.
 - Added a non-interactive batched transaction API to `@sisal/orm` (roadmap item
   6). `db.batch([...])` runs several pre-built statements (query builders,
   `` sql`...` `` fragments, or rendered `SqlQuery`) as one atomic,
@@ -2963,14 +2985,19 @@ the migration tooling. Built from tables or authored directly.
 
 Key types: `SisalSchemaSnapshot`, `SisalTableSnapshot`, `SisalColumnSnapshot`,
 `SisalColumnType`, `SisalColumnDefault`, `SisalPrimaryKeySnapshot`,
-`SisalIndexSnapshot`, `SisalUniqueConstraintSnapshot`,
-`SisalForeignKeySnapshot`, `SisalCheckConstraintSnapshot`, plus the diff types
-`SisalSchemaSnapshotDiff` / `SisalTableDiff` / `SisalColumnDiff`. The constant
-`SCHEMA_SNAPSHOT_VERSION` is `1`.
+`SisalIndexSnapshot`, `SisalIndexColumnSnapshot`,
+`SisalUniqueConstraintSnapshot`, `SisalForeignKeySnapshot`,
+`SisalCheckConstraintSnapshot`, plus the diff types `SisalSchemaSnapshotDiff` /
+`SisalTableDiff` / `SisalColumnDiff`. The constant `SCHEMA_SNAPSHOT_VERSION` is
+`2`.
 
-`SisalColumnType.dialectType` and `SisalColumnDefault` with `kind: "expression"`
-are trusted schema inputs: DDL generators emit them verbatim. Use them only from
-developer-authored schema code, not runtime values.
+Index snapshots store `columns` as `{ value, direction?, expression? }` keys and
+may carry a partial-index `where` predicate.
+
+`SisalColumnType.dialectType`, `SisalColumnDefault` with `kind: "expression"`,
+index expression keys, and index `where` predicates are trusted schema inputs:
+DDL generators emit them verbatim. Use them only from developer-authored schema
+code, not runtime values.
 
 ## Introspection & utilities
 
@@ -3583,24 +3610,34 @@ parity test.
 
 ### Constraints & indexes
 
-| Drizzle 0.45.2                                 | Sisal                                        | Status |
-| ---------------------------------------------- | -------------------------------------------- | ------ |
-| column `.unique()` / `.references()`           | emitted (`UNIQUE` / `FOREIGN KEY`)           | ✅⁵    |
-| FK actions `onDelete` / `onUpdate`             | `.references(t, c, { onDelete, onUpdate })`  | ✅     |
-| table PK `primaryKey({ columns })` (composite) | `primaryKey({ columns })` extras callback    | ✅⁶    |
-| named / composite `unique('n').on(a, b)`       | `unique('n').on(a, b)` extras callback       | ✅⁶    |
-| `index()` / `uniqueIndex()`                    | `index('n').on(...)` / `uniqueIndex().on(…)` | ✅⁶    |
-| `check('n', sql\`…\`)`                         | `check('n', sql\`…\`)` extras callback       | ✅⁶    |
+| Drizzle 0.45.2                                                      | Sisal                                           | Status |
+| ------------------------------------------------------------------- | ----------------------------------------------- | ------ |
+| column `.unique()` / `.references()`                                | emitted (`UNIQUE` / `FOREIGN KEY`)              | ✅⁵    |
+| FK actions `onDelete` / `onUpdate`                                  | `.references(t, c, { onDelete, onUpdate })`     | ✅     |
+| table PK `primaryKey({ columns })` (composite)                      | `primaryKey({ columns })` extras callback       | ✅⁶    |
+| named / composite `unique('n').on(a, b)`                            | `unique('n').on(a, b)` extras callback          | ✅⁶    |
+| `index()` / `uniqueIndex()` (+ `.on(col.desc())`, `.where()`, expr) | `index('n').on(asc/desc, sql\`…\`)`/`.where(…)` | ✅⁶    |
+| `check('n', sql\`…\`)`                                              | `check('n', sql\`…\`)` extras callback          | ✅⁶    |
 
 ⁶ **Table-level constraints use a `defineTable` extras callback**,
 Drizzle-style: `defineTable(name, columns, (t) => [...])`. The callback returns
-`primaryKey({ columns })`, `unique(name?).on(...)`, `index(name?).on(...)` /
-`uniqueIndex(name?).on(...)`, and
-`check(name, sql\`…\`)`.`UNIQUE`/`CHECK`emit
-inline in`CREATE
-TABLE`(check columns rendered unqualified for portability);
-indexes emit as separate`CREATE
-INDEX` statements (auto-named when unnamed).
+primary keys, unique constraints, indexes, unique indexes, and checks. `UNIQUE`
+/ `CHECK` emit inline in `CREATE TABLE` (check columns rendered unqualified for
+portability); indexes emit as separate `CREATE INDEX` statements (auto-named
+when unnamed).
+
+**Indexes are rich:** `.on(...)` accepts `asc()` / `desc()` terms (per-column
+`ASC` / `DESC` ordering) and `Sql` expression keys (an expression index), and
+`.where(predicate)` adds a partial-index `WHERE` clause:
+
+```ts
+index("hot")
+  .where(sql`${t.status} = "published"`)
+  .on(desc(t.hotScore), desc(t.id));
+uniqueIndex().on(sql`lower(${t.email})`);
+```
+
+Emitted across Postgres, SQLite, and libSQL.
 
 ---
 
@@ -3989,9 +4026,9 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (30 tests)                |
+| Suite           | `integration/pg_features_test.ts` (31 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-28 — **30 / 30 passed on every version**            |
+| Last run        | 2026-06-28 — **31 / 31 passed on every version**            |
 
 ✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
 
@@ -4033,6 +4070,7 @@ adapter feature through the public API.
 | **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
 | **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
 | **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |  ✅  |  ✅  |
 | **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |  ✅  |  ✅  |
 
 ### Column types proven by the DDL test
@@ -4223,8 +4261,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (30 tests)     |
-| Last run      | 2026-06-28 — **30 / 30 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (31 tests)     |
+| Last run      | 2026-06-28 — **31 / 31 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
@@ -4266,6 +4304,7 @@ unsupported on SQLite.
 | **JSON / JSONB** — object round-trip                                    |     ⚠️      |
 | **Arrays** — `text[]` round-trip                                        |     ⚠️      |
 | **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)                   |     ✅      |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |     ✅      |
 | **Migrator** — apply, plan, history table, idempotent re-run            |     ✅      |
 
 ### Column types via the DDL test
@@ -4350,8 +4389,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (27 tests)       |
-| Last run      | 2026-06-28 — **27 / 27 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (28 tests)       |
+| Last run      | 2026-06-28 — **28 / 28 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
@@ -4389,6 +4428,7 @@ unsupported (SQLite-family).
 | **JSON / JSONB** — object round-trip                                    |   ⚠️   |
 | **Arrays** — `text[]` round-trip                                        |   ⚠️   |
 | **Binary** — `bytea`/`BLOB` round-trip                                  |   ⚠️   |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |   ✅   |
 | **Migrator** — apply, plan, history table, idempotent re-run            |   ✅   |
 
 ## Behavior notes
@@ -5081,7 +5121,7 @@ the two documents stay in step.
 | 2 | Serverless-safe SQL migration applier + Neon CLI  | P1       | M–L          | 🟢     |
 | 3 | Keyset / cursor pagination helper                 | P1       | M            | 🟢     |
 | 4 | Raw expressions in builder `SET` / `VALUES`       | P2       | M            | 🟢     |
-| 5 | Richer DDL generation (indexes, CHECK, functions) | P2       | L            | 🔴     |
+| 5 | Richer DDL generation (indexes, CHECK, functions) | P2       | L            | 🟢     |
 | 6 | Non-interactive (batched) transaction API         | P2       | M            | 🟢     |
 | 7 | Column-name mapping (camelCase ↔ snake_case)      | P3       | M–L          | 🟢     |
 | 8 | Temporal date/time semantics                      | P3       | M            | 🟢     |
@@ -5391,7 +5431,35 @@ parity item. Move the relevant row in [drizzle-parity](drizzle-parity.md).
 
 ---
 
-## 5. Richer DDL generation — P2
+## 5. Richer DDL generation — P2 — 🟢 Done (functions/triggers → v0.5.0)
+
+**Shipped (5.1 indexes + 5.2 CHECK).** Table-level `index()` / `uniqueIndex()`
+now carry per-column direction via `asc()`/`desc()` terms, raw `` sql`...` ``
+**expression** keys, and a partial-index predicate via a new `.where(predicate)`
+method:
+
+```ts
+defineTable("posts", cols, (t) => [
+  index("hot_feed")
+    .where(sql`${t.status} = 'published'`)
+    .on(desc(t.hotScore), desc(t.createdAt), desc(t.id)),
+  uniqueIndex().on(sql`lower(${t.email})`),
+]);
+```
+
+`generate{Postgres,Sqlite,Libsql}UpStatements` emit the `col DESC`/`ASC`
+ordering, parenthesized expression keys, and a trailing `WHERE`; expression and
+predicate text renders portably (table prefix stripped) exactly like CHECK
+constraints, which already emitted inline. The serialized index shape is now
+structured (`{ value, direction?, expression? }` + optional `where`), so
+`SCHEMA_SNAPSHOT_VERSION` is **2** (regenerate snapshots). Adds the public
+`IndexColumnSpec` type and the `SisalIndexColumnSnapshot` descriptor. Covered by
+the pg/sqlite Drizzle-parity tests and the gated **pg 16/17/18** and **SQLite**
+and **libSQL** integration suites
+(`rich indexes (DESC / partial / expression) apply`), and the parity index row
+moved. **Deferred:** 5.3 functions/triggers (raw `CREATE FUNCTION` / `TRIGGER`
+DDL attached to a snapshot) is a larger design moved to the
+[v0.5.0 roadmap](v0.5.0-roadmap.md) as its own item.
 
 **Problem.** `generatePostgres/Sqlite/LibsqlUpStatements` emit only additive
 `CREATE TABLE` / `ADD COLUMN`. They cannot express DESC index ordering, partial
@@ -5677,10 +5745,13 @@ limit:
 | 4 | Typed dialect guards for Postgres-only builders       | P2       | M            | 🔴     |
 | 5 | Document principled divergences & round-trip behavior | P2       | S            | 🔴     |
 | 6 | Coverage-honesty: CHANGELOG fix + CI parity guard     | P3       | S            | 🔴     |
+| 7 | Richer DDL: functions & triggers (from v0.4.0 item 5) | P2       | L            | 🔴     |
 
 P1 items 1–2 are the achievable-parity work and unblock item 3 (the matrix can
 only claim a ✅ once a test backs it). Items 4–6 cover the parity that is _not_
-achievable and keep the new matrix from rotting.
+achievable and keep the new matrix from rotting. Item 7 is separate — the DDL
+function/trigger work deferred from v0.4.0, not part of the driver-parity
+mission.
 
 The per-adapter coverage gaps this roadmap closes (feature works, but no
 integration test on that adapter):
@@ -5893,6 +5964,43 @@ test backs (mirroring how the drizzle-parity tests pin that doc).
 - A CI check fails if the unified matrix marks a feature ✅ for an adapter whose
   suite has no corresponding test.
 - The check is documented next to `docs:check` in CLAUDE.md's commands list.
+
+---
+
+## 7. Richer DDL: functions & triggers — P2 (deferred from v0.4.0 item 5)
+
+**Context.** [v0.4.0 item 5](v0.4.0-roadmap.md) shipped richer **index** DDL
+(per-column `ASC`/`DESC`, partial `WHERE`, and `` sql`...` `` expression keys)
+and already emitted `CHECK` constraints inline. The remaining sub-item — 5.3,
+explicitly the "stretch" — is **functions and triggers**, which is a larger
+design than an index tweak and so moves here.
+
+**Problem.** The DDL generators emit only schema objects derived from
+`defineTable` (tables, columns, constraints, indexes). They cannot express a
+stored `CREATE FUNCTION` / `CREATE TRIGGER` body, so an app like
+`examples/neon-hot-feed` keeps its `app.vote_post` function and hot-score
+function as hand-written `.sql` migrations and treats `src/schema.ts` as a typed
+mirror rather than the generator's source of truth.
+
+**Proposed work.** A way to attach raw, dialect-specific DDL fragments
+(functions, triggers, extensions) to a schema snapshot so generated migrations
+include them verbatim, ordered **after** table/column/constraint creation. This
+needs design for: ordering relative to tables, `down`/drop generation,
+drift/checksum handling for opaque SQL bodies, and per-dialect gating (Postgres
+functions vs. SQLite triggers differ).
+
+**Affected.** `@sisal/orm` (`schema.ts` snapshot — a new
+`functions`/`schemaObjects` array; `table.ts` or a new `defineSchemaObject`
+helper), each adapter DDL generator, and `@sisal/migrate` diff classification.
+
+**Acceptance criteria.**
+
+- A snapshot can carry ordered raw DDL fragments emitted after table creation,
+  with matching drop statements for `down`.
+- `examples/neon-hot-feed` can regenerate its full `0001_init.sql` (functions
+  included) from `src/schema.ts`.
+- Drift detection accounts for changed function/trigger bodies.
+- Move the corresponding [drizzle-parity](drizzle-parity.md) rows.
 
 ---
 

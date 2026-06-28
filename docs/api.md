@@ -512,14 +512,19 @@ the migration tooling. Built from tables or authored directly.
 
 Key types: `SisalSchemaSnapshot`, `SisalTableSnapshot`, `SisalColumnSnapshot`,
 `SisalColumnType`, `SisalColumnDefault`, `SisalPrimaryKeySnapshot`,
-`SisalIndexSnapshot`, `SisalUniqueConstraintSnapshot`,
-`SisalForeignKeySnapshot`, `SisalCheckConstraintSnapshot`, plus the diff types
-`SisalSchemaSnapshotDiff` / `SisalTableDiff` / `SisalColumnDiff`. The constant
-`SCHEMA_SNAPSHOT_VERSION` is `1`.
+`SisalIndexSnapshot`, `SisalIndexColumnSnapshot`,
+`SisalUniqueConstraintSnapshot`, `SisalForeignKeySnapshot`,
+`SisalCheckConstraintSnapshot`, plus the diff types `SisalSchemaSnapshotDiff` /
+`SisalTableDiff` / `SisalColumnDiff`. The constant `SCHEMA_SNAPSHOT_VERSION` is
+`2`.
 
-`SisalColumnType.dialectType` and `SisalColumnDefault` with `kind: "expression"`
-are trusted schema inputs: DDL generators emit them verbatim. Use them only from
-developer-authored schema code, not runtime values.
+Index snapshots store `columns` as `{ value, direction?, expression? }` keys and
+may carry a partial-index `where` predicate.
+
+`SisalColumnType.dialectType`, `SisalColumnDefault` with `kind: "expression"`,
+index expression keys, and index `where` predicates are trusted schema inputs:
+DDL generators emit them verbatim. Use them only from developer-authored schema
+code, not runtime values.
 
 ## Introspection & utilities
 

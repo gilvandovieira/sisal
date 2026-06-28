@@ -14,8 +14,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (27 tests)       |
-| Last run      | 2026-06-28 — **27 / 27 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (28 tests)       |
+| Last run      | 2026-06-28 — **28 / 28 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
@@ -53,6 +53,7 @@ unsupported (SQLite-family).
 | **JSON / JSONB** — object round-trip                                    |   ⚠️   |
 | **Arrays** — `text[]` round-trip                                        |   ⚠️   |
 | **Binary** — `bytea`/`BLOB` round-trip                                  |   ⚠️   |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |   ✅   |
 | **Migrator** — apply, plan, history table, idempotent re-run            |   ✅   |
 
 ## Behavior notes

@@ -13,9 +13,9 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (30 tests)                |
+| Suite           | `integration/pg_features_test.ts` (31 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-28 — **30 / 30 passed on every version**            |
+| Last run        | 2026-06-28 — **31 / 31 passed on every version**            |
 
 ✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
 
@@ -57,6 +57,7 @@ adapter feature through the public API.
 | **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
 | **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
 | **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |  ✅  |  ✅  |
 | **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |  ✅  |  ✅  |
 
 ### Column types proven by the DDL test

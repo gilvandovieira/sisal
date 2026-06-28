@@ -11,6 +11,24 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added richer index DDL generation (roadmap item 5). Table-level `index()` /
+  `uniqueIndex()` now accept per-column sort direction via `asc()`/`desc()`
+  terms, raw `` sql`...` `` **expression** keys (an expression index), and a
+  partial-index predicate via a new `.where(predicate)` builder method — e.g.
+  ``index("hot").where(sql`${t.status} = 'published'`).on(desc(t.hotScore), desc(t.id))``
+  or ``uniqueIndex().on(sql`lower(${t.email})`)``. The
+  `generate{Postgres,Sqlite,Libsql}UpStatements` DDL generators emit the
+  `col DESC`/`ASC` ordering, parenthesized expression keys, and the trailing
+  `WHERE` clause; expression keys and predicates render portably (table prefix
+  stripped, identifiers double-quoted) like CHECK constraints. Adds the public
+  `IndexColumnSpec` type and the `SisalIndexColumnSnapshot` schema descriptor.
+  **BREAKING (snapshot format):** the serialized index shape changed —
+  `SisalIndexSnapshot.columns` is now a list of
+  `{ value, direction?, expression? }` objects (was `string[]`) and gains an
+  optional `where`, so `SCHEMA_SNAPSHOT_VERSION` is bumped to **2**; regenerate
+  `.snapshot.json` files. Covered by the pg/sqlite Drizzle-parity tests and the
+  gated pg (16/17/18), SQLite, and libSQL integration suites; moves the parity
+  index row.
 - Added a non-interactive batched transaction API to `@sisal/orm` (roadmap item
   6). `db.batch([...])` runs several pre-built statements (query builders,
   `` sql`...` `` fragments, or rendered `SqlQuery`) as one atomic,

@@ -173,24 +173,34 @@ parity test.
 
 ### Constraints & indexes
 
-| Drizzle 0.45.2                                 | Sisal                                        | Status |
-| ---------------------------------------------- | -------------------------------------------- | ------ |
-| column `.unique()` / `.references()`           | emitted (`UNIQUE` / `FOREIGN KEY`)           | ✅⁵    |
-| FK actions `onDelete` / `onUpdate`             | `.references(t, c, { onDelete, onUpdate })`  | ✅     |
-| table PK `primaryKey({ columns })` (composite) | `primaryKey({ columns })` extras callback    | ✅⁶    |
-| named / composite `unique('n').on(a, b)`       | `unique('n').on(a, b)` extras callback       | ✅⁶    |
-| `index()` / `uniqueIndex()`                    | `index('n').on(...)` / `uniqueIndex().on(…)` | ✅⁶    |
-| `check('n', sql\`…\`)`                         | `check('n', sql\`…\`)` extras callback       | ✅⁶    |
+| Drizzle 0.45.2                                                      | Sisal                                           | Status |
+| ------------------------------------------------------------------- | ----------------------------------------------- | ------ |
+| column `.unique()` / `.references()`                                | emitted (`UNIQUE` / `FOREIGN KEY`)              | ✅⁵    |
+| FK actions `onDelete` / `onUpdate`                                  | `.references(t, c, { onDelete, onUpdate })`     | ✅     |
+| table PK `primaryKey({ columns })` (composite)                      | `primaryKey({ columns })` extras callback       | ✅⁶    |
+| named / composite `unique('n').on(a, b)`                            | `unique('n').on(a, b)` extras callback          | ✅⁶    |
+| `index()` / `uniqueIndex()` (+ `.on(col.desc())`, `.where()`, expr) | `index('n').on(asc/desc, sql\`…\`)`/`.where(…)` | ✅⁶    |
+| `check('n', sql\`…\`)`                                              | `check('n', sql\`…\`)` extras callback          | ✅⁶    |
 
 ⁶ **Table-level constraints use a `defineTable` extras callback**,
 Drizzle-style: `defineTable(name, columns, (t) => [...])`. The callback returns
-`primaryKey({ columns })`, `unique(name?).on(...)`, `index(name?).on(...)` /
-`uniqueIndex(name?).on(...)`, and
-`check(name, sql\`…\`)`.`UNIQUE`/`CHECK`emit
-inline in`CREATE
-TABLE`(check columns rendered unqualified for portability);
-indexes emit as separate`CREATE
-INDEX` statements (auto-named when unnamed).
+primary keys, unique constraints, indexes, unique indexes, and checks. `UNIQUE`
+/ `CHECK` emit inline in `CREATE TABLE` (check columns rendered unqualified for
+portability); indexes emit as separate `CREATE INDEX` statements (auto-named
+when unnamed).
+
+**Indexes are rich:** `.on(...)` accepts `asc()` / `desc()` terms (per-column
+`ASC` / `DESC` ordering) and `Sql` expression keys (an expression index), and
+`.where(predicate)` adds a partial-index `WHERE` clause:
+
+```ts
+index("hot")
+  .where(sql`${t.status} = "published"`)
+  .on(desc(t.hotScore), desc(t.id));
+uniqueIndex().on(sql`lower(${t.email})`);
+```
+
+Emitted across Postgres, SQLite, and libSQL.
 
 ---
 

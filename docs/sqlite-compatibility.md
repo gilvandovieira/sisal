@@ -12,8 +12,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (30 tests)     |
-| Last run      | 2026-06-28 — **30 / 30 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (31 tests)     |
+| Last run      | 2026-06-28 — **31 / 31 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
@@ -55,6 +55,7 @@ unsupported on SQLite.
 | **JSON / JSONB** — object round-trip                                    |     ⚠️      |
 | **Arrays** — `text[]` round-trip                                        |     ⚠️      |
 | **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)                   |     ✅      |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |     ✅      |
 | **Migrator** — apply, plan, history table, idempotent re-run            |     ✅      |
 
 ### Column types via the DDL test
