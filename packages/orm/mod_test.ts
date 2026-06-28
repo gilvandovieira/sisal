@@ -56,7 +56,7 @@ const users = defineTable("users", {
   active: columns.boolean().default(true),
   profile: columns.json<{ theme: string }>().optional(),
   birthday: columns.date().optional(),
-  createdAt: columns.timestamp().default(() => new Date()),
+  createdAt: columns.timestamp({ mode: "date" }).default(() => new Date()),
   orgId: columns.uuid().references("organizations", "id"),
 }, { naming: "preserve" });
 
@@ -66,7 +66,8 @@ Deno.test("@sisal/orm - Postgres column types map into a valid schema snapshot",
     handle: columns.varchar(32).notNull(),
     balance: columns.bigint().notNull(),
     settings: columns.jsonb<{ theme: string }>().optional(),
-    createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+    createdAt: columns.timestamp({ withTimezone: true, mode: "date" })
+      .notNull(),
   }, { naming: "preserve" });
 
   // Inference: bigint is typed as string (precision-safe); jsonb keeps its generic.

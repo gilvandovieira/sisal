@@ -214,7 +214,7 @@ Deno.test("parity: .$onUpdate() injects a value on UPDATE", () => {
     {
       id: columns.integer().primaryKey(),
       title: columns.text().notNull(),
-      updatedAt: columns.timestamp().$onUpdate(() => fixed),
+      updatedAt: columns.timestamp({ mode: "date" }).$onUpdate(() => fixed),
     },
     { naming: "preserve" },
   );

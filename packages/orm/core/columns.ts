@@ -31,6 +31,7 @@ export type ColumnDataType =
   | "json"
   | "jsonb"
   | "date"
+  | "time"
   | "timestamp"
   | "timestamptz"
   | "uuid"
@@ -43,9 +44,25 @@ export type ColumnRuntimeType =
   | number
   | boolean
   | Date
+  | Temporal.PlainDate
+  | Temporal.PlainTime
+  | Temporal.PlainDateTime
+  | Temporal.Instant
   | null
   | Record<string, unknown>
   | unknown[];
+
+/** Runtime value mode for date/time-ish columns. */
+export type ColumnValueMode = "temporal" | "date" | "string";
+
+/** Runtime modes for SQL `date` columns. */
+export type DateColumnMode = "temporal" | "date" | "string";
+
+/** Runtime modes for SQL `time` columns. */
+export type TimeColumnMode = "temporal" | "string";
+
+/** Runtime modes for SQL `timestamp` / `timestamptz` columns. */
+export type TimestampColumnMode = "temporal" | "date" | "string";
 
 /** A foreign-key referential action for `ON DELETE` / `ON UPDATE`. */
 export type ReferentialAction =
@@ -65,6 +82,7 @@ export interface ReferentialOptions {
 export interface ColumnDefinition<T> {
   readonly name?: ColumnName;
   readonly dataType: ColumnDataType;
+  readonly valueMode?: ColumnValueMode;
   readonly length?: number;
   readonly precision?: number;
   readonly scale?: number;
@@ -160,11 +178,34 @@ interface ColumnsFactory {
   json<T = Record<string, unknown>>(): ColumnBuilder<T | null>;
   /** Postgres `jsonb`. */
   jsonb<T = Record<string, unknown>>(): ColumnBuilder<T | null>;
-  date(): ColumnBuilder<Date | null>;
+  date(): ColumnBuilder<Temporal.PlainDate | null>;
+  date(
+    options: { readonly mode: "temporal" },
+  ): ColumnBuilder<Temporal.PlainDate | null>;
+  date(options: { readonly mode: "date" }): ColumnBuilder<Date | null>;
+  date(options: { readonly mode: "string" }): ColumnBuilder<string | null>;
+  time(): ColumnBuilder<Temporal.PlainTime | null>;
+  time(
+    options: { readonly mode: "temporal" },
+  ): ColumnBuilder<Temporal.PlainTime | null>;
+  time(options: { readonly mode: "string" }): ColumnBuilder<string | null>;
   /** Postgres `timestamp`; `{ withTimezone: true }` maps to `timestamptz`. */
+  timestamp(): ColumnBuilder<Temporal.PlainDateTime | null>;
   timestamp(
-    options?: { readonly withTimezone?: boolean },
+    options: { readonly mode: "temporal"; readonly withTimezone?: false },
+  ): ColumnBuilder<Temporal.PlainDateTime | null>;
+  timestamp(
+    options: { readonly mode?: "temporal"; readonly withTimezone: true },
+  ): ColumnBuilder<Temporal.Instant | null>;
+  timestamp(
+    options: { readonly mode: "temporal"; readonly withTimezone: boolean },
+  ): ColumnBuilder<Temporal.PlainDateTime | Temporal.Instant | null>;
+  timestamp(
+    options: { readonly mode: "date"; readonly withTimezone?: boolean },
   ): ColumnBuilder<Date | null>;
+  timestamp(
+    options: { readonly mode: "string"; readonly withTimezone?: boolean },
+  ): ColumnBuilder<string | null>;
   uuid(): ColumnBuilder<string | null>;
   /** Binary data: Postgres `bytea`, SQLite/libSQL `BLOB`. */
   bytea(): ColumnBuilder<Uint8Array | null>;
@@ -262,17 +303,11 @@ export const columns: ColumnsFactory = Object.freeze({
     return createColumnBuilder<T>("jsonb");
   },
 
-  date(): ColumnBuilder<Date | null> {
-    return createColumnBuilder<Date>("date");
-  },
+  date: dateColumn,
 
-  timestamp(
-    options: { readonly withTimezone?: boolean } = {},
-  ): ColumnBuilder<Date | null> {
-    return createColumnBuilder<Date>(
-      options.withTimezone ? "timestamptz" : "timestamp",
-    );
-  },
+  time: timeColumn,
+
+  timestamp: timestampColumn,
 
   uuid(): ColumnBuilder<string | null> {
     return createColumnBuilder<string>("uuid");
@@ -289,6 +324,67 @@ export const columns: ColumnsFactory = Object.freeze({
     return createColumnBuilder<T>(normalized.kind, normalized);
   },
 });
+
+function dateColumn(): ColumnBuilder<Temporal.PlainDate | null>;
+function dateColumn(
+  options: { readonly mode: "temporal" },
+): ColumnBuilder<Temporal.PlainDate | null>;
+function dateColumn(
+  options: { readonly mode: "date" },
+): ColumnBuilder<Date | null>;
+function dateColumn(
+  options: { readonly mode: "string" },
+): ColumnBuilder<string | null>;
+function dateColumn(
+  options: { readonly mode?: DateColumnMode } = {},
+): ColumnBuilder<unknown | null> {
+  return createColumnBuilder<unknown>("date", {
+    valueMode: options.mode ?? "temporal",
+  });
+}
+
+function timeColumn(): ColumnBuilder<Temporal.PlainTime | null>;
+function timeColumn(
+  options: { readonly mode: "temporal" },
+): ColumnBuilder<Temporal.PlainTime | null>;
+function timeColumn(
+  options: { readonly mode: "string" },
+): ColumnBuilder<string | null>;
+function timeColumn(
+  options: { readonly mode?: TimeColumnMode } = {},
+): ColumnBuilder<unknown | null> {
+  return createColumnBuilder<unknown>("time", {
+    valueMode: options.mode ?? "temporal",
+  });
+}
+
+function timestampColumn(): ColumnBuilder<Temporal.PlainDateTime | null>;
+function timestampColumn(
+  options: { readonly mode: "temporal"; readonly withTimezone?: false },
+): ColumnBuilder<Temporal.PlainDateTime | null>;
+function timestampColumn(
+  options: { readonly mode?: "temporal"; readonly withTimezone: true },
+): ColumnBuilder<Temporal.Instant | null>;
+function timestampColumn(
+  options: { readonly mode: "temporal"; readonly withTimezone: boolean },
+): ColumnBuilder<Temporal.PlainDateTime | Temporal.Instant | null>;
+function timestampColumn(
+  options: { readonly mode: "date"; readonly withTimezone?: boolean },
+): ColumnBuilder<Date | null>;
+function timestampColumn(
+  options: { readonly mode: "string"; readonly withTimezone?: boolean },
+): ColumnBuilder<string | null>;
+function timestampColumn(
+  options: {
+    readonly withTimezone?: boolean;
+    readonly mode?: TimestampColumnMode;
+  } = {},
+): ColumnBuilder<unknown | null> {
+  return createColumnBuilder<unknown>(
+    options.withTimezone ? "timestamptz" : "timestamp",
+    { valueMode: options.mode ?? "temporal" },
+  );
+}
 
 /** Creates a named column definition from metadata. */
 export function createColumn<T>(
@@ -431,6 +527,7 @@ class SisalColumnBuilder<
 }
 
 interface ColumnTypeExtra {
+  readonly valueMode?: ColumnValueMode;
   readonly length?: number;
   readonly precision?: number;
   readonly scale?: number;
@@ -444,6 +541,7 @@ function createColumnBuilder<T>(
   return new SisalColumnBuilder<T | null, false, false>(
     {
       dataType,
+      ...(extra.valueMode === undefined ? {} : { valueMode: extra.valueMode }),
       ...(extra.length === undefined ? {} : { length: extra.length }),
       ...(extra.precision === undefined ? {} : { precision: extra.precision }),
       ...(extra.scale === undefined ? {} : { scale: extra.scale }),
@@ -533,6 +631,9 @@ export function cloneColumnDefinition<T>(
   return {
     ...(definition.name === undefined ? {} : { name: definition.name }),
     dataType: definition.dataType,
+    ...(definition.valueMode === undefined
+      ? {}
+      : { valueMode: definition.valueMode }),
     ...(definition.length === undefined ? {} : { length: definition.length }),
     ...(definition.precision === undefined
       ? {}

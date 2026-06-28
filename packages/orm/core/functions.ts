@@ -16,6 +16,7 @@ import {
 import type { Database } from "./database.ts";
 import { OrmError } from "./errors.ts";
 import {
+  attachResultMetadata,
   emptySql,
   identifier,
   isRecord,
@@ -24,6 +25,7 @@ import {
   raw,
   type Sql,
 } from "./sql.ts";
+import type { ResultRowMetadata } from "./temporal.ts";
 
 /** Column-builder map describing a function's positional arguments. */
 export type FunctionArgsConfig = Record<
@@ -74,8 +76,11 @@ interface FunctionArgMeta {
 
 /** Internal: a materialized return shape. */
 type FunctionReturnMeta =
-  | { readonly kind: "scalar" }
-  | { readonly kind: "table" };
+  | { readonly kind: "scalar"; readonly column: ColumnDefinition<unknown> }
+  | {
+    readonly kind: "table";
+    readonly columns: Readonly<Record<string, ColumnDefinition<unknown>>>;
+  };
 
 /**
  * A typed database-function descriptor produced by {@link defineFunction}. Pass
@@ -223,12 +228,24 @@ function functionCallSql(
   ], emptySql());
 
   if (definition.returns.kind === "scalar") {
-    return joinSql(
-      [raw("select "), callExpr, raw(" as "), identifier(SCALAR_ALIAS)],
-      emptySql(),
+    return attachResultMetadata(
+      joinSql(
+        [raw("select "), callExpr, raw(" as "), identifier(SCALAR_ALIAS)],
+        emptySql(),
+      ),
+      { [SCALAR_ALIAS]: definition.returns.column },
     );
   }
-  return joinSql([raw("select * from "), callExpr], emptySql());
+  return attachResultMetadata(
+    joinSql([raw("select * from "), callExpr], emptySql()),
+    tableFunctionResultMetadata(definition.returns.columns),
+  );
+}
+
+function tableFunctionResultMetadata(
+  columns: Readonly<Record<string, ColumnDefinition<unknown>>>,
+): ResultRowMetadata {
+  return columns;
 }
 
 function buildArgs(
@@ -261,7 +278,7 @@ function buildReturns(
   returnsConfig: FunctionReturnsConfig,
 ): FunctionReturnMeta {
   if (isColumnBuilder(returnsConfig)) {
-    return { kind: "scalar" };
+    return { kind: "scalar", column: returnsConfig.definition };
   }
   if (isRecord(returnsConfig)) {
     const entries = Object.entries(returnsConfig);
@@ -279,7 +296,11 @@ function buildReturns(
         });
       }
     }
-    return { kind: "table" };
+    const columns: Record<string, ColumnDefinition<unknown>> = {};
+    for (const [name, builder] of entries) {
+      columns[name] = builder.definition;
+    }
+    return { kind: "table", columns };
   }
   throw new OrmError("Function returns must be a column or a column map", {
     code: "ORM_INVALID_QUERY",

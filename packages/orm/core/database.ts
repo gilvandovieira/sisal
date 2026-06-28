@@ -39,6 +39,7 @@ import {
   assertCondition,
   cloneSqlQuery,
   type Condition,
+  getResultMetadata,
   type InferProjection,
   normalizeSqlInput,
   type SelectColumnRef,
@@ -53,6 +54,7 @@ import {
   assertTable,
   type TableDefinition,
 } from "./table.ts";
+import { decodeTemporalRow, type TemporalParsingOptions } from "./temporal.ts";
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
@@ -174,6 +176,8 @@ export interface DatabaseOptions<
   readonly schema?: TSchema;
   /** Relation definitions created with {@link relations}. */
   readonly relations?: TRelations;
+  /** Opt-in Temporal result parsing for ORM-built queries with column metadata. */
+  readonly temporal?: TemporalParsingOptions;
 }
 
 /** Options for the in-memory ORM driver. */
@@ -196,6 +200,7 @@ export function createDatabase<
     ...(options.relations === undefined
       ? {}
       : { relations: options.relations }),
+    ...(options.temporal === undefined ? {} : { temporal: options.temporal }),
   });
 }
 
@@ -265,6 +270,7 @@ interface SisalDatabaseOptions<
   readonly logger?: Logger;
   readonly schema?: TSchema;
   readonly relations?: TRelations;
+  readonly temporal?: TemporalParsingOptions;
 }
 
 class SisalDatabase<
@@ -277,6 +283,7 @@ class SisalDatabase<
   readonly #logger?: Logger;
   readonly #schema?: TSchema;
   readonly #relations?: TRelations;
+  readonly #temporal: TemporalParsingOptions;
   readonly #relationRegistry: RelationRegistry;
 
   constructor(options: SisalDatabaseOptions<TSchema, TRelations>) {
@@ -285,6 +292,7 @@ class SisalDatabase<
     this.#logger = options.logger;
     this.#schema = options.schema;
     this.#relations = options.relations;
+    this.#temporal = options.temporal ?? {};
     this.#relationRegistry = createRelationRegistry(options.relations ?? []);
     this.query = createDatabaseQuery<TSchema, TRelations>(
       (query, params) => this.#query(query, params),
@@ -432,6 +440,7 @@ class SisalDatabase<
           ...(this.#relations === undefined
             ? {}
             : { relations: this.#relations }),
+          temporal: this.#temporal,
         });
 
         return await fn(transactionDatabase);
@@ -468,7 +477,7 @@ class SisalDatabase<
         },
         "orm query completed",
       );
-      return result;
+      return this.#decodeResult(rendered, result);
     } catch (error) {
       this.#error({ sql: rendered.text }, "orm query failed");
 
@@ -498,6 +507,25 @@ class SisalDatabase<
     } catch {
       // Logging must not break queries.
     }
+  }
+
+  #decodeResult<T>(
+    query: SqlQuery,
+    result: OrmQueryResult<T>,
+  ): OrmQueryResult<T> {
+    if (this.#temporal.parse !== true) {
+      return result;
+    }
+    const metadata = getResultMetadata(query);
+    if (metadata === undefined || Object.keys(metadata).length === 0) {
+      return result;
+    }
+    return {
+      rows: result.rows.map((row) =>
+        decodeTemporalRow(row as Record<string, unknown>, metadata) as T
+      ),
+      rowCount: result.rowCount,
+    };
   }
 }
 

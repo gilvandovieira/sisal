@@ -10,11 +10,13 @@ import { OrmError } from "./errors.ts";
 import { and, asc, desc } from "./operators.ts";
 import {
   assertCondition,
+  attachResultMetadata,
   columnToSql,
   type Condition,
   createCondition,
   emptySql,
   fillPreparedPlan,
+  getResultMetadata,
   identifier,
   type InferProjection,
   isColumn,
@@ -34,6 +36,7 @@ import {
   sql,
   type SqlQuery,
 } from "./sql.ts";
+import type { ResultColumnMetadata, ResultRowMetadata } from "./temporal.ts";
 import {
   assertTable,
   assertTableColumn,
@@ -164,9 +167,8 @@ export interface SelectBuilder<TTable, TResult> {
    * yields `{ rows, nextCursor }`. Set the page size with `.limit(n)`.
    *
    * Always end `orderBy` with a unique column (e.g. the primary key) so the
-   * comparison is total; this also sidesteps the timestamp-precision pitfall
-   * where a millisecond-precision `Date` cursor straddles a microsecond
-   * `timestamptz` value at a page boundary.
+   * comparison is total. For date/time cursors, prefer database-returned cursor
+   * values so adapter precision is preserved at page boundaries.
    */
   keyset<const TTerms extends readonly OrderTerm[]>(
     options: KeysetOptions<TResult, TTerms>,
@@ -906,7 +908,10 @@ export class SisalSelectBuilder<TTable, TResult>
       }
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      selectResultMetadata(table, projection),
+    );
   }
 
   prepare(name?: string): PreparedQuery<TResult[]> {
@@ -1236,10 +1241,15 @@ function prepareRows<T>(
   name: string | undefined,
 ): PreparedQuery<T[]> {
   const plan = renderToPlan(query, database.dialect);
-  return new SisalPreparedQuery<T[]>(plan, name, async (rendered) => {
-    const result = await database.query<T>(rendered);
-    return result.rows;
-  });
+  return new SisalPreparedQuery<T[]>(
+    plan,
+    name,
+    getResultMetadata(query),
+    async (rendered) => {
+      const result = await database.query<T>(rendered);
+      return result.rows;
+    },
+  );
 }
 
 /** Renders a builder once into a {@link PreparedQuery} returning the result. */
@@ -1252,6 +1262,7 @@ function prepareResult<T>(
   return new SisalPreparedQuery<OrmQueryResult<T>>(
     plan,
     name,
+    getResultMetadata(query),
     (rendered) => database.execute<T>(rendered),
   );
 }
@@ -1260,14 +1271,17 @@ class SisalPreparedQuery<TExecuteResult>
   implements PreparedQuery<TExecuteResult> {
   readonly name?: string;
   readonly #plan: PreparedPlan;
+  readonly #metadata?: ResultRowMetadata;
   readonly #run: (query: SqlQuery) => Promise<TExecuteResult>;
 
   constructor(
     plan: PreparedPlan,
     name: string | undefined,
+    metadata: ResultRowMetadata | undefined,
     run: (query: SqlQuery) => Promise<TExecuteResult>,
   ) {
     this.#plan = plan;
+    this.#metadata = metadata;
     if (name !== undefined) {
       this.name = name;
     }
@@ -1275,7 +1289,10 @@ class SisalPreparedQuery<TExecuteResult>
   }
 
   toSql(values: PlaceholderValues = {}): SqlQuery {
-    return fillPreparedPlan(this.#plan, values);
+    return attachResultMetadata(
+      fillPreparedPlan(this.#plan, values),
+      this.#metadata,
+    );
   }
 
   execute(values: PlaceholderValues = {}): Promise<TExecuteResult> {
@@ -1300,6 +1317,36 @@ function projectionSql(projection: SelectProjection): Sql {
   );
 }
 
+function selectResultMetadata(
+  table: TableDefinition | undefined,
+  projection: SelectProjection | undefined,
+): ResultRowMetadata | undefined {
+  if (projection !== undefined) {
+    return projectionResultMetadata(projection);
+  }
+  return table === undefined ? undefined : tableResultMetadata(table);
+}
+
+function projectionResultMetadata(
+  projection: SelectProjection,
+): ResultRowMetadata | undefined {
+  const metadata: Record<string, ResultColumnMetadata> = {};
+  for (const [alias, value] of Object.entries(projection)) {
+    if (isColumn(value)) {
+      metadata[alias] = value;
+    }
+  }
+  return Object.keys(metadata).length === 0 ? undefined : metadata;
+}
+
+function tableResultMetadata(table: TableDefinition): ResultRowMetadata {
+  const metadata: Record<string, ResultColumnMetadata> = {};
+  for (const [propertyName, column] of Object.entries(table.columns)) {
+    metadata[propertyName] = column;
+  }
+  return metadata;
+}
+
 function returningSql(
   returning: SelectProjection | boolean,
   table: TableDefinition,
@@ -1311,6 +1358,19 @@ function returningSql(
     return joinSql([raw(" returning "), tableSelectionSql(table)], emptySql());
   }
   return joinSql([raw(" returning "), projectionSql(returning)], emptySql());
+}
+
+function returningResultMetadata(
+  returning: SelectProjection | boolean,
+  table: TableDefinition,
+): ResultRowMetadata | undefined {
+  if (returning === false) {
+    return undefined;
+  }
+  if (returning === true) {
+    return tableResultMetadata(table);
+  }
+  return projectionResultMetadata(returning);
 }
 
 // The column list for `SELECT *` / `RETURNING *` over a table. When every column
@@ -1576,7 +1636,10 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
       parts.push(returning);
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      returningResultMetadata(this.#returning, this.#table),
+    );
   }
 
   prepare(name?: string): PreparedQuery<OrmQueryResult<InferSelect<TTable>>> {
@@ -1711,7 +1774,10 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
       parts.push(returning);
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      returningResultMetadata(this.#returning, this.#table),
+    );
   }
 
   prepare(name?: string): PreparedQuery<OrmQueryResult<InferSelect<TTable>>> {
@@ -1807,7 +1873,10 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
       parts.push(returning);
     }
 
-    return joinSql(parts, emptySql());
+    return attachResultMetadata(
+      joinSql(parts, emptySql()),
+      returningResultMetadata(this.#returning, this.#table),
+    );
   }
 
   prepare(name?: string): PreparedQuery<OrmQueryResult<InferSelect<TTable>>> {

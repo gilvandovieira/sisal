@@ -26,7 +26,8 @@ const posts = defineTable("posts", {
   id: columns.uuid().primaryKey(),
   status: columns.text().notNull(),
   hot_score: columns.doublePrecision().notNull(),
-  created_at: columns.timestamp({ withTimezone: true }).notNull(),
+  created_at: columns.timestamp({ withTimezone: true, mode: "date" })
+    .notNull(),
 });
 
 function renderText(query: { toSql(): Sql }): string {

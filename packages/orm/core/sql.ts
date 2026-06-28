@@ -7,6 +7,13 @@
 
 import type { ColumnDefinition } from "./columns.ts";
 import { OrmError, type OrmErrorCode } from "./errors.ts";
+import {
+  isTemporalSqlValue,
+  normalizeTemporalSqlValue,
+  type ResultRowMetadata,
+  serializeTemporalValue,
+  type TemporalSqlValue,
+} from "./temporal.ts";
 
 /** Normalized table name, optionally including a validated schema path. */
 export type TableName = string;
@@ -24,6 +31,7 @@ export type SqlParameter =
   | boolean
   | null
   | Date
+  | TemporalSqlValue
   | Uint8Array
   | Record<string, unknown>
   | unknown[];
@@ -33,6 +41,8 @@ export interface SqlQuery {
   readonly text: string;
   readonly params: readonly SqlParameter[];
 }
+
+const RESULT_METADATA = new WeakMap<object, ResultRowMetadata>();
 
 /** Any SQL input accepted by database execution methods. */
 export type SqlInput = Sql | SqlQuery | string;
@@ -242,7 +252,9 @@ export function renderSql(
     return param.value;
   });
 
-  return { text: plan.text, params };
+  const rendered = { text: plan.text, params };
+  copyResultMetadata(query, rendered);
+  return rendered;
 }
 
 /** Normalizes manual or builder SQL into the driver query contract. */
@@ -264,7 +276,7 @@ export function normalizeSqlInput(
   if (typeof query === "string") {
     return {
       text: query,
-      params: params === undefined ? [] : [...params],
+      params: params === undefined ? [] : params.map(serializeSqlValue),
     };
   }
 
@@ -275,10 +287,12 @@ export function normalizeSqlInput(
       });
     }
 
-    return {
+    const normalized = {
       text: query.text,
-      params: [...query.params],
+      params: query.params.map(serializeSqlValue),
     };
+    copyResultMetadata(query, normalized);
+    return normalized;
   }
 
   throw new OrmError("Expected SQL input", {
@@ -362,6 +376,15 @@ export function serializeSqlValue(value: unknown): SqlParameter {
     return null;
   }
 
+  if (isTemporalSqlValue(value)) {
+    return serializeTemporalValue(value);
+  }
+
+  const normalized = normalizeTemporalSqlValue(value);
+  if (normalized !== value) {
+    return serializeSqlValue(normalized);
+  }
+
   if (
     typeof value === "string" || typeof value === "number" ||
     typeof value === "boolean" || value === null ||
@@ -377,7 +400,7 @@ export function serializeSqlValue(value: unknown): SqlParameter {
   }
 
   if (Array.isArray(value)) {
-    return value;
+    return value.map(serializeSqlValue);
   }
 
   if (isRecord(value)) {
@@ -414,6 +437,29 @@ function makeSql(chunks: SqlChunk[]): Sql {
 
 export function paramSql(value: unknown): Sql {
   return makeSql([{ kind: "param", value: serializeSqlValue(value) }]);
+}
+
+/** Attaches ORM result-column metadata to a SQL fragment or rendered query. */
+export function attachResultMetadata<T extends object>(
+  value: T,
+  metadata: ResultRowMetadata | undefined,
+): T {
+  if (metadata !== undefined && Object.keys(metadata).length > 0) {
+    RESULT_METADATA.set(value, metadata);
+  }
+  return value;
+}
+
+/** Returns ORM result-column metadata attached to a SQL fragment/query. */
+export function getResultMetadata(
+  value: object,
+): ResultRowMetadata | undefined {
+  return RESULT_METADATA.get(value);
+}
+
+/** Copies result-column metadata between SQL fragments/rendered queries. */
+export function copyResultMetadata(from: object, to: object): void {
+  attachResultMetadata(to, RESULT_METADATA.get(from));
 }
 
 /**
@@ -662,8 +708,10 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function cloneSqlQuery(query: SqlQuery): SqlQuery {
-  return {
+  const cloned = {
     text: query.text,
     params: [...query.params],
   };
+  copyResultMetadata(query, cloned);
+  return cloned;
 }

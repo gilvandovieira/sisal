@@ -63,7 +63,10 @@ Deno.test("functions: RETURNS TABLE renders select * with casts + bound params",
 
 Deno.test("functions: scalar return renders select fn(...) as result", () => {
   const hotScore = defineFunction("app.calculate_hot_score", {
-    args: { score: columns.integer(), createdAt: columns.timestamp() },
+    args: {
+      score: columns.integer(),
+      createdAt: columns.timestamp({ mode: "date" }),
+    },
     returns: columns.doublePrecision(),
   });
   assertEquals(

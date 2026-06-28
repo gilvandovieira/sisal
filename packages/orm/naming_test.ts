@@ -27,7 +27,8 @@ Deno.test("naming: snake_case is the default for camelCase keys", () => {
   const posts = defineTable("posts", {
     id: columns.uuid().primaryKey(),
     hotScore: columns.doublePrecision().notNull(),
-    createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+    createdAt: columns.timestamp({ withTimezone: true, mode: "date" })
+      .notNull(),
   });
 
   // Property keys stay camelCase; physical column names become snake_case.
