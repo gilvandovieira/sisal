@@ -11,6 +11,33 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added the `examples/neon-rising-feed` and `examples/libsql-rising-feed`
+  examples: a Reddit-style **`/rising`** timeline built on **time-bucketed
+  activity** and a **moving-window** score, as a matched Neon/PostgreSQL ↔
+  libSQL/Turso pair. Both store an indexed, **time-dependent** `rising_score`
+  (recomputed at an explicit `now`, never a hidden `now()`), expose `/new` +
+  `/rising` with keyset pagination, and prove six product behaviors
+  (fresh-burst, decayed-old, comment-storm, steady, report-penalty, unique-actor
+  anti-spam) from a deterministic seed pinned to a fixed `DEMO_NOW`. The Neon
+  version pushes the activity recorder and scoring into PostgreSQL functions
+  called via the typed `db.call`/`defineFunction` surface (one atomic
+  statement); the libSQL version reimplements the same logic in TypeScript —
+  **SQLite has no stored procedures** — orchestrated through the builder
+  (`db.transaction` with `onConflictDoNothing().returning()`, an
+  `onConflictDoUpdate` upsert with raw-`sql` increments, and `db.batch` for the
+  bulk recompute). Each example has network-free unit tests and a gated DB
+  integration suite (`SISAL_NEON_RISING_FEED_IT=1` /
+  `SISAL_LIBSQL_RISING_FEED_IT=1`); the libSQL suite and demo were run
+  end-to-end against a local SQLite file. Both are registered in the workspace
+  and the `check` task. The READMEs document the moving-average model and the
+  Sisal API pressure points the pair surfaced (see the v0.5.0 roadmap).
+- Recorded new v0.5.0 roadmap pressure points surfaced by the rising-feed
+  examples: a portable "transaction script" abstraction for the no-stored-
+  procedures gap (so the recorder reads identically across engines),
+  `FILTER`-clause aggregates + interval/date math in the builder (the
+  moving-window sums currently need raw SQL), a portable `dateTrunc`/time-bucket
+  helper, and a note that `.optional()` widens the inferred SELECT row type with
+  `undefined` (it should affect only the insert type).
 - Added richer index DDL generation (roadmap item 5). Table-level `index()` /
   `uniqueIndex()` now accept per-column sort direction via `asc()`/`desc()`
   terms, raw `` sql`...` `` **expression** keys (an expression index), and a
