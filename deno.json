@@ -14,6 +14,7 @@
     "./examples/neon-hot-feed",
     "./examples/neon-rising-feed",
     "./examples/libsql-rising-feed",
+    "./examples/postgres-rising-feed",
     "./benchmarks"
   ],
   "imports": {
@@ -25,7 +26,7 @@
     "fmt:check": "deno fmt --check",
     "lint": "deno lint",
     "hooks:install": "git config core.hooksPath .githooks",
-    "check": "deno check packages/orm/mod.ts packages/migrate/mod.ts packages/migrate/cli.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/neon/mod.ts packages/neon/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts packages/libsql/mod.ts packages/libsql/migrate/mod.ts examples/basic-postgres/mod.ts examples/basic-sqlite/mod.ts examples/basic-libsql/mod.ts examples/showcase-postgres/mod.ts examples/showcase-sqlite/mod.ts examples/neon-hot-feed/mod.ts examples/neon-rising-feed/mod.ts examples/libsql-rising-feed/mod.ts benchmarks/mod.ts",
+    "check": "deno check packages/orm/mod.ts packages/migrate/mod.ts packages/migrate/cli.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/neon/mod.ts packages/neon/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts packages/libsql/mod.ts packages/libsql/migrate/mod.ts examples/basic-postgres/mod.ts examples/basic-sqlite/mod.ts examples/basic-libsql/mod.ts examples/showcase-postgres/mod.ts examples/showcase-sqlite/mod.ts examples/neon-hot-feed/mod.ts examples/neon-rising-feed/mod.ts examples/libsql-rising-feed/mod.ts examples/postgres-rising-feed/mod.ts benchmarks/mod.ts",
     "sisal": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi packages/migrate/cli.ts",
     "bench": "deno bench --allow-run=deno benchmarks/mod.ts",
     "docs:llms": "deno run --frozen --allow-read --allow-write --allow-run tools/generate_llms.ts",

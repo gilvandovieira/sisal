@@ -1,0 +1,22 @@
+# Local PostgreSQL 18 for the postgres-rising-feed example.
+#
+#   docker compose up -d
+#   SISAL_POSTGRES_RISING_FEED_IT=1 deno test -A feed_db_test.ts
+#   docker compose down -v
+#
+# Defaults match .env.example
+# (postgres://sisal:sisal@localhost:5432/sisal_rising_feed).
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: sisal
+      POSTGRES_PASSWORD: sisal
+      POSTGRES_DB: sisal_rising_feed
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sisal -d sisal_rising_feed"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
