@@ -131,6 +131,16 @@ export type {
   UpdateBuilder,
   WithQueryBuilder,
 } from "./builders.ts";
+export { defineFunction } from "./functions.ts";
+export type {
+  FunctionArgsConfig,
+  FunctionArgsInput,
+  FunctionCall,
+  FunctionConfig,
+  FunctionDefinition,
+  FunctionReturnsConfig,
+  FunctionRow,
+} from "./functions.ts";
 export { relations } from "./relations.ts";
 export type {
   RelationalColumnSelection,

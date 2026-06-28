@@ -157,6 +157,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
+- `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineSchemaSnapshot` (function): Normalizes and validates a schema snapshot.
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
@@ -169,6 +170,13 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
+- `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
+- `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
+- `FunctionCall` (interface): The result of {@link Database.call}: a renderable, runnable function call.
+- `FunctionConfig` (interface): Config object accepted by {@link defineFunction}.
+- `FunctionDefinition` (interface): A typed database-function descriptor produced by {@link defineFunction}. Pass it to {@link Database.call} to render and run a single SELECT * FROM fn(args) statement. The two type parameters carry the inferred...
+- `FunctionReturnsConfig` (typeAlias): A function's return shape: a column map (RETURNS TABLE (...), yielding a typed row) or a single column builder (a scalar, yielding a typed value).
+- `FunctionRow` (typeAlias): The row (table return) or scalar value a function call yields.
 - `getDefaultColumnNaming` (function): Returns the global default column-naming strategy applied by {@link defineTable} when a table does not pass its own naming option. Defaults to "snake_case".
 - `getTableColumns` (function): Returns table columns.
 - `getTableName` (function): Returns the normalized table name.
@@ -334,6 +342,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
+- `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
 - `DeleteBuilder` (interface): Fluent builder for DELETE queries.
@@ -342,6 +351,13 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `eq` (function): column = value SQL condition.
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
+- `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
+- `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
+- `FunctionCall` (interface): The result of {@link Database.call}: a renderable, runnable function call.
+- `FunctionConfig` (interface): Config object accepted by {@link defineFunction}.
+- `FunctionDefinition` (interface): A typed database-function descriptor produced by {@link defineFunction}. Pass it to {@link Database.call} to render and run a single SELECT * FROM fn(args) statement. The two type parameters carry the inferred...
+- `FunctionReturnsConfig` (typeAlias): A function's return shape: a column map (RETURNS TABLE (...), yielding a typed row) or a single column builder (a scalar, yielding a typed value).
+- `FunctionRow` (typeAlias): The row (table return) or scalar value a function call yields.
 - `getDefaultColumnNaming` (function): Returns the global default column-naming strategy applied by {@link defineTable} when a table does not pass its own naming option. Defaults to "snake_case".
 - `getTableColumns` (function): Returns table columns.
 - `getTableName` (function): Returns the normalized table name.
@@ -2048,6 +2064,19 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added a typed database-function caller to `@sisal/orm` (roadmap item 1):
+  `defineFunction(name, { args, returns })` declares a function's positional
+  argument column types and its return shape — a `RETURNS TABLE (...)` column
+  map (typed row) or a single column builder (typed scalar). `db.call(fn, args)`
+  renders one `select * from <schema.fn>($1::t1, …)` statement with the `::type`
+  casts taken from the argument column types and every value bound, then runs it
+  with `.execute()` (all rows) or `.one()` (asserts exactly one row); a scalar
+  return renders `select fn(...) as "result"` and unwraps the value. Pure
+  `@sisal/orm` with no adapter changes. Exports `defineFunction`,
+  `FunctionDefinition`, `FunctionCall`, `FunctionConfig`, `FunctionArgsConfig`,
+  `FunctionReturnsConfig`, `FunctionArgsInput`, and `FunctionRow`. The
+  `examples/neon-hot-feed` `src/vote.ts` is rewritten to use it (no raw `sql`
+  string), and the README's function-caller pressure point is resolved.
 - Added column-name mapping to `@sisal/orm` (roadmap item 7): `defineTable`
   derives physical column names through a naming strategy, the `naming` option
   (`"snake_case"` | `"camelCase"` | `"preserve"` | a `(key) => name` function),
@@ -4765,7 +4794,7 @@ the two documents stay in step.
 
 | # | Item                                              | Priority | Rough effort | Status |
 | - | ------------------------------------------------- | -------- | ------------ | ------ |
-| 1 | Typed database-function caller                    | P1       | M            | 🔴     |
+| 1 | Typed database-function caller                    | P1       | M            | 🟢     |
 | 2 | Serverless-safe SQL migration applier + Neon CLI  | P1       | M–L          | 🔴     |
 | 3 | Keyset / cursor pagination helper                 | P1       | M            | 🔴     |
 | 4 | Raw expressions in builder `SET` / `VALUES`       | P2       | M            | 🔴     |
@@ -4778,13 +4807,27 @@ story; they should land first.
 
 ---
 
-## 1. Typed database-function caller — P1
+## 1. Typed database-function caller — P1 — 🟢 Done
+
+**Shipped.** `defineFunction(name, { args, returns })` declares a function's
+positional argument column types and its return shape (a `RETURNS TABLE (...)`
+column map → typed row, or a single column builder → typed scalar).
+`db.call(fn, args)` renders one `select * from <schema.fn>($1::t1, …)` statement
+with the `::type` casts taken from the argument column types and every value
+bound, then runs it with `.execute()` (rows) or `.one()` (asserts exactly one).
+A scalar return renders `select fn(...) as "result"` and unwraps the value. Pure
+`@sisal/orm`, no adapter changes. Exports `defineFunction`,
+`FunctionDefinition`, `FunctionCall`, `FunctionConfig`, `FunctionArgsConfig`,
+`FunctionReturnsConfig`, `FunctionArgsInput`, `FunctionRow`. The example's
+`src/vote.ts` now uses it with no `sql` string; covered by
+`packages/orm/functions_test.ts` (render + param order, casts, scalar/table,
+`.one()`, validation).
 
 **Problem.** The whole point of the example is an atomic vote via the PostgreSQL
-function `app.vote_post(post_id, user_id, value)`. There is no Sisal surface for
-calling a stored function and mapping its `RETURNS TABLE (...)` to a typed row,
-so the call is a hand-written `sql` template and the result type is asserted by
-hand.
+function `app.vote_post(post_id, user_id, value)`. There was no Sisal surface
+for calling a stored function and mapping its `RETURNS TABLE (...)` to a typed
+row, so the call was a hand-written `sql` template and the result type was
+asserted by hand.
 
 **Where it surfaced.**
 

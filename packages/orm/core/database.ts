@@ -22,6 +22,11 @@ import {
   type WithQueryBuilder,
 } from "./builders.ts";
 import { OrmError } from "./errors.ts";
+import {
+  createFunctionCall,
+  type FunctionCall,
+  type FunctionDefinition,
+} from "./functions.ts";
 import { count } from "./operators.ts";
 import {
   createDatabaseQuery,
@@ -127,6 +132,16 @@ export interface Database<
 
   /** Counts rows in a table, optionally filtered, returning a `number`. */
   $count(table: TableDefinition, where?: Condition): Promise<number>;
+
+  /**
+   * Calls a typed database function declared with `defineFunction`, returning a
+   * caller that renders one `SELECT * FROM fn(args)` statement (casts taken from
+   * the argument column types) and runs it via `.execute()` / `.one()`.
+   */
+  call<TArgsInput, TRow>(
+    fn: FunctionDefinition<TArgsInput, TRow>,
+    args: TArgsInput,
+  ): FunctionCall<TRow>;
 
   insert<TTable extends TableDefinition>(
     table: TTable,
@@ -358,6 +373,13 @@ class SisalDatabase<
           ...(projection === undefined ? {} : { projection }),
         }),
     } as WithQueryBuilder;
+  }
+
+  call<TArgsInput, TRow>(
+    fn: FunctionDefinition<TArgsInput, TRow>,
+    args: TArgsInput,
+  ): FunctionCall<TRow> {
+    return createFunctionCall<TRow>(this, fn, args);
   }
 
   async $count(table: TableDefinition, where?: Condition): Promise<number> {

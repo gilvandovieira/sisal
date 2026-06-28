@@ -11,6 +11,19 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added a typed database-function caller to `@sisal/orm` (roadmap item 1):
+  `defineFunction(name, { args, returns })` declares a function's positional
+  argument column types and its return shape — a `RETURNS TABLE (...)` column
+  map (typed row) or a single column builder (typed scalar). `db.call(fn, args)`
+  renders one `select * from <schema.fn>($1::t1, …)` statement with the `::type`
+  casts taken from the argument column types and every value bound, then runs it
+  with `.execute()` (all rows) or `.one()` (asserts exactly one row); a scalar
+  return renders `select fn(...) as "result"` and unwraps the value. Pure
+  `@sisal/orm` with no adapter changes. Exports `defineFunction`,
+  `FunctionDefinition`, `FunctionCall`, `FunctionConfig`, `FunctionArgsConfig`,
+  `FunctionReturnsConfig`, `FunctionArgsInput`, and `FunctionRow`. The
+  `examples/neon-hot-feed` `src/vote.ts` is rewritten to use it (no raw `sql`
+  string), and the README's function-caller pressure point is resolved.
 - Added column-name mapping to `@sisal/orm` (roadmap item 7): `defineTable`
   derives physical column names through a naming strategy, the `naming` option
   (`"snake_case"` | `"camelCase"` | `"preserve"` | a `(key) => name` function),
