@@ -109,6 +109,21 @@ Deno.test("calculateRisingScore is time-dependent (windows slide)", () => {
   assertAlmostEquals(atLater, 12); // only last_60m remains 30m later
 });
 
+Deno.test("calculateRisingScore ignores future and out-of-window buckets", () => {
+  const inWindow = bucketAt(2, 5);
+  // bucketAt with a negative argument lands AFTER `now` (a future bucket).
+  const future = bucketAt(-10, 100);
+  // Older than the 120-minute floor.
+  const old = bucketAt(200, 100);
+
+  const onlyInWindow = calculateRisingScore([inWindow], NOW);
+  const withNoise = calculateRisingScore([inWindow, future, old], NOW);
+  // The future and old buckets contribute nothing despite their large scores.
+  assertEquals(withNoise, onlyInWindow);
+  // Deterministic: same inputs + same `now` ⇒ same score.
+  assertEquals(calculateRisingScore([inWindow, future, old], NOW), withNoise);
+});
+
 Deno.test("feeds build and render without a database (sqlite noop)", async () => {
   const db = createDatabase({ dialect: "sqlite" }) as unknown as LibsqlDatabase;
 

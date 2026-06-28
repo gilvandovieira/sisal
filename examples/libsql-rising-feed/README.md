@@ -151,6 +151,23 @@ In addition to the ones in the
    via `@neon-rs/load`). Not a Sisal issue, but worth flagging for anyone wiring
    up permissions for `@sisal/libsql` on a local file.
 
+## Production notes
+
+This example keeps the recompute path deliberately simple. At scale you'd:
+
+- **Recompute only dirty posts**, not every published post.
+  `recomputeAllRisingScores` rescans all posts; production should recompute only
+  posts with activity since their last `rising_score_updated_at` (e.g. a `dirty`
+  set written by `recordPostActivity`).
+- **Chunk large batches.** `recomputeAllRisingScores` puts one UPDATE per post
+  into a single `db.batch([...])`. For thousands of posts, split the updates
+  into chunks (e.g. 500 per batch) so no single transaction/round trip is huge.
+- **Retain/consolidate old buckets.** Buckets older than the 120-minute window
+  can never affect a rising score again — delete or roll them up periodically so
+  `post_activity_buckets` doesn't grow without bound.
+  (`recomputePostRisingScore` and `recomputeAllRisingScores` already only _read_
+  buckets inside the window.)
+
 ## Tests
 
 ```sh

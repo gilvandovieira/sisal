@@ -19,7 +19,11 @@
 import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
 import { connect, type LibsqlDatabase } from "@sisal/libsql";
 
-import { bucketActivityScore } from "./src/rising.ts";
+import {
+  bucketActivityScore,
+  calculateRisingScore,
+  type ScoredBucket,
+} from "./src/rising.ts";
 import { runMigrations } from "./src/migrate.ts";
 import { recordPostActivity } from "./src/activity.ts";
 import {
@@ -235,6 +239,87 @@ Deno.test({
     }
   },
 });
+
+Deno.test({
+  name: "libsql rising feed: future and old buckets do not count",
+  ignore: !RUN,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const { db, url } = await openTestDb();
+    try {
+      await runMigrations(db, { reset: true });
+
+      const postId = await insertPost(db, "future + old buckets");
+
+      // In-window: 1 upvote ~2m ago → contributes (activity_score 3).
+      await recordPostActivity(db, {
+        postId,
+        actorId: crypto.randomUUID(),
+        kind: "upvote",
+        at: minutesAgo(2),
+      });
+      // Future: a big comment burst dated AFTER now. Must NOT count.
+      for (let i = 0; i < 5; i += 1) {
+        await recordPostActivity(db, {
+          postId,
+          actorId: crypto.randomUUID(),
+          kind: "comment",
+          at: new Date(T0.getTime() + 10 * 60_000),
+        });
+      }
+      // Old: a big burst > 120m ago. Must NOT count, and must not be scanned by
+      // the single-post recompute (it reads only the 120-minute window).
+      for (let i = 0; i < 5; i += 1) {
+        await recordPostActivity(db, {
+          postId,
+          actorId: crypto.randomUUID(),
+          kind: "upvote",
+          at: minutesAgo(200),
+        });
+      }
+
+      // Single-post recompute reads only the window, yet its result equals the
+      // TypeScript model over EVERY bucket (which ignores future + old) — so old
+      // buckets neither affect the score nor need scanning.
+      const single = await recomputePostRisingScore(db, postId, T0);
+      const buckets = await allBucketsFor(db, postId);
+      assertAlmostEquals(single, calculateRisingScore(buckets, T0), 1e-9);
+      // Only the in-window bucket counted: last_15m=last_60m=3, accel=3 ⇒ 18.
+      assertAlmostEquals(single, 18, 1e-9);
+      assertAlmostEquals(await postScore(db, postId), single, 1e-9);
+
+      // Single-post and all-post recompute agree for the same data + now.
+      await recomputeAllRisingScores(db, T0);
+      assertAlmostEquals(await postScore(db, postId), single, 1e-9);
+    } finally {
+      await db.close();
+      if (REMOTE_URL === undefined && url.startsWith("file:")) {
+        try {
+          await Deno.remove(url.slice("file:".length));
+        } catch { /* ignore */ }
+      }
+    }
+  },
+});
+
+async function allBucketsFor(
+  db: LibsqlDatabase,
+  postId: string,
+): Promise<ScoredBucket[]> {
+  const { postActivityBuckets } = await import("./src/schema.ts");
+  const { eq } = await import("@sisal/orm");
+  const rows = await db.select({
+    bucket_start: postActivityBuckets.columns.bucket_start,
+    activity_score: postActivityBuckets.columns.activity_score,
+  }).from(postActivityBuckets)
+    .where(eq(postActivityBuckets.columns.post_id, postId))
+    .execute();
+  return rows.map((row) => ({
+    bucketStart: row.bucket_start,
+    activityScore: Number(row.activity_score),
+  }));
+}
 
 async function collect<TCursor>(
   fetchPage: (cursor?: TCursor) => Promise<FeedPage<TCursor>>,

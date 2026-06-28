@@ -19,7 +19,7 @@
  * @module
  */
 
-import { eq, gte } from "@sisal/orm";
+import { and, eq, gte } from "@sisal/orm";
 import type { LibsqlDatabase } from "@sisal/libsql";
 import { postActivityBuckets, posts } from "./schema.ts";
 import {
@@ -34,11 +34,18 @@ export async function recomputePostRisingScore(
   postId: string,
   now: Date,
 ): Promise<number> {
+  // Read only buckets that can affect the score — the same 120-minute window
+  // floor the all-post path uses. Buckets older than this can't enter any
+  // window, so there's no need to scan them; future buckets are excluded by
+  // calculateRisingScore's per-window upper bound.
   const rows = await db.select({
     bucket_start: postActivityBuckets.columns.bucket_start,
     activity_score: postActivityBuckets.columns.activity_score,
   }).from(postActivityBuckets)
-    .where(eq(postActivityBuckets.columns.post_id, postId))
+    .where(and(
+      eq(postActivityBuckets.columns.post_id, postId),
+      gte(postActivityBuckets.columns.bucket_start, windowFloorIso(now)),
+    ))
     .execute();
   const score = calculateRisingScore(toScored(rows), now);
   await db.update(posts)
