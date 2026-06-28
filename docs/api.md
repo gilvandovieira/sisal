@@ -21,7 +21,7 @@ The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
 [`drizzle-parity.md`](./drizzle-parity.md) for how this surface maps to Drizzle
 ORM 0.45.2 and where it diverges on purpose.
 
-> **Stability:** all packages are `0.2.0` (pre-1.0). The surface below is
+> **Stability:** all packages are `0.3.0` (pre-1.0). The surface below is
 > current but may change before 1.0.
 
 ---
@@ -92,27 +92,34 @@ users.columns.id; // { name: "id", tableName: "users", dataType: "uuid", ... }
 `columns` is a frozen object of constructors. Each returns an immutable
 `ColumnBuilder`.
 
-| Factory                               | Value type | Notes                                     |
-| ------------------------------------- | ---------- | ----------------------------------------- |
-| `columns.text()`                      | `string`   |                                           |
-| `columns.varchar(length?)`            | `string`   | `varchar(n)` when `length` given          |
-| `columns.char(length?)`               | `string`   | `char(n)` when `length` given             |
-| `columns.integer()`                   | `number`   |                                           |
-| `columns.smallint()`                  | `number`   |                                           |
-| `columns.bigint()`                    | `string`   | string-typed to preserve 64-bit precision |
-| `columns.serial()`                    | `number`   | auto-increment; optional on insert        |
-| `columns.bigserial()`                 | `string`   | auto-increment; optional on insert        |
-| `columns.numeric(precision?, scale?)` | `string`   | string-typed to preserve precision        |
-| `columns.decimal(precision?, scale?)` | `string`   | alias of `numeric`                        |
-| `columns.real()`                      | `number`   |                                           |
-| `columns.doublePrecision()`           | `number`   | Postgres `double precision`               |
-| `columns.number()`                    | `number`   | generic numeric                           |
-| `columns.boolean()`                   | `boolean`  |                                           |
-| `columns.json<T>()`                   | `T`        | defaults `T = Record<string, unknown>`    |
-| `columns.jsonb<T>()`                  | `T`        | Postgres `jsonb`                          |
-| `columns.date()`                      | `Date`     |                                           |
-| `columns.timestamp(options?)`         | `Date`     | `{ withTimezone: true }` → `timestamptz`  |
-| `columns.uuid()`                      | `string`   |                                           |
+| Factory                               | Value type   | Notes                                     |
+| ------------------------------------- | ------------ | ----------------------------------------- |
+| `columns.text()`                      | `string`     |                                           |
+| `columns.varchar(length?)`            | `string`     | `varchar(n)` when `length` given          |
+| `columns.char(length?)`               | `string`     | `char(n)` when `length` given             |
+| `columns.integer()`                   | `number`     |                                           |
+| `columns.smallint()`                  | `number`     |                                           |
+| `columns.bigint()`                    | `string`     | string-typed to preserve 64-bit precision |
+| `columns.serial()`                    | `number`     | auto-increment; optional on insert        |
+| `columns.bigserial()`                 | `string`     | auto-increment; optional on insert        |
+| `columns.numeric(precision?, scale?)` | `string`     | string-typed to preserve precision        |
+| `columns.decimal(precision?, scale?)` | `string`     | alias of `numeric`                        |
+| `columns.real()`                      | `number`     |                                           |
+| `columns.doublePrecision()`           | `number`     | Postgres `double precision`               |
+| `columns.number()`                    | `number`     | generic numeric                           |
+| `columns.boolean()`                   | `boolean`    |                                           |
+| `columns.json<T>()`                   | `T`          | defaults `T = Record<string, unknown>`    |
+| `columns.jsonb<T>()`                  | `T`          | Postgres `jsonb`                          |
+| `columns.date()`                      | `Date`       |                                           |
+| `columns.timestamp(options?)`         | `Date`       | `{ withTimezone: true }` → `timestamptz`  |
+| `columns.uuid()`                      | `string`     |                                           |
+| `columns.bytea()`                     | `Uint8Array` | Postgres `bytea`; SQLite/libSQL `BLOB`    |
+| `columns.customType<T>(options)`      | `T`          | trusted dialect type escape hatch         |
+
+`columns.customType<T>({ kind, dialectType })` preserves `kind` in snapshots and
+lets Postgres DDL emit a trusted, developer-authored `dialectType` verbatim. Use
+it for types such as `time`, `interval`, `vector(1536)`, `inet`, or identity
+syntax when a dedicated Sisal factory does not exist.
 
 ### Column modifiers (`ColumnBuilder`)
 
@@ -184,29 +191,33 @@ Each returns a `Condition`. Comparison operators bind their right-hand value as
 a parameter unless it is itself a column (which renders as a column reference,
 for join conditions).
 
-| Operator                         | SQL                                 |
-| -------------------------------- | ----------------------------------- |
-| `eq(col, value)`                 | `col = $n`                          |
-| `ne(col, value)`                 | `col <> $n`                         |
-| `gt` / `gte` / `lt` / `lte`      | `col > / >= / < / <= $n`            |
-| `like(col, value)`               | `col like $n`                       |
-| `ilike(col, value)`              | `col ilike $n` (Postgres-oriented)  |
-| `notLike` / `notIlike`           | `col not like / not ilike $n`       |
-| `between(col, min, max)`         | `col between $1 and $2` (inclusive) |
-| `notBetween(col, min, max)`      | `col not between $1 and $2`         |
-| `inArray(col, values)`           | `col in (...)`; empty → `1 = 0`     |
-| `notInArray(col, values)`        | `col not in (...)`; empty → `1 = 1` |
-| `isNull(col)` / `isNotNull(col)` | `col is [not] null`                 |
-| `and(...conds)`                  | `(...) and (...)`; ignores nullish  |
-| `or(...conds)`                   | `(...) or (...)`; ignores nullish   |
-| `not(cond)`                      | `not (...)`                         |
+| Operator                         | SQL                                               |
+| -------------------------------- | ------------------------------------------------- |
+| `eq(col, value)`                 | `col = $n`                                        |
+| `ne(col, value)`                 | `col <> $n`                                       |
+| `gt` / `gte` / `lt` / `lte`      | `col > / >= / < / <= $n`                          |
+| `like(col, value)`               | `col like $n`                                     |
+| `ilike(col, value)`              | `col ilike $n` (Postgres-oriented)                |
+| `notLike` / `notIlike`           | `col not like / not ilike $n`                     |
+| `between(col, min, max)`         | `col between $1 and $2` (inclusive)               |
+| `notBetween(col, min, max)`      | `col not between $1 and $2`                       |
+| `inArray(col, values \| sub)`    | `col in (...)` / `in (subquery)`; empty → `1 = 0` |
+| `notInArray(col, values \| sub)` | `col not in (...)`; empty → `1 = 1`               |
+| `isNull(col)` / `isNotNull(col)` | `col is [not] null`                               |
+| `exists(sub)` / `notExists(sub)` | `[not] exists (subquery)`                         |
+| `arrayContains(col, v)`          | `col @> $n` (Postgres arrays)                     |
+| `arrayContained(col, v)`         | `col <@ $n` (Postgres arrays)                     |
+| `arrayOverlaps(col, v)`          | `col && $n` (Postgres arrays)                     |
+| `and(...conds)`                  | `(...) and (...)`; ignores nullish                |
+| `or(...conds)`                   | `(...) or (...)`; ignores nullish                 |
+| `not(cond)`                      | `not (...)`                                       |
 
 ### Ordering & aggregates
 
 `asc(col)` / `desc(col)` build order terms for `orderBy` (which also accepts the
 legacy `(col, "asc" | "desc")` form and multiple terms). The aggregate helpers
-`count(col?)`, `sum(col)`, `avg(col)`, `min(col)`, `max(col)` return a typed
-`SqlExpression<T>` for use in select projections:
+`count(col?)`, `countDistinct(col)`, `sum(col)`, `avg(col)`, `min(col)`,
+`max(col)` return a typed `SqlExpression<T>` for use in select projections:
 
 ```ts
 const rows = await db
@@ -229,8 +240,9 @@ function createDatabase(options?: {
 ```
 
 `Database` methods: `execute`, `query`, `select`, `$with`/`with` (CTEs),
-`insert`, `update`, `delete`, `transaction`, `close`. Query builders are
-immutable and lazy — call `.toSql()` to inspect or `.execute()` to run.
+`$count(table, where?)`, `insert`, `update`, `delete`, `transaction`, `close`.
+Query builders are immutable and lazy — call `.toSql()` to inspect or
+`.execute()` to run.
 
 ```ts
 const db = createDatabase({ dialect: "postgres", driver });
@@ -254,9 +266,11 @@ await db.transaction(async (tx) => {
 
 **Builder methods**
 
-- `SelectBuilder`: `from`, `distinct`, `innerJoin`, `leftJoin`, `rightJoin`,
-  `fullJoin`, `where`, `groupBy(...cols)`, `having(cond)`, `orderBy` (legacy
-  `(col, "asc" | "desc")` or `asc()`/`desc()` terms), `limit`, `offset`,
+- `SelectBuilder`: `from`, `distinct`, `distinctOn(...cols)`, `innerJoin`,
+  `leftJoin`, `rightJoin`, `fullJoin`, `where`, `groupBy(...cols)`,
+  `having(cond)`, `orderBy` (legacy `(col, "asc" | "desc")` or `asc()`/`desc()`
+  terms), `limit`, `offset`, `for(strength, options?)` (row locking),
+  `as(alias)` (derived table),
   `union`/`unionAll`/`intersect`/`intersectAll`/`except`/`exceptAll`, `toSql`,
   `execute`.
 - `InsertBuilder`: `values`, `onConflictDoNothing({ target? })`,
@@ -304,6 +318,47 @@ await a.union(b).orderBy(asc(users.columns.id)).limit(10).execute();
 Operands are **not** parenthesized, so the same query renders correctly on both
 Postgres and SQLite (which rejects parenthesized compound operands). Recursive
 CTEs are written with the `` sql`...` `` template.
+
+### Subqueries, locking & counts
+
+A select aliased with `.as("x")` becomes a **derived table**: pass it to
+`.from(...)` and reference its projected columns as `x.col`. The same builder
+also embeds as a parenthesized **scalar subquery** inside a projection or a
+`where` condition, and as the right side of `inArray(col, subquery)`:
+
+```ts
+const recent = db.select({ id: posts.columns.id, userId: posts.columns.userId })
+  .from(posts).where(gt(posts.columns.createdAt, cutoff)).as("recent");
+
+await db.select({ id: recent.id }).from(recent).execute();
+// select "recent"."id" from (select … from "posts" where …) as "recent"
+
+await db.select({
+  name: users.columns.name,
+  postCount: db.select({ c: count() }).from(posts)
+    .where(eq(posts.columns.userId, users.columns.id)), // scalar subquery
+}).from(users).execute();
+
+await db.select().from(users)
+  .where(
+    inArray(users.columns.id, db.select({ id: recent.userId }).from(recent)),
+  )
+  .execute();
+```
+
+`db.$count(table, where?)` returns a row count as a `number`. `.distinctOn(...)`
+emits Postgres `SELECT DISTINCT ON (...)`. `.for("update" | "share", options?)`
+appends row-level locking (`{ skipLocked }`, `{ noWait }`, or `{ of }`) on
+Postgres/MySQL:
+
+```ts
+const n = await db.$count(users, eq(users.columns.active, true));
+
+await db.select().from(users)
+  .for("update", { skipLocked: true }) // for update skip locked
+  .limit(1)
+  .execute();
+```
 
 ### Drivers
 
