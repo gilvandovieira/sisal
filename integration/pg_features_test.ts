@@ -37,6 +37,7 @@ import {
   gte,
   ilike,
   inArray,
+  index,
   isNotNull,
   isNull,
   like,
@@ -56,6 +57,7 @@ import {
   raw,
   sql,
   sum,
+  uniqueIndex,
 } from "@sisal/orm";
 import { defineSqlMigration } from "@sisal/migrate";
 import { connect, createPgMigrator, type PgDatabase } from "@sisal/pg";
@@ -1044,6 +1046,36 @@ pgTest(
   },
 );
 
+pgTest("pg: rich indexes (DESC / partial / expression) apply", async (db) => {
+  await db.execute(raw("drop table if exists it_rich_idx cascade"));
+  const richIdx = defineTable("it_rich_idx", {
+    id: columns.integer().primaryKey(),
+    status: columns.text(),
+    hotScore: columns.integer(),
+    createdAt: columns.timestamp(),
+    email: columns.text(),
+  }, (t) => [
+    index("it_rich_hot")
+      .where(sql`${t.status} = 'published'`)
+      .on(desc(t.hotScore), desc(t.createdAt), desc(t.id)),
+    uniqueIndex("it_rich_lower_email").on(sql`lower(${t.email})`),
+  ]);
+  const { statements } = generatePostgresUpStatements(
+    createSchemaSnapshot({ dialect: "postgres", tables: [richIdx] }),
+  );
+  // The engine must accept the DESC / partial-WHERE / expression-index SQL.
+  for (const statement of statements) await db.execute(statement);
+
+  const defs = await db.query<{ indexdef: string }>(
+    sql`select indexdef from pg_indexes where tablename = ${"it_rich_idx"}
+        order by indexname`,
+  );
+  const all = defs.rows.map((row) => row.indexdef).join("\n");
+  assert(/DESC/.test(all), all);
+  assert(/WHERE.*status/i.test(all), all);
+  assert(/lower/i.test(all), all);
+});
+
 pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   void db;
   const migrator = await createPgMigrator({
@@ -1075,7 +1107,7 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx cascade",
     ),
   );
   await db.execute(

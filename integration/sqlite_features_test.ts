@@ -39,6 +39,7 @@ import {
   gte,
   ilike,
   inArray,
+  index,
   isNotNull,
   isNull,
   like,
@@ -57,6 +58,7 @@ import {
   raw,
   sql,
   sum,
+  uniqueIndex,
 } from "@sisal/orm";
 import { defineSqlMigration } from "@sisal/migrate";
 import {
@@ -903,6 +905,39 @@ sqliteTest(
       ])
     );
     assertEquals((await all()).map((r) => Number(r.id)), [1, 2]);
+  },
+);
+
+sqliteTest(
+  "sqlite: rich indexes (DESC / partial / expression) apply",
+  async (db) => {
+    await db.execute(raw("drop table if exists it_rich_idx"));
+    const richIdx = defineTable("it_rich_idx", {
+      id: columns.integer().primaryKey(),
+      status: columns.text(),
+      hotScore: columns.integer(),
+      createdAt: columns.timestamp(),
+      email: columns.text(),
+    }, (t) => [
+      index("it_rich_hot")
+        .where(sql`${t.status} = 'published'`)
+        .on(desc(t.hotScore), desc(t.createdAt), desc(t.id)),
+      uniqueIndex("it_rich_lower_email").on(sql`lower(${t.email})`),
+    ]);
+    const { statements } = generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [richIdx] }),
+    );
+    // The engine must accept the DESC / partial-WHERE / expression-index SQL.
+    for (const statement of statements) await db.execute(statement);
+
+    const defs = await db.query<{ sql: string }>(
+      sql`select sql from sqlite_master where type = 'index'
+          and tbl_name = ${"it_rich_idx"} and sql is not null order by name`,
+    );
+    const all = defs.rows.map((row) => row.sql).join("\n");
+    assert(/DESC/.test(all), all);
+    assert(/WHERE.*status/i.test(all), all);
+    assert(/lower/i.test(all), all);
   },
 );
 
