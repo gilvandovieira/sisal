@@ -42,14 +42,13 @@ export const posts = defineTable("posts", {
   // `.optional()`/`.default()`), so seeds pass an explicit `null`. We avoid
   // `.optional()` here on purpose: it currently widens the SELECT row type to
   // include `undefined` (see the README "Sisal API pressure points").
-  rising_score_updated_at: columns.timestamp({
-    withTimezone: true,
-    mode: "date",
-  }),
-  created_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
-    .default(() => new Date()),
-  updated_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
-    .default(() => new Date()),
+  // Defaults to `Temporal.Instant` (Sisal's default for timestamptz); reads are
+  // parsed back to Temporal because db.ts opens with `temporal: { parse: true }`.
+  rising_score_updated_at: columns.timestamp({ withTimezone: true }),
+  created_at: columns.timestamp({ withTimezone: true }).notNull()
+    .default(() => Temporal.Now.instant()),
+  updated_at: columns.timestamp({ withTimezone: true }).notNull()
+    .default(() => Temporal.Now.instant()),
 }, (c) => [
   // Keyset feed indexes: leading equality column, then DESC tiebreakers.
   index("posts_new_feed_idx").on(c.status, desc(c.created_at), desc(c.id)),
@@ -66,18 +65,17 @@ export const postActivityBuckets = defineTable("post_activity_buckets", {
   post_id: columns.uuid().notNull().references("posts", "id", {
     onDelete: "cascade",
   }),
-  bucket_start: columns.timestamp({ withTimezone: true, mode: "date" })
-    .notNull(),
+  bucket_start: columns.timestamp({ withTimezone: true }).notNull(),
   upvotes: columns.integer().notNull().default(0),
   downvotes: columns.integer().notNull().default(0),
   comments: columns.integer().notNull().default(0),
   reports: columns.integer().notNull().default(0),
   unique_actors: columns.integer().notNull().default(0),
   activity_score: columns.doublePrecision().notNull().default(0),
-  created_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
-    .default(() => new Date()),
-  updated_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
-    .default(() => new Date()),
+  created_at: columns.timestamp({ withTimezone: true }).notNull()
+    .default(() => Temporal.Now.instant()),
+  updated_at: columns.timestamp({ withTimezone: true }).notNull()
+    .default(() => Temporal.Now.instant()),
 }, (c) => [
   primaryKey({ columns: [c.post_id, c.bucket_start] }),
   index("post_activity_buckets_post_bucket_idx")
@@ -90,11 +88,10 @@ export const postActivityActors = defineTable("post_activity_actors", {
   post_id: columns.uuid().notNull().references("posts", "id", {
     onDelete: "cascade",
   }),
-  bucket_start: columns.timestamp({ withTimezone: true, mode: "date" })
-    .notNull(),
+  bucket_start: columns.timestamp({ withTimezone: true }).notNull(),
   actor_id: columns.uuid().notNull(),
-  created_at: columns.timestamp({ withTimezone: true, mode: "date" }).notNull()
-    .default(() => new Date()),
+  created_at: columns.timestamp({ withTimezone: true }).notNull()
+    .default(() => Temporal.Now.instant()),
 }, (c) => [
   primaryKey({ columns: [c.post_id, c.bucket_start, c.actor_id] }),
 ]);

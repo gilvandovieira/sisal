@@ -50,12 +50,18 @@ export function getDirectUrl(): string {
   return readEnv("DATABASE_DIRECT_URL") ?? getDatabaseUrl();
 }
 
-/** Opens the runtime database facade against `DATABASE_URL`. */
+/**
+ * Opens the runtime database facade against `DATABASE_URL`.
+ *
+ * `temporal: { parse: true }` opts into Temporal result decoding, so timestamptz
+ * columns read back as `Temporal.Instant` (Sisal's default date type) rather
+ * than raw driver values.
+ */
 export function openDb(): Promise<NeonDatabase> {
-  return connect({ url: getDatabaseUrl() });
+  return connect({ url: getDatabaseUrl(), temporal: { parse: true } });
 }
 
 /** Opens the admin database facade against `DATABASE_DIRECT_URL`. */
 export function openAdminDb(): Promise<NeonDatabase> {
-  return connect({ url: getDirectUrl() });
+  return connect({ url: getDirectUrl(), temporal: { parse: true } });
 }

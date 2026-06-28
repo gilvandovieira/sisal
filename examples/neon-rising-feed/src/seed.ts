@@ -29,9 +29,10 @@ import type { NeonDatabase } from "@sisal/neon";
 import { posts } from "./schema.ts";
 import { type ActivityKind, recordPostActivity } from "./activity.ts";
 import { recomputeAllRisingScores } from "./recompute.ts";
+import type { TimeInput } from "./rising.ts";
 
 /** Fixed reference time for the whole demo; nothing here reads the wall clock. */
-export const DEMO_NOW = new Date("2026-06-28T12:00:00.000Z");
+export const DEMO_NOW = Temporal.Instant.from("2026-06-28T12:00:00Z");
 
 /** Key of the low-ranked post the demo boosts to show a /rising reorder. */
 export const DEMO_TARGET_KEY = "sleeper";
@@ -198,12 +199,16 @@ export interface SeededPost {
  */
 export async function seed(
   db: NeonDatabase,
-  now: Date = DEMO_NOW,
+  now: TimeInput = DEMO_NOW,
 ): Promise<SeededPost[]> {
   // Idempotent reseed: children first (FK), then posts.
   await db.execute(raw("delete from post_activity_actors"));
   await db.execute(raw("delete from post_activity_buckets"));
   await db.execute(raw("delete from posts"));
+
+  const nowMs = now instanceof Date ? now.getTime() : now.epochMilliseconds;
+  const instantAt = (msAgo: number) =>
+    Temporal.Instant.fromEpochMilliseconds(nowMs - msAgo);
 
   const seeded: SeededPost[] = [];
   const postRows = POST_SPECS.map((spec) => {
@@ -215,7 +220,7 @@ export async function seed(
       body: spec.body,
       // Nullable + no default ⇒ Sisal requires it on insert; pass null.
       rising_score_updated_at: null,
-      created_at: new Date(now.getTime() - spec.hoursAgo * HOUR_MS),
+      created_at: instantAt(spec.hoursAgo * HOUR_MS),
     };
   });
   await db.insert(posts).values(postRows).execute();
@@ -227,7 +232,7 @@ export async function seed(
     const postId = seeded[i].id;
     const stableActors = new Map<string, string>();
     for (const event of spec.activity) {
-      const at = new Date(now.getTime() - event.minutesAgo * MINUTE_MS);
+      const at = instantAt(event.minutesAgo * MINUTE_MS);
       for (let n = 0; n < event.count; n += 1) {
         const actorId = resolveActor(event.actor, stableActors);
         await recordPostActivity(db, {
@@ -265,7 +270,7 @@ async function main(): Promise<void> {
     const seeded = await seed(db);
     console.log(
       `seeded ${seeded.length} posts + activity, recomputed at ` +
-        `${DEMO_NOW.toISOString()}.`,
+        `${DEMO_NOW.toString()}.`,
     );
   } finally {
     await db.close();

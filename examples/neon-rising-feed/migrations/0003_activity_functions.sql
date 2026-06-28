@@ -61,6 +61,12 @@ create or replace function app.record_post_activity(
 )
 language plpgsql
 as $$
+-- The RETURNS TABLE (post_id, bucket_start, …) output columns are in scope as
+-- variables and share names with the table columns this body writes. Resolve
+-- any ambiguity in favour of the COLUMN — the body never reads the output
+-- variables by name (it uses p_* args, v_* locals, and qualified b.* in
+-- RETURNING), so a bare `post_id` / `bucket_start` always means the column.
+#variable_conflict use_column
 declare
   v_bucket timestamptz;
   v_new_actor boolean;

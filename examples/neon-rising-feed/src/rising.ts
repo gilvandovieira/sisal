@@ -6,9 +6,12 @@
  * (the score is stored and indexed); this copy exists so the model is
  * unit-testable without a database and so application code can preview a score.
  *
- * Everything here is deterministic: like the SQL, it takes the reference time
- * (`now`) as an argument and never reads the wall clock. That is what makes a
- * TIME-DEPENDENT score reproducible in tests.
+ * Time inputs follow Sisal's default: **`Temporal.Instant` preferred, JS `Date`
+ * as a fallback** (see {@link TimeInput}). The example's timestamp columns infer
+ * `Temporal.Instant` (`columns.timestamp({ withTimezone: true })`) and reads are
+ * parsed back to `Temporal.Instant`; the helpers also accept a `Date` so legacy
+ * call sites keep working. Everything is deterministic: like the SQL, it takes
+ * the reference time (`now`) as an argument and never reads the wall clock.
  *
  * @module
  */
@@ -38,6 +41,29 @@ export const RISING = {
 /** The four activity event kinds a bucket counts. */
 export type ActivityKind = "upvote" | "downvote" | "comment" | "report";
 
+/**
+ * A point in time: a `Temporal.Instant` (preferred) or a JS `Date` (fallback).
+ * Mirrors how Sisal types `columns.timestamp({ withTimezone: true })` —
+ * `Temporal.Instant` by default, with `Date` available via `mode: "date"`.
+ */
+export type TimeInput = Temporal.Instant | Date;
+
+/** Absolute epoch milliseconds for either time representation. */
+function toEpochMs(t: TimeInput): number {
+  return t instanceof Date ? t.getTime() : t.epochMilliseconds;
+}
+
+/**
+ * Normalizes a {@link TimeInput} to a `Temporal.Instant`. Use this at the edge
+ * of the typed `db.call(...)` surface, which requires the column's
+ * `Temporal.Instant` type (the `Date` fallback is converted here).
+ */
+export function toInstant(t: TimeInput): Temporal.Instant {
+  return t instanceof Date
+    ? Temporal.Instant.fromEpochMilliseconds(t.getTime())
+    : t;
+}
+
 /** Counters that make up one bucket (mirror of `post_activity_buckets`). */
 export interface BucketCounts {
   readonly upvotes: number;
@@ -49,8 +75,8 @@ export interface BucketCounts {
 
 /** A bucket positioned in time, used by {@link calculateRisingScore}. */
 export interface ScoredBucket {
-  /** Start of the 5-minute bucket. */
-  readonly bucketStart: Date;
+  /** Start of the 5-minute bucket (`Temporal.Instant` preferred, `Date` ok). */
+  readonly bucketStart: TimeInput;
   /** Weighted activity score for the bucket. */
   readonly activityScore: number;
 }
@@ -59,12 +85,13 @@ export interface ScoredBucket {
  * Normalizes a timestamp to the start of its 5-minute bucket.
  *
  * Mirrors `app.bucket_5m`: floor the absolute epoch seconds to a multiple of
- * `BUCKET_SECONDS`. e.g. 12:00:00–12:04:59 → 12:00:00.
+ * `BUCKET_SECONDS`. Returns a `Temporal.Instant`. e.g. 12:00:00–12:04:59 →
+ * 12:00:00.
  */
-export function bucket5m(at: Date): Date {
-  const seconds = Math.floor(at.getTime() / 1000);
+export function bucket5m(at: TimeInput): Temporal.Instant {
+  const seconds = Math.floor(toEpochMs(at) / 1000);
   const floored = Math.floor(seconds / BUCKET_SECONDS) * BUCKET_SECONDS;
-  return new Date(floored * 1000);
+  return Temporal.Instant.fromEpochMilliseconds(floored * 1000);
 }
 
 /**
@@ -88,7 +115,7 @@ function sumWindow(
 ): number {
   let total = 0;
   for (const bucket of buckets) {
-    const t = bucket.bucketStart.getTime();
+    const t = toEpochMs(bucket.bucketStart);
     if (t >= fromMs && t < toMs) total += bucket.activityScore;
   }
   return total;
@@ -105,17 +132,18 @@ function sumWindow(
  *   accel    = max(last_15m - prev_60m / 4, 0)
  *   rising   = last_15m*3 + last_60m + accel*2
  *
- * Old buckets fall out of every window as `now` advances, which is exactly why
- * the score is time-dependent and must be recomputed.
+ * Buckets after `now` and buckets older than 120m are ignored, matching the SQL
+ * (whose windows are bounded `<= p_now` and `>= p_now - 120m`). That symmetry is
+ * exactly why the score is time-dependent and must be recomputed.
  */
 export function calculateRisingScore(
   buckets: readonly ScoredBucket[],
-  now: Date,
+  now: TimeInput,
 ): number {
-  const nowMs = now.getTime();
+  const nowMs = toEpochMs(now);
   const minute = 60_000;
   // `toMs` is exclusive, so use now+1ms to make the recent windows inclusive of
-  // a bucket landing exactly at `now` (matching SQL's `>= p_now`).
+  // a bucket landing exactly at `now` (matching SQL's `<= p_now`).
   const inclusiveNow = nowMs + 1;
   const last15m = sumWindow(
     buckets,

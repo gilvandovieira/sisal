@@ -52,10 +52,12 @@ function env(key: string): string | undefined {
 const URL = env("DATABASE_URL");
 const SKIP = env("SISAL_NEON_RISING_FEED_IT") !== "1" || URL === undefined;
 
-const T0 = new Date("2026-06-28T12:00:00.000Z");
+const T0 = Temporal.Instant.from("2026-06-28T12:00:00Z");
 
-function minutesAgo(n: number): Date {
-  return new Date(T0.getTime() - n * 60_000);
+function minutesAgo(n: number): Temporal.Instant {
+  return Temporal.Instant.fromEpochMilliseconds(
+    T0.epochMilliseconds - n * 60_000,
+  );
 }
 
 async function newPost(db: NeonDatabase, title: string): Promise<string> {
@@ -227,7 +229,7 @@ Deno.test({
       assertEquals(r1again.rising_score, r1.rising_score); // #10 deterministic
 
       // ---- 9. old activity falls out of the window as p_now advances --
-      const later = new Date(T0.getTime() + 70 * 60_000);
+      const later = T0.add({ minutes: 70 });
       const rLater = await recomputePostRisingScore(db, p1, later);
       assertEquals(rLater.rising_score, 0); // the only bucket is now ~72m old
       await recomputePostRisingScore(db, p1, T0); // restore
@@ -257,6 +259,62 @@ Deno.test({
       await recomputeAllRisingScores(db, T0);
       const secondPass = await postScore(db, single.posts[0].id);
       assertEquals(firstPass, secondPass);
+    } finally {
+      await db.close();
+    }
+  },
+});
+
+Deno.test({
+  name: "neon rising feed: future and old buckets do not count",
+  ignore: SKIP,
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    const db: NeonDatabase = await connect({ url: URL! });
+    try {
+      await runMigrations(db, { reset: true });
+
+      const postId = await newPost(db, "future + old buckets");
+
+      // In-window: 1 upvote ~2m ago → contributes (activity_score 3).
+      await recordPostActivity(db, {
+        postId,
+        actorId: crypto.randomUUID(),
+        kind: "upvote",
+        at: minutesAgo(2),
+      });
+      // Future: a big comment burst dated AFTER p_now. Must NOT count — with
+      // the pre-fix SQL it would inflate last_15m/last_60m.
+      for (let i = 0; i < 5; i += 1) {
+        await recordPostActivity(db, {
+          postId,
+          actorId: crypto.randomUUID(),
+          kind: "comment",
+          at: T0.add({ minutes: 10 }),
+        });
+      }
+      // Old: a big burst > 120m ago. Must NOT count.
+      for (let i = 0; i < 5; i += 1) {
+        await recordPostActivity(db, {
+          postId,
+          actorId: crypto.randomUUID(),
+          kind: "upvote",
+          at: minutesAgo(200),
+        });
+      }
+
+      const r = await recomputePostRisingScore(db, postId, T0);
+      // The DB function and the TypeScript model agree over the SAME buckets:
+      // both ignore the future and old buckets, so only the in-window one counts.
+      const buckets = await scoredBuckets(db, postId);
+      assertAlmostEquals(
+        r.rising_score,
+        calculateRisingScore(buckets, T0),
+        1e-9,
+      );
+      // Only the in-window bucket counted: last_15m=last_60m=3, accel=3 ⇒ 18.
+      assertAlmostEquals(r.rising_score, 18, 1e-9);
     } finally {
       await db.close();
     }

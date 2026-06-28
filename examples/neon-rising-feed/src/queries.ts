@@ -21,26 +21,29 @@ import { and, desc, eq, gt } from "@sisal/orm";
 import type { NeonDatabase } from "@sisal/neon";
 import { posts } from "./schema.ts";
 
-/** A post as rendered in a feed. */
+/**
+ * A post as rendered in a feed. Timestamps read back as `Temporal.Instant`
+ * (db.ts opens with `temporal: { parse: true }`).
+ */
 export interface FeedPost {
   readonly id: string;
   readonly title: string;
   readonly status: string;
   readonly rising_score: number;
-  readonly rising_score_updated_at: Date | null;
-  readonly created_at: Date;
+  readonly rising_score_updated_at: Temporal.Instant | null;
+  readonly created_at: Temporal.Instant;
 }
 
 /** Cursor for the `/new` timeline (keyed by the ordered columns). */
 export interface NewCursor {
-  readonly created_at: Date;
+  readonly created_at: Temporal.Instant;
   readonly id: string;
 }
 
 /** Cursor for the `/rising` timeline (keyed by the ordered columns). */
 export interface RisingCursor {
   readonly rising_score: number;
-  readonly rising_score_updated_at: Date | null;
+  readonly rising_score_updated_at: Temporal.Instant | null;
   readonly id: string;
 }
 

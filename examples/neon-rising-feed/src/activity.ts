@@ -20,14 +20,14 @@
 
 import { columns, defineFunction } from "@sisal/orm";
 import type { NeonDatabase } from "@sisal/neon";
-import type { ActivityKind } from "./rising.ts";
+import { type ActivityKind, type TimeInput, toInstant } from "./rising.ts";
 
 export type { ActivityKind };
 
 /** The bucket row returned by `app.record_post_activity` after recording. */
 export interface RecordedBucket {
   readonly post_id: string;
-  readonly bucket_start: Date;
+  readonly bucket_start: Temporal.Instant;
   readonly upvotes: number;
   readonly downvotes: number;
   readonly comments: number;
@@ -47,12 +47,11 @@ const recordActivityFn = defineFunction("app.record_post_activity", {
     postId: columns.uuid(),
     actorId: columns.uuid(),
     kind: columns.text(),
-    at: columns.timestamp({ withTimezone: true, mode: "date" }),
+    at: columns.timestamp({ withTimezone: true }),
   },
   returns: {
     post_id: columns.uuid().notNull(),
-    bucket_start: columns.timestamp({ withTimezone: true, mode: "date" })
-      .notNull(),
+    bucket_start: columns.timestamp({ withTimezone: true }).notNull(),
     upvotes: columns.integer().notNull(),
     downvotes: columns.integer().notNull(),
     comments: columns.integer().notNull(),
@@ -75,8 +74,10 @@ export function recordPostActivity(
     readonly postId: string;
     readonly actorId: string;
     readonly kind: ActivityKind;
-    readonly at: Date;
+    readonly at: TimeInput;
   },
 ): Promise<RecordedBucket> {
-  return db.call(recordActivityFn, args).one();
+  // db.call requires the column's Temporal.Instant type; convert the Date
+  // fallback at this edge.
+  return db.call(recordActivityFn, { ...args, at: toInstant(args.at) }).one();
 }

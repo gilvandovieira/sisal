@@ -32,8 +32,9 @@ import {
   recomputePostRisingScore,
 } from "./recompute.ts";
 
-function ageLabel(createdAt: Date): string {
-  const hours = (DEMO_NOW.getTime() - createdAt.getTime()) / 3_600_000;
+function ageLabel(createdAt: Temporal.Instant): string {
+  const hours = (DEMO_NOW.epochMilliseconds - createdAt.epochMilliseconds) /
+    3_600_000;
   return `${hours.toFixed(1)}h`.padStart(6);
 }
 
@@ -131,7 +132,7 @@ async function main(): Promise<void> {
     );
 
     // ---- 5. Time-dependence: advance the clock, recompute all --------
-    const later = new Date(DEMO_NOW.getTime() + 70 * 60_000); // +70 minutes
+    const later = DEMO_NOW.add({ minutes: 70 });
     await recomputeAllRisingScores(db, later);
     const risingLater = await getRisingFeed(db, 10);
     printFeed(

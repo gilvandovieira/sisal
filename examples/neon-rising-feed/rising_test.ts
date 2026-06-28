@@ -23,28 +23,32 @@ import {
 import { getNewFeed, getRisingFeed } from "./src/queries.ts";
 import type { NeonDatabase } from "./src/db.ts";
 
-const NOW = new Date("2026-06-28T12:00:00.000Z");
+const NOW = Temporal.Instant.from("2026-06-28T12:00:00Z");
 
-function minutesAgo(n: number): Date {
-  return new Date(NOW.getTime() - n * 60_000);
+function minutesAgo(n: number): Temporal.Instant {
+  return Temporal.Instant.fromEpochMilliseconds(
+    NOW.epochMilliseconds - n * 60_000,
+  );
 }
 
 Deno.test("bucket5m floors to the start of the 5-minute bucket", () => {
+  // bucket5m returns a Temporal.Instant; its toString() omits zero ms.
   assertEquals(
-    bucket5m(new Date("2026-06-28T12:00:00Z")).toISOString(),
-    "2026-06-28T12:00:00.000Z",
+    bucket5m(Temporal.Instant.from("2026-06-28T12:00:00Z")).toString(),
+    "2026-06-28T12:00:00Z",
   );
   assertEquals(
-    bucket5m(new Date("2026-06-28T12:04:59Z")).toISOString(),
-    "2026-06-28T12:00:00.000Z",
+    bucket5m(Temporal.Instant.from("2026-06-28T12:04:59Z")).toString(),
+    "2026-06-28T12:00:00Z",
   );
   assertEquals(
-    bucket5m(new Date("2026-06-28T12:05:00Z")).toISOString(),
-    "2026-06-28T12:05:00.000Z",
+    bucket5m(Temporal.Instant.from("2026-06-28T12:05:00Z")).toString(),
+    "2026-06-28T12:05:00Z",
   );
+  // Date input still works (the documented fallback).
   assertEquals(
-    bucket5m(new Date("2026-06-28T12:14:30Z")).toISOString(),
-    "2026-06-28T12:10:00.000Z",
+    bucket5m(new Date("2026-06-28T12:14:30Z")).toString(),
+    "2026-06-28T12:10:00Z",
   );
 });
 
@@ -129,10 +133,47 @@ Deno.test("calculateRisingScore is time-dependent (windows slide)", () => {
   const atNow = calculateRisingScore(buckets, NOW);
   // 30 minutes later the same bucket is now ~32m old: out of last_15m, still in
   // last_60m, so the score drops sharply but is not zero.
-  const later = new Date(NOW.getTime() + 30 * 60_000);
+  const later = NOW.add({ minutes: 30 });
   const atLater = calculateRisingScore(buckets, later);
   if (!(atNow > atLater)) throw new Error("expected score to decay over time");
   assertAlmostEquals(atLater, 12); // only last_60m remains
+});
+
+Deno.test("calculateRisingScore accepts a Date `now` (fallback)", () => {
+  const buckets: ScoredBucket[] = [
+    { bucketStart: bucket5m(minutesAgo(2)), activityScore: 10 },
+  ];
+  // Temporal.Instant (default) and Date (fallback) give the same score.
+  const viaInstant = calculateRisingScore(buckets, NOW);
+  const viaDate = calculateRisingScore(
+    buckets,
+    new Date(NOW.epochMilliseconds),
+  );
+  assertEquals(viaDate, viaInstant);
+});
+
+Deno.test("calculateRisingScore ignores future and out-of-window buckets", () => {
+  const inWindow: ScoredBucket = {
+    bucketStart: bucket5m(minutesAgo(2)),
+    activityScore: 5,
+  };
+  // A bucket recorded AFTER `now` (e.g. recompute pinned to an earlier now).
+  const future: ScoredBucket = {
+    bucketStart: bucket5m(NOW.add({ minutes: 10 })),
+    activityScore: 100,
+  };
+  // A bucket older than the 120-minute floor.
+  const old: ScoredBucket = {
+    bucketStart: bucket5m(minutesAgo(200)),
+    activityScore: 100,
+  };
+
+  const onlyInWindow = calculateRisingScore([inWindow], NOW);
+  const withNoise = calculateRisingScore([inWindow, future, old], NOW);
+  // The future and old buckets contribute nothing despite their large scores.
+  assertEquals(withNoise, onlyInWindow);
+  // Deterministic: same inputs + same `now` ⇒ same score.
+  assertEquals(calculateRisingScore([inWindow, future, old], NOW), withNoise);
 });
 
 Deno.test("splitSqlStatements keeps $$ function bodies intact", () => {
@@ -160,7 +201,7 @@ Deno.test("feeds build and render without a database (postgres noop)", async () 
 
   const rising = await getRisingFeed(db, 10, {
     rising_score: 42,
-    rising_score_updated_at: new Date("2026-06-28T12:00:00Z"),
+    rising_score_updated_at: Temporal.Instant.from("2026-06-28T12:00:00Z"),
     id: "00000000-0000-0000-0000-000000000000",
   });
   assertEquals(rising.posts, []);

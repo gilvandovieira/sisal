@@ -234,6 +234,14 @@ great illustration of the trade-off.)
   render `select * from app.fn($1::uuid, …)` with casts from the argument column
   types and a typed result row, no raw `sql` string (`src/activity.ts`,
   `src/recompute.ts`).
+- **Temporal dates (default), with a `Date` fallback** — timestamp columns use
+  `columns.timestamp({ withTimezone: true })`, which Sisal infers as
+  `Temporal.Instant`; `src/db.ts` opens with `temporal: { parse: true }` so
+  reads (feed rows, cursors, `db.call` results) come back as `Temporal.Instant`.
+  The scoring helpers in `src/rising.ts` accept `Temporal.Instant | Date`
+  (`TimeInput`) and `toInstant(...)` converts the `Date` fallback at the
+  `db.call` edge. (The libSQL sibling keeps ISO-string `TEXT` — SQLite has no
+  native timestamp type, so the `Date`/string form is its natural fallback.)
 - `db.$count`, and parameterized one-off lookups via the `sql` tag.
 
 **Raw-SQL escape hatches (parameterized, isolated, justified):**
@@ -302,6 +310,30 @@ shows up far beyond social feeds:
 - **Observability:** rising error rates, latency spikes, throughput changes.
 - **Analytics:** trend detection that reacts to a _sustained shift_ without
   overreacting to a single event.
+
+## Production notes
+
+This example keeps the recompute path deliberately simple. A few things you'd do
+differently at scale (kept out to stay focused):
+
+- **Don't recompute every post forever.** `recompute_all_rising_scores` rescans
+  every published post. In production, recompute only **dirty** posts — those
+  with activity since their last `rising_score_updated_at` — e.g. drive it from
+  a small queue/`dirty` flag set by `record_post_activity`, or scan
+  `post_activity_buckets` for buckets newer than the last recompute.
+- **Old buckets need retention.** Once a bucket is older than the 120-minute
+  window it can never affect a rising score again. Periodically delete or roll
+  up buckets past the window (a daily job, or partition-by-day + drop), so
+  `post_activity_buckets` doesn't grow without bound.
+
+> Adapter note: this example runs on **`@sisal/neon`**, which returns
+> `double precision` as a JS `number`, so `rising_score` is a real number
+> end-to-end. If you point it at plain PostgreSQL via **`@sisal/pg`** instead,
+> that adapter currently returns `double precision` as a **string** (integers
+> come back as numbers), so `rising_score.toFixed(...)` would throw and
+> client-side numeric sorts would be lexicographic — `Number(...)`-coerce those
+> values until the adapter is fixed. Tracked in the
+> [v0.5.0 roadmap](../../docs/v0.5.0-roadmap.md) (item 11).
 
 ## Tests
 

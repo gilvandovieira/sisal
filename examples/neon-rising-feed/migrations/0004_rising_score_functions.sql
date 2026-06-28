@@ -18,6 +18,12 @@
 --   accel      = greatest(last_15m - prev_60m / 4.0, 0)   -- heating up vs. last hour
 --   rising     = last_15m * 3 + last_60m + accel * 2
 --
+-- Window boundaries are INCLUSIVE of p_now and exclude any bucket after it
+-- (bucket_start > p_now), matching the TypeScript mirror in src/rising.ts. In
+-- normal operation no bucket is ever in the future relative to p_now, but a
+-- recompute pinned to an earlier p_now (or clock skew) could produce one, and it
+-- must not inflate last_15m / last_60m.
+--
 -- last_15m dominates (recency matters most); last_60m adds broader context;
 -- accel rewards a post accelerating now relative to the previous hour's pace
 -- (prev_60m / 4 puts the previous hour on the same 15-minute footing). Reports
@@ -37,9 +43,11 @@ as $$
     select
       coalesce(sum(activity_score) filter (
         where bucket_start >= p_now - interval '15 minutes'
+          and bucket_start <= p_now
       ), 0) as last_15m,
       coalesce(sum(activity_score) filter (
         where bucket_start >= p_now - interval '60 minutes'
+          and bucket_start <= p_now
       ), 0) as last_60m,
       coalesce(sum(activity_score) filter (
         where bucket_start >= p_now - interval '120 minutes'
@@ -47,9 +55,13 @@ as $$
       ), 0) as prev_60m
     from post_activity_buckets
     where post_id = p_post_id
-      -- Only buckets that can affect any window; old buckets fall out as p_now
-      -- advances, which is exactly why the score is time-dependent.
+      -- Only buckets that can affect any window. The lower bound (120m) drops
+      -- old buckets as p_now advances (why the score is time-dependent); the
+      -- upper bound keeps a future bucket out of every window. Each FILTER above
+      -- also bounds its own upper edge at p_now, so the result is correct even
+      -- without this line — it just avoids scanning future rows.
       and bucket_start >= p_now - interval '120 minutes'
+      and bucket_start <= p_now
   )
   select
       w.last_15m * 3.0
