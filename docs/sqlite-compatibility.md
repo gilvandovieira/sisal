@@ -20,33 +20,33 @@ unsupported on SQLite.
 
 ## Matrix
 
-| Feature                                                      | SQLite 3.46 |
-| ------------------------------------------------------------ | :---------: |
-| **Connection** — `connect({ path })`, parameterized SQL      |     ✅      |
-| **Generated DDL applies** — affinity mapping of all types    |     ✅      |
-| **Insert** — `values`, multi-row, `returning`                |     ✅      |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`             |     ✅      |
-| **Pattern** — `like` / `notLike`                             |     ✅      |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)      |     ✅      |
-| **Range** — `between` / `notBetween`                         |     ✅      |
-| **Set** — `inArray` / `notInArray`                           |     ✅      |
-| **Null** — `isNull` / `isNotNull`                            |     ✅      |
-| **Logical** — `and` `or` `not`                               |     ✅      |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`    |     ✅      |
-| **Distinct**                                                 |     ✅      |
-| **Joins** — `inner` / `left`                                 |     ✅      |
-| **Joins** — `right` / `full` (SQLite ≥ 3.39)                 |     ✅      |
-| **Aggregates** — `count` `sum` `avg` `min` `max`             |     ✅      |
-| **Group / filter** — `groupBy`, `having`                     |     ✅      |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`        |     ✅      |
-| **Delete** — `where`, `returning`                            |     ✅      |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`    |     ✅      |
-| **Transactions** — commit + rollback on error                |     ✅      |
-| **Boolean** — round-trip                                     |     ⚠️      |
-| **JSON / JSONB** — object round-trip                         |     ⚠️      |
-| **Arrays** — `text[]` round-trip                             |     ⚠️      |
-| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)        |     ✅      |
-| **Migrator** — apply, plan, history table, idempotent re-run |     ✅      |
+| Feature                                                            | SQLite 3.46 |
+| ------------------------------------------------------------------ | :---------: |
+| **Connection** — `connect({ path })`, parameterized SQL            |     ✅      |
+| **Generated DDL applies** — affinity mapping of all types          |     ✅      |
+| **Insert** — `values`, multi-row, `returning`                      |     ✅      |
+| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                   |     ✅      |
+| **Pattern** — `like` / `notLike`                                   |     ✅      |
+| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)            |     ✅      |
+| **Range** — `between` / `notBetween`                               |     ✅      |
+| **Set** — `inArray` / `notInArray`                                 |     ✅      |
+| **Null** — `isNull` / `isNotNull`                                  |     ✅      |
+| **Logical** — `and` `or` `not`                                     |     ✅      |
+| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`          |     ✅      |
+| **Distinct**                                                       |     ✅      |
+| **Joins** — `inner` / `left`                                       |     ✅      |
+| **Joins** — `right` / `full` (SQLite ≥ 3.39)                       |     ✅      |
+| **Aggregates** — `count` `sum` `avg` `min` `max`                   |     ✅      |
+| **Group / filter** — `groupBy`, `having`                           |     ✅      |
+| **Update** — `set`, `where`, `returning`, `$onUpdate`              |     ✅      |
+| **Delete** — `where`, `returning`                                  |     ✅      |
+| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`          |     ✅      |
+| **Transactions** — commit + rollback, single-connection serialized |     ✅      |
+| **Boolean** — round-trip                                           |     ⚠️      |
+| **JSON / JSONB** — object round-trip                               |     ⚠️      |
+| **Arrays** — `text[]` round-trip                                   |     ⚠️      |
+| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)              |     ✅      |
+| **Migrator** — apply, plan, history table, idempotent re-run       |     ✅      |
 
 ### Column types via the DDL test
 
