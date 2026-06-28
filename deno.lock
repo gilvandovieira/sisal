@@ -299,6 +299,11 @@
           "npm:drizzle-orm@0.45.2"
         ]
       },
+      "examples/libsql-rising-feed": {
+        "dependencies": [
+          "jsr:@std/assert@1"
+        ]
+      },
       "examples/neon-hot-feed": {
         "dependencies": [
           "jsr:@neon/serverless@1",
