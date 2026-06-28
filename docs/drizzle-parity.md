@@ -297,11 +297,24 @@ subquery** in projections and `where` conditions, and as the right side of
 | `sql.identifier(s)`                | `identifier(s)`       | ✅     |
 | `sql.join(parts, sep)`             | `joinSql(parts, sep)` | ✅     |
 | `sql.empty()`                      | `emptySql()`          | ✅     |
-| `sql.placeholder(name)`            | —                     | ❌     |
-| prepared statements / `.prepare()` | —                     | ❌     |
+| `sql.placeholder(name)`            | `placeholder(name)`   | ✅     |
+| prepared statements / `.prepare()` | `.prepare(name?)`     | 🟡     |
 
 Names are namespaced as standalone functions rather than methods on `sql`, but
 the capabilities line up.
+
+`placeholder(name)` is a deferred parameter slot usable anywhere a bound value
+is (inside the `` sql`...` `` tag or as an operator's right side, e.g.
+`eq(users.columns.id, placeholder("id"))`). Every builder
+(`select`/`insert`/`update`/`delete` and compound selects) gains
+`prepare(name?)`, which returns a `PreparedQuery` you run via `execute(values)`
+/ `toSql(values)` with a `{ name: value }` map. Rendering a query that still
+holds an **unbound** placeholder is refused, so a forgotten binding fails loudly
+instead of becoming `null`. **Divergence (🟡):** because the core is driverless,
+`prepare` is a _render-once, bind-many_ statement — it renders the SQL text and
+parameter layout a single time and only re-binds values per `execute`, rather
+than issuing a driver-level `PREPARE` (the `name` is carried as metadata for a
+future server-side prepared path).
 
 ---
 
@@ -478,6 +491,21 @@ the ORM parity test and custom `dialectType` checks in the pg/sqlite parity
 tests. Dedicated `pgEnum` type creation and Drizzle-style generated column
 modifiers carry over as future convenience/metadata gaps, not Postgres/Neon DDL
 reachability gaps.
+
+### P9 — placeholders & prepared statements ✅ done
+
+- ✅ **`placeholder(name)`** — a deferred parameter slot (Drizzle's
+  `sql.placeholder`), usable inside the `` sql`...` `` tag and as an operator's
+  right side.
+- ✅ **`prepare(name?)`** on every builder (`select`/`insert`/`update`/`delete`
+  and compound selects) returns a `PreparedQuery` run with `execute(values)` /
+  `toSql(values)`. The plan is rendered once and re-bound per call; rendering a
+  query with an unbound placeholder is refused.
+- 🟡 **Divergence:** driverless, so `prepare` is render-once/bind-many rather
+  than a server-side `PREPARE`; the `name` is carried for a future driver path.
+- _Tests:_ `parity: placeholder() is a deferred parameter slot` and
+  `parity: prepared statement (.prepare/.execute) binds placeholders` in the ORM
+  parity test (they replaced the old `roadmap: sql.placeholder …` ledger test).
 
 ---
 
