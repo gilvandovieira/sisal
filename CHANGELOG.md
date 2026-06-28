@@ -26,11 +26,16 @@ Sisal-specific history after that baseline through `1f05448`.
 - Added the `exists(subquery)` / `notExists(subquery)` predicates and the
   Postgres array operators `arrayContains` (`@>`), `arrayContained` (`<@`), and
   `arrayOverlaps` (`&&`).
+- Added generated `llms.txt` and `llms-full.txt` files for GitHub Pages, sourced
+  from the API reference, docs, package manifests, and exported API
+  documentation.
 
 ### Changed
 
 - Bumped workspace package manifests, example/benchmark manifests, and the
   migration CLI's scaffolded adapter imports to `0.3.0`.
+- Updated CI, publish, and Pages workflows to verify or regenerate the LLM docs
+  files from `deno task docs:llms`.
 - Expanded the API reference to cover the current public relation-query,
   table-constraint, workflow, CLI, adapter utility, and DDL helper surfaces.
 - Serialized SQLite ORM executor work so statements issued on the same executor

@@ -34,6 +34,9 @@ jobs:
       - name: Check docs coverage
         run: deno task --frozen docs:check
 
+      - name: Check LLM docs
+        run: deno task --frozen docs:llms:check
+
       - name: Type check workspace
         run: deno task --frozen check
 
