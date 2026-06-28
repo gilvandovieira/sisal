@@ -112,21 +112,22 @@ columns.customType<number>({
 
 ### Column modifiers
 
-| Drizzle 0.45.2                  | Sisal                                                         | Status |
-| ------------------------------- | ------------------------------------------------------------- | ------ |
-| `.notNull()`                    | `.notNull()` (opt out of nullable default)                    | ✅     |
-| `.default(v)`                   | `.default(v \| () => v)`                                      | ✅     |
-| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both                               | 🟡     |
-| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)                        | ✅     |
-| `.unique()`                     | `.unique()` → emits a `UNIQUE` constraint                     | ✅     |
-| `.references(() => t.col)`      | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY` | ✅⁵    |
-| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)                   | 🔷     |
-| `.array()`                      | `.array()`                                                    | ✅     |
-| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)                        | ✅     |
-| `.generatedAlwaysAs(...)`       | —                                                             | ❌     |
-| (no equivalent)                 | `.nullable()` (explicit form of the default)                  | 🔷     |
-| (no equivalent)                 | `.optional()` (insert-optional)                               | 🔷     |
-| (no equivalent)                 | `.named(name)`                                                | 🔷     |
+| Drizzle 0.45.2                  | Sisal                                                               | Status |
+| ------------------------------- | ------------------------------------------------------------------- | ------ |
+| `.notNull()`                    | `.notNull()` (opt out of nullable default)                          | ✅     |
+| `.default(v)`                   | `.default(v \| () => v)`                                            | ✅     |
+| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both                                     | 🟡     |
+| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)                              | ✅     |
+| `.unique()`                     | `.unique()` → emits a `UNIQUE` constraint                           | ✅     |
+| `.references(() => t.col)`      | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY`       | ✅⁵    |
+| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)                         | 🔷     |
+| `.array()`                      | `.array()`                                                          | ✅     |
+| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)                              | ✅     |
+| `.generatedAlwaysAs(...)`       | —                                                                   | ❌     |
+| (no equivalent)                 | `.nullable()` (explicit form of the default)                        | 🔷     |
+| (no equivalent)                 | `.optional()` (insert-optional)                                     | 🔷     |
+| `integer("name")` explicit name | `.named("name")` (explicit physical column name)                    | ✅     |
+| `casing: "snake_case"` (db)     | `naming` strategy + `setDefaultColumnNaming` (default `snake_case`) | ✅⁷    |
 
 ⁵ **Constraint emission strategy.** `.unique()` emits a `UNIQUE` constraint and
 `.references(table, column, { onDelete?, onUpdate? })` emits a `FOREIGN KEY`
@@ -137,6 +138,17 @@ on **SQLite** they stay inline (SQLite allows forward references). Still pending
 under [**P6**](#p6--schema-constraints--indexes--in-progress): composite /
 table-level primary keys, named/composite unique constraints, indexes, and
 `check`.
+
+⁷ **Casing default — divergence by design.** Sisal applies `snake_case` to
+column names **by default** (the JS key stays camelCase, the physical column is
+`snake_case`, and `SELECT *`/`RETURNING *` alias back to the key on read).
+Drizzle applies **no** casing unless you opt into `casing: "snake_case"`. So
+`naming: "snake_case"` (per table) — and the global default — match Drizzle's
+`casing: "snake_case"`, while `naming: "preserve"` matches Drizzle's verbatim
+default. Set the process-wide default with `setDefaultColumnNaming(strategy)`
+(applies to tables defined after the call); override per table with the `naming`
+option, or per column with `.named(...)` (which always wins). Asserted by
+`parity: column casing (naming strategy ~ Drizzle \`casing\`)`.
 
 ### ✅ Nullability default — aligned with Drizzle
 

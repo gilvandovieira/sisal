@@ -33,6 +33,90 @@ import {
   type TableName,
 } from "./sql.ts";
 
+/**
+ * A column-naming strategy: how a JavaScript property key maps to the physical
+ * SQL column name when a column does not declare an explicit `.named(...)`.
+ *
+ * - `"snake_case"` — `hotScore` → `hot_score` (the global default).
+ * - `"camelCase"` — `hot_score` → `hotScore`.
+ * - `"preserve"` — the property key is used verbatim (pre-0.4.0 behavior).
+ * - a function — a custom `(propertyName) => physicalName` mapper.
+ */
+export type ColumnNamingStrategy =
+  | "snake_case"
+  | "camelCase"
+  | "preserve"
+  | ((propertyName: string) => string);
+
+let defaultColumnNaming: ColumnNamingStrategy = "snake_case";
+
+/**
+ * Returns the global default column-naming strategy applied by {@link defineTable}
+ * when a table does not pass its own `naming` option. Defaults to `"snake_case"`.
+ */
+export function getDefaultColumnNaming(): ColumnNamingStrategy {
+  return defaultColumnNaming;
+}
+
+/**
+ * Sets the global default column-naming strategy for **future** {@link defineTable}
+ * calls. Tables already defined keep the name they were built with, so call this
+ * before defining your tables (e.g. at the top of your schema module). Pass
+ * `"preserve"` to restore the pre-0.4.0 verbatim behavior globally.
+ */
+export function setDefaultColumnNaming(strategy: ColumnNamingStrategy): void {
+  assertNamingStrategy(strategy);
+  defaultColumnNaming = strategy;
+}
+
+function assertNamingStrategy(
+  strategy: unknown,
+): asserts strategy is ColumnNamingStrategy {
+  if (
+    typeof strategy === "function" || strategy === "snake_case" ||
+    strategy === "camelCase" || strategy === "preserve"
+  ) {
+    return;
+  }
+  throw new OrmError("Invalid column naming strategy", {
+    code: "ORM_INVALID_TABLE",
+    details: { strategy },
+  });
+}
+
+/** Resolves a property key to its physical column name under a strategy. */
+function applyColumnNaming(
+  propertyName: string,
+  strategy: ColumnNamingStrategy,
+): string {
+  if (typeof strategy === "function") {
+    return strategy(propertyName);
+  }
+  switch (strategy) {
+    case "snake_case":
+      return toSnakeCase(propertyName);
+    case "camelCase":
+      return toCamelCase(propertyName);
+    case "preserve":
+      return propertyName;
+  }
+}
+
+// Idempotent on already-snake_case input: `post_id` → `post_id`, `id` → `id`.
+function toSnakeCase(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .toLowerCase();
+}
+
+function toCamelCase(name: string): string {
+  return name.replace(
+    /_+([a-zA-Z0-9])/g,
+    (_match, char: string) => char.toUpperCase(),
+  );
+}
+
 /** Column builder map passed to {@link defineTable}. */
 export type TableColumns = Record<
   string,
@@ -237,6 +321,18 @@ export interface CreateSchemaSnapshotInput extends CreateSchemaSnapshotOptions {
   readonly tables: readonly TableDefinition[] | Record<string, TableDefinition>;
 }
 
+/** Options accepted by {@link defineTable}. */
+export interface DefineTableOptions {
+  /** Optional schema/namespace the table lives in (e.g. `"app"`). */
+  readonly schema?: string;
+  /**
+   * Column-naming strategy for this table. Overrides the global default set via
+   * {@link setDefaultColumnNaming}; columns with an explicit `.named(...)` are
+   * never transformed.
+   */
+  readonly naming?: ColumnNamingStrategy;
+}
+
 /** Defines a typed table schema. */
 export function defineTable<TColumns extends TableColumns>(
   name: TableName,
@@ -245,8 +341,8 @@ export function defineTable<TColumns extends TableColumns>(
     | ((
       columns: TableDefinition<TColumns>["columns"],
     ) => readonly TableConstraint[])
-    | { readonly schema?: string },
-  options: { readonly schema?: string } = {},
+    | DefineTableOptions,
+  options: DefineTableOptions = {},
 ): TableDefinition<TColumns> {
   const extras = typeof extrasOrOptions === "function"
     ? extrasOrOptions
@@ -258,6 +354,8 @@ export function defineTable<TColumns extends TableColumns>(
   const schema = resolvedOptions.schema === undefined
     ? undefined
     : normalizeTableName(resolvedOptions.schema);
+  const naming = resolvedOptions.naming ?? defaultColumnNaming;
+  assertNamingStrategy(naming);
   const finalColumns: Record<string, unknown> = {};
 
   for (const [propertyName, builder] of Object.entries(tableColumns)) {
@@ -269,7 +367,7 @@ export function defineTable<TColumns extends TableColumns>(
     }
 
     const columnName = normalizeColumnName(
-      builder.definition.name ?? propertyName,
+      builder.definition.name ?? applyColumnNaming(propertyName, naming),
     );
     const definition = cloneColumnDefinition(builder.definition);
 

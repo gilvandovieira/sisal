@@ -11,6 +11,25 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added column-name mapping to `@sisal/orm` (roadmap item 7): `defineTable`
+  derives physical column names through a naming strategy, the `naming` option
+  (`"snake_case"` | `"camelCase"` | `"preserve"` | a `(key) => name` function),
+  and a process-wide `setDefaultColumnNaming(strategy)` /
+  `getDefaultColumnNaming()` pair. `.named(...)` (already present) declares an
+  explicit physical name and always wins. The builder maps the JS property key
+  to the physical column on both write (INSERT column list, UPDATE/`SET`,
+  `ON CONFLICT` target/set) and read (`SELECT *` and `RETURNING *` expand to
+  `"t"."phys" as "key"` once a table has any renamed column), so application
+  code that stays inside the builder is transparent to the strategy. Exports
+  `ColumnNamingStrategy`, `DefineTableOptions`, `setDefaultColumnNaming`,
+  `getDefaultColumnNaming`. Moves the `casing` / explicit-name rows in
+  `docs/drizzle-parity.md` off the roadmap and flips item 7 to done.
+  - **BREAKING:** the default strategy is `snake_case`, so a plain `defineTable`
+    now maps camelCase property keys to snake_case columns (e.g. `hotScore` →
+    `hot_score`). Keys that are already snake_case or single words are
+    unchanged. Pass `naming: "preserve"` (per table) or
+    `setDefaultColumnNaming("preserve")` (global) to restore the pre-0.4.0
+    verbatim behavior.
 - Added the `examples/neon-hot-feed` example: a Reddit-style hot feed on
   Neon/PostgreSQL that demonstrates a `/new` (created_at) and `/hot` timeline
   backed by a stored, indexable `hot_score`, keyset (cursor) pagination, and an

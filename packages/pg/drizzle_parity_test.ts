@@ -36,7 +36,7 @@ Deno.test("parity: table extras — composite PK, named unique, check, indexes",
     check("age_check", sql`${t.age} >= 0`),
     index("members_email_idx").on(t.email),
     uniqueIndex().on(t.email, t.orgId),
-  ]);
+  ], { naming: "preserve" });
   const { statements } = generatePostgresUpStatements(
     createSchemaSnapshot({ dialect: "postgres", tables: [members] }),
   );
@@ -143,7 +143,7 @@ Deno.test("parity: foreign keys + actions emit as ALTER after CREATE", () => {
       onDelete: "cascade",
       onUpdate: "restrict",
     }),
-  });
+  }, { naming: "preserve" });
   const { statements } = generatePostgresUpStatements(
     createSchemaSnapshot({ dialect: "postgres", tables: [orgs, users] }),
   );
