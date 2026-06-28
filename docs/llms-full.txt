@@ -38,7 +38,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Project Context
 
-- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first database toolkit, published to JSR, for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first database toolkit, published to JSR, for typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters.
 - [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md): This is the canonical changelog for Sisal workspace releases.
 - [Repository](https://github.com/gilvandovieira/sisal): Source code, issues, examples, workflows, and package directories.
 
@@ -1225,141 +1225,115 @@ URL: https://github.com/gilvandovieira/sisal/blob/main/README.md
 
 ```md
 <p align="center">
-  <img src="./assets/brand/og-image.png" alt="Sisal — a Deno-first, JSR-native database toolkit" width="900">
+  <img src="./assets/brand/og-image.png" alt="Sisal — a Deno-first database toolkit" width="900">
 </p>
 
 # Sisal
 
 Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
 
+> [!WARNING]
+> Sisal is still experimental. APIs, schema snapshot formats, generated DDL,
+> migration workflows, and adapter behavior may change before 1.0. Review
+> generated SQL and test migrations before using Sisal in production.
+
 Sisal is a Deno-first database toolkit, published to JSR, for typed schemas,
-safe SQL, query builders, migration planning, and small adapter packages.
+safe SQL builders, schema snapshots, migration planning, and explicit database
+adapters.
 
-The core idea is simple: keep schema and migration logic portable, then attach
-database-specific behavior at explicit adapter boundaries. `@sisal/orm` is
-driverless. `@sisal/migrate` is adapter-neutral. PostgreSQL, Neon, SQLite, and
-libSQL/Turso live in their own packages.
+The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
+adapter-neutral. PostgreSQL, Neon, SQLite, and libSQL/Turso behavior lives in
+adapter packages, where database drivers and runtime-specific dependency edges
+belong.
 
-Every package is published to JSR, and the `@sisal/orm` + `@sisal/migrate` core
-is pure JSR. npm appears only at explicit boundaries: the libSQL adapter imports
-`npm:@libsql/client`, the Neon driver pulls a few transitive npm dependencies,
-and the benchmarks compare against `npm:drizzle-orm`.
+Every Sisal package is published to JSR. The core packages are pure JSR; adapter
+packages may cross runtime dependency boundaries when the database driver
+requires it. The libSQL/Turso adapter imports `npm:@libsql/client`, and Neon
+uses `@neon/serverless` with its transitive dependency shape.
+
+Sisal is inspired by useful vocabulary from the TypeScript database ecosystem,
+including Drizzle's fluent SQL-builder style, but it is not a compatibility
+layer and keeps its own driverless core, snapshot workflow, and adapter split.
 
 ## Installing
 
-Install the Sisal packages you use with Deno's JSR-aware dependency command:
+Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
 deno add jsr:@sisal/orm@0.3.0 \
   jsr:@sisal/migrate@0.3.0 \
-  jsr:@sisal/pg@0.3.0 \
-  jsr:@sisal/neon@0.3.0 \
-  jsr:@sisal/sqlite@0.3.0 \
-  jsr:@sisal/libsql@0.3.0
+  jsr:@sisal/pg@0.3.0
 ```
 
-This writes the package aliases to `deno.json`; application code can then use
-the bare Sisal specifiers:
+Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
+and one adapter package. Swap only the adapter for the database runtime you use.
+
+| Target       | Install                                                                          |
+| ------------ | -------------------------------------------------------------------------------- |
+| PostgreSQL   | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/pg@0.3.0`     |
+| Neon         | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/neon@0.3.0`   |
+| SQLite       | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/sqlite@0.3.0` |
+| libSQL/Turso | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/libsql@0.3.0` |
+
+`deno add` writes bare package aliases to `deno.json`, so application code can
+import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
+
+## PostgreSQL Walkthrough
+
+This example defines a small feed schema, generates additive PostgreSQL DDL,
+connects through the PostgreSQL adapter, writes with a batched transaction,
+updates with a SQL expression, and reads a keyset-paginated page.
 
 ```ts
-import { columns, defineTable } from "@sisal/orm";
-import { connect } from "@sisal/sqlite";
-```
+import {
+  columns,
+  createSchemaSnapshot,
+  defineTable,
+  desc,
+  eq,
+  index,
+  type InferInsert,
+  type InferSelect,
+  sql,
+} from "@sisal/orm";
+import { connect, generatePostgresUpStatements } from "@sisal/pg";
 
-For one-off scripts, direct JSR specifiers are still supported:
-
-```ts
-import { columns, defineTable } from "jsr:@sisal/orm@0.3.0";
-import { connect } from "jsr:@sisal/sqlite@0.3.0";
-```
-
-Adapter subpaths are available when you want narrower boundaries:
-
-```ts
-import { createPgOrmDriver } from "@sisal/pg/orm";
-import { createPgMigrator } from "@sisal/pg/migrate";
-import { generatePostgresUpStatements } from "@sisal/pg/ddl";
-```
-
-## What You Get
-
-- Typed table definitions with inferred insert and select shapes.
-- A parameterized `sql` template plus `raw`, `identifier`, `joinSql`, and
-  dialect-aware rendering.
-- Fluent `select`, `insert`, `update`, and `delete` builders.
-- Filter helpers such as `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `like`, `ilike`,
-  `between`, `inArray`, `isNull`, `and`, `or`, and `not`.
-- Aggregates and ordering helpers: `count`, `sum`, `avg`, `min`, `max`, `asc`,
-  and `desc`.
-- Joins, `distinct`, `groupBy`, `having`, `limit`, `offset`, `returning`, and
-  upsert helpers.
-- Drizzle-style `relations()` metadata with `db.query.table.findMany()` and
-  `findFirst()` when you create a schema-aware database facade.
-- Stable schema snapshots, snapshot diffing, and additive DDL generation.
-- Migration definitions, checksums, planning, rollback support in adapter
-  migrators, file workflow helpers, drift checks, and a CLI.
-- Adapter packages for PostgreSQL, Neon serverless PostgreSQL, SQLite, and
-  libSQL/Turso.
-- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus a tiny
-  logger interface.
-
-## Packages
-
-| Package          | Purpose                                                                                                                 |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, errors, and logger contracts.                      |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, history stores, workflow helpers, drift checks, and CLI runner.        |
-| `@sisal/pg`      | PostgreSQL ORM driver, pool boundary, migration history, migrator, and PostgreSQL DDL generation.                       |
-| `@sisal/neon`    | Neon serverless PostgreSQL adapter using `@neon/serverless`, with PostgreSQL-compatible ORM, migrator, and DDL exports. |
-| `@sisal/sqlite`  | SQLite ORM driver, migration history, migrator, and SQLite DDL generation.                                              |
-| `@sisal/libsql`  | libSQL/Turso ORM driver, migration history, migrator, and SQLite-compatible DDL aliases.                                |
-
-Repository layout:
-
-```text
-packages/orm       Driverless ORM, schema, SQL, snapshots
-packages/migrate   Adapter-neutral migration planning and running
-packages/pg        PostgreSQL ORM and migration adapter boundary
-packages/neon      Neon serverless PostgreSQL adapter boundary
-packages/sqlite    SQLite ORM and migration adapter boundary
-packages/libsql    libSQL/Turso ORM and migration adapter boundary
-
-examples/basic-postgres
-examples/basic-sqlite
-examples/basic-libsql
-benchmarks
-docs
-```
-
-The dependency direction is strict. Adapters may depend on `@sisal/orm` and
-`@sisal/migrate`; the ORM never imports PostgreSQL, Neon, SQLite, libSQL, Pequi
-Logger, or any legacy package namespace.
-
-## Quick Start
-
-This example defines a SQLite schema, generates additive DDL from the schema
-snapshot, applies it, inserts data, and queries it back.
-
-```ts
-import { columns, createSchemaSnapshot, defineTable, eq } from "@sisal/orm";
-import { connect, generateSqliteUpStatements } from "@sisal/sqlite";
-
-const notes = defineTable("notes", {
-  id: columns.text().primaryKey(),
-  title: columns.text().notNull(),
-  body: columns.text().optional(),
-  archived: columns.boolean().default(false),
+const users = defineTable("users", {
+  id: columns.uuid().primaryKey(),
+  email: columns.text().notNull().unique(),
+  displayName: columns.text().notNull(),
+  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
 });
+
+const posts = defineTable("posts", {
+  id: columns.uuid().primaryKey(),
+  authorId: columns.uuid().notNull().references("users", "id"),
+  title: columns.text().notNull(),
+  status: columns.text().notNull(),
+  score: columns.integer().notNull().default(0),
+  upvotes: columns.integer().notNull().default(0),
+  downvotes: columns.integer().notNull().default(0),
+  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+}, (t) => [
+  index("posts_feed_idx")
+    .where(sql`${t.status} = 'published'`)
+    .on(desc(t.score), desc(t.createdAt), desc(t.id)),
+]);
+
+type Post = InferSelect<typeof posts>;
+type NewPost = InferInsert<typeof posts>;
 
 const snapshot = createSchemaSnapshot({
-  dialect: "sqlite",
-  tables: [notes],
+  dialect: "postgres",
+  tables: [users, posts],
 });
 
-const db = await connect({ path: ":memory:" });
+const db = await connect({
+  url: Deno.env.get("DATABASE_URL"),
+});
 
 try {
-  const { statements, destructive } = generateSqliteUpStatements(snapshot);
+  const { statements, destructive } = generatePostgresUpStatements(snapshot);
 
   if (destructive.length > 0) {
     throw new Error("Refusing to apply destructive generated changes.");
@@ -1369,726 +1343,207 @@ try {
     await db.execute(statement);
   }
 
-  await db.insert(notes).values({
-    id: crypto.randomUUID(),
-    title: "First note",
-  }).execute();
+  const userId = crypto.randomUUID();
+  const postId = crypto.randomUUID();
 
-  const rows = await db.select().from(notes)
-    .where(eq(notes.columns.archived, false))
+  await db.batch([
+    db.insert(users).values({
+      id: userId,
+      email: "ada@example.com",
+      displayName: "Ada",
+      createdAt: Temporal.Now.instant(),
+    }),
+    db.insert(posts).values({
+      id: postId,
+      authorId: userId,
+      title: "Portable database tooling",
+      status: "published",
+      score: 0,
+      upvotes: 3,
+      downvotes: 1,
+      createdAt: Temporal.Now.instant(),
+    }),
+  ]);
+
+  await db.update(posts).set({
+    score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
+  }).where(eq(posts.columns.id, postId)).execute();
+
+  const page = await db.select({
+    id: posts.columns.id,
+    title: posts.columns.title,
+    author: users.columns.displayName,
+    score: posts.columns.score,
+    createdAt: posts.columns.createdAt,
+  }).from(posts)
+    .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
+    .where(eq(posts.columns.status, "published"))
+    .keyset({
+      orderBy: [
+        desc(posts.columns.score),
+        desc(posts.columns.createdAt),
+        desc(posts.columns.id),
+      ],
+    })
+    .limit(20)
     .execute();
 
-  console.log(rows);
+  console.log(page.rows, page.nextCursor);
 } finally {
   await db.close();
 }
 ```
 
-SQLite uses `jsr:@db/sqlite`, so real SQLite execution needs Deno FFI
-permission:
-
-```sh
-deno run --allow-ffi --allow-read --allow-write app.ts
-```
-
-## Defining Schemas
-
-Tables are immutable metadata objects. Columns are nullable by default, matching
-SQL. Nullable means the value may be `null`; use `.optional()` or `.default()`
-when a field may be omitted from insert objects. Use `.notNull()` when a column
-is required. `.primaryKey()` implies `.notNull()`.
-
-```ts
-import {
-  columns,
-  defineTable,
-  type InferInsert,
-  type InferSelect,
-} from "@sisal/orm";
-
-const users = defineTable("users", {
-  id: columns.uuid().primaryKey(),
-  email: columns.text().notNull().unique(),
-  name: columns.text().optional(),
-  age: columns.integer().optional(),
-  orgId: columns.integer().optional(),
-  active: columns.boolean().default(true),
-  profile: columns.jsonb<{ bio?: string }>().optional(),
-  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
-});
-
-type User = InferSelect<typeof users>;
-type NewUser = InferInsert<typeof users>;
-```
-
-Column builders include:
-
-```ts
-columns.text();
-columns.varchar(255);
-columns.char(2);
-columns.integer();
-columns.smallint();
-columns.bigint(); // string-typed to preserve 64-bit precision
-columns.serial(); // optional on insert
-columns.bigserial(); // string-typed, optional on insert
-columns.numeric(10, 2); // string-typed to preserve precision
-columns.decimal(10, 2);
-columns.real();
-columns.doublePrecision();
-columns.boolean();
-columns.json<{ ok: boolean }>();
-columns.jsonb<{ tags: string[] }>();
-columns.date(); // Temporal.PlainDate by default
-columns.time(); // Temporal.PlainTime by default
-columns.timestamp(); // Temporal.PlainDateTime by default
-columns.timestamp({ withTimezone: true }); // Temporal.Instant / timestamptz
-columns.timestamp({ withTimezone: true, mode: "date" }); // legacy Date mode
-columns.uuid();
-columns.bytea(); // Postgres bytea, SQLite/libSQL BLOB
-columns.customType<number[]>({
-  kind: "vector",
-  dialectType: "vector(1536)", // trusted, emitted verbatim by Postgres DDL
-});
-```
-
-Column modifiers:
-
-```ts
-const posts = defineTable("posts", {
-  id: columns.serial().primaryKey(),
-  slug: columns.text().named("post_slug").notNull().unique(),
-  authorId: columns.uuid().notNull().references("users", "id"),
-  tags: columns.text().array(),
-  published: columns.boolean().default(false),
-  updatedAt: columns.timestamp({ withTimezone: true })
-    .$onUpdate(() => Temporal.Now.instant()),
-});
-```
-
-Schemas are supported for dialects that use them:
-
-```ts
-const auditEvents = defineTable(
-  "events",
-  {
-    id: columns.uuid().primaryKey(),
-    action: columns.text().notNull(),
-  },
-  { schema: "audit" },
-);
-```
-
-## Typed SQL
-
-The `sql` template stores interpolated values as parameters. Rendering is
-dialect-aware, so PostgreSQL gets `$1`, `$2`, while SQLite-style dialects get
-`?`.
-
-```ts
-import { identifier, raw, renderSql, sql } from "@sisal/orm";
-
-const query = sql`
-  select *
-  from ${identifier("public.users")}
-  where email = ${"ada@example.com"}
-    and created_at <= ${Temporal.Now.instant()}
-  order by ${raw("created_at desc")}
-`;
-
-const rendered = renderSql(query, { dialect: "postgres" });
-// rendered.text includes placeholders; rendered.params contains the values.
-```
-
-Use `raw()` only for trusted SQL snippets. Values should usually be interpolated
-with `${value}` so Sisal can parameterize them.
-
-## Query Builder
-
-Every adapter-backed database facade exposes the same fluent builders.
-
-```ts
-import { and, desc, eq, gt, isNotNull } from "@sisal/orm";
-
-const adults = await db.select({
-  id: users.columns.id,
-  email: users.columns.email,
-  age: users.columns.age,
-}).from(users)
-  .where(and(gt(users.columns.age, 17), isNotNull(users.columns.email)))
-  .orderBy(desc(users.columns.age))
-  .limit(20)
-  .offset(0)
-  .execute();
-
-const alice = await db.insert(users).values({
-  id: crypto.randomUUID(),
-  email: "alice@example.com",
-  active: true,
-  createdAt: Temporal.Now.instant(),
-}).returning({
-  id: users.columns.id,
-  email: users.columns.email,
-}).execute();
-
-await db.update(users)
-  .set({ active: false })
-  .where(eq(users.columns.email, "alice@example.com"))
-  .execute();
-
-await db.delete(users)
-  .where(eq(users.columns.email, "alice@example.com"))
-  .execute();
-```
-
-Updates and deletes are intentionally guarded: call `.where(...)` or
-`.unsafeAllowAllRows()` before executing them.
-
-## Filters, Joins, And Aggregates
-
-Sisal ships small helpers that render as SQL conditions or expressions.
-
-```ts
-import {
-  avg,
-  count,
-  eq,
-  gt,
-  inArray,
-  isNotNull,
-  max,
-  min,
-  sum,
-} from "@sisal/orm";
-
-const orgs = defineTable("orgs", {
-  id: columns.integer().primaryKey(),
-  name: columns.text().notNull(),
-});
-
-const usersByOrg = await db.select({
-  orgId: users.columns.orgId,
-  count: count(),
-  averageAge: avg(users.columns.age),
-  totalAge: sum(users.columns.age),
-  youngest: min(users.columns.age),
-  oldest: max(users.columns.age),
-}).from(users)
-  .where(isNotNull(users.columns.orgId))
-  .groupBy(users.columns.orgId)
-  .having(gt(count(), 1))
-  .execute();
-
-const joined = await db.select({
-  email: users.columns.email,
-  organization: orgs.columns.name,
-}).from(users)
-  .innerJoin(orgs, eq(orgs.columns.id, users.columns.orgId))
-  .where(inArray(users.columns.id, [1, 2, 3]))
-  .execute();
-```
-
-Supported join builders are `innerJoin`, `leftJoin`, `rightJoin`, and
-`fullJoin`. `select().distinct()` emits `SELECT DISTINCT`.
-
-## Inserts And Upserts
-
-`insert().values()` accepts one row or many rows. `returning()` returns full
-rows or a projection when the dialect supports `RETURNING`.
-
-```ts
-await db.insert(orgs).values([
-  { id: 1, name: "Acme" },
-  { id: 2, name: "Globex" },
-]).execute();
-
-await db.insert(orgs).values({ id: 1, name: "Duplicate" })
-  .onConflictDoNothing({ target: orgs.columns.id })
-  .execute();
-
-await db.insert(orgs).values({ id: 1, name: "Acme, Inc." })
-  .onConflictDoUpdate({
-    target: orgs.columns.id,
-    set: { name: "Acme, Inc." },
-  })
-  .execute();
-```
-
-## Transactions
-
-Transactions use the same database facade inside the callback. Throwing from the
-callback rolls back.
-
-```ts
-await db.transaction(async (tx) => {
-  await tx.insert(orgs).values({ id: 10, name: "Tx Org" }).execute();
-  await tx.insert(users).values({
-    id: crypto.randomUUID(),
-    email: "tx@example.com",
-    orgId: 10,
-    active: true,
-    createdAt: Temporal.Now.instant(),
-  }).execute();
-});
-```
-
-## Relational Queries
-
-`relations()` describes one-to-one and one-to-many relationships. To enable
-`db.query.<table>`, create the database facade with a schema map and relations.
-The adapter `connect()` helpers are optimized for the common builder API; use
-`createDatabase()` plus an adapter driver when you want relation helpers.
-
-```ts
-import {
-  asc,
-  columns,
-  createDatabase,
-  defineTable,
-  relations,
-} from "@sisal/orm";
-import { createPgOrmDriver, POSTGRES_DIALECT } from "@sisal/pg/orm";
-
-const users = defineTable("users", {
-  id: columns.integer().primaryKey(),
-  name: columns.text().notNull(),
-});
-
-const posts = defineTable("posts", {
-  id: columns.integer().primaryKey(),
-  userId: columns.integer().notNull().references("users", "id"),
-  title: columns.text().notNull(),
-});
-
-const usersRelations = relations(users, ({ many }) => ({
-  posts: many(posts),
-}));
-
-const postsRelations = relations(posts, ({ one }) => ({
-  author: one(users, {
-    fields: [posts.columns.userId],
-    references: [users.columns.id],
-  }),
-}));
-
-const db = createDatabase({
-  dialect: POSTGRES_DIALECT,
-  driver: createPgOrmDriver({ url: Deno.env.get("DATABASE_URL") }),
-  schema: { users, posts },
-  relations: [usersRelations, postsRelations] as const,
-});
-
-const result = await db.query.users.findMany({
-  columns: { name: true },
-  with: {
-    posts: {
-      columns: { title: true },
-      orderBy: asc(posts.columns.id),
-    },
-  },
-  orderBy: asc(users.columns.id),
-});
-```
-
-## Schema Snapshots And DDL
-
-Snapshots are serializable descriptions of the schema. Adapter DDL helpers turn
-snapshot diffs into non-destructive `up` statements.
-
-```ts
-import { createSchemaSnapshot } from "@sisal/orm";
-import { generatePostgresUpStatements } from "@sisal/pg/ddl";
-
-const previous = createSchemaSnapshot({
-  dialect: "postgres",
-  tables: [users],
-});
-
-const next = createSchemaSnapshot({
-  dialect: "postgres",
-  tables: [users, posts],
-});
-
-const { statements, destructive } = generatePostgresUpStatements(
-  next,
-  previous,
-);
-```
-
-Generated statements include additive changes such as `CREATE TABLE` and
-`ALTER TABLE ADD COLUMN`. Destructive changes such as dropping tables, dropping
-columns, or changing column types are returned in `destructive` and are never
-silently emitted as ordinary generated SQL.
-
-SQLite and libSQL use SQLite affinity mapping:
-
-```ts
-import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
-import { generateLibsqlUpStatements } from "@sisal/libsql/ddl";
-```
-
-PostgreSQL and Neon use PostgreSQL DDL:
-
-```ts
-import { generatePostgresUpStatements } from "@sisal/pg/ddl";
-import {
-  generatePostgresUpStatements as generateNeonUpStatements,
-} from "@sisal/neon/ddl";
-```
-
-## Migrations In Code
-
-The core migration package is adapter-neutral. It can run SQL migrations,
-programmatic migrations, in-memory stores for tests, and real adapter-backed
-history stores.
-
-```ts
-import {
-  createMigrator,
-  defineSqlMigration,
-  memoryMigrationStore,
-  noopMigrationDriver,
-} from "@sisal/migrate";
-
-const migration = defineSqlMigration({
-  id: "0001_create_users",
-  up: "create table users (id text primary key, email text not null)",
-  down: "drop table users",
-});
-
-const migrator = createMigrator({
-  migrations: [migration],
-  store: memoryMigrationStore(),
-  driver: noopMigrationDriver(),
-});
-
-const plan = await migrator.plan();
-const result = await migrator.up();
-```
-
-Adapter migrators wire the same planning and checksum logic to a real database
-history table.
-
-```ts
-import { createPgMigrator } from "@sisal/pg/migrate";
-
-const migrator = await createPgMigrator({
-  url: Deno.env.get("DATABASE_URL"),
-  historyTable: "sisal_migrations",
-});
-
-try {
-  await migrator.migrate({ migrations: [migration] });
-  await migrator.rollback({ migrations: [migration], steps: 1 });
-} finally {
-  await migrator.close();
+`generatePostgresUpStatements` is intentionally additive: destructive changes
+are reported separately instead of silently emitted as ordinary migration SQL.
+For long-lived projects, use the CLI workflow below to write migration files and
+track snapshots.
+
+## CLI Task Setup
+
+Wire the migration CLI into your application's `deno.json` so the same commands
+work locally and in CI:
+
+```json
+{
+  "tasks": {
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.3.0/cli",
+    "db:init": "deno task sisal init --target postgres",
+    "db:generate": "deno task sisal generate",
+    "db:migrate": "deno task sisal migrate",
+    "db:status": "deno task sisal status",
+    "db:drift": "deno task sisal drift"
+  }
 }
 ```
 
-Equivalent helpers exist for `@sisal/sqlite/migrate`, `@sisal/libsql/migrate`,
-and `@sisal/neon/migrate`.
-
-## CLI
-
-`@sisal/migrate/cli` wraps the snapshot workflow into a `sisal` command. The CLI
-can scaffold a config, generate additive SQL migrations, apply pending
-migrations, report status, and fail CI when drift is present.
-
-In this repository, use the local task:
-
-```sh
-deno task sisal --help
-deno task sisal init --target sqlite
-deno task sisal generate create users
-deno task sisal migrate
-deno task sisal status
-deno task sisal drift
-```
-
-From JSR, run the published CLI directly:
-
-```sh
-deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate@0.3.0/cli --help
-```
-
-Use the same permission set for commands that read config, write migration
-files, inspect environment variables, or open databases:
-
-```sh
-deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate@0.3.0/cli init --target postgres
-
-deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate@0.3.0/cli generate create users
-
-deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
-  jsr:@sisal/migrate@0.3.0/cli migrate
-```
-
-### CLI Targets
-
-`sisal init` supports these targets:
-
-| Target     | Aliases            | Configured dialect | Connection fields                                                                                                           |
-| ---------- | ------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `postgres` | `pg`, `postgresql` | `postgres`         | `databaseUrl` or `DATABASE_URL`                                                                                             |
-| `sqlite`   | none               | `sqlite`           | `databasePath`                                                                                                              |
-| `libsql`   | `turso`            | `sqlite`           | `databaseUrl`, `databaseAuthToken`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `LIBSQL_DATABASE_URL`, or `LIBSQL_AUTH_TOKEN` |
-
-Neon is available through `@sisal/neon`. The CLI's default `postgres` path loads
-`@sisal/pg`.
-
-### CLI Config
-
-The CLI loads `sisal.migrate.ts` by default. Export `default` or `config` from
-`defineConfig(...)`.
+SQLite and libSQL/Turso tasks also need `--allow-ffi`. `sisal init` creates
+`sisal.migrate.ts`; edit that config so `snapshot` is built from the same table
+definitions your application uses.
 
 ```ts
-import { columns, createSchemaSnapshot, defineTable } from "@sisal/orm";
+import { createSchemaSnapshot } from "@sisal/orm";
 import { defineConfig } from "@sisal/migrate/workflow";
+import { posts, users } from "./src/db/schema.ts";
 
-const users = defineTable("users", {
-  id: columns.text().primaryKey(),
-  email: columns.text().notNull().unique(),
-  name: columns.text(),
-});
-
-const snapshot = createSchemaSnapshot({
-  dialect: "sqlite",
-  tables: [users],
-});
-
-export default defineConfig({
-  dir: "migrations",
-  dialect: "sqlite",
-  snapshot,
-  databasePath: Deno.env.get("SQLITE_PATH") ?? "app.db",
-});
-```
-
-PostgreSQL config:
-
-```ts
 export default defineConfig({
   dir: "migrations",
   dialect: "postgres",
-  snapshot,
+  snapshot: createSchemaSnapshot({
+    dialect: "postgres",
+    tables: [users, posts],
+  }),
   databaseUrl: Deno.env.get("DATABASE_URL"),
   historyTable: "sisal_migrations",
 });
 ```
 
-Turso/libSQL config:
-
-```ts
-export default defineConfig({
-  dir: "migrations",
-  dialect: "sqlite",
-  snapshot,
-  databaseUrl: Deno.env.get("TURSO_DATABASE_URL") ?? "file:app.db",
-  databaseAuthToken: Deno.env.get("TURSO_AUTH_TOKEN"),
-});
-```
-
-### CLI Workflow
-
-1. Scaffold the config and migrations directory.
+Typical workflow:
 
 ```sh
-deno task sisal init --target sqlite --dir migrations
+deno task db:init
+deno task db:generate create posts
+deno task db:migrate
+deno task db:status
+deno task db:drift
 ```
 
-This creates `sisal.migrate.ts` and `migrations/`. Edit the config so `snapshot`
-is built from your application tables.
+`generate` diffs the latest `*.snapshot.json` in the migrations directory
+against `config.snapshot`, then writes paired SQL and snapshot files. `drift`
+exits with code `1` when the current schema snapshot, migration files, or
+database plan do not match.
 
-2. Generate an additive migration.
+## What You Get Today
 
-```sh
-deno task sisal generate create users
-```
+- Typed schemas with `InferSelect` and `InferInsert`.
+- Nullable-by-default columns, explicit `.notNull()`, `.optional()`, defaults,
+  primary keys, unique constraints, checks, and foreign keys.
+- Temporal-aware `date`, `time`, and `timestamp` columns, with legacy `Date` and
+  raw string modes when requested.
+- Typed SQL fragments with safe parameter rendering and explicit trusted escapes
+  for identifiers or raw SQL.
+- `select`, `insert`, `update`, and `delete` builders with guarded update/delete
+  execution.
+- Joins, aggregates, ordering helpers, CTEs, set operations, `returning`, and
+  upserts.
+- `sql` expressions in `values`, `set`, and upsert sets.
+- `db.batch([...])` for atomic non-interactive batches.
+- Keyset pagination with inferred cursor shapes.
+- `relations()` metadata and `db.query.<table>` helpers for schema-aware
+  database facades.
+- Typed database function callers through `defineFunction` and `db.call`.
+- Schema snapshots v2, snapshot diffing, and additive DDL generation.
+- Rich index DDL with `asc`/`desc`, partial `WHERE`, and expression keys.
+- Migration planning, checksums, rollback, history stores, drift checks, and a
+  CLI workflow.
+- Adapter packages for PostgreSQL, Neon, SQLite, and libSQL/Turso.
+- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus small
+  logger contracts.
 
-The command diffs the newest `*.snapshot.json` in the migrations directory
-against `config.snapshot`, then writes files like:
+## Packages
 
-```text
-migrations/0001_create_users.sql
-migrations/0001_create_users.snapshot.json
-```
+Core packages:
 
-If there are no changes, no migration is written unless `--allow-empty` is set.
-If destructive changes are detected, the CLI prints them and refuses to write a
-snapshot that the generated SQL cannot reproduce.
+| Package          | Purpose                                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and logger contracts.    |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config. |
 
-3. Preview or apply pending migrations.
+Adapter packages:
 
-```sh
-deno task sisal migrate --dry-run
-deno task sisal migrate
-deno task sisal migrate --steps 1
-```
+| Package         | Purpose                                                                                                          |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `@sisal/pg`     | PostgreSQL execution, pool boundary, migration history, migrator, and PostgreSQL DDL generation.                 |
+| `@sisal/neon`   | Neon serverless PostgreSQL adapter over `@neon/serverless`, reusing PostgreSQL SQL, DDL, and migrator behavior.  |
+| `@sisal/sqlite` | SQLite execution via `jsr:@db/sqlite`, migration history, migrator, and SQLite DDL generation.                   |
+| `@sisal/libsql` | libSQL/Turso execution via `npm:@libsql/client`, migration history, migrator, and SQLite-compatible DDL aliases. |
 
-Use `--allow-dirty` only when you intentionally want to run despite checksum
-mismatches.
+Core packages stay driverless and adapter-neutral. Adapter packages are where
+database drivers and runtime-specific dependencies belong.
 
-4. Inspect status and drift.
+## Adapter Notes
 
-```sh
-deno task sisal status
-deno task sisal drift
-```
-
-`status` prints migration file counts, database plan information when a database
-is configured, and drift findings. `drift` exits with code `1` when the current
-snapshot differs from the latest generated snapshot, migrations are pending, or
-a SQL file is missing its paired snapshot file.
-
-Useful overrides:
-
-```sh
-deno task sisal status --config ./db/sisal.migrate.ts
-deno task sisal migrate --database-url "$DATABASE_URL"
-deno task sisal migrate --database-path ./dev.sqlite
-deno task sisal migrate --history-table app_migrations
-```
-
-## Adapter Examples
-
-PostgreSQL:
-
-```ts
-import { connect } from "@sisal/pg";
-
-const db = await connect({
-  url: Deno.env.get("DATABASE_URL"),
-});
-```
-
-Neon:
-
-```ts
-import { connect } from "@sisal/neon";
-
-const db = await connect({
-  url: Deno.env.get("DATABASE_URL"),
-});
-```
-
-SQLite:
-
-```ts
-import { connect } from "@sisal/sqlite";
-
-const db = await connect({
-  path: "app.db",
-});
-```
-
-libSQL/Turso:
-
-```ts
-import { connect } from "@sisal/libsql";
-
-const db = await connect({
-  url: Deno.env.get("TURSO_DATABASE_URL") ?? "file:app.db",
-  authToken: Deno.env.get("TURSO_AUTH_TOKEN"),
-});
-```
-
-All adapter database facades expose `query`, `execute`, `select`, `insert`,
-`update`, `delete`, `transaction`, and `close`.
-
-## Dialect Notes
-
-- PostgreSQL supports native arrays, `json`/`jsonb`, `bytea`, schemas,
-  PostgreSQL placeholders, and PostgreSQL DDL.
-- Neon reuses the PostgreSQL dialect and DDL helpers while executing through
-  `@neon/serverless`.
-- SQLite maps higher-level types onto SQLite affinities: booleans use `INTEGER`,
-  JSON and arrays are stored as JSON text, dates/UUIDs use `TEXT`, and binary
-  data uses `BLOB`.
-- libSQL/Turso follows the SQLite dialect and exposes SQLite-compatible DDL
-  helpers.
-
-## Logging And Errors
-
-Sisal accepts a small generic logger interface:
-
-```ts
-interface Logger {
-  debug(record: Record<string, unknown>, message: string): void;
-  info(record: Record<string, unknown>, message: string): void;
-  warn(record: Record<string, unknown>, message: string): void;
-  error(record: Record<string, unknown>, message: string): void;
-}
-```
-
-Pequi Logger fits this shape, but it is not a dependency of `@sisal/orm`.
-
-Errors are structured:
-
-```ts
-import { MigrationError } from "@sisal/migrate";
-import { OrmError, SisalError } from "@sisal/orm";
-
-try {
-  await db.execute("select * from missing_table");
-} catch (error) {
-  if (error instanceof SisalError) {
-    console.error(error.code, error.severity, error.details);
-  }
-}
-```
+- PostgreSQL uses the PostgreSQL dialect, placeholders, schema support, and DDL
+  helpers through `@sisal/pg`.
+- Neon uses serverless PostgreSQL over `@neon/serverless` through `@sisal/neon`.
+- SQLite runs local SQLite through `jsr:@db/sqlite`; Deno execution needs
+  `--allow-ffi`.
+- libSQL/Turso follows the SQLite-compatible dialect through
+  `npm:@libsql/client`.
 
 ## Development
 
-Install the repository hook once:
+Common repository checks:
 
 ```sh
-deno task hooks:install
-```
-
-Common checks:
-
-```sh
-deno task fmt
 deno task fmt:check
 deno lint
 deno task check
 deno task test
 deno task docs:check
-deno task publish:dry-run
+deno task docs:llms:check
 ```
-
-Publishing is handled by `.github/workflows/publish.yml`. Manual dispatch runs a
-dry-run by default; setting `dry_run` to `false` publishes from `main`. Pushing
-a release tag like `v0.3.0` publishes automatically after the workflow checks
-that every package manifest is also at `0.3.0`. JSR trusted publishing uses
-GitHub Actions OIDC, so each `@sisal/*` package must be connected to this GitHub
-repository in JSR package settings.
 
 Integration suites are opt-in because they use real database drivers or
 services:
 
 ```sh
 DATABASE_URL=postgres://... deno test -A integration/pg_features_test.ts
-
 SISAL_SQLITE_IT=1 deno test --allow-ffi --allow-read --allow-write \
   --allow-env --allow-net integration/sqlite_features_test.ts
-
 SISAL_LIBSQL_IT=1 deno test -A integration/libsql_features_test.ts
 ```
 
-The separate `.github/workflows/integration.yml` workflow runs these suites on a
-weekly schedule and by manual dispatch. It covers PostgreSQL 16/17/18 through
-Docker, Neon through the bundled local WebSocket proxy, and local SQLite/libSQL
+The scheduled integration workflow covers PostgreSQL 16/17/18 through Docker,
+Neon through the bundled local WebSocket proxy, and local SQLite/libSQL
 execution.
 
-The main CI workflow uses Deno `v2.9.0`, installs with `--frozen`, checks
-formatting, linting, docs coverage, workspace type-checking, package tests, a
-workspace publish dry-run, and publish dry-runs for each workspace package.
+## README Disclaimer
 
-See [migration notes](./docs/migration-notes.md) for transition guidance.
+This README was generated and revised with AI assistance. It may contain errors,
+omissions, outdated examples, or inaccuracies. The source code, package
+manifests, tests, and generated API documentation are the authoritative project
+references.
 ```
 
 ### CHANGELOG.md
@@ -2260,6 +1715,11 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Reworked the root README to match the current core/adapters positioning,
+  clarify experimental status and install stacks, document CLI task setup,
+  consolidate examples around one PostgreSQL walkthrough, update the current API
+  summary, remove comparison-forward Drizzle wording, and add an AI-generated
+  README disclaimer.
 - Reworded the docs homepage to clarify Sisal's core/adapters split, JSR/runtime
   dependency boundaries, Drizzle inspiration, autogenerated docs note, and
   package presentation.
