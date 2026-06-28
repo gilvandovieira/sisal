@@ -13,13 +13,11 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (23 feature groups)       |
+| Suite           | `integration/pg_features_test.ts` (27 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-27 — **17 / 17 passed on every version**            |
+| Last run        | 2026-06-28 — **27 / 27 passed on every version**            |
 
-✅ = verified on a live server · 🆕 = integration test added 2026-06-28,
-awaiting the next live matrix run (six new operator groups; verified by the unit
-parity tests in the meantime).
+✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
 
 ## Matrix
 
@@ -38,16 +36,20 @@ parity tests in the meantime).
 | **Distinct** — `select().distinct()`                           |  ✅  |  ✅  |  ✅  |
 | **Joins** — `inner` / `left` / `right` / `full`                |  ✅  |  ✅  |  ✅  |
 | **Aggregates** — `count` `sum` `avg` `min` `max`               |  ✅  |  ✅  |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`    |  🆕  |  🆕  |  🆕  |
-| **Subquery** — `exists` / `notExists` (correlated)             |  🆕  |  🆕  |  🆕  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`    |  🆕  |  🆕  |  🆕  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                  |  🆕  |  🆕  |  🆕  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`       |  🆕  |  🆕  |  🆕  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`         |  🆕  |  🆕  |  🆕  |
+| **Aggregate** — `countDistinct`; `db.$count(table, where?)`    |  ✅  |  ✅  |  ✅  |
+| **Subquery** — `exists` / `notExists` (correlated)             |  ✅  |  ✅  |  ✅  |
+| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`    |  ✅  |  ✅  |  ✅  |
+| **`distinctOn`** — `SELECT DISTINCT ON (...)`                  |  ✅  |  ✅  |  ✅  |
+| **Row locking** — `.for("update"/"share")`, `skipLocked`       |  ✅  |  ✅  |  ✅  |
+| **Array ops** — `arrayContains`/`Contained`/`Overlaps`         |  ✅  |  ✅  |  ✅  |
 | **Group / filter** — `groupBy`, `having`                       |  ✅  |  ✅  |  ✅  |
 | **Update** — `set`, `where`, `returning`, `$onUpdate`          |  ✅  |  ✅  |  ✅  |
 | **Delete** — `where`, `returning`                              |  ✅  |  ✅  |  ✅  |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`      |  ✅  |  ✅  |  ✅  |
+| **Column naming** — snake_case default, `.named()`, `preserve` |  ✅  |  ✅  |  ✅  |
+| **Keyset pagination** — `.keyset(...)`, expanded + row-value   |  ✅  |  ✅  |  ✅  |
+| **Function caller** — `defineFunction` / `db.call`, casts      |  ✅  |  ✅  |  ✅  |
+| **Prepared** — `placeholder()` + `.prepare()`                  |  ✅  |  ✅  |  ✅  |
 | **Transactions** — commit + rollback on error                  |  ✅  |  ✅  |  ✅  |
 | **JSONB** — object round-trip                                  |  ✅  |  ✅  |  ✅  |
 | **Arrays** — `text[]` round-trip                               |  ✅  |  ✅  |  ✅  |
@@ -79,6 +81,11 @@ each server and the column count is verified:
   as `string` for the same reason.
 - **`json` vs `jsonb`.** `jsonb` round-trips as a parsed object; some `json`
   paths may return text — parse defensively if you mix them.
+- **The typed function caller is PostgreSQL-oriented.** `db.call(fn, args)`
+  renders `value::type` casts from the declared argument column types and maps a
+  `RETURNS TABLE (...)` function to typed rows (a scalar return is aliased as
+  `result`). The `::type` cast syntax and stored `CREATE FUNCTION` definitions
+  are PostgreSQL features, so this is verified here and not on SQLite.
 
 ## Reproduce
 

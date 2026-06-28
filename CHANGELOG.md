@@ -89,6 +89,14 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Extended the PostgreSQL (`integration/pg_features_test.ts`) and SQLite
+  (`integration/sqlite_features_test.ts`) feature suites to cover the new v0.4.0
+  surfaces — column naming (snake_case default / `.named()` / `preserve`),
+  keyset pagination (both predicate forms), and prepared statements on both
+  engines, plus the typed function caller (`defineFunction` / `db.call`) on
+  Postgres. Refreshed `docs/pg-compatibility.md` and
+  `docs/sqlite-compatibility.md` (now **27 / 27** on pg16/17/18 and SQLite 3.46)
+  and the homepage `#compat` badges/feature list.
 - Updated the pre-commit hook to regenerate and stage `docs/llms.txt` and
   `docs/llms-full.txt`, keeping the generated LLM docs in sync before CI's
   `docs:llms:check` gate.

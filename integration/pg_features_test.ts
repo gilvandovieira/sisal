@@ -23,6 +23,7 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  defineFunction,
   defineTable,
   desc,
   eq,
@@ -46,6 +47,7 @@ import {
   notInArray,
   notLike,
   or,
+  placeholder,
   raw,
   sql,
   sum,
@@ -586,6 +588,176 @@ pgTest("pg: bytea binary round-trip", async (db) => {
   assertEquals(Array.from(out), [0, 1, 2, 250, 255]);
 });
 
+// ---- v0.4.0 features ------------------------------------------------------
+
+pgTest(
+  "pg: column naming (snake_case default, .named, preserve)",
+  async (db) => {
+    const accounts = defineTable("it_accounts", {
+      id: columns.integer().primaryKey(),
+      fullName: columns.text(),
+      hotScore: columns.doublePrecision(),
+      legacyTag: columns.text().named("legacy"),
+    });
+    const legacyTable = defineTable("it_legacy", {
+      id: columns.integer().primaryKey(),
+      keepThis: columns.text(),
+    }, { naming: "preserve" });
+
+    await db.execute(
+      raw("drop table if exists it_accounts, it_legacy cascade"),
+    );
+    for (
+      const stmt of generatePostgresUpStatements(
+        createSchemaSnapshot({
+          dialect: "postgres",
+          tables: [accounts, legacyTable],
+        }),
+      ).statements
+    ) {
+      await db.execute(stmt);
+    }
+
+    const names = async (table: string) =>
+      (await db.query<{ column_name: string }>(
+        sql`select column_name from information_schema.columns
+            where table_name = ${table} order by ordinal_position`,
+      )).rows.map((r) => r.column_name);
+
+    assertEquals(await names("it_accounts"), [
+      "id",
+      "full_name",
+      "hot_score",
+      "legacy",
+    ]);
+    assertEquals(await names("it_legacy"), ["id", "keepThis"]);
+
+    await db.insert(accounts).values({
+      id: 1,
+      fullName: "Ada",
+      hotScore: 1.5,
+      legacyTag: "L",
+    }).execute();
+    const [row] = await db.select().from(accounts)
+      .where(eq(accounts.columns.id, 1)).execute();
+    assertEquals(row.fullName, "Ada");
+    assertEquals(Number(row.hotScore), 1.5);
+    assertEquals(row.legacyTag, "L");
+
+    await db.update(accounts).set({ hotScore: 2.5 })
+      .where(eq(accounts.columns.id, 1)).execute();
+    const [updated] = await db.select().from(accounts)
+      .where(eq(accounts.columns.id, 1)).execute();
+    assertEquals(Number(updated.hotScore), 2.5);
+  },
+);
+
+pgTest("pg: keyset pagination (expanded + row-value)", async (db) => {
+  const feed = defineTable("it_feed", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_feed cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [feed] }),
+    ).statements[0],
+  );
+  await db.insert(feed).values([
+    { id: 1, score: 10 },
+    { id: 2, score: 20 },
+    { id: 3, score: 20 }, // tie with id 2 on score; id is the tiebreaker
+    { id: 4, score: 5 },
+    { id: 5, score: 15 },
+  ]).execute();
+
+  const pageAll = async (form: "expanded" | "row-value"): Promise<number[]> => {
+    const ids: number[] = [];
+    let after: { score: number; id: number } | undefined;
+    for (let i = 0; i < 10; i += 1) {
+      const pageRows = await db.select().from(feed).keyset({
+        orderBy: [desc(feed.columns.score), desc(feed.columns.id)],
+        after,
+        form,
+      }).limit(2).execute();
+      ids.push(...pageRows.rows.map((r) => Number(r.id)));
+      if (pageRows.nextCursor === null) break;
+      after = {
+        score: Number(pageRows.nextCursor.score),
+        id: Number(pageRows.nextCursor.id),
+      };
+    }
+    return ids;
+  };
+
+  assertEquals(await pageAll("expanded"), [3, 2, 5, 1, 4]);
+  assertEquals(await pageAll("row-value"), [3, 2, 5, 1, 4]);
+});
+
+pgTest(
+  "pg: typed function caller (RETURNS TABLE + scalar + casts)",
+  async (db) => {
+    await db.execute(raw(
+      "create or replace function it_add(a integer, b integer) returns integer" +
+        " language sql immutable as $$ select a + b $$",
+    ));
+    await db.execute(raw(
+      "create or replace function it_pair(n integer)" +
+        " returns table(lo integer, hi integer)" +
+        " language sql immutable as $$ select n, n * 10 $$",
+    ));
+    await db.execute(raw(
+      "create or replace function it_echo_uuid(u uuid) returns uuid" +
+        " language sql immutable as $$ select u $$",
+    ));
+    await db.execute(raw(
+      "create or replace function it_nums() returns table(v integer)" +
+        " language sql immutable as $$ select v from (values (1),(2)) t(v) $$",
+    ));
+
+    // Scalar return: rendered `select it_add($1::integer, $2::integer) as result`.
+    const add = defineFunction("it_add", {
+      args: { a: columns.integer(), b: columns.integer() },
+      returns: columns.integer(),
+    });
+    assertEquals(Number(await db.call(add, { a: 2, b: 3 }).one()), 5);
+
+    // RETURNS TABLE: rendered `select * from it_pair($1::integer)`.
+    const pair = defineFunction("it_pair", {
+      args: { n: columns.integer() },
+      returns: { lo: columns.integer(), hi: columns.integer() },
+    });
+    const [row] = await db.call(pair, { n: 4 }).execute();
+    assertEquals(Number(row.lo), 4);
+    assertEquals(Number(row.hi), 40);
+
+    // The `::uuid` cast comes from the declared arg column type, not a string.
+    const echo = defineFunction("it_echo_uuid", {
+      args: { u: columns.uuid() },
+      returns: columns.uuid(),
+    });
+    const uuid = crypto.randomUUID();
+    assertEquals(await db.call(echo, { u: uuid }).one(), uuid);
+
+    // No-arg, set-returning: execute() yields all rows; one() rejects 2 rows.
+    const nums = defineFunction("it_nums", {
+      returns: { v: columns.integer() },
+    });
+    assertEquals(
+      (await db.call(nums, {}).execute()).map((r) => Number(r.v)),
+      [1, 2],
+    );
+    await assertRejects(() => db.call(nums, {}).one());
+  },
+);
+
+pgTest("pg: prepared statement binds placeholders", async (db) => {
+  const byId = db.select().from(users)
+    .where(eq(users.columns.id, placeholder("id"))).prepare();
+  assertEquals((await byId.execute({ id: 1 })).length, 1);
+  assertEquals((await byId.execute({ id: 999 })).length, 0);
+});
+
 pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   void db;
   const migrator = await createPgMigrator({
@@ -617,7 +789,12 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed cascade",
+    ),
+  );
+  await db.execute(
+    raw(
+      "drop function if exists it_add(integer, integer), it_pair(integer), it_echo_uuid(uuid), it_nums() cascade",
     ),
   );
   await db.close();

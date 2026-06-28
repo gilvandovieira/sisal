@@ -12,8 +12,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (24 tests)     |
-| Last run      | 2026-06-28 — **24 / 24 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (27 tests)     |
+| Last run      | 2026-06-28 — **27 / 27 passed**                      |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported on SQLite.
@@ -44,6 +44,9 @@ unsupported on SQLite.
 | **Update** — `set`, `where`, `returning`, `$onUpdate`              |     ✅      |
 | **Delete** — `where`, `returning`                                  |     ✅      |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`          |     ✅      |
+| **Column naming** — snake_case default, `.named()`, `preserve`     |     ✅      |
+| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms  |     ✅      |
+| **Prepared statements** — `placeholder()` + `.prepare()`           |     ✅      |
 | **Transactions** — commit + rollback, single-connection serialized |     ✅      |
 | **Boolean** — round-trip                                           |     ⚠️      |
 | **JSON / JSONB** — object round-trip                               |     ⚠️      |
@@ -82,6 +85,12 @@ Every generated type maps onto one of SQLite's five affinities and the
   under a table-level `PRIMARY KEY`, which is not SQLite's rowid alias — provide
   ids yourself, or use a single `INTEGER PRIMARY KEY` column for rowid behavior.
 - **`right`/`full` joins need SQLite ≥ 3.39** (the bundled engine is 3.46).
+- **Column naming and keyset pagination behave identically to PostgreSQL.**
+  camelCase keys map to snake_case columns (or `.named()`/`preserve`), and
+  `.keyset(...)` returns `{ rows, nextCursor }` for both predicate forms — the
+  `"row-value"` `(a, b) < (x, y)` comparison uses SQLite row values (≥ 3.15).
+  Functions are **not** covered here: SQLite has no `CREATE FUNCTION` and no
+  PostgreSQL `value::type` cast syntax, so `db.call(...)` targets PostgreSQL.
 - **Postgres-only operators are not available here.** `.distinctOn(...)`,
   `.for("update" | "share")` row locking, and the array operators
   (`arrayContains`/`arrayContained`/`arrayOverlaps`) target PostgreSQL; SQLite
