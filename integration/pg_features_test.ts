@@ -973,7 +973,7 @@ pgTest("pg: sql expressions in SET / VALUES / onConflict", async (db) => {
     upvotes: 3,
     downvotes: 1,
   }).execute();
-  let row = await get();
+  const row = await get();
   assertEquals(Number(row.score), 5);
   assertEquals(row.label, "hi");
 
