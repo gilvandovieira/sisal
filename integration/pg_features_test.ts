@@ -10,7 +10,12 @@
  *
  * @module
  */
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertInstanceOf,
+  assertRejects,
+} from "@std/assert";
 import {
   and,
   arrayContained,
@@ -76,6 +81,15 @@ async function db(): Promise<PgDatabase> {
   return dbHandle;
 }
 
+let temporalDbHandle: PgDatabase | undefined;
+async function temporalDb(): Promise<PgDatabase> {
+  temporalDbHandle ??= await connect({
+    url: URL!,
+    temporal: { parse: true },
+  });
+  return temporalDbHandle;
+}
+
 function pgTest(name: string, fn: (db: PgDatabase) => Promise<void> | void) {
   Deno.test({
     name,
@@ -110,7 +124,7 @@ const posts = defineTable("it_posts", {
   id: columns.integer().primaryKey(),
   title: columns.text().notNull(),
   body: columns.jsonb<{ note: string }>(),
-  updatedAt: columns.timestamp({ withTimezone: true })
+  updatedAt: columns.timestamp({ withTimezone: true, mode: "date" })
     .$onUpdate(() => new Date("2020-01-01T00:00:00Z")),
 });
 
@@ -131,12 +145,93 @@ const allTypes = defineTable("it_all_types", {
   c_json: columns.json(),
   c_jsonb: columns.jsonb(),
   c_date: columns.date(),
+  c_time: columns.time(),
   c_ts: columns.timestamp(),
   c_tstz: columns.timestamp({ withTimezone: true }),
   c_uuid: columns.uuid(),
   c_text_arr: columns.text().array(),
   c_blob: columns.bytea(),
 });
+
+const temporalValues = defineTable("it_temporal_values", {
+  id: columns.integer().primaryKey(),
+
+  plain_date: columns.date(),
+  plain_time: columns.time(),
+  plain_timestamp: columns.timestamp(),
+  instant_timestamp: columns.timestamp({ withTimezone: true }),
+
+  date_text: columns.date({ mode: "string" }),
+  time_text: columns.time({ mode: "string" }),
+  timestamp_text: columns.timestamp({ mode: "string" }),
+  instant_text: columns.timestamp({ withTimezone: true, mode: "string" }),
+
+  legacy_date: columns.date({ mode: "date" }),
+  legacy_timestamp: columns.timestamp({ mode: "date" }),
+  legacy_instant: columns.timestamp({ withTimezone: true, mode: "date" }),
+});
+
+const plainTimestampPrefix = "2026-06-28T12:34:56.123";
+const plainTimestampDateFallbackPrefix = new Date(
+  "2026-06-28T12:34:56.123456",
+).toISOString().replace("Z", "").slice(0, 23);
+
+function assertTemporalRow(row: Record<string, unknown>): void {
+  assertInstanceOf(row.plain_date, Temporal.PlainDate);
+  assertEquals(row.plain_date.toString(), "2026-06-28");
+
+  assertInstanceOf(row.plain_time, Temporal.PlainTime);
+  assertTimePrefix(row.plain_time.toString(), "12:34:56.123");
+
+  assertInstanceOf(row.plain_timestamp, Temporal.PlainDateTime);
+  assertPlainTimestampPrefix(row.plain_timestamp.toString());
+
+  assertInstanceOf(row.instant_timestamp, Temporal.Instant);
+  assert(
+    row.instant_timestamp.toString().startsWith("2026-06-28T12:34:56.123"),
+    row.instant_timestamp.toString(),
+  );
+
+  assertString(row.date_text);
+  assertEquals(row.date_text, "2026-06-28");
+  assertTimePrefix(row.time_text, "12:34:56.123");
+
+  assertString(row.timestamp_text);
+  assertPlainTimestampPrefix(row.timestamp_text);
+
+  assertString(row.instant_text);
+  assert(
+    row.instant_text.startsWith("2026-06-28T12:34:56.123") ||
+      row.instant_text.startsWith("2026-06-28 12:34:56.123"),
+    row.instant_text,
+  );
+}
+
+function assertNotTemporal(value: unknown): void {
+  assert(!(value instanceof Temporal.PlainDate));
+  assert(!(value instanceof Temporal.PlainTime));
+  assert(!(value instanceof Temporal.PlainDateTime));
+  assert(!(value instanceof Temporal.Instant));
+  assert(!(value instanceof Temporal.ZonedDateTime));
+}
+
+function assertString(value: unknown): asserts value is string {
+  assertEquals(typeof value, "string");
+}
+
+function assertTimePrefix(value: unknown, prefix: string): void {
+  assertString(value);
+  assert(value.startsWith(prefix), value);
+}
+
+function assertPlainTimestampPrefix(value: string): void {
+  assert(
+    value.startsWith(plainTimestampPrefix) ||
+      value.startsWith(plainTimestampPrefix.replace("T", " ")) ||
+      value.startsWith(plainTimestampDateFallbackPrefix),
+    value,
+  );
+}
 
 // ---------------------------------------------------------------------------
 
@@ -171,7 +266,7 @@ pgTest("pg: generated DDL applies (every column type)", async (db) => {
     sql`select count(*)::int as count from information_schema.columns
         where table_name = ${"it_all_types"}`,
   );
-  assertEquals(Number(cols.rows[0].count), 20);
+  assertEquals(Number(cols.rows[0].count), 21);
 });
 
 pgTest("pg: insert + returning", async (db) => {
@@ -229,6 +324,96 @@ pgTest("pg: insert + returning", async (db) => {
 
   const all = await db.select().from(users).execute();
   assertEquals(all.length, 4);
+});
+
+pgTest("pg: Temporal date/time modes", async (db) => {
+  const parsed = await temporalDb();
+
+  await db.execute(raw("drop table if exists it_temporal_values cascade"));
+
+  const snapshot = createSchemaSnapshot({
+    dialect: "postgres",
+    tables: [temporalValues],
+  });
+  const { statements, destructive } = generatePostgresUpStatements(snapshot);
+  assertEquals(destructive.length, 0);
+  for (const statement of statements) {
+    await db.execute(statement);
+  }
+
+  const inserted = await parsed.insert(temporalValues).values({
+    id: 1,
+    plain_date: Temporal.PlainDate.from("2026-06-28"),
+    plain_time: Temporal.PlainTime.from("12:34:56.123456"),
+    plain_timestamp: Temporal.PlainDateTime.from(
+      "2026-06-28T12:34:56.123456",
+    ),
+    instant_timestamp: Temporal.Instant.from(
+      "2026-06-28T12:34:56.123456Z",
+    ),
+    date_text: "2026-06-28",
+    time_text: "12:34:56.123456",
+    timestamp_text: "2026-06-28T12:34:56.123456",
+    instant_text: "2026-06-28T12:34:56.123456Z",
+    legacy_date: null,
+    legacy_timestamp: null,
+    legacy_instant: null,
+  }).returning().execute();
+  assertTemporalRow(inserted.rows[0] as Record<string, unknown>);
+
+  const [unparsed] = await db.select().from(temporalValues)
+    .where(eq(temporalValues.columns.id, 1))
+    .execute();
+  for (
+    const key of [
+      "plain_date",
+      "plain_time",
+      "plain_timestamp",
+      "instant_timestamp",
+      "date_text",
+      "time_text",
+      "timestamp_text",
+      "instant_text",
+    ]
+  ) {
+    assertNotTemporal((unparsed as Record<string, unknown>)[key]);
+  }
+
+  await db.query(
+    sql`insert into it_temporal_values
+        (id, legacy_date, legacy_timestamp, legacy_instant)
+        values (
+          ${2},
+          ${"2026-06-28"},
+          ${"2026-06-28T12:34:56.123456"},
+          ${"2026-06-28T12:34:56.123456Z"}
+        )`,
+  );
+
+  const [legacy] = await parsed.select({
+    legacy_date: temporalValues.columns.legacy_date,
+    legacy_timestamp: temporalValues.columns.legacy_timestamp,
+    legacy_instant: temporalValues.columns.legacy_instant,
+  }).from(temporalValues)
+    .where(eq(temporalValues.columns.id, 2))
+    .execute();
+  assertNotTemporal(legacy.legacy_date);
+  assertNotTemporal(legacy.legacy_timestamp);
+  assertNotTemporal(legacy.legacy_instant);
+
+  const rawResult = await parsed.query<{ plain_date: unknown }>(
+    sql`select ${"2026-06-28"} as plain_date`,
+  );
+  assertEquals(rawResult.rows[0].plain_date, "2026-06-28");
+
+  const zoned = Temporal.ZonedDateTime.from(
+    "2026-06-28T09:34:56.123456-03:00[America/Fortaleza]",
+  );
+  const zonedResult = await parsed.query<{ value: unknown }>(
+    sql`select ${zoned} as value`,
+  );
+  assertNotTemporal(zonedResult.rows[0].value);
+  assertString(zonedResult.rows[0].value);
 });
 
 pgTest("pg: filter operators", async (db) => {
@@ -789,7 +974,7 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values cascade",
     ),
   );
   await db.execute(
@@ -797,6 +982,8 @@ pgTest("pg: teardown", async (db) => {
       "drop function if exists it_add(integer, integer), it_pair(integer), it_echo_uuid(uuid), it_nums() cascade",
     ),
   );
+  await temporalDbHandle?.close();
+  temporalDbHandle = undefined;
   await db.close();
   dbHandle = undefined;
 });
