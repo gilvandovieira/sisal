@@ -11,6 +11,18 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added `defineAtomicOperation` — a portable atomic **transaction script**
+  (v0.5.0 roadmap item 8). Author dependent read-modify-write steps once;
+  `op.run(db, input)` executes them as a single transaction on every adapter
+  (`@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql`), committing
+  together and rolling back on error — replacing per-engine hand-written
+  transaction/function code with one definition shaped by the domain, not the
+  engine. Covered by `packages/orm/atomic_test.ts` (network-free) and an
+  `atomic operation` integration test in all four suites (now 33 each) plus a
+  unified-matrix row. Scope: this is the uniform interactive-transaction path;
+  the single-round-trip Postgres path (dispatch to a generated function / a
+  data-modifying CTE) is a future follow-up tied to roadmap items 7/12, so the
+  authored body is forward-compatible but item 8 stays in progress.
 - Added typed render-time dialect guards for the PostgreSQL-only query builders
   (v0.5.0 roadmap item 4): rendering `distinctOn`, `.for("update"/"share")` row
   locking, or the array operators (`@>`/`<@`/`&&`) for a SQLite-family dialect

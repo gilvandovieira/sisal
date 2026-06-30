@@ -17,34 +17,35 @@ fails if a claimed test is missing, so this table cannot drift from the suites.
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
 
-| Feature                                            | Postgres | Neon | SQLite  | libSQL         |
-| :------------------------------------------------- | :------: | :--: | :-----: | :------------: |
-| Connection + raw parameterized SQL                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Generated DDL (all column types)                   |    ✅     |  ✅   |    ✅    |       ✅        |
-| Insert / update / delete / returning               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Filter / ordering / pagination                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Joins (inner / left / right / full)                |    ✅     |  ✅   |    ✅    |       ✅        |
-| Aggregates / group / having                        |    ✅     |  ✅   |    ✅    |       ✅        |
-| Subqueries / exists / scalar                       |    ✅     |  ✅   |    ✅    |       ✅        |
-| Upsert (`onConflict…`)                             |    ✅     |  ✅   |    ✅    |       ✅        |
-| `sql` in `SET` / `VALUES` / `onConflict`           |    ✅     |  ✅   |    ✅    |       ✅        |
-| Column naming (snake_case / `.named()` / preserve) |    ✅     |  ✅   |    ✅    |       ✅        |
-| Keyset pagination (expanded + row-value)           |    ✅     |  ✅   |    ✅    |       ✅        |
-| Prepared statements                                |    ✅     |  ✅   |    ✅    |       ✅        |
-| Transactions (commit + rollback)                   |    ✅     |  ✅   |    ✅    |       ✅        |
-| `db.batch` (non-interactive, atomic)               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Rich indexes (DESC / partial / expression)         |    ✅     |  ✅   |    ✅    |       ✅        |
-| Migrator (apply / plan / idempotent)               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Temporal date/time modes                           |    ✅     |  ✅   |    ✅    |       ✅        |
-| `ilike` / `notIlike`                               |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
-| `json` / array round-trip                          |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| `boolean` round-trip                               |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
-| `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
-| Float (`float4`/`float8`) round-trip → `number`    |    ✅     |  ✅   |    ✅    |       ✅        |
-| `distinctOn`                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Row locking (`.for(...)`)                          |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Typed function caller (`db.call`)                  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Feature                                                         | Postgres | Neon | SQLite  | libSQL         |
+| :-------------------------------------------------------------- | :------: | :--: | :-----: | :------------: |
+| Connection + raw parameterized SQL                              |    ✅     |  ✅   |    ✅    |       ✅        |
+| Generated DDL (all column types)                                |    ✅     |  ✅   |    ✅    |       ✅        |
+| Insert / update / delete / returning                            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Filter / ordering / pagination                                  |    ✅     |  ✅   |    ✅    |       ✅        |
+| Joins (inner / left / right / full)                             |    ✅     |  ✅   |    ✅    |       ✅        |
+| Aggregates / group / having                                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Subqueries / exists / scalar                                    |    ✅     |  ✅   |    ✅    |       ✅        |
+| Upsert (`onConflict…`)                                          |    ✅     |  ✅   |    ✅    |       ✅        |
+| `sql` in `SET` / `VALUES` / `onConflict`                        |    ✅     |  ✅   |    ✅    |       ✅        |
+| Column naming (snake_case / `.named()` / preserve)              |    ✅     |  ✅   |    ✅    |       ✅        |
+| Keyset pagination (expanded + row-value)                        |    ✅     |  ✅   |    ✅    |       ✅        |
+| Prepared statements                                             |    ✅     |  ✅   |    ✅    |       ✅        |
+| Transactions (commit + rollback)                                |    ✅     |  ✅   |    ✅    |       ✅        |
+| `db.batch` (non-interactive, atomic)                            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Atomic operation / transaction script (`defineAtomicOperation`) |    ✅     |  ✅   |    ✅    |       ✅        |
+| Rich indexes (DESC / partial / expression)                      |    ✅     |  ✅   |    ✅    |       ✅        |
+| Migrator (apply / plan / idempotent)                            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Temporal date/time modes                                        |    ✅     |  ✅   |    ✅    |       ✅        |
+| `ilike` / `notIlike`                                            |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
+| `json` / array round-trip                                       |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| `boolean` round-trip                                            |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
+| `bytea` / BLOB round-trip                                       |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
+| Float (`float4`/`float8`) round-trip → `number`                 |    ✅     |  ✅   |    ✅    |       ✅        |
+| `distinctOn`                                                    |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Row locking (`.for(...)`)                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Array operators (`@>` / `<@` / `&&`)                            |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Typed function caller (`db.call`)                               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves

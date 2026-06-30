@@ -13,9 +13,9 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (32 tests)                |
+| Suite           | `integration/pg_features_test.ts` (33 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-30 — **32 / 32 passed** (pg18; 31/31 on pg16/17/18) |
+| Last run        | 2026-06-30 — **33 / 33 passed** (pg18)                      |
 
 ## Feature coverage
 

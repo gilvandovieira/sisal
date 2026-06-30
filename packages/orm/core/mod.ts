@@ -171,8 +171,14 @@ export type {
   RelationsList,
   TableRelations,
 } from "./relations.ts";
-export { createDatabase, memoryOrmDriver, noopOrmDriver } from "./database.ts";
+export {
+  createDatabase,
+  defineAtomicOperation,
+  memoryOrmDriver,
+  noopOrmDriver,
+} from "./database.ts";
 export type {
+  AtomicOperation,
   BatchStatement,
   Database,
   DatabaseOptions,

@@ -633,3 +633,58 @@ function transactionToDriver(transaction: OrmTransaction): OrmDriver {
 function elapsedMs(startedAt: number): number {
   return Math.max(0, performance.now() - startedAt);
 }
+
+/**
+ * A portable atomic operation — a "transaction script". Author dependent
+ * read-modify-write steps once; {@link AtomicOperation.run} executes them as a
+ * single transaction on any adapter (`@sisal/pg`, `@sisal/neon`,
+ * `@sisal/sqlite`, `@sisal/libsql`), replacing per-engine hand-written
+ * transaction/function code with one definition.
+ */
+export interface AtomicOperation<TInput, TOutput> {
+  /** Stable operation name (used by tooling and future function dispatch). */
+  readonly name: string;
+  /**
+   * Runs the operation against `db` inside one `db.transaction(...)` — the steps
+   * commit together and roll back on any error — returning the body's result.
+   */
+  run(db: Database, input: TInput): Promise<TOutput>;
+}
+
+/**
+ * Defines an {@link AtomicOperation} from a transaction-scoped body. The body
+ * receives a transaction-scoped {@link Database} plus the typed input and may run
+ * dependent steps (a read that drives a later write). The same operation runs
+ * identically on every adapter, so application code is shaped by the domain, not
+ * the engine.
+ *
+ * Currently every adapter runs the body as an **interactive transaction**. The
+ * authored body is forward-compatible with a future single-round-trip path that
+ * dispatches Postgres-family adapters to a generated database function (v0.5.0
+ * roadmap items 7/12).
+ *
+ * @example
+ * const recordVote = defineAtomicOperation<{ postId: number }, number>(
+ *   "record_vote",
+ *   async (tx, { postId }) => {
+ *     const [post] = await tx.select().from(posts)
+ *       .where(eq(posts.columns.id, postId)).execute();
+ *     const next = Number(post.votes) + 1;
+ *     await tx.update(posts).set({ votes: next })
+ *       .where(eq(posts.columns.id, postId)).execute();
+ *     return next;
+ *   },
+ * );
+ * const votes = await recordVote.run(db, { postId: 1 });
+ */
+export function defineAtomicOperation<TInput, TOutput>(
+  name: string,
+  body: (tx: Database, input: TInput) => Promise<TOutput>,
+): AtomicOperation<TInput, TOutput> {
+  return Object.freeze({
+    name,
+    run(db: Database, input: TInput): Promise<TOutput> {
+      return db.transaction((tx) => body(tx, input));
+    },
+  });
+}

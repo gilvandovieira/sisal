@@ -114,6 +114,10 @@ export const FEATURE_MATRIX: FeatureRow[] = [
     "transaction commit and rollback",
   ),
   allTested("`db.batch` (non-interactive, atomic)", "batch runs statements"),
+  allTested(
+    "Atomic operation / transaction script (`defineAtomicOperation`)",
+    "atomic operation",
+  ),
   allTested("Rich indexes (DESC / partial / expression)", "rich indexes"),
   allTested("Migrator (apply / plan / idempotent)", "migrator applies"),
   allTested("Temporal date/time modes", "Temporal date/time modes"),

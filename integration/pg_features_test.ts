@@ -28,6 +28,7 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  defineAtomicOperation,
   defineFunction,
   defineTable,
   desc,
@@ -1113,6 +1114,52 @@ pgTest("pg: rich indexes (DESC / partial / expression) apply", async (db) => {
   assert(/lower/i.test(all), all);
 });
 
+pgTest("pg: atomic operation (transaction script)", async (db) => {
+  const counters = defineTable("it_counters", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_counters cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [counters] }),
+    ).statements[0],
+  );
+
+  // A dependent read-modify-write authored once; runs as one transaction.
+  const bump = defineAtomicOperation<{ id: number }, number>(
+    "bump",
+    async (tx, { id }) => {
+      const existing = await tx.select().from(counters)
+        .where(eq(counters.columns.id, id)).execute();
+      if (existing.length === 0) {
+        await tx.insert(counters).values({ id, n: 1 }).execute();
+        return 1;
+      }
+      const next = Number(existing[0].n) + 1;
+      await tx.update(counters).set({ n: next })
+        .where(eq(counters.columns.id, id)).execute();
+      return next;
+    },
+  );
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+
+  // A throwing operation rolls its whole step back.
+  const bumpThenFail = defineAtomicOperation<{ id: number }, never>(
+    "bump_then_fail",
+    async (tx, { id }) => {
+      await tx.update(counters).set({ n: sql`${counters.columns.n} + 100` })
+        .where(eq(counters.columns.id, id)).execute();
+      throw new Error("boom");
+    },
+  );
+  await assertRejects(() => bumpThenFail.run(db, { id: 1 }));
+  const [row] = await db.select().from(counters)
+    .where(eq(counters.columns.id, 1)).execute();
+  assertEquals(Number(row.n), 2);
+});
+
 pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   void db;
   const migrator = await createPgMigrator({
@@ -1144,7 +1191,7 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters cascade",
     ),
   );
   await db.execute(

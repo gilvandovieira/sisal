@@ -1581,6 +1581,18 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added `defineAtomicOperation` — a portable atomic **transaction script**
+  (v0.5.0 roadmap item 8). Author dependent read-modify-write steps once;
+  `op.run(db, input)` executes them as a single transaction on every adapter
+  (`@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql`), committing
+  together and rolling back on error — replacing per-engine hand-written
+  transaction/function code with one definition shaped by the domain, not the
+  engine. Covered by `packages/orm/atomic_test.ts` (network-free) and an
+  `atomic operation` integration test in all four suites (now 33 each) plus a
+  unified-matrix row. Scope: this is the uniform interactive-transaction path;
+  the single-round-trip Postgres path (dispatch to a generated function / a
+  data-modifying CTE) is a future follow-up tied to roadmap items 7/12, so the
+  authored body is forward-compatible but item 8 stays in progress.
 - Added typed render-time dialect guards for the PostgreSQL-only query builders
   (v0.5.0 roadmap item 4): rendering `distinctOn`, `.for("update"/"share")` row
   locking, or the array operators (`@>`/`<@`/`&&`) for a SQLite-family dialect
@@ -3721,9 +3733,9 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (32 tests)                |
+| Suite           | `integration/pg_features_test.ts` (33 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-30 — **32 / 32 passed** (pg18; 31/31 on pg16/17/18) |
+| Last run        | 2026-06-30 — **33 / 33 passed** (pg18)                      |
 
 ## Feature coverage
 
@@ -3823,8 +3835,8 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (32 tests)           |
-| Last run      | 2026-06-30 — **32 / 32 passed** (neon-proxy + live Neon) |
+| Suite         | `integration/neon_features_test.ts` (33 tests)           |
+| Last run      | 2026-06-30 — **33 / 33 passed** (neon-proxy + live Neon) |
 
 ## Feature coverage
 
@@ -3832,7 +3844,7 @@ Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
-every Postgres-family ✅ applies. The 31-test suite is verified through the
+every Postgres-family ✅ applies. The 33-test suite is verified through the
 Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
 additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
 secure WebSocket, no proxy) — all green.
@@ -3914,8 +3926,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (32 tests)     |
-| Last run      | 2026-06-30 — **32 / 32 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (33 tests)     |
+| Last run      | 2026-06-30 — **33 / 33 passed**                      |
 
 ## Feature coverage
 
@@ -4014,8 +4026,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (32 tests)       |
-| Last run      | 2026-06-30 — **32 / 32 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (33 tests)       |
+| Last run      | 2026-06-30 — **33 / 33 passed**                        |
 
 ## Feature coverage
 
@@ -6364,7 +6376,7 @@ limit:
 | 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🟢     |
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🟢     |
 | 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🔴     |
-| 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🔴     |
+| 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🟡     |
 | 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🔴     |
 | 10 | `.optional()` should not widen the SELECT row type                     | P3       | S            | 🔴     |
 | 11 | `@sisal/pg` float8 → `number` (only adapter returning string)          | P2       | M            | 🟢     |
@@ -6687,6 +6699,16 @@ for: how dependent results flow between steps, how it interacts with item 7
 item 7's DDL generation. **Acceptance:** the rising-feed recorder reads
 identically in both examples; it is one round trip on Neon HTTP and one
 interactive transaction on libSQL; covered on every adapter.
+
+**Status (🟡 in progress).** The uniform path landed: `defineAtomicOperation`
+(`@sisal/orm`) authors dependent read-modify-write steps once and runs them as
+one **interactive transaction on every adapter** — covered by
+`packages/orm/atomic_test.ts` (network-free) + an `atomic operation` integration
+test in all four suites and a unified-matrix row. **Deferred:** the
+**single-round-trip Postgres path** (dispatch to a generated function or a
+data-modifying CTE — items 7/12) and the rising-feed example unification (the
+examples still showcase their engine-optimal patterns until the function path
+exists). The authored body is forward-compatible with that dispatch.
 
 ---
 
