@@ -1743,6 +1743,13 @@ Sisal-specific history after that baseline through `1f05448`.
   **PostgreSQL-only limits** section. The four per-engine docs and the
   drizzle-parity array-operator footnote now point to this reference instead of
   restating the explanations, removing the cross-doc duplication.
+- Wired the feature-matrix coverage guard into CI (v0.5.0 roadmap item 6):
+  `deno task docs:matrix:check` now runs in the `ci` and `publish` workflows,
+  and the `pages` build regenerates the matrix before publishing. CI fails if
+  the unified matrix marks a `✅`/`⚠️` for an adapter whose suite has no
+  correspondingly-named test. With item 2 landed, the `db.batch` "gated
+  integration suites" coverage claim is now accurate on all four adapters,
+  closing the coverage-honesty gap item 6 was opened for.
 
 ## 0.4.0 - 2026-06-30
 
@@ -5542,7 +5549,7 @@ limit:
 | 3  | Unified cross-driver feature matrix (the **outcome**)                  | P1       | M            | 🟢     |
 | 4  | Typed dialect guards for Postgres-only builders                        | P2       | M            | 🟢     |
 | 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🟢     |
-| 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🔴     |
+| 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🟢     |
 | 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🔴     |
 | 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🔴     |
 | 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🔴     |

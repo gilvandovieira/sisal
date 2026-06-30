@@ -48,6 +48,9 @@ jobs:
       - name: Check LLM docs
         run: deno task --frozen docs:llms:check
 
+      - name: Check feature-matrix coverage
+        run: deno task --frozen docs:matrix:check
+
       - name: Type check workspace
         run: deno task --frozen check
 

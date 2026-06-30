@@ -187,6 +187,13 @@ Sisal-specific history after that baseline through `1f05448`.
   **PostgreSQL-only limits** section. The four per-engine docs and the
   drizzle-parity array-operator footnote now point to this reference instead of
   restating the explanations, removing the cross-doc duplication.
+- Wired the feature-matrix coverage guard into CI (v0.5.0 roadmap item 6):
+  `deno task docs:matrix:check` now runs in the `ci` and `publish` workflows,
+  and the `pages` build regenerates the matrix before publishing. CI fails if
+  the unified matrix marks a `✅`/`⚠️` for an adapter whose suite has no
+  correspondingly-named test. With item 2 landed, the `db.batch` "gated
+  integration suites" coverage claim is now accurate on all four adapters,
+  closing the coverage-honesty gap item 6 was opened for.
 
 ## 0.4.0 - 2026-06-30
 
