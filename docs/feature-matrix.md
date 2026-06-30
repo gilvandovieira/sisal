@@ -36,6 +36,7 @@ genuine dialect limit · — not applicable.
 | Atomic operation / transaction script (`defineAtomicOperation`) |    ✅     |  ✅   |    ✅    |       ✅        |
 | Rich indexes (DESC / partial / expression)                      |    ✅     |  ✅   |    ✅    |       ✅        |
 | Migrator (apply / plan / idempotent)                            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Stored schema objects (functions / triggers / views)            |    ✅     |  ✅   |    ✅    |       ✅        |
 | Temporal date/time modes                                        |    ✅     |  ✅   |    ✅    |       ✅        |
 | `ilike` / `notIlike`                                            |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
 | `json` / array round-trip                                       |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |

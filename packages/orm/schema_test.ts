@@ -1,12 +1,15 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
   assertValidSchemaSnapshot,
+  defineSchemaObject,
   defineSchemaSnapshot,
   deserializeSchemaSnapshot,
   diffSchemaSnapshots,
   equalSchemaSnapshots,
   isEmptySchemaSnapshotDiff,
   normalizeSchemaSnapshot,
+  schemaObjectDropStatements,
+  selectSchemaObjects,
   serializeSchemaSnapshot,
   type SisalColumnSnapshot,
   type SisalSchemaSnapshot,
@@ -292,4 +295,96 @@ Deno.test("@sisal/orm - diff ignores ordering and reports empty for equal snapsh
   const diff = diffSchemaSnapshots(a, b);
   assert(isEmptySchemaSnapshotDiff(diff));
   assertEquals(equalSchemaSnapshots(a, b), true);
+});
+
+Deno.test("@sisal/orm - defineSchemaObject drops empty optional fields", () => {
+  const object = defineSchemaObject({
+    name: "touch",
+    kind: "function",
+    up: "CREATE FUNCTION touch() RETURNS void AS $$ $$ LANGUAGE sql;",
+  });
+  assertEquals("dialect" in object, false);
+  assertEquals("down" in object, false);
+});
+
+Deno.test("@sisal/orm - schemaObjects survive normalization in declared order", () => {
+  const snapshot = normalizeSchemaSnapshot({
+    version: 2,
+    tables: [{ name: "a", columns: [textColumn("id")] }],
+    schemaObjects: [
+      { name: "second", kind: "raw", up: "SELECT 2;" },
+      { name: "first", kind: "raw", up: "SELECT 1;" },
+    ],
+  });
+  // Order is preserved (NOT sorted, unlike tables) — DDL dependencies matter.
+  assertEquals(snapshot.schemaObjects?.map((o) => o.name), ["second", "first"]);
+});
+
+Deno.test("@sisal/orm - selectSchemaObjects gates by dialect and change", () => {
+  const fn = "CREATE FUNCTION f() RETURNS void AS $$ $$ LANGUAGE sql;";
+  const trig = "CREATE TRIGGER t AFTER INSERT ON a BEGIN SELECT 1; END;";
+  const to: SisalSchemaSnapshot = {
+    version: 2,
+    tables: [{ name: "a", columns: [textColumn("id")] }],
+    schemaObjects: [
+      { name: "f", kind: "function", dialect: "postgres", up: fn },
+      { name: "t", kind: "trigger", dialect: "sqlite", up: trig },
+      { name: "any", kind: "raw", up: "SELECT 1;" },
+    ],
+  };
+
+  // Postgres sees its function + the dialect-agnostic object, not the trigger.
+  assertEquals(
+    selectSchemaObjects(to, undefined, "postgres").map((o) => o.name),
+    ["f", "any"],
+  );
+  // Re-running against an identical `from` emits nothing for unchanged objects.
+  assertEquals(selectSchemaObjects(to, to, "postgres"), []);
+});
+
+Deno.test("@sisal/orm - selectSchemaObjects re-emits a changed object body", () => {
+  const base = {
+    name: "f",
+    kind: "function" as const,
+    dialect: "postgres" as const,
+  };
+  const from: SisalSchemaSnapshot = {
+    version: 2,
+    tables: [],
+    schemaObjects: [{ ...base, up: "CREATE FUNCTION f() v1" }],
+  };
+  const to: SisalSchemaSnapshot = {
+    version: 2,
+    tables: [],
+    schemaObjects: [{ ...base, up: "CREATE FUNCTION f() v2" }],
+  };
+
+  assertEquals(
+    selectSchemaObjects(to, from, "postgres").map((o) => o.up),
+    ["CREATE FUNCTION f() v2"],
+  );
+});
+
+Deno.test("@sisal/orm - schemaObjectDropStatements reverse declared order", () => {
+  const snapshot: SisalSchemaSnapshot = {
+    version: 2,
+    tables: [],
+    schemaObjects: [
+      {
+        name: "f",
+        kind: "function",
+        up: "CREATE ..1",
+        down: "DROP FUNCTION f;",
+      },
+      { name: "t", kind: "trigger", up: "CREATE ..2", down: "DROP TRIGGER t;" },
+      // No `down` → excluded from drop statements.
+      { name: "v", kind: "view", up: "CREATE ..3" },
+    ],
+  };
+
+  // Dependents (declared later) drop first.
+  assertEquals(schemaObjectDropStatements(snapshot, "postgres"), [
+    "DROP TRIGGER t;",
+    "DROP FUNCTION f;",
+  ]);
 });

@@ -1034,6 +1034,73 @@ libsqlTest("libsql: migrator applies, plans, and is idempotent", async () => {
   }
 });
 
+libsqlTest("libsql: schema objects (triggers/views)", async (db) => {
+  await db.execute(raw("drop view if exists it_so_view"));
+  await db.execute(raw("drop trigger if exists it_so_trg"));
+  await db.execute(raw("drop table if exists it_so"));
+  await db.execute(raw("drop table if exists it_so_count"));
+
+  const it_so = defineTable("it_so", {
+    id: columns.integer().primaryKey(),
+    label: columns.text().notNull(),
+  });
+  const it_so_count = defineTable("it_so_count", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+
+  const snapshot = createSchemaSnapshot({
+    dialect: "sqlite",
+    tables: [it_so, it_so_count],
+    schemaObjects: [
+      // Postgres-only — the SQLite-family generator must skip this entirely.
+      {
+        name: "it_so_stamp",
+        kind: "function",
+        dialect: "postgres",
+        up: "CREATE FUNCTION it_so_stamp() RETURNS trigger AS $$ $$ " +
+          "LANGUAGE plpgsql;",
+      },
+      {
+        name: "it_so_trg",
+        kind: "trigger",
+        dialect: "sqlite",
+        up: "CREATE TRIGGER it_so_trg AFTER INSERT ON it_so BEGIN " +
+          "UPDATE it_so_count SET n = n + 1 WHERE id = 1; END;",
+        down: "DROP TRIGGER it_so_trg;",
+      },
+      // Dialect-agnostic view.
+      {
+        name: "it_so_view",
+        kind: "view",
+        up: "CREATE VIEW it_so_view AS SELECT id, label FROM it_so;",
+        down: "DROP VIEW it_so_view;",
+      },
+    ],
+  });
+
+  const { statements, destructive } = generateLibsqlUpStatements(snapshot);
+  assertEquals(destructive.length, 0);
+  // The Postgres-only function is gated out; the trigger + view remain.
+  assertEquals(statements.some((s) => s.includes("CREATE FUNCTION")), false);
+  assert(statements[0].startsWith('CREATE TABLE "it_so"'));
+  for (const statement of statements) await db.execute(statement);
+
+  await db.insert(it_so_count).values({ id: 1, n: 0 }).execute();
+  await db.insert(it_so).values([{ id: 1, label: "a" }, { id: 2, label: "b" }])
+    .execute();
+
+  // The AFTER INSERT trigger fired once per row.
+  const [counter] = await db.select().from(it_so_count).execute();
+  assertEquals(Number(counter.n), 2);
+
+  // The view resolves against the table.
+  const view = await db.query<{ count: number }>(
+    sql`select count(*) as count from it_so_view`,
+  );
+  assertEquals(Number(view.rows[0].count), 2);
+});
+
 libsqlTest("libsql: teardown", async (db) => {
   await temporalDbHandle?.close();
   temporalDbHandle = undefined;

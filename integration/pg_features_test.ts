@@ -1214,15 +1214,79 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   }
 });
 
+pgTest("pg: schema objects (functions/triggers/views)", async (db) => {
+  await db.execute(raw("drop view if exists it_so_view cascade"));
+  await db.execute(raw("drop table if exists it_so cascade"));
+  await db.execute(raw("drop function if exists it_so_stamp() cascade"));
+
+  const it_so = defineTable("it_so", {
+    id: columns.integer().primaryKey(),
+    label: columns.text().notNull(),
+    stamped: columns.text(),
+  });
+
+  const snapshot = createSchemaSnapshot({
+    dialect: "postgres",
+    tables: [it_so],
+    schemaObjects: [
+      {
+        name: "it_so_stamp",
+        kind: "function",
+        dialect: "postgres",
+        up: "CREATE FUNCTION it_so_stamp() RETURNS trigger AS $$ BEGIN " +
+          "NEW.stamped := 'auto'; RETURN NEW; END; $$ LANGUAGE plpgsql;",
+        down: "DROP FUNCTION it_so_stamp() CASCADE;",
+      },
+      {
+        name: "it_so_trg",
+        kind: "trigger",
+        dialect: "postgres",
+        up: "CREATE TRIGGER it_so_trg BEFORE INSERT ON it_so " +
+          "FOR EACH ROW EXECUTE FUNCTION it_so_stamp();",
+        down: "DROP TRIGGER it_so_trg ON it_so;",
+      },
+      // Dialect-agnostic: emitted for Postgres and the SQLite family alike.
+      {
+        name: "it_so_view",
+        kind: "view",
+        up: "CREATE VIEW it_so_view AS SELECT id, label FROM it_so;",
+        down: "DROP VIEW it_so_view;",
+      },
+    ],
+  });
+
+  const { statements, destructive } = generatePostgresUpStatements(snapshot);
+  assertEquals(destructive.length, 0);
+  // CREATE TABLE renders first; the stored objects trail it in declared order.
+  assert(statements[0].startsWith('CREATE TABLE "it_so"'));
+  for (const statement of statements) await db.execute(statement);
+
+  // The BEFORE INSERT trigger ran: the function overwrote `stamped`.
+  await db.insert(it_so).values({ id: 1, label: "x", stamped: null }).execute();
+  const [row] = await db.select().from(it_so).execute();
+  assertEquals(row.stamped, "auto");
+
+  // The dialect-agnostic view resolves against the table.
+  const view = await db.query<{ count: number }>(
+    sql`select count(*)::int as count from it_so_view`,
+  );
+  assertEquals(Number(view.rows[0].count), 1);
+});
+
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte cascade",
+      "drop view if exists it_so_view cascade",
     ),
   );
   await db.execute(
     raw(
-      "drop function if exists it_add(integer, integer), it_pair(integer), it_echo_uuid(uuid), it_nums() cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so cascade",
+    ),
+  );
+  await db.execute(
+    raw(
+      "drop function if exists it_add(integer, integer), it_pair(integer), it_echo_uuid(uuid), it_nums(), it_so_stamp() cascade",
     ),
   );
   await temporalDbHandle?.close();

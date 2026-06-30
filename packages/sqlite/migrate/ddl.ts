@@ -12,6 +12,7 @@
 
 import {
   diffSchemaSnapshots,
+  selectSchemaObjects,
   type SisalColumnDefault,
   type SisalColumnSnapshot,
   type SisalColumnType,
@@ -235,6 +236,11 @@ export function generateSqliteUpStatements(
 
   for (const table of diff.addedTables) {
     statements.push(...generateSqliteIndexes(table));
+  }
+
+  // Stored DDL (triggers/views) after table creation. libSQL shares this path.
+  for (const object of selectSchemaObjects(to, from, "sqlite")) {
+    statements.push(object.up);
   }
 
   const { destructive } = planSchemaChangesFromDiff(diff);

@@ -11,6 +11,7 @@
 
 import {
   diffSchemaSnapshots,
+  selectSchemaObjects,
   type SisalColumnDefault,
   type SisalColumnSnapshot,
   type SisalColumnType,
@@ -261,6 +262,11 @@ export function generatePostgresUpStatements(
 
   for (const table of diff.addedTables) {
     statements.push(...generatePostgresIndexes(table));
+  }
+
+  // Stored DDL (functions/triggers/extensions/views) after table creation.
+  for (const object of selectSchemaObjects(to, from, "postgres")) {
+    statements.push(object.up);
   }
 
   const { destructive } = planSchemaChangesFromDiff(diff);

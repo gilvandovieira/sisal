@@ -13,6 +13,7 @@ import {
   type SisalDialectName,
   type SisalIndexColumnSnapshot,
   type SisalIndexSnapshot,
+  type SisalSchemaObjectSnapshot,
   type SisalSchemaSnapshot,
   type SisalUniqueConstraintSnapshot,
 } from "../schema.ts";
@@ -418,6 +419,11 @@ export interface CreateSchemaSnapshotOptions {
 /** Input accepted by {@link createSchemaSnapshot}. */
 export interface CreateSchemaSnapshotInput extends CreateSchemaSnapshotOptions {
   readonly tables: readonly TableDefinition[] | Record<string, TableDefinition>;
+  /**
+   * Raw DDL fragments (functions, triggers, extensions, …) emitted after table
+   * creation. Create them with `defineSchemaObject(...)`.
+   */
+  readonly schemaObjects?: readonly SisalSchemaObjectSnapshot[];
 }
 
 /** Options accepted by {@link defineTable}. */
@@ -509,6 +515,9 @@ export function createSchemaSnapshot(
     version: SCHEMA_SNAPSHOT_VERSION,
     ...(input.dialect === undefined ? {} : { dialect: input.dialect }),
     tables: tables.map(tableToSnapshot),
+    ...(input.schemaObjects === undefined
+      ? {}
+      : { schemaObjects: input.schemaObjects }),
     ...(input.metadata === undefined
       ? {}
       : { metadata: { ...input.metadata } }),

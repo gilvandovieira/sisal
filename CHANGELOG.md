@@ -11,6 +11,29 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
+  A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
+  dialect-gated DDL fragments — functions, triggers, views, extensions, or any
+  verbatim `CREATE …` — emitted **after** all table/column/constraint/index
+  creation, in declared order, so a `defineTable` schema can hold the stored
+  logic an app would otherwise keep in a hand-written `.sql` migration. New
+  public surface on `@sisal/orm`: the `SisalSchemaObjectSnapshot` type,
+  `defineSchemaObject`, `selectSchemaObjects` (dialect + change filter, used by
+  the adapter DDL generators), and `schemaObjectDropStatements` (reverse-order
+  `down` drops). Each object has an optional `dialect`: omit it to emit
+  everywhere, or set it to gate to one engine — a Postgres-only function is
+  skipped by the SQLite-family generator, never emitted as SQL the engine
+  rejects. The three additive DDL generators
+  (`generate{Postgres,Sqlite,Libsql}UpStatements`) append the selected objects
+  after their index loop; libSQL shares the SQLite path. Covered by
+  `packages/orm/schema_test.ts` (select/gating/drop-order/normalization) and
+  pg/sqlite render tests, plus a `schema objects` integration test in all four
+  suites (now 35 each) executing a real trigger + view on PostgreSQL 18, Neon,
+  SQLite, and libSQL and asserting cross-dialect gating; a unified-matrix row
+  added (pg/neon/sqlite/libsql ✅). Scope: snapshot-carried emission of `up`
+  fragments is in; migrate-side `down` generation, drift/checksum diffing of
+  stored objects, drizzle-parity rows, and the `neon-hot-feed` example refactor
+  to drop its hand-written DDL remain follow-ups, so item 7 stays in progress.
 - Added **data-modifying CTEs** (v0.5.0 roadmap item 12, core). A CTE body may
   now be an `INSERT`/`UPDATE`/`DELETE … RETURNING` builder, not just a `SELECT`
   — `db.$with("x").as(db.insert(t).values(...).returning())` — and the

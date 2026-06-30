@@ -123,6 +123,10 @@ export const FEATURE_MATRIX: FeatureRow[] = [
   ),
   allTested("Rich indexes (DESC / partial / expression)", "rich indexes"),
   allTested("Migrator (apply / plan / idempotent)", "migrator applies"),
+  allTested(
+    "Stored schema objects (functions / triggers / views)",
+    "schema objects",
+  ),
   allTested("Temporal date/time modes", "Temporal date/time modes"),
   {
     feature: "`ilike` / `notIlike`",
