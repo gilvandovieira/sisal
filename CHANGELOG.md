@@ -9,6 +9,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.5.0 - 2026-06-30
+
 ### Added
 
 - **Example consolidation: the `neon-rising-feed-ctes` recompute is now
