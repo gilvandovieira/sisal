@@ -31,32 +31,36 @@ Sisal-specific history after that baseline through `1f05448`.
   column-descriptor map (non-table) input and the `neon-rising-feed-ctes`
   example refactor that would drop its hand-written `RecordedBucket` /
   `RecomputedPost` shapes remain follow-ups, so item 13 stays in progress.
-- Added **conditional aggregates and portable date truncation** (v0.5.0 roadmap
-  item 9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)`
-  clause to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
+- Added **conditional aggregates and portable date math** (v0.5.0 roadmap item
+  9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)` clause
+  to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
   `sum("score") filter (where "kind" = $1)` — supported natively by PostgreSQL
-  and modern SQLite/libSQL, so it renders identically on every adapter.
-  `dateTrunc(field, source)` truncates a timestamp to a calendar field
-  (`year`…`second`) for time-bucket `GROUP BY`s, rendering
-  `date_trunc('field',
-  src)` on PostgreSQL and the equivalent
-  `strftime('format', src)` on the SQLite family (which has no `date_trunc`);
-  the SQLite-family result is an ISO-8601 `TEXT` string that still orders and
-  groups identically to the PostgreSQL `timestamp`. Both build on a new public
-  `dialectSql(construct, variants,
-  fallback?)` primitive — a SQL fragment that
-  renders per dialect and throws a typed `OrmError`
-  (`code: "ORM_DIALECT_UNSUPPORTED"`) when no variant or fallback matches. New
-  `@sisal/orm` exports: `filter`, `dateTrunc`, `DateTruncField`, `dialectSql`.
-  Covered by `packages/orm/aggregates_test.ts` (per-dialect render +
-  fallback/throw) and a `filter aggregate + dateTrunc` integration test in all
-  four suites (now 36 each) executed on PostgreSQL 18, Neon, SQLite, and libSQL;
-  two unified-matrix rows added (filter ✅ everywhere; dateTrunc pg/neon ✅,
-  sqlite/libsql ⚠️ text). Scope: `filter` + calendar-field `dateTrunc` are in;
-  `now()`-relative interval arithmetic, arbitrary-interval bucketing
-  (`date_bin`/floor), and the rising-feed example refactors that would drop
-  their raw-SQL/TS-only window math remain follow-ups, so item 9 stays in
-  progress.
+  and modern SQLite/libSQL, so it renders identically on every adapter. A
+  portable date-math set makes a moving-window query builder-native on every
+  engine: `dateTrunc(field, source)` truncates to a calendar field; `now()` is
+  the current timestamp; `dateAdd`/`dateSub(source, duration)` do interval
+  arithmetic (`gte(col, dateSub(now(), { minutes: 15 }))`); and
+  `dateBin(every, source)` floors to an arbitrary-width bucket (the 5-minute
+  floor `dateTrunc`'s calendar fields can't express). Each renders its own
+  per-dialect SQL — `date_trunc` / `now()` / `… ± interval` /
+  `to_timestamp(floor(epoch/N)*N)` on PostgreSQL, and `strftime` /
+  `datetime('now')` / chained `datetime(…)` modifiers /
+  `datetime((unixepoch/N)*N)` on the SQLite family — built on a new public
+  `dialectSql(construct, variants, fallback?)` primitive (a per-dialect SQL
+  fragment that throws a typed `OrmError`, `code: "ORM_DIALECT_UNSUPPORTED"`,
+  when no variant or fallback matches). Date results come back as a `timestamp`
+  on PostgreSQL and ISO-8601 `TEXT` on the SQLite family, both ordering and
+  grouping identically. New `@sisal/orm` exports: `filter`, `dateTrunc`,
+  `DateTruncField`, `now`, `dateAdd`, `dateSub`, `dateBin`, `DateDuration`,
+  `dialectSql`. Covered by `packages/orm/aggregates_test.ts` (per-dialect
+  render + validation) and `filter aggregate + dateTrunc` and `date math window`
+  integration tests in all four suites (now 38/38/37/37) — the latter runs the
+  actual rising-score moving window (filter + dateSub + now) and `dateBin`
+  bucketing on PostgreSQL 18, Neon, SQLite, and libSQL. Three unified-matrix
+  rows added. Scope: the builder-native window query lands here; the rising-feed
+  example refactors that would drop their raw-SQL / TS-only window math are
+  deliberately left as-is (the `libsql-rising-feed` example teaches the TS
+  approach by design), so item 9 stays in progress.
 - Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
   A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
   dialect-gated DDL fragments — functions, triggers, views, extensions, or any

@@ -31,6 +31,8 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  dateBin,
+  dateSub,
   dateTrunc,
   defineAtomicOperation,
   defineTable,
@@ -56,6 +58,7 @@ import {
   notExists,
   notInArray,
   notLike,
+  now,
   or,
   placeholder,
   raw,
@@ -1059,6 +1062,63 @@ sqliteTest("sqlite: typed raw-query mapping (.as)", async (db) => {
   assertEquals(rows.length, 1);
   assertEquals(rows[0].id, 1);
   assertEquals(rows[0].hotScore, 42);
+});
+
+sqliteTest("sqlite: date math window (now / dateSub / dateBin)", async (db) => {
+  await db.execute(raw("drop table if exists it_dm"));
+  await db.execute(raw("drop table if exists it_dmbin"));
+  const win = defineTable("it_dm", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  const bin = defineTable("it_dmbin", {
+    id: columns.integer().primaryKey(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [win, bin] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  // Bucket timestamps come from the DB clock too, so they share `datetime`'s
+  // exact text format — the SQLite-family comparison is then lexicographic and
+  // chronological.
+  await db.insert(win).values([
+    { id: 1, score: 10, at: dateSub(now(), { minutes: 2 }) },
+    { id: 2, score: 5, at: dateSub(now(), { minutes: 30 }) },
+    { id: 3, score: 3, at: dateSub(now(), { minutes: 90 }) },
+  ]).execute();
+
+  // The rising-score moving window, builder-native (filter + dateSub + now).
+  const [w] = await db.select({
+    last15: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 15 })),
+    ),
+    last60: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 60 })),
+    ),
+    last120: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 120 })),
+    ),
+  }).from(win).execute();
+  assertEquals(Number(w.last15), 10);
+  assertEquals(Number(w.last60), 15);
+  assertEquals(Number(w.last120), 18);
+
+  await db.insert(bin).values([
+    { id: 1, at: "2026-01-01 10:01:00" },
+    { id: 2, at: "2026-01-01 10:04:00" },
+    { id: 3, at: "2026-01-01 10:06:00" },
+  ]).execute();
+  const bucket = dateBin({ minutes: 5 }, bin.columns.at);
+  const groups = await db.select({ n: count() })
+    .from(bin).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(groups.map((g) => Number(g.n)), [2, 1]);
 });
 
 sqliteTest("sqlite: filter aggregate + dateTrunc bucketing", async (db) => {

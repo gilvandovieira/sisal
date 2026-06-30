@@ -55,6 +55,9 @@ export {
   between,
   count,
   countDistinct,
+  dateAdd,
+  dateBin,
+  dateSub,
   dateTrunc,
   desc,
   eq,
@@ -78,10 +81,11 @@ export {
   notIlike,
   notInArray,
   notLike,
+  now,
   or,
   sum,
 } from "./operators.ts";
-export type { DateTruncField } from "./operators.ts";
+export type { DateDuration, DateTruncField } from "./operators.ts";
 export { columns, createColumn } from "./columns.ts";
 export type {
   ColumnArray,

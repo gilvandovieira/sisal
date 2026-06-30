@@ -28,6 +28,8 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  dateBin,
+  dateSub,
   dateTrunc,
   defineAtomicOperation,
   defineFunction,
@@ -55,6 +57,7 @@ import {
   notIlike,
   notInArray,
   notLike,
+  now,
   or,
   placeholder,
   raw,
@@ -1246,6 +1249,63 @@ pgTest("pg: typed raw-query mapping (.as)", async (db) => {
   assertEquals(rows[0].hotScore, 42);
 });
 
+pgTest("pg: date math window (now / dateSub / dateBin)", async (db) => {
+  await db.execute(raw("drop table if exists it_dm, it_dmbin cascade"));
+  const win = defineTable("it_dm", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ withTimezone: true, mode: "string" }),
+  });
+  const bin = defineTable("it_dmbin", {
+    id: columns.integer().primaryKey(),
+    at: columns.timestamp({ withTimezone: true, mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [win, bin] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  // Buckets pinned to the DB's own clock, so the moving window below is
+  // deterministic regardless of wall-clock or timezone.
+  await db.insert(win).values([
+    { id: 1, score: 10, at: dateSub(now(), { minutes: 2 }) },
+    { id: 2, score: 5, at: dateSub(now(), { minutes: 30 }) },
+    { id: 3, score: 3, at: dateSub(now(), { minutes: 90 }) },
+  ]).execute();
+
+  // The rising-score moving window, builder-native: conditional sums over
+  // now()-relative cutoffs (filter + dateSub + now together).
+  const [w] = await db.select({
+    last15: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 15 })),
+    ),
+    last60: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 60 })),
+    ),
+    last120: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 120 })),
+    ),
+  }).from(win).execute();
+  assertEquals(Number(w.last15), 10); // only the 2-minute bucket
+  assertEquals(Number(w.last60), 15); // 2m + 30m
+  assertEquals(Number(w.last120), 18); // all three
+
+  // dateBin flooring: two rows share a 5-minute bucket, one lands in the next.
+  await db.insert(bin).values([
+    { id: 1, at: "2026-01-01 10:01:00" },
+    { id: 2, at: "2026-01-01 10:04:00" },
+    { id: 3, at: "2026-01-01 10:06:00" },
+  ]).execute();
+  const bucket = dateBin({ minutes: 5 }, bin.columns.at);
+  const groups = await db.select({ n: count() })
+    .from(bin).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(groups.map((g) => Number(g.n)), [2, 1]);
+});
+
 pgTest("pg: filter aggregate + dateTrunc bucketing", async (db) => {
   await db.execute(raw("drop table if exists it_agg cascade"));
   const agg = defineTable("it_agg", {
@@ -1350,7 +1410,7 @@ pgTest("pg: teardown", async (db) => {
   );
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg, it_rawmap cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg, it_rawmap, it_dm, it_dmbin cascade",
     ),
   );
   await db.execute(

@@ -115,6 +115,10 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       libsql: warn("text", DATE_TRUNC),
     },
   },
+  allTested(
+    "Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)",
+    "date math window",
+  ),
   allTested("Subqueries / exists / scalar", "subqueries"),
   allTested("Upsert (`onConflict…`)", "upsert"),
   allTested(

@@ -175,7 +175,11 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
+- `dateAdd` (function): source + duration, rendered per dialect (src + interval '…' on PostgreSQL; chained datetime(src, '+…') modifiers on the SQLite family). source is a timestamp column or SQL expression — pass {@link now} for the...
+- `dateBin` (function): Floors source to the start of its every-wide time bucket — the portable arbitrary-interval bucket (e.g. 5-minute buckets) that dateTrunc's fixed calendar fields can't express. Renders to_timestamp(floor(extract(epoch...
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `DateDuration` (interface): A calendar/clock duration for {@link dateAdd} / {@link dateSub}. Every field is optional; at least one must be non-zero. years/months are calendar units (not a fixed number of seconds) and are rejected by {@link...
+- `dateSub` (function): source - duration, the mirror of {@link dateAdd} — the building block for moving-window predicates, e.g. gte(col, dateSub(now(), { minutes: 15 })).
 - `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
 - `DateTruncField` (typeAlias): Calendar field a {@link dateTrunc} truncates a timestamp down to.
 - `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
@@ -255,6 +259,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `notIlike` (function): Case-insensitive NOT ILIKE; degrades to NOT LIKE off Postgres.
 - `notInArray` (function): column NOT IN (...). An empty array yields a constant always-true condition; a select builder renders as a subquery.
 - `notLike` (function): column NOT LIKE value SQL condition.
+- `now` (function): The current timestamp, per dialect: now() on PostgreSQL, datetime('now') on the SQLite family. Use it as the reference time for moving-window predicates (gte(col, dateSub(now(), { minutes: 15 }))).
 - `or` (function): Combines conditions with SQL OR, ignoring nullish values.
 - `OrderTerm` (interface): An ORDER BY term produced by asc()/desc(). It is a SQL fragment ("t"."col" asc) that also carries the underlying column and its direction, so keyset pagination can build the matching comparison predicate and derive a...
 - `OrmDriver` (interface): Async-first driver contract for future database adapters.
@@ -391,7 +396,11 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
+- `dateAdd` (function): source + duration, rendered per dialect (src + interval '…' on PostgreSQL; chained datetime(src, '+…') modifiers on the SQLite family). source is a timestamp column or SQL expression — pass {@link now} for the...
+- `dateBin` (function): Floors source to the start of its every-wide time bucket — the portable arbitrary-interval bucket (e.g. 5-minute buckets) that dateTrunc's fixed calendar fields can't express. Renders to_timestamp(floor(extract(epoch...
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `DateDuration` (interface): A calendar/clock duration for {@link dateAdd} / {@link dateSub}. Every field is optional; at least one must be non-zero. years/months are calendar units (not a fixed number of seconds) and are rejected by {@link...
+- `dateSub` (function): source - duration, the mirror of {@link dateAdd} — the building block for moving-window predicates, e.g. gte(col, dateSub(now(), { minutes: 15 })).
 - `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
 - `DateTruncField` (typeAlias): Calendar field a {@link dateTrunc} truncates a timestamp down to.
 - `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
@@ -462,6 +471,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `notIlike` (function): Case-insensitive NOT ILIKE; degrades to NOT LIKE off Postgres.
 - `notInArray` (function): column NOT IN (...). An empty array yields a constant always-true condition; a select builder renders as a subquery.
 - `notLike` (function): column NOT LIKE value SQL condition.
+- `now` (function): The current timestamp, per dialect: now() on PostgreSQL, datetime('now') on the SQLite family. Use it as the reference time for moving-window predicates (gte(col, dateSub(now(), { minutes: 15 }))).
 - `or` (function): Combines conditions with SQL OR, ignoring nullish values.
 - `OrderTerm` (interface): An ORDER BY term produced by asc()/desc(). It is a SQL fragment ("t"."col" asc) that also carries the underlying column and its direction, so keyset pagination can build the matching comparison predicate and derive a...
 - `OrmDriver` (interface): Async-first driver contract for future database adapters.
@@ -1621,32 +1631,36 @@ Sisal-specific history after that baseline through `1f05448`.
   column-descriptor map (non-table) input and the `neon-rising-feed-ctes`
   example refactor that would drop its hand-written `RecordedBucket` /
   `RecomputedPost` shapes remain follow-ups, so item 13 stays in progress.
-- Added **conditional aggregates and portable date truncation** (v0.5.0 roadmap
-  item 9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)`
-  clause to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
+- Added **conditional aggregates and portable date math** (v0.5.0 roadmap item
+  9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)` clause
+  to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
   `sum("score") filter (where "kind" = $1)` — supported natively by PostgreSQL
-  and modern SQLite/libSQL, so it renders identically on every adapter.
-  `dateTrunc(field, source)` truncates a timestamp to a calendar field
-  (`year`…`second`) for time-bucket `GROUP BY`s, rendering
-  `date_trunc('field',
-  src)` on PostgreSQL and the equivalent
-  `strftime('format', src)` on the SQLite family (which has no `date_trunc`);
-  the SQLite-family result is an ISO-8601 `TEXT` string that still orders and
-  groups identically to the PostgreSQL `timestamp`. Both build on a new public
-  `dialectSql(construct, variants,
-  fallback?)` primitive — a SQL fragment that
-  renders per dialect and throws a typed `OrmError`
-  (`code: "ORM_DIALECT_UNSUPPORTED"`) when no variant or fallback matches. New
-  `@sisal/orm` exports: `filter`, `dateTrunc`, `DateTruncField`, `dialectSql`.
-  Covered by `packages/orm/aggregates_test.ts` (per-dialect render +
-  fallback/throw) and a `filter aggregate + dateTrunc` integration test in all
-  four suites (now 36 each) executed on PostgreSQL 18, Neon, SQLite, and libSQL;
-  two unified-matrix rows added (filter ✅ everywhere; dateTrunc pg/neon ✅,
-  sqlite/libsql ⚠️ text). Scope: `filter` + calendar-field `dateTrunc` are in;
-  `now()`-relative interval arithmetic, arbitrary-interval bucketing
-  (`date_bin`/floor), and the rising-feed example refactors that would drop
-  their raw-SQL/TS-only window math remain follow-ups, so item 9 stays in
-  progress.
+  and modern SQLite/libSQL, so it renders identically on every adapter. A
+  portable date-math set makes a moving-window query builder-native on every
+  engine: `dateTrunc(field, source)` truncates to a calendar field; `now()` is
+  the current timestamp; `dateAdd`/`dateSub(source, duration)` do interval
+  arithmetic (`gte(col, dateSub(now(), { minutes: 15 }))`); and
+  `dateBin(every, source)` floors to an arbitrary-width bucket (the 5-minute
+  floor `dateTrunc`'s calendar fields can't express). Each renders its own
+  per-dialect SQL — `date_trunc` / `now()` / `… ± interval` /
+  `to_timestamp(floor(epoch/N)*N)` on PostgreSQL, and `strftime` /
+  `datetime('now')` / chained `datetime(…)` modifiers /
+  `datetime((unixepoch/N)*N)` on the SQLite family — built on a new public
+  `dialectSql(construct, variants, fallback?)` primitive (a per-dialect SQL
+  fragment that throws a typed `OrmError`, `code: "ORM_DIALECT_UNSUPPORTED"`,
+  when no variant or fallback matches). Date results come back as a `timestamp`
+  on PostgreSQL and ISO-8601 `TEXT` on the SQLite family, both ordering and
+  grouping identically. New `@sisal/orm` exports: `filter`, `dateTrunc`,
+  `DateTruncField`, `now`, `dateAdd`, `dateSub`, `dateBin`, `DateDuration`,
+  `dialectSql`. Covered by `packages/orm/aggregates_test.ts` (per-dialect
+  render + validation) and `filter aggregate + dateTrunc` and `date math window`
+  integration tests in all four suites (now 38/38/37/37) — the latter runs the
+  actual rising-score moving window (filter + dateSub + now) and `dateBin`
+  bucketing on PostgreSQL 18, Neon, SQLite, and libSQL. Three unified-matrix
+  rows added. Scope: the builder-native window query lands here; the rising-feed
+  example refactors that would drop their raw-SQL / TS-only window math are
+  deliberately left as-is (the `libsql-rising-feed` example teaches the TS
+  approach by design), so item 9 stays in progress.
 - Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
   A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
   dialect-gated DDL fragments — functions, triggers, views, extensions, or any
@@ -5087,6 +5101,7 @@ genuine dialect limit · — not applicable.
 | Aggregates / group / having                                     |    ✅     |  ✅   |    ✅    |       ✅        |
 | Conditional aggregate (`filter`)                                |    ✅     |  ✅   |    ✅    |       ✅        |
 | Portable `dateTrunc` (time bucketing)                           |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)        |    ✅     |  ✅   |    ✅    |       ✅        |
 | Subqueries / exists / scalar                                    |    ✅     |  ✅   |    ✅    |       ✅        |
 | Upsert (`onConflict…`)                                          |    ✅     |  ✅   |    ✅    |       ✅        |
 | `sql` in `SET` / `VALUES` / `onConflict`                        |    ✅     |  ✅   |    ✅    |       ✅        |
@@ -6876,20 +6891,31 @@ dialect rendering. **Acceptance:** the rising-score window query is
 builder-native on both engines; render tests pin the per-dialect SQL; the
 examples drop their raw-SQL/TS-only window math.
 
-**Status (🟡 in progress).** Parts (a) and (c) landed. `filter(agg, condition)`
-appends a `FILTER (WHERE …)` clause — and because modern SQLite/libSQL support
-`FILTER` natively (the planned `CASE WHEN` degradation proved unnecessary), it
-renders identically on every adapter. `dateTrunc(field, source)` truncates to a
-calendar field, rendering `date_trunc` on Postgres and the equivalent `strftime`
-on the SQLite family; both build on a new public `dialectSql` primitive (a
-per-dialect SQL fragment that throws `ORM_DIALECT_UNSUPPORTED` when no
+**Status (🟡 in progress).** All three parts (a/b/c) landed as builder helpers.
+`filter(agg, condition)` appends a `FILTER (WHERE …)` clause — and because
+modern SQLite/libSQL support `FILTER` natively (the planned `CASE WHEN`
+degradation proved unnecessary), it renders identically on every adapter. The
+date math: `dateTrunc(field, source)` (calendar-field truncation), `now()`,
+`dateAdd`/`dateSub(source, duration)` (interval arithmetic —
+`gte(col, dateSub(now(), { minutes: 15 }))`), and `dateBin(every, source)`
+(floor to an arbitrary-width bucket, e.g. 5 minutes). Each renders its own
+per-dialect SQL
+(`date_trunc`/`now()`/`± interval`/`to_timestamp(floor(epoch/N)*N)` on Postgres;
+`strftime`/`datetime('now')`/chained `datetime` modifiers/
+`datetime((unixepoch/N)*N)` on the SQLite family), built on a new public
+`dialectSql` primitive (throws `ORM_DIALECT_UNSUPPORTED` when no
 variant/fallback matches). New `@sisal/orm` exports: `filter`, `dateTrunc`,
-`DateTruncField`, `dialectSql`. Verified by `packages/orm/aggregates_test.ts`
-and a `filter aggregate + dateTrunc` integration test on all four engines (two
-matrix rows added). **Deferred (so item 9 stays in progress):** part (b) — a
-`now()`-relative interval-arithmetic helper — plus arbitrary-interval bucketing
-(the `'5 minutes'` `date_bin`/floor) and the rising-feed example refactors that
-would drop their raw-SQL/TS-only window math.
+`DateTruncField`, `now`, `dateAdd`, `dateSub`, `dateBin`, `DateDuration`,
+`dialectSql`. Verified by `packages/orm/aggregates_test.ts` and
+`filter aggregate + dateTrunc` / `date math window` integration tests on all
+four engines — the latter runs the **actual rising-score moving window**
+(`filter` + `dateSub` + `now`) and `dateBin` bucketing — so "the window query is
+builder-native on both engines" is met (three matrix rows added). **Remaining
+(so item 9 stays in progress):** the rising-feed example refactors that would
+drop their raw-SQL / TS-only window math are left as-is by design —
+`libsql-rising-feed` deliberately teaches the no-stored-proc TypeScript
+approach, and `neon-rising-feed` the stored-function approach; the new helpers
+make a builder-native variant possible without rewriting those lessons.
 
 ---
 

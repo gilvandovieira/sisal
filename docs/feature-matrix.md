@@ -27,6 +27,7 @@ genuine dialect limit · — not applicable.
 | Aggregates / group / having                                     |    ✅     |  ✅   |    ✅    |       ✅        |
 | Conditional aggregate (`filter`)                                |    ✅     |  ✅   |    ✅    |       ✅        |
 | Portable `dateTrunc` (time bucketing)                           |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)        |    ✅     |  ✅   |    ✅    |       ✅        |
 | Subqueries / exists / scalar                                    |    ✅     |  ✅   |    ✅    |       ✅        |
 | Upsert (`onConflict…`)                                          |    ✅     |  ✅   |    ✅    |       ✅        |
 | `sql` in `SET` / `VALUES` / `onConflict`                        |    ✅     |  ✅   |    ✅    |       ✅        |

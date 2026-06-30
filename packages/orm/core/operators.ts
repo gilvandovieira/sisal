@@ -340,6 +340,174 @@ export function dateTrunc(
   }) as SqlExpression<string>;
 }
 
+/**
+ * The current timestamp, per dialect: `now()` on PostgreSQL,
+ * `datetime('now')` on the SQLite family. Use it as the reference time for
+ * moving-window predicates (`gte(col, dateSub(now(), { minutes: 15 }))`).
+ */
+export function now(): SqlExpression<string> {
+  return dialectSql("now", {
+    postgres: sql`now()`,
+    sqlite: sql`datetime('now')`,
+  }) as SqlExpression<string>;
+}
+
+/**
+ * A calendar/clock duration for {@link dateAdd} / {@link dateSub}. Every field
+ * is optional; at least one must be non-zero. `years`/`months` are calendar
+ * units (not a fixed number of seconds) and are rejected by {@link dateBin}.
+ */
+export interface DateDuration {
+  readonly years?: number;
+  readonly months?: number;
+  readonly days?: number;
+  readonly hours?: number;
+  readonly minutes?: number;
+  readonly seconds?: number;
+}
+
+const DURATION_UNITS = [
+  "years",
+  "months",
+  "days",
+  "hours",
+  "minutes",
+  "seconds",
+] as const;
+
+// The non-zero (unit, value) pairs of a duration, validated as finite numbers.
+function durationParts(duration: DateDuration): Array<[string, number]> {
+  const parts: Array<[string, number]> = [];
+  for (const unit of DURATION_UNITS) {
+    const value = duration[unit];
+    if (value === undefined) continue;
+    if (!Number.isFinite(value)) {
+      throw new OrmError(`Invalid "${unit}" in duration`, {
+        code: "ORM_INVALID_SQL",
+        details: { unit, value },
+      });
+    }
+    if (value !== 0) parts.push([unit, value]);
+  }
+  if (parts.length === 0) {
+    throw new OrmError("Duration must have at least one non-zero unit", {
+      code: "ORM_INVALID_SQL",
+    });
+  }
+  return parts;
+}
+
+// `<source> ± interval` per dialect: PostgreSQL binds a compound interval
+// literal as text and casts it (`$1::interval`); the SQLite family chains one
+// signed `datetime(...)` modifier per unit. `source` should be a timestamp
+// column or SQL expression (use `now()` for the current time); a SQLite-family
+// result comes back as ISO-8601 `TEXT`.
+function dateShift(
+  source: unknown,
+  duration: DateDuration,
+  sign: 1 | -1,
+): SqlExpression<string> {
+  const parts = durationParts(duration);
+  // PostgreSQL: one compound interval literal, e.g. "1 hours 30 minutes".
+  const pgText = parts.map(([unit, value]) => `${value} ${unit}`).join(" ");
+  const pg = sign < 0
+    ? sql`${source} - ${pgText}::interval`
+    : sql`${source} + ${pgText}::interval`;
+  // SQLite: one signed modifier per unit, e.g. datetime(src, '-1 hours', …).
+  let sqlite = sql`datetime(${source}`;
+  for (const [unit, value] of parts) {
+    const signed = sign * value;
+    sqlite = sql`${sqlite}, ${`${signed >= 0 ? "+" : ""}${signed} ${unit}`}`;
+  }
+  sqlite = sql`${sqlite})`;
+  return dialectSql("dateShift", {
+    postgres: pg,
+    sqlite,
+  }) as SqlExpression<string>;
+}
+
+/**
+ * `source + duration`, rendered per dialect (`src + interval '…'` on
+ * PostgreSQL; chained `datetime(src, '+…')` modifiers on the SQLite family).
+ * `source` is a timestamp column or SQL expression — pass {@link now} for the
+ * current time. A SQLite-family result is an ISO-8601 `TEXT` string.
+ */
+export function dateAdd(
+  source: unknown,
+  duration: DateDuration,
+): SqlExpression<string> {
+  return dateShift(source, duration, 1);
+}
+
+/**
+ * `source - duration`, the mirror of {@link dateAdd} — the building block for
+ * moving-window predicates, e.g.
+ * `gte(col, dateSub(now(), { minutes: 15 }))`.
+ */
+export function dateSub(
+  source: unknown,
+  duration: DateDuration,
+): SqlExpression<string> {
+  return dateShift(source, duration, -1);
+}
+
+// Seconds per fixed-width unit. `years`/`months` are absent: they have no fixed
+// length, so {@link dateBin} rejects them.
+const BIN_UNIT_SECONDS: Record<string, number> = {
+  days: 86400,
+  hours: 3600,
+  minutes: 60,
+  seconds: 1,
+};
+
+/**
+ * Floors `source` to the start of its `every`-wide time bucket — the portable
+ * arbitrary-interval bucket (e.g. 5-minute buckets) that `dateTrunc`'s fixed
+ * calendar fields can't express. Renders
+ * `to_timestamp(floor(extract(epoch from src) / N) * N)` on PostgreSQL and
+ * `datetime((unixepoch(src) / N) * N, 'unixepoch')` on the SQLite family, where
+ * `N` is `every` in seconds.
+ *
+ * `every` must use only fixed-width units (`days`/`hours`/`minutes`/`seconds`)
+ * summing to a positive whole number of seconds; `years`/`months` throw.
+ * `source` should be a timestamp column or SQL expression. **Round-trip:**
+ * PostgreSQL yields a `timestamp`; the SQLite family yields ISO-8601 `TEXT`.
+ */
+export function dateBin(
+  every: DateDuration,
+  source: unknown,
+): SqlExpression<string> {
+  let seconds = 0;
+  for (const [unit, value] of durationParts(every)) {
+    const perUnit = BIN_UNIT_SECONDS[unit];
+    if (perUnit === undefined) {
+      throw new OrmError(
+        `dateBin does not support the calendar unit "${unit}"`,
+        { code: "ORM_INVALID_SQL", details: { unit } },
+      );
+    }
+    seconds += value * perUnit;
+  }
+  if (!Number.isInteger(seconds) || seconds <= 0) {
+    throw new OrmError(
+      "dateBin interval must be a positive whole second count",
+      {
+        code: "ORM_INVALID_SQL",
+        details: { seconds },
+      },
+    );
+  }
+  // `seconds` is a validated positive integer, so it is safe to inline as a SQL
+  // literal (it can never carry user input or break integer division).
+  const n = raw(String(seconds));
+  const src = columnToSql(source);
+  return dialectSql("dateBin", {
+    postgres:
+      sql`to_timestamp(floor(extract(epoch from ${src}) / ${n}) * ${n})`,
+    sqlite: sql`datetime((unixepoch(${src}) / ${n}) * ${n}, 'unixepoch')`,
+  }) as SqlExpression<string>;
+}
+
 function binaryCondition(
   column: unknown,
   operator: string,
