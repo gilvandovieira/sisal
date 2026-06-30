@@ -1714,10 +1714,10 @@ Sisal-specific history after that baseline through `1f05448`.
   applies up then down and asserts the objects are gone); drift over a changed
   function/trigger **body** is caught by `equalSchemaSnapshots`/`checkDrift`
   (schemaObjects are part of the normalized snapshot). With the new
-  `.default(sql\`…\`)`server defaults,`examples/neon-hot-feed`now **generates** its full init DDL (tables, DESC
-  indexes, the CHECK, and both functions) from`src/schema.ts`with no
-  hand-written`.sql`
-  files — verified against real Neon. This completes item 7.
+  SQL-expression server defaults (above), `examples/neon-hot-feed` now
+  **generates** its full init DDL — tables, DESC indexes, the CHECK, and both
+  functions — from `src/schema.ts`, with no hand-written `.sql` files (verified
+  against real Neon). This completes item 7.
 - Added **data-modifying CTEs** (v0.5.0 roadmap item 12, core). A CTE body may
   now be an `INSERT`/`UPDATE`/`DELETE … RETURNING` builder, not just a `SELECT`
   — `db.$with("x").as(db.insert(t).values(...).returning())` — and the
