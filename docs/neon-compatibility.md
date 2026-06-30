@@ -10,15 +10,17 @@ serverless PostgreSQL. It speaks the Postgres wire protocol over a WebSocket via
 feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 `bytea`.
 
-| Item          | Value                                                   |
-| ------------- | ------------------------------------------------------- |
-| Engine tested | **PostgreSQL 17** via Neon serverless driver + wsproxy  |
-| Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)         |
-| Suite         | `integration/neon_features_test.ts` (24 feature groups) |
-| Last run      | 2026-06-28 — **24 / 24 passed** via Docker `neon-proxy` |
+| Item          | Value                                                    |
+| ------------- | -------------------------------------------------------- |
+| Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
+| Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
+| Suite         | `integration/neon_features_test.ts` (31 feature groups)  |
+| Last run      | 2026-06-30 — **31 / 31 passed** (neon-proxy + live Neon) |
 
 ✅ = verified through the Neon serverless driver against Docker `neon-proxy`
-bridging to PostgreSQL 17.
+bridging to PostgreSQL 17. The full 31-test suite was additionally run once
+end-to-end against a **live Neon endpoint** (2026-06-30, secure WebSocket, no
+proxy) — all green.
 
 ## Matrix
 
@@ -48,10 +50,17 @@ bridging to PostgreSQL 17.
 | **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |
 | **Delete** — `where`, `returning`                                       |  ✅  |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |
+| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |
+| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |
+| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |
 | **Transactions** — commit + rollback on error                           |  ✅  |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |
 | **JSONB** — object round-trip                                           |  ✅  |
 | **Arrays** — `text[]` round-trip                                        |  ✅  |
 | **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |
 | **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |
 
 The generated DDL test exercises the full Postgres type set (`text`,
@@ -64,6 +73,12 @@ The generated DDL test exercises the full Postgres type set (`text`,
 - **Same SQL as `@sisal/pg`.** Neon is PostgreSQL, so values come back typed the
   way Postgres returns them — `jsonb`/arrays parsed, `bytea` as `Uint8Array`,
   `numeric`/`bigint` as precision-preserving strings, native `ILIKE`.
+- **Full `@sisal/pg` surface, verified.** Column naming, keyset pagination,
+  prepared statements, `sql` expressions in `SET`/`VALUES`/`onConflict`,
+  `db.batch`, rich indexes, and the typed function caller (`defineFunction` /
+  `db.call`, incl. `RETURNS TABLE` and arg casts) all run through
+  `createPgOrmDriver` + `POSTGRES_DIALECT` and are now covered by the suite —
+  same render path and results as `@sisal/pg`.
 - **Date/time semantics.** The ORM defaults to Temporal: `date` ->
   `Temporal.PlainDate`, `time` -> `Temporal.PlainTime`, `timestamp` ->
   `Temporal.PlainDateTime`, and `timestamptz` -> `Temporal.Instant`. Enable
@@ -74,7 +89,12 @@ The generated DDL test exercises the full Postgres type set (`text`,
 - **Serverless transport.** The adapter uses the WebSocket `Pool` from
   `@neon/serverless` (full protocol, real transactions), not the HTTP one-shot
   `neon()` function. Real usage just needs a Neon connection string:
-  `connect({ url: "postgres://…@ep-xxx.neon.tech/db?sslmode=require" })`.
+  `connect({ url: "postgres://…@ep-xxx.neon.tech/db?sslmode=require" })`. The
+  local test path therefore runs Neon's official **`wsproxy`** image (the
+  `neon-proxy` service) to terminate that WebSocket protocol in front of a
+  Postgres data backend — **not Neon Local** (`neondatabase/neon_local`), which
+  is HTTP-only and so cannot drive the WebSocket `Pool`. Against real Neon no
+  proxy is needed: the driver speaks secure WebSocket to the endpoint directly.
 - **Joins.** As with `@sisal/pg`, use explicit projections in joins rather than
   `select *` so duplicate column names across tables don't collide in the
   row-object mapping.
