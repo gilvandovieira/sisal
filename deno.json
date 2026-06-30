@@ -33,13 +33,16 @@
     "docs:llms": "deno run --frozen --allow-read --allow-write --allow-run tools/generate_llms.ts",
     "docs:llms:check": "deno run --frozen --allow-read --allow-run tools/generate_llms.ts --check",
     "docs:check": "deno run --frozen --allow-read --allow-run tools/check_docs.ts",
+    "docs:matrix": "deno run --allow-read --allow-write tools/generate_feature_matrix.ts",
+    "docs:matrix:check": "deno run --allow-read tools/generate_feature_matrix.ts --check",
     "audit": "deno run --allow-read --allow-net=api.osv.dev tools/check_advisories.ts",
     "publish:dry-run": "deno publish --dry-run",
     "test": "deno test --allow-read packages/orm packages/migrate packages/pg packages/neon packages/sqlite packages/libsql tools/lint"
   },
   "fmt": {
     "lineWidth": 80,
-    "semiColons": true
+    "semiColons": true,
+    "exclude": ["docs/feature-matrix.md"]
   },
   "lint": {
     "plugins": ["./tools/lint/sisal_lint.ts"]

@@ -16,6 +16,8 @@ deno task check        # type-check every package entrypoint + examples + bench
 deno task test         # unit tests — network/FFI-free, runs with only --allow-read
 deno task fmt          # format (lineWidth 80, semicolons); fmt:check is read-only
 deno task docs:check   # doc-coverage gate (see below)
+deno task docs:matrix  # regenerate docs/feature-matrix.md from tools/feature_matrix.ts
+deno task docs:matrix:check # verify the matrix is current AND every ✅/⚠️ is backed by a named integration test
 deno task bench        # benchmarks
 deno task hooks:install # install the pre-commit hook (runs `deno fmt --check`)
 deno task sisal <cmd>  # run the migration CLI (init|generate|migrate|status|drift)

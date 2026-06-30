@@ -6,6 +6,10 @@ if ! command -v deno >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Regenerating the feature matrix..."
+deno task docs:matrix
+git add -- docs/feature-matrix.md
+
 echo "Regenerating LLM docs..."
 deno task docs:llms
 git add -- docs/llms.txt docs/llms-full.txt
