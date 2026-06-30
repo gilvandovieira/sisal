@@ -21,7 +21,7 @@ The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
 [`drizzle-parity`](./drizzle-parity.html) for how this surface maps to Drizzle
 ORM 0.45.2 and where it diverges on purpose.
 
-> **Stability:** all packages are `0.3.0` (pre-1.0). The surface below is
+> **Stability:** all packages are `0.4.0` (pre-1.0). The surface below is
 > current but may change before 1.0.
 
 ---

@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.3.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
+Workspace package version: 0.4.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -44,7 +44,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Package Manifests
 
-### @sisal/orm 0.3.0
+### @sisal/orm 0.4.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -57,7 +57,7 @@ Exports:
 - `./logger` -> `./logger.ts`
 - `./schema` -> `./schema.ts`
 
-### @sisal/migrate 0.3.0
+### @sisal/migrate 0.4.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -69,7 +69,7 @@ Exports:
 - `./core` -> `./core/mod.ts`
 - `./workflow` -> `./core/workflow.ts`
 
-### @sisal/pg 0.3.0
+### @sisal/pg 0.4.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -81,7 +81,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/sqlite 0.3.0
+### @sisal/sqlite 0.4.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -93,7 +93,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/libsql 0.3.0
+### @sisal/libsql 0.4.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -105,7 +105,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/neon 0.3.0
+### @sisal/neon 0.4.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -1260,9 +1260,9 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.3.0 \
-  jsr:@sisal/migrate@0.3.0 \
-  jsr:@sisal/pg@0.3.0
+deno add jsr:@sisal/orm@0.4.0 \
+  jsr:@sisal/migrate@0.4.0 \
+  jsr:@sisal/pg@0.4.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -1270,10 +1270,10 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target       | Install                                                                          |
 | ------------ | -------------------------------------------------------------------------------- |
-| PostgreSQL   | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/pg@0.3.0`     |
-| Neon         | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/neon@0.3.0`   |
-| SQLite       | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/sqlite@0.3.0` |
-| libSQL/Turso | `deno add jsr:@sisal/orm@0.3.0 jsr:@sisal/migrate@0.3.0 jsr:@sisal/libsql@0.3.0` |
+| PostgreSQL   | `deno add jsr:@sisal/orm@0.4.0 jsr:@sisal/migrate@0.4.0 jsr:@sisal/pg@0.4.0`     |
+| Neon         | `deno add jsr:@sisal/orm@0.4.0 jsr:@sisal/migrate@0.4.0 jsr:@sisal/neon@0.4.0`   |
+| SQLite       | `deno add jsr:@sisal/orm@0.4.0 jsr:@sisal/migrate@0.4.0 jsr:@sisal/sqlite@0.4.0` |
+| libSQL/Turso | `deno add jsr:@sisal/orm@0.4.0 jsr:@sisal/migrate@0.4.0 jsr:@sisal/libsql@0.4.0` |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -1407,7 +1407,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.3.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.4.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -1561,6 +1561,8 @@ of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
+
+## 0.4.0 - 2026-06-30
 
 ### Added
 
@@ -1954,7 +1956,7 @@ The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
 [`drizzle-parity`](./drizzle-parity.html) for how this surface maps to Drizzle
 ORM 0.45.2 and where it diverges on purpose.
 
-> **Stability:** all packages are `0.3.0` (pre-1.0). The surface below is
+> **Stability:** all packages are `0.4.0` (pre-1.0). The surface below is
 > current but may change before 1.0.
 
 ---
