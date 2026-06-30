@@ -149,6 +149,18 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Fixed `@sisal/pg` to decode `float4`/`float8` (`columns.real()` /
+  `columns.doublePrecision()`) as `number` (v0.5.0 roadmap item 11). The bundled
+  `jsr:@db/postgres` driver decodes those OIDs (700/701) to **strings**, so a
+  `doublePrecision` column — typed `number` — read back a `string` on
+  `@sisal/pg` alone (`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` already
+  return numbers), silently breaking `.toFixed()` and lexicographic-vs-numeric
+  ordering. The ORM executor now coerces float-typed result columns by OID;
+  `numeric`/`bigint` (1700/20) deliberately stay precision-preserving strings.
+  Verified against PostgreSQL 18, and a
+  `float (real/double) reads back as number` test is added to all four
+  integration suites (now 32 each) plus a tested
+  `Float (float4/float8) round-trip` row in the unified matrix.
 - Closed the libSQL integration coverage gap (v0.5.0 roadmap item 1): ported the
   three SQLite parity tests the libSQL suite was missing — **column naming**
   (snake_case default / `.named()` / `preserve`), **keyset pagination** (both

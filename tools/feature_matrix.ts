@@ -154,6 +154,7 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       libsql: warn("ArrayBuffer", BLOB),
     },
   },
+  allTested("Float (`float4`/`float8`) round-trip → `number`", "float"),
   {
     feature: "`distinctOn`",
     cells: {

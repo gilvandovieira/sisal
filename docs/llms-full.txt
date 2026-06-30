@@ -1705,6 +1705,18 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Fixed `@sisal/pg` to decode `float4`/`float8` (`columns.real()` /
+  `columns.doublePrecision()`) as `number` (v0.5.0 roadmap item 11). The bundled
+  `jsr:@db/postgres` driver decodes those OIDs (700/701) to **strings**, so a
+  `doublePrecision` column — typed `number` — read back a `string` on
+  `@sisal/pg` alone (`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` already
+  return numbers), silently breaking `.toFixed()` and lexicographic-vs-numeric
+  ordering. The ORM executor now coerces float-typed result columns by OID;
+  `numeric`/`bigint` (1700/20) deliberately stay precision-preserving strings.
+  Verified against PostgreSQL 18, and a
+  `float (real/double) reads back as number` test is added to all four
+  integration suites (now 32 each) plus a tested
+  `Float (float4/float8) round-trip` row in the unified matrix.
 - Closed the libSQL integration coverage gap (v0.5.0 roadmap item 1): ported the
   three SQLite parity tests the libSQL suite was missing — **column naming**
   (snake_case default / `.named()` / `preserve`), **keyset pagination** (both
@@ -3679,9 +3691,9 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (31 tests)                |
+| Suite           | `integration/pg_features_test.ts` (32 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-28 — **31 / 31 passed on every version**            |
+| Last run        | 2026-06-30 — **32 / 32 passed** (pg18; 31/31 on pg16/17/18) |
 
 ## Feature coverage
 
@@ -3781,8 +3793,8 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (31 tests)           |
-| Last run      | 2026-06-30 — **31 / 31 passed** (neon-proxy + live Neon) |
+| Suite         | `integration/neon_features_test.ts` (32 tests)           |
+| Last run      | 2026-06-30 — **32 / 32 passed** (neon-proxy + live Neon) |
 
 ## Feature coverage
 
@@ -3872,8 +3884,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (31 tests)     |
-| Last run      | 2026-06-28 — **31 / 31 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (32 tests)     |
+| Last run      | 2026-06-30 — **32 / 32 passed**                      |
 
 ## Feature coverage
 
@@ -3972,8 +3984,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (31 tests)       |
-| Last run      | 2026-06-30 — **31 / 31 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (32 tests)       |
+| Last run      | 2026-06-30 — **32 / 32 passed**                        |
 
 ## Feature coverage
 
@@ -4828,6 +4840,7 @@ genuine dialect limit · — not applicable.
 | `json` / array round-trip                          |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
 | `boolean` round-trip                               |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
 | `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
+| Float (`float4`/`float8`) round-trip → `number`    |    ✅     |  ✅   |    ✅    |       ✅        |
 | `distinctOn`                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Row locking (`.for(...)`)                          |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
@@ -4855,7 +4868,7 @@ Value-shape summary (what a read yields, per adapter family):
 | `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) |
 | `boolean` | `boolean` | `INTEGER` `0`/`1` |
 | `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) |
-| `double precision` (float8) | number (`@sisal/pg` returns string; v0.5.0 item 11) | number |
+| `real` / `double precision` (float4/float8) | number | number |
 
 ## PostgreSQL-only limits
 
@@ -5554,7 +5567,7 @@ limit:
 | 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🔴     |
 | 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🔴     |
 | 10 | `.optional()` should not widen the SELECT row type                     | P3       | S            | 🔴     |
-| 11 | `@sisal/pg` float8 → `number` (only adapter returning string)          | P2       | M            | 🔴     |
+| 11 | `@sisal/pg` float8 → `number` (only adapter returning string)          | P2       | M            | 🟢     |
 | 12 | Data-modifying CTE builder (`WITH … INSERT/UPDATE/DELETE … RETURNING`) | P2       | L            | 🔴     |
 | 13 | Typed raw-query result mapping (`db.query` row decoding)               | P3       | M            | 🔴     |
 

@@ -500,6 +500,24 @@ libsqlTest("libsql: bytea/BLOB binary round-trip", async (db) => {
   assertEquals(Array.from(out), [0, 1, 2, 250, 255]);
 });
 
+libsqlTest("libsql: float (real/double) reads back as number", async (db) => {
+  const floats = defineTable("it_floats", {
+    id: columns.integer().primaryKey(),
+    f8: columns.doublePrecision(),
+  });
+  await db.execute(raw("drop table if exists it_floats"));
+  await db.execute(
+    generateLibsqlUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [floats] }),
+    ).statements[0],
+  );
+  await db.insert(floats).values({ id: 1, f8: 306.25 }).execute();
+  const [row] = await db.select().from(floats)
+    .where(eq(floats.columns.id, 1)).execute();
+  assertEquals(typeof row.f8, "number");
+  assertEquals(Number(row.f8), 306.25);
+});
+
 libsqlTest("libsql: orderBy asc/desc + limit + offset", async (db) => {
   const rows = await db.select().from(users)
     .where(isNotNull(users.columns.age))

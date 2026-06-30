@@ -149,7 +149,7 @@ Value-shape summary (what a read yields, per adapter family):
 | \`json\` / \`jsonb\` / array | parsed value | JSON \`TEXT\` string (\`JSON.parse\` on read) |
 | \`boolean\` | \`boolean\` | \`INTEGER\` \`0\`/\`1\` |
 | \`bytea\` / BLOB | \`Uint8Array\` | \`Uint8Array\` (sqlite) · \`ArrayBuffer\` (libsql) |
-| \`double precision\` (float8) | number (\`@sisal/pg\` returns string; v0.5.0 item 11) | number |
+| \`real\` / \`double precision\` (float4/float8) | number | number |
 
 ## PostgreSQL-only limits
 

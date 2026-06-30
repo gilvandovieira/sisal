@@ -775,6 +775,43 @@ pgTest("pg: bytea binary round-trip", async (db) => {
   assertEquals(Array.from(out), [0, 1, 2, 250, 255]);
 });
 
+pgTest("pg: float4 / float8 read back as number", async (db) => {
+  const floats = defineTable("it_floats", {
+    id: columns.integer().primaryKey(),
+    f4: columns.real(),
+    f8: columns.doublePrecision(),
+  });
+  await db.execute(raw("drop table if exists it_floats cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [floats] }),
+    ).statements[0],
+  );
+  await db.insert(floats).values({ id: 1, f4: 1.5, f8: 306.25 }).execute();
+
+  // `@db/postgres` decodes float4/float8 to strings; the adapter coerces them
+  // back to `number` so the inferred type matches the runtime value.
+  const [row] = await db.select().from(floats)
+    .where(eq(floats.columns.id, 1)).execute();
+  assertEquals(typeof row.f4, "number");
+  assertEquals(typeof row.f8, "number");
+  assertEquals(row.f4, 1.5);
+  assertEquals(row.f8, 306.25);
+
+  // Raw-query reads coerce too.
+  const rawRead = await db.query<{ v: number }>(
+    sql`select 180.5::double precision as v`,
+  );
+  assertEquals(typeof rawRead.rows[0].v, "number");
+  assertEquals(rawRead.rows[0].v, 180.5);
+
+  // `numeric` stays a precision-preserving string (not a float).
+  const numeric = await db.query<{ n: string }>(
+    sql`select 306.25::numeric as n`,
+  );
+  assertEquals(typeof numeric.rows[0].n, "string");
+});
+
 // ---- v0.4.0 features ------------------------------------------------------
 
 pgTest(
@@ -1107,7 +1144,7 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats cascade",
     ),
   );
   await db.execute(

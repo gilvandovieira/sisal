@@ -14,8 +14,8 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (31 tests)           |
-| Last run      | 2026-06-30 — **31 / 31 passed** (neon-proxy + live Neon) |
+| Suite         | `integration/neon_features_test.ts` (32 tests)           |
+| Last run      | 2026-06-30 — **32 / 32 passed** (neon-proxy + live Neon) |
 
 ## Feature coverage
 

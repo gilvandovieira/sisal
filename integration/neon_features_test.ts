@@ -721,6 +721,24 @@ neonTest("neon: bytea binary round-trip", async (db) => {
   assertEquals(Array.from(out), [0, 1, 2, 250, 255]);
 });
 
+neonTest("neon: float (real/double) reads back as number", async (db) => {
+  const floats = defineTable("it_floats", {
+    id: columns.integer().primaryKey(),
+    f8: columns.doublePrecision(),
+  });
+  await db.execute(raw("drop table if exists it_floats cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [floats] }),
+    ).statements[0],
+  );
+  await db.insert(floats).values({ id: 1, f8: 306.25 }).execute();
+  const [row] = await db.select().from(floats)
+    .where(eq(floats.columns.id, 1)).execute();
+  assertEquals(typeof row.f8, "number");
+  assertEquals(row.f8, 306.25);
+});
+
 // ---- v0.4.0 features (parity with the @sisal/pg suite) --------------------
 // Neon is PostgreSQL reached through createPgOrmDriver + POSTGRES_DIALECT, so
 // these mirror the matching `pg:` tests verbatim apart from connect/teardown.
@@ -1053,7 +1071,7 @@ neonTest("neon: migrator applies, plans, and is idempotent", async () => {
 neonTest("neon: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats cascade",
     ),
   );
   await temporalDbHandle?.close();

@@ -40,6 +40,7 @@ genuine dialect limit · — not applicable.
 | `json` / array round-trip                          |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
 | `boolean` round-trip                               |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
 | `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
+| Float (`float4`/`float8`) round-trip → `number`    |    ✅     |  ✅   |    ✅    |       ✅        |
 | `distinctOn`                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Row locking (`.for(...)`)                          |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
@@ -67,7 +68,7 @@ Value-shape summary (what a read yields, per adapter family):
 | `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) |
 | `boolean` | `boolean` | `INTEGER` `0`/`1` |
 | `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) |
-| `double precision` (float8) | number (`@sisal/pg` returns string; v0.5.0 item 11) | number |
+| `real` / `double precision` (float4/float8) | number | number |
 
 ## PostgreSQL-only limits
 
