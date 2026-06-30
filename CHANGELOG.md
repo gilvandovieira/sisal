@@ -152,6 +152,12 @@ Sisal-specific history after that baseline through `1f05448`.
   live Neon endpoint. This also makes the `db.batch` entry's "the gated
   integration suites" coverage claim true on every adapter
   (pg/neon/sqlite/libsql).
+- Trimmed the four per-engine compatibility docs
+  (`docs/{pg,neon,sqlite,libsql}-compatibility.md`) to engine-specific metadata,
+  behavior notes, and reproduce steps, retiring their now-redundant per-engine
+  feature tables in favor of a link to the unified cross-driver feature matrix
+  (`docs/feature-matrix.md`). Completes v0.5.0 roadmap item 3 (one matrix, one
+  source of truth).
 
 ## 0.4.0 - 2026-06-30
 

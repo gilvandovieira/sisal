@@ -2,7 +2,7 @@
 title: PostgreSQL compatibility
 ---
 
-# PostgreSQL compatibility matrix
+# PostgreSQL compatibility
 
 Sisal's PostgreSQL adapter (`@sisal/pg`) is verified end-to-end against a real
 server on every supported major version. The suite connects with the bundled
@@ -17,50 +17,16 @@ adapter feature through the public API.
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
 | Last run        | 2026-06-28 — **31 / 31 passed on every version**            |
 
-✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
+## Feature coverage
 
-## Matrix
+Every feature across all four adapters — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. All 31 `pg:` tests pass **identically on
+pg16/17/18** (`scripts/pg-matrix.sh`). Below are the PostgreSQL-specific
+column-type coverage and driver-level behavior notes.
 
-| Feature                                                                 | pg16 | pg17 | pg18 |
-| ----------------------------------------------------------------------- | :--: | :--: | :--: |
-| **Connection** — `connect({ url })`, pooled, parameterized SQL          |  ✅  |  ✅  |  ✅  |
-| **Generated DDL applies** — all column types below                      |  ✅  |  ✅  |  ✅  |
-| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |  ✅  |  ✅  |  ✅  |
-| **Insert** — `values`, multi-row, `returning`                           |  ✅  |  ✅  |  ✅  |
-| **Comparison ops** — `eq` `ne` `gt` `gte` `lt` `lte`                    |  ✅  |  ✅  |  ✅  |
-| **Pattern ops** — `like` `ilike` `notLike` `notIlike`                   |  ✅  |  ✅  |  ✅  |
-| **Range ops** — `between` `notBetween`                                  |  ✅  |  ✅  |  ✅  |
-| **Set ops** — `inArray` `notInArray`                                    |  ✅  |  ✅  |  ✅  |
-| **Null ops** — `isNull` `isNotNull`                                     |  ✅  |  ✅  |  ✅  |
-| **Logical** — `and` `or` `not`                                          |  ✅  |  ✅  |  ✅  |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |  ✅  |  ✅  |  ✅  |
-| **Distinct** — `select().distinct()`                                    |  ✅  |  ✅  |  ✅  |
-| **Joins** — `inner` / `left` / `right` / `full`                         |  ✅  |  ✅  |  ✅  |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                        |  ✅  |  ✅  |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |  ✅  |  ✅  |  ✅  |
-| **Subquery** — `exists` / `notExists` (correlated)                      |  ✅  |  ✅  |  ✅  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |  ✅  |  ✅  |  ✅  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                           |  ✅  |  ✅  |  ✅  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`                |  ✅  |  ✅  |  ✅  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`                  |  ✅  |  ✅  |  ✅  |
-| **Group / filter** — `groupBy`, `having`                                |  ✅  |  ✅  |  ✅  |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |  ✅  |  ✅  |
-| **Delete** — `where`, `returning`                                       |  ✅  |  ✅  |  ✅  |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |  ✅  |  ✅  |
-| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |  ✅  |  ✅  |
-| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |  ✅  |  ✅  |
-| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |  ✅  |  ✅  |
-| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |  ✅  |  ✅  |
-| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |  ✅  |  ✅  |
-| **Transactions** — commit + rollback on error                           |  ✅  |  ✅  |  ✅  |
-| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |  ✅  |  ✅  |
-| **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
-| **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
-| **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |
-| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |  ✅  |  ✅  |
-| **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |  ✅  |  ✅  |
-
-### Column types proven by the DDL test
+## Column types proven by the DDL test
 
 A single table exercises every generated type; the `CREATE TABLE` is executed on
 each server and the column count is verified:
@@ -76,8 +42,7 @@ each server and the column count is verified:
   driver maps rows into objects keyed by column name, so a `select *` over two
   tables that both expose `id`/`name` throws _"Field names … are duplicated"_.
   Use an explicit projection in joins —
-  `db.select({ uid: a.columns.id, oid:
-  b.columns.id })` — which is the
+  `db.select({ uid: a.columns.id, oid: b.columns.id })` — which is the
   recommended pattern anyway.
 - **`numeric`/`bigint`/`bigserial` come back as strings**, and `count()`/`sum()`
   return `numeric`/`bigint` — also strings. This preserves precision; coerce
@@ -111,7 +76,7 @@ docker compose -f docker/compose.yaml up -d pg16 pg17 pg18
 DATABASE_URL=postgres://postgres:postgres@localhost:55418/sisal \
   deno test --allow-net --allow-env --allow-read integration/pg_features_test.ts
 
-# …or run the whole matrix and print this table:
+# …or run the whole matrix and print the per-version table:
 scripts/pg-matrix.sh
 
 # Fully in Docker, against a chosen server:

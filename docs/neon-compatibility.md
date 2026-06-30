@@ -2,7 +2,7 @@
 title: Neon compatibility
 ---
 
-# Neon compatibility matrix
+# Neon compatibility
 
 Sisal's Neon adapter (`@sisal/neon`) targets [Neon](https://neon.tech)
 serverless PostgreSQL. It speaks the Postgres wire protocol over a WebSocket via
@@ -14,54 +14,19 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (31 feature groups)  |
+| Suite         | `integration/neon_features_test.ts` (31 tests)           |
 | Last run      | 2026-06-30 — **31 / 31 passed** (neon-proxy + live Neon) |
 
-✅ = verified through the Neon serverless driver against Docker `neon-proxy`
-bridging to PostgreSQL 17. The full 31-test suite was additionally run once
-end-to-end against a **live Neon endpoint** (2026-06-30, secure WebSocket, no
-proxy) — all green.
+## Feature coverage
 
-## Matrix
-
-| Feature                                                                 | Neon |
-| ----------------------------------------------------------------------- | :--: |
-| **Connection** — `connect({ url })`, pooled, parameterized SQL          |  ✅  |
-| **Generated DDL applies** — all Postgres column types                   |  ✅  |
-| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |  ✅  |
-| **Insert** — `values`, multi-row, `returning`                           |  ✅  |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |  ✅  |
-| **Pattern** — `like` `ilike` `notLike` `notIlike`                       |  ✅  |
-| **Range** — `between` `notBetween`                                      |  ✅  |
-| **Set** — `inArray` `notInArray`                                        |  ✅  |
-| **Null** — `isNull` `isNotNull`                                         |  ✅  |
-| **Logical** — `and` `or` `not`                                          |  ✅  |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |  ✅  |
-| **Distinct**                                                            |  ✅  |
-| **Joins** — `inner` / `left` / `right` / `full`                         |  ✅  |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                        |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |  ✅  |
-| **Subquery** — `exists` / `notExists` (correlated)                      |  ✅  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |  ✅  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                           |  ✅  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`                |  ✅  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`                  |  ✅  |
-| **Group / filter** — `groupBy`, `having`                                |  ✅  |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |
-| **Delete** — `where`, `returning`                                       |  ✅  |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |
-| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |
-| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |
-| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |
-| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |
-| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |
-| **Transactions** — commit + rollback on error                           |  ✅  |
-| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |
-| **JSONB** — object round-trip                                           |  ✅  |
-| **Arrays** — `text[]` round-trip                                        |  ✅  |
-| **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |
-| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |
-| **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |
+Every feature across all four adapters — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
+every Postgres-family ✅ applies. The 31-test suite is verified through the
+Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
+additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
+secure WebSocket, no proxy) — all green.
 
 The generated DDL test exercises the full Postgres type set (`text`,
 `varchar(n)`, `char(n)`, `integer`, `smallint`, `bigint`, `serial`, `bigserial`,

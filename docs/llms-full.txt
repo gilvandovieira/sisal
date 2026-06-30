@@ -1707,6 +1707,12 @@ Sisal-specific history after that baseline through `1f05448`.
   live Neon endpoint. This also makes the `db.batch` entry's "the gated
   integration suites" coverage claim true on every adapter
   (pg/neon/sqlite/libsql).
+- Trimmed the four per-engine compatibility docs
+  (`docs/{pg,neon,sqlite,libsql}-compatibility.md`) to engine-specific metadata,
+  behavior notes, and reproduce steps, retiring their now-redundant per-engine
+  feature tables in favor of a link to the unified cross-driver feature matrix
+  (`docs/feature-matrix.md`). Completes v0.5.0 roadmap item 3 (one matrix, one
+  source of truth).
 
 ## 0.4.0 - 2026-06-30
 
@@ -3623,7 +3629,7 @@ URL: https://gilvandovieira.github.io/sisal/pg-compatibility.html
 title: PostgreSQL compatibility
 ---
 
-# PostgreSQL compatibility matrix
+# PostgreSQL compatibility
 
 Sisal's PostgreSQL adapter (`@sisal/pg`) is verified end-to-end against a real
 server on every supported major version. The suite connects with the bundled
@@ -3638,50 +3644,16 @@ adapter feature through the public API.
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
 | Last run        | 2026-06-28 — **31 / 31 passed on every version**            |
 
-✅ = verified on a live server (pg16/17/18 via `scripts/pg-matrix.sh`).
+## Feature coverage
 
-## Matrix
+Every feature across all four adapters — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. All 31 `pg:` tests pass **identically on
+pg16/17/18** (`scripts/pg-matrix.sh`). Below are the PostgreSQL-specific
+column-type coverage and driver-level behavior notes.
 
-| Feature                                                                 | pg16 | pg17 | pg18 |
-| ----------------------------------------------------------------------- | :--: | :--: | :--: |
-| **Connection** — `connect({ url })`, pooled, parameterized SQL          |  ✅  |  ✅  |  ✅  |
-| **Generated DDL applies** — all column types below                      |  ✅  |  ✅  |  ✅  |
-| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |  ✅  |  ✅  |  ✅  |
-| **Insert** — `values`, multi-row, `returning`                           |  ✅  |  ✅  |  ✅  |
-| **Comparison ops** — `eq` `ne` `gt` `gte` `lt` `lte`                    |  ✅  |  ✅  |  ✅  |
-| **Pattern ops** — `like` `ilike` `notLike` `notIlike`                   |  ✅  |  ✅  |  ✅  |
-| **Range ops** — `between` `notBetween`                                  |  ✅  |  ✅  |  ✅  |
-| **Set ops** — `inArray` `notInArray`                                    |  ✅  |  ✅  |  ✅  |
-| **Null ops** — `isNull` `isNotNull`                                     |  ✅  |  ✅  |  ✅  |
-| **Logical** — `and` `or` `not`                                          |  ✅  |  ✅  |  ✅  |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |  ✅  |  ✅  |  ✅  |
-| **Distinct** — `select().distinct()`                                    |  ✅  |  ✅  |  ✅  |
-| **Joins** — `inner` / `left` / `right` / `full`                         |  ✅  |  ✅  |  ✅  |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                        |  ✅  |  ✅  |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |  ✅  |  ✅  |  ✅  |
-| **Subquery** — `exists` / `notExists` (correlated)                      |  ✅  |  ✅  |  ✅  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |  ✅  |  ✅  |  ✅  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                           |  ✅  |  ✅  |  ✅  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`                |  ✅  |  ✅  |  ✅  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`                  |  ✅  |  ✅  |  ✅  |
-| **Group / filter** — `groupBy`, `having`                                |  ✅  |  ✅  |  ✅  |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |  ✅  |  ✅  |
-| **Delete** — `where`, `returning`                                       |  ✅  |  ✅  |  ✅  |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |  ✅  |  ✅  |
-| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |  ✅  |  ✅  |
-| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |  ✅  |  ✅  |
-| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |  ✅  |  ✅  |
-| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |  ✅  |  ✅  |
-| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |  ✅  |  ✅  |
-| **Transactions** — commit + rollback on error                           |  ✅  |  ✅  |  ✅  |
-| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |  ✅  |  ✅  |
-| **JSONB** — object round-trip                                           |  ✅  |  ✅  |  ✅  |
-| **Arrays** — `text[]` round-trip                                        |  ✅  |  ✅  |  ✅  |
-| **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |  ✅  |  ✅  |
-| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |  ✅  |  ✅  |
-| **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |  ✅  |  ✅  |
-
-### Column types proven by the DDL test
+## Column types proven by the DDL test
 
 A single table exercises every generated type; the `CREATE TABLE` is executed on
 each server and the column count is verified:
@@ -3697,8 +3669,7 @@ each server and the column count is verified:
   driver maps rows into objects keyed by column name, so a `select *` over two
   tables that both expose `id`/`name` throws _"Field names … are duplicated"_.
   Use an explicit projection in joins —
-  `db.select({ uid: a.columns.id, oid:
-  b.columns.id })` — which is the
+  `db.select({ uid: a.columns.id, oid: b.columns.id })` — which is the
   recommended pattern anyway.
 - **`numeric`/`bigint`/`bigserial` come back as strings**, and `count()`/`sum()`
   return `numeric`/`bigint` — also strings. This preserves precision; coerce
@@ -3732,7 +3703,7 @@ docker compose -f docker/compose.yaml up -d pg16 pg17 pg18
 DATABASE_URL=postgres://postgres:postgres@localhost:55418/sisal \
   deno test --allow-net --allow-env --allow-read integration/pg_features_test.ts
 
-# …or run the whole matrix and print this table:
+# …or run the whole matrix and print the per-version table:
 scripts/pg-matrix.sh
 
 # Fully in Docker, against a chosen server:
@@ -3755,7 +3726,7 @@ URL: https://gilvandovieira.github.io/sisal/neon-compatibility.html
 title: Neon compatibility
 ---
 
-# Neon compatibility matrix
+# Neon compatibility
 
 Sisal's Neon adapter (`@sisal/neon`) targets [Neon](https://neon.tech)
 serverless PostgreSQL. It speaks the Postgres wire protocol over a WebSocket via
@@ -3767,54 +3738,19 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (31 feature groups)  |
+| Suite         | `integration/neon_features_test.ts` (31 tests)           |
 | Last run      | 2026-06-30 — **31 / 31 passed** (neon-proxy + live Neon) |
 
-✅ = verified through the Neon serverless driver against Docker `neon-proxy`
-bridging to PostgreSQL 17. The full 31-test suite was additionally run once
-end-to-end against a **live Neon endpoint** (2026-06-30, secure WebSocket, no
-proxy) — all green.
+## Feature coverage
 
-## Matrix
-
-| Feature                                                                 | Neon |
-| ----------------------------------------------------------------------- | :--: |
-| **Connection** — `connect({ url })`, pooled, parameterized SQL          |  ✅  |
-| **Generated DDL applies** — all Postgres column types                   |  ✅  |
-| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |  ✅  |
-| **Insert** — `values`, multi-row, `returning`                           |  ✅  |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |  ✅  |
-| **Pattern** — `like` `ilike` `notLike` `notIlike`                       |  ✅  |
-| **Range** — `between` `notBetween`                                      |  ✅  |
-| **Set** — `inArray` `notInArray`                                        |  ✅  |
-| **Null** — `isNull` `isNotNull`                                         |  ✅  |
-| **Logical** — `and` `or` `not`                                          |  ✅  |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |  ✅  |
-| **Distinct**                                                            |  ✅  |
-| **Joins** — `inner` / `left` / `right` / `full`                         |  ✅  |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                        |  ✅  |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |  ✅  |
-| **Subquery** — `exists` / `notExists` (correlated)                      |  ✅  |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |  ✅  |
-| **`distinctOn`** — `SELECT DISTINCT ON (...)`                           |  ✅  |
-| **Row locking** — `.for("update"/"share")`, `skipLocked`                |  ✅  |
-| **Array ops** — `arrayContains`/`Contained`/`Overlaps`                  |  ✅  |
-| **Group / filter** — `groupBy`, `having`                                |  ✅  |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |
-| **Delete** — `where`, `returning`                                       |  ✅  |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |
-| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |
-| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |
-| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |
-| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |
-| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |
-| **Transactions** — commit + rollback on error                           |  ✅  |
-| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |
-| **JSONB** — object round-trip                                           |  ✅  |
-| **Arrays** — `text[]` round-trip                                        |  ✅  |
-| **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |
-| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |
-| **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |
+Every feature across all four adapters — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
+every Postgres-family ✅ applies. The 31-test suite is verified through the
+Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
+additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
+secure WebSocket, no proxy) — all green.
 
 The generated DDL test exercises the full Postgres type set (`text`,
 `varchar(n)`, `char(n)`, `integer`, `smallint`, `bigint`, `serial`, `bigserial`,
@@ -3879,7 +3815,7 @@ URL: https://gilvandovieira.github.io/sisal/sqlite-compatibility.html
 title: SQLite compatibility
 ---
 
-# SQLite compatibility matrix
+# SQLite compatibility
 
 Sisal's SQLite adapter (`@sisal/sqlite`) is verified end-to-end against a real,
 embedded SQLite database. The suite opens a temp file with the bundled
@@ -3892,50 +3828,15 @@ feature through the public API.
 | Suite         | `integration/sqlite_features_test.ts` (31 tests)     |
 | Last run      | 2026-06-28 — **31 / 31 passed**                      |
 
-✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
-unsupported on SQLite.
+## Feature coverage
 
-## Matrix
+Every feature across all four adapters — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. The SQLite-specific affinity mapping and the
+SQLite-vs-PostgreSQL behavior notes are below.
 
-| Feature                                                                 | SQLite 3.46 |
-| ----------------------------------------------------------------------- | :---------: |
-| **Connection** — `connect({ path })`, parameterized SQL                 |     ✅      |
-| **Generated DDL applies** — affinity mapping of all types               |     ✅      |
-| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |     ✅      |
-| **Insert** — `values`, multi-row, `returning`                           |     ✅      |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |     ✅      |
-| **Pattern** — `like` / `notLike`                                        |     ✅      |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)                 |     ✅      |
-| **Range** — `between` / `notBetween`                                    |     ✅      |
-| **Set** — `inArray` / `notInArray`                                      |     ✅      |
-| **Null** — `isNull` / `isNotNull`                                       |     ✅      |
-| **Logical** — `and` `or` `not`                                          |     ✅      |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |     ✅      |
-| **Distinct**                                                            |     ✅      |
-| **Joins** — `inner` / `left`                                            |     ✅      |
-| **Joins** — `right` / `full` (SQLite ≥ 3.39)                            |     ✅      |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                        |     ✅      |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |     ✅      |
-| **Subquery** — `exists` / `notExists` (correlated)                      |     ✅      |
-| **Subquery** — derived table `.as()`, scalar, `inArray(subquery)`       |     ✅      |
-| **Group / filter** — `groupBy`, `having`                                |     ✅      |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |     ✅      |
-| **Delete** — `where`, `returning`                                       |     ✅      |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |     ✅      |
-| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |     ✅      |
-| **Column naming** — snake_case default, `.named()`, `preserve`          |     ✅      |
-| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |     ✅      |
-| **Prepared statements** — `placeholder()` + `.prepare()`                |     ✅      |
-| **Transactions** — commit + rollback, single-connection serialized      |     ✅      |
-| **Batch** — `db.batch([...])` non-interactive, atomic                   |     ✅      |
-| **Boolean** — round-trip                                                |     ⚠️      |
-| **JSON / JSONB** — object round-trip                                    |     ⚠️      |
-| **Arrays** — `text[]` round-trip                                        |     ⚠️      |
-| **Binary** — `bytea`/`BLOB` round-trip (`Uint8Array`)                   |     ✅      |
-| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |     ✅      |
-| **Migrator** — apply, plan, history table, idempotent re-run            |     ✅      |
-
-### Column types via the DDL test
+## Column types via the DDL test
 
 Every generated type maps onto one of SQLite's five affinities and the
 `CREATE TABLE` is executed live:
@@ -4005,7 +3906,7 @@ URL: https://gilvandovieira.github.io/sisal/libsql-compatibility.html
 title: libSQL / Turso compatibility
 ---
 
-# libSQL / Turso compatibility matrix
+# libSQL / Turso compatibility
 
 Sisal's libSQL adapter (`@sisal/libsql`) is verified end-to-end against a real
 libSQL database. libSQL is a SQLite fork, so the SQL surface matches SQLite;
@@ -4020,47 +3921,15 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Suite         | `integration/libsql_features_test.ts` (31 tests)       |
 | Last run      | 2026-06-30 — **31 / 31 passed**                        |
 
-✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
-unsupported (SQLite-family).
+## Feature coverage
 
-## Matrix
-
-| Feature                                                                 | libSQL |
-| ----------------------------------------------------------------------- | :----: |
-| **Connection** — `connect({ url, authToken? })`                         |   ✅   |
-| **Generated DDL applies** — affinity mapping of all types               |   ✅   |
-| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |   ✅   |
-| **Insert** — `values`, multi-row, `returning`                           |   ✅   |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |   ✅   |
-| **Pattern** — `like` / `notLike`                                        |   ✅   |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)                 |   ✅   |
-| **Range** — `between` / `notBetween`                                    |   ✅   |
-| **Set** — `inArray` / `notInArray`                                      |   ✅   |
-| **Null** — `isNull` / `isNotNull`                                       |   ✅   |
-| **Logical** — `and` `or` `not`                                          |   ✅   |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |   ✅   |
-| **Distinct**                                                            |   ✅   |
-| **Joins** — `inner` / `left` / `right` / `full`                         |   ✅   |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                        |   ✅   |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |   ✅   |
-| **Subquery** — `exists` / `notExists` (correlated)                      |   ✅   |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |   ✅   |
-| **Group / filter** — `groupBy`, `having`                                |   ✅   |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |   ✅   |
-| **Delete** — `where`, `returning`                                       |   ✅   |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |   ✅   |
-| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |   ✅   |
-| **Column naming** — snake_case default, `.named()`, `preserve`          |   ✅   |
-| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |   ✅   |
-| **Prepared statements** — `placeholder()` + `.prepare()`                |   ✅   |
-| **Transactions** — commit + rollback on error                           |   ✅   |
-| **Batch** — `db.batch([...])` non-interactive, atomic                   |   ✅   |
-| **Boolean** — round-trip                                                |   ⚠️   |
-| **JSON / JSONB** — object round-trip                                    |   ⚠️   |
-| **Arrays** — `text[]` round-trip                                        |   ⚠️   |
-| **Binary** — `bytea`/`BLOB` round-trip                                  |   ⚠️   |
-| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |   ✅   |
-| **Migrator** — apply, plan, history table, idempotent re-run            |   ✅   |
+Every feature across all four adapters — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. libSQL is a SQLite fork that renders identical
+SQL (`LIBSQL_DIALECT = "sqlite"`), so its column-naming, keyset, prepared,
+`db.batch`, and `sql`-in-`SET`/`VALUES` rows match SQLite; the libSQL-specific
+round-trip differences and connection notes are below.
 
 ## Behavior notes
 
@@ -5594,7 +5463,7 @@ limit:
 | -- | ---------------------------------------------------------------------- | -------- | ------------ | ------ |
 | 1  | libSQL integration coverage parity                                     | P1       | S            | 🟢     |
 | 2  | Neon integration coverage parity                                       | P1       | M            | 🟢     |
-| 3  | Unified cross-driver feature matrix (the **outcome**)                  | P1       | M            | 🟡     |
+| 3  | Unified cross-driver feature matrix (the **outcome**)                  | P1       | M            | 🟢     |
 | 4  | Typed dialect guards for Postgres-only builders                        | P2       | M            | 🔴     |
 | 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🔴     |
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🔴     |
@@ -5740,16 +5609,17 @@ page. Target shape:
 (The ✅ columns above are the _target_ once items 1–2 land; ❌/⚠️ rows are the
 permanent, principled rows from items 4–5.)
 
-**Status (🟡 in progress).** The generated matrix is live:
+**Status (🟢 done).** The generated matrix is live:
 [`docs/feature-matrix.md`](feature-matrix.md) is rendered from a
 machine-readable source of truth (`tools/feature_matrix.ts`) by
 `tools/generate_feature_matrix.ts`, with `deno task docs:matrix` (regenerate)
 and `docs:matrix:check` (verify). The check asserts **every ✅/⚠️ cell is backed
 by a named integration test** in the matching suite — already the coverage-guard
 half of item 6. 25 features × 4 adapters, 92 test-backed cells; regenerated by
-the pre-commit hook and linked from the homepage `#compat`. **Remaining:** trim
-the four per-engine compatibility docs to engine-specific behavior notes + a
-link to the unified matrix (acceptance criterion 3).
+the pre-commit hook and linked from the homepage `#compat`. All four per-engine
+compatibility docs are trimmed to engine-specific metadata, behavior notes, and
+reproduce steps + a link to the unified matrix (acceptance criterion 3) — their
+divergent per-engine feature tables are retired.
 
 **Affected.** A new `docs/feature-matrix.md` (or a generated section), the
 homepage `docs/index.html` `#compat`, and the four per-engine docs (which can
