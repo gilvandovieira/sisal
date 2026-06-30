@@ -51,10 +51,12 @@ import {
   type SqlParameter,
   type SqlQuery,
 } from "./sql.ts";
+import type { ColumnDataType, ColumnValueMode } from "./columns.ts";
 import {
   type AnyTableDefinition,
   assertTable,
   type InferSelect,
+  isTable,
   type TableDefinition,
 } from "./table.ts";
 import {
@@ -109,19 +111,43 @@ export type BatchStatement = { toSql(): Sql } | Sql | SqlQuery;
 export type DatabaseSchema = Record<string, AnyTableDefinition>;
 
 /**
+ * One column's mapping for `.as(map)`: the physical name to read from the raw
+ * row plus the decode metadata. Every field is optional — a bare `{}` keeps the
+ * key as-is and applies no decoding.
+ */
+export interface ColumnMapping {
+  /** Physical column name in the raw result; defaults to the map key. */
+  readonly name?: string;
+  /** Column data type — drives Temporal decoding when parsing is enabled. */
+  readonly dataType?: ColumnDataType;
+  /** Value mode (`"date"`/`"string"`/…) — drives Temporal decoding. */
+  readonly valueMode?: ColumnValueMode;
+  /** Whether the column is an array (each element is decoded). */
+  readonly array?: boolean;
+}
+
+/**
+ * A free-form column-descriptor map for `.as(map)` — JS key → {@link
+ * ColumnMapping} — for raw results that do not correspond to a single
+ * `defineTable` (a join, an aggregate, a CTE projection).
+ */
+export type ColumnMap = Record<string, ColumnMapping>;
+
+/**
  * The awaitable result of a raw `db.query(...)` call: a normal query-result
- * promise that also exposes `.as(table)`, which decodes the raw driver rows
- * against a table model — physical→JS column naming plus the same opt-in
- * Temporal decoding the query builder applies — yielding typed
- * `InferSelect<table>` rows. Lets a hand-written `sql` query (e.g. a
- * data-modifying CTE) reuse a `defineTable` model instead of a restated row
- * type.
+ * promise that also exposes `.as(...)`, which decodes the raw driver rows —
+ * physical→JS column naming plus the same opt-in Temporal decoding the query
+ * builder applies. Pass a `defineTable` model to get typed `InferSelect<table>`
+ * rows, or a free-form {@link ColumnMap} for a result that does not match one
+ * table (a join/aggregate/CTE projection). Lets a hand-written `sql` query reuse
+ * existing column metadata instead of a restated row type.
  */
 export interface MappableQueryResult<T = unknown>
   extends Promise<OrmQueryResult<T>> {
   as<TTable extends TableDefinition>(
     table: TTable,
   ): Promise<InferSelect<TTable>[]>;
+  as<TRow = Record<string, unknown>>(map: ColumnMap): Promise<TRow[]>;
 }
 
 /** A raw SQL query executor. */
@@ -349,34 +375,51 @@ class SisalDatabase<
     );
   }
 
-  // Wraps a raw query promise with `.as(table)` so its rows can be decoded
-  // against a table model (physical→JS naming + opt-in Temporal parsing).
+  // Wraps a raw query promise with `.as(...)` so its rows can be decoded against
+  // a table model or a free-form column map (physical→JS naming + opt-in
+  // Temporal parsing).
   #mappableQuery<T>(
     query: SqlInput,
     params?: readonly SqlParameter[],
   ): MappableQueryResult<T> {
     const promise = this.#query<T>(query, params) as MappableQueryResult<T>;
-    promise.as = <TTable extends TableDefinition>(table: TTable) => {
-      assertTable(table);
+    const as = (source: TableDefinition | ColumnMap) => {
+      if (!isTable(source) && (typeof source !== "object" || source === null)) {
+        throw new OrmError("Expected a table definition or column map", {
+          code: "ORM_INVALID_TABLE",
+        });
+      }
       return promise.then((result) =>
-        this.#mapRows(result.rows as Record<string, unknown>[], table)
+        this.#mapRows(result.rows as Record<string, unknown>[], source)
       );
     };
+    promise.as = as as MappableQueryResult<T>["as"];
     return promise;
   }
 
-  // Maps raw driver rows onto a table model: renames physical column names to
-  // their JS property keys, then applies the same opt-in Temporal decoding the
-  // builder uses. Unknown keys pass through untouched.
-  #mapRows<TTable extends TableDefinition>(
+  // Maps raw driver rows onto a table model or column map: renames physical
+  // column names to their JS keys, then applies the same opt-in Temporal
+  // decoding the builder uses. Unknown keys pass through untouched.
+  #mapRows(
     rows: readonly Record<string, unknown>[],
-    table: TTable,
-  ): InferSelect<TTable>[] {
+    source: TableDefinition | ColumnMap,
+  ): Record<string, unknown>[] {
     const rename: Record<string, string> = {};
     const metadata: Record<string, ResultColumnMetadata> = {};
-    for (const [property, column] of Object.entries(table.columns)) {
-      rename[column.name] = property;
-      metadata[property] = column;
+    if (isTable(source)) {
+      for (const [property, column] of Object.entries(source.columns)) {
+        rename[column.name] = property;
+        metadata[property] = column;
+      }
+    } else {
+      for (const [key, descriptor] of Object.entries(source)) {
+        rename[descriptor.name ?? key] = key;
+        metadata[key] = {
+          array: descriptor.array,
+          dataType: descriptor.dataType,
+          valueMode: descriptor.valueMode,
+        } as ResultColumnMetadata;
+      }
     }
     const parse = this.#temporal.parse === true;
     return rows.map((row) => {
@@ -384,9 +427,7 @@ class SisalDatabase<
       for (const [key, value] of Object.entries(row)) {
         mapped[rename[key] ?? key] = value;
       }
-      return (parse
-        ? decodeTemporalRow(mapped, metadata)
-        : mapped) as InferSelect<TTable>;
+      return parse ? decodeTemporalRow(mapped, metadata) : mapped;
     });
   }
 

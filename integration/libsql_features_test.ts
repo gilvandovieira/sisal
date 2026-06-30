@@ -1067,6 +1067,11 @@ libsqlTest("libsql: typed raw-query mapping (.as)", async (db) => {
   assertEquals(rows.length, 1);
   assertEquals(rows[0].id, 1);
   assertEquals(rows[0].hotScore, 42);
+
+  // The same row mapped via a free-form column map (no defineTable needed).
+  const viaMap = await db.query(raw("select * from it_rawmap"))
+    .as<{ id: number; hot: number }>({ id: {}, hot: { name: "hot_score" } });
+  assertEquals(viaMap[0].hot, 42);
 });
 
 libsqlTest("libsql: date math window (now / dateSub / dateBin)", async (db) => {

@@ -13,24 +13,27 @@ Sisal-specific history after that baseline through `1f05448`.
 
 - Added **typed raw-query result mapping** (v0.5.0 roadmap item 13, core). A raw
   `db.query(...)` now returns a `MappableQueryResult` — still an awaitable
-  `OrmQueryResult` promise, but it also exposes `.as(table)`, which decodes the
-  raw driver rows against a `defineTable` model: physical→JS column naming
-  (`hot_score` → `hotScore`) plus the same opt-in Temporal decoding the query
-  builder applies, yielding typed `InferSelect<table>` rows. A hand-written
-  `sql` query — e.g. a data-modifying CTE — can now reuse a table model instead
-  of a restated row type. Unknown columns pass through untouched, and a plain
-  `await
-  db.query(...)` is unchanged (raw, driver-shaped rows). New
-  `@sisal/orm` export: the `MappableQueryResult` type; the four adapter facades
+  `OrmQueryResult` promise, but it also exposes `.as(...)`, which decodes the
+  raw driver rows: physical→JS column naming (`hot_score` → `hotScore`) plus the
+  same opt-in Temporal decoding the query builder applies. Pass a `defineTable`
+  model for typed `InferSelect<table>` rows, or a free-form `ColumnMap`
+  (`{ key: { name?, dataType?, valueMode?, array? } }`) for a result that
+  doesn't match one table — a join, an aggregate, a CTE projection. A
+  hand-written `sql` query (e.g. a data-modifying CTE) can reuse existing column
+  metadata instead of a restated row type. Unknown columns pass through
+  untouched, and a plain `await db.query(...)` is unchanged (raw, driver-shaped
+  rows). New `@sisal/orm` exports: `MappableQueryResult`, `ColumnMap`,
+  `ColumnMapping`; the four adapter facades
   (`PgDatabase`/`NeonDatabase`/`SqliteDatabase`/`LibsqlDatabase`) widen their
   `query` return type to match. Covered by `packages/orm/raw_mapping_test.ts`
-  (naming + Temporal decode + pass-through) and a `typed raw-query mapping`
-  integration test in all four suites (now 37/37/36/36) executed on PostgreSQL
-  18, Neon, SQLite, and libSQL; a unified-matrix row added (✅ on every
-  adapter). Scope: mapping against a `TableDefinition` is in; a free-form
-  column-descriptor map (non-table) input and the `neon-rising-feed-ctes`
-  example refactor that would drop its hand-written `RecordedBucket` /
-  `RecomputedPost` shapes remain follow-ups, so item 13 stays in progress.
+  (table + map, naming + Temporal decode + pass-through + rejection) and a
+  `typed raw-query mapping` integration test in all four suites (now
+  38/38/37/37) executing both `.as(table)` and `.as(map)` on PostgreSQL 18,
+  Neon, SQLite, and libSQL; a unified-matrix row added (✅ on every adapter).
+  Scope: both input forms are in; only the `neon-rising-feed-ctes` example
+  refactor that would derive its hand-written `RecordedBucket` /
+  `RecomputedPost` shapes from the table models remains, so item 13 stays in
+  progress.
 - Added **conditional aggregates and portable date math** (v0.5.0 roadmap item
   9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)` clause
   to any aggregate — `filter(sum(score), eq(kind, "a"))` renders

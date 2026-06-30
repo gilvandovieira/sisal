@@ -189,6 +189,8 @@ export {
 export type {
   AtomicOperation,
   BatchStatement,
+  ColumnMap,
+  ColumnMapping,
   Database,
   DatabaseOptions,
   DatabaseQuery,
