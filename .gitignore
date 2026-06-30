@@ -1,1 +1,6 @@
 .claude/
+
+# Local environment files (secrets). `.env.example` stays committed.
+.env
+.env.local
+.env.*.local
