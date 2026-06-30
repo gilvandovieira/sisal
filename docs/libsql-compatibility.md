@@ -29,6 +29,11 @@ round-trip differences and connection notes are below.
 
 ## Behavior notes
 
+> The cross-driver round-trip differences and PostgreSQL-only limits are
+> documented once in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below add libSQL-specific detail.
+
 libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
 
 - **`ilike` / `notIlike` degrade to `LIKE` / `NOT LIKE`**
@@ -52,9 +57,12 @@ libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
   `.named()`/`preserve`), `.keyset(...)` returns `{ rows, nextCursor }` for both
   the `"expanded"` and `"row-value"` predicate forms, and `placeholder()` +
   `.prepare()` bind by name — all rendered through the shared SQLite SQL path.
-- **Postgres-only operators are unavailable** — `.distinctOn(...)`,
+- **Postgres-only constructs throw a typed error** — `.distinctOn(...)`,
   `.for("update" | "share")` locking, and the array operators
-  (`arrayContains`/`arrayContained`/`arrayOverlaps`).
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`) are PostgreSQL-only; using
+  one against libSQL throws an `OrmError` at render time (v0.5.0 item 4). See
+  the [PostgreSQL-only limits](feature-matrix.md#postgresql-only-limits)
+  reference.
 
 What is **specific to libSQL/Turso**:
 

@@ -35,6 +35,10 @@ The generated DDL test exercises the full Postgres type set (`text`,
 
 ## Behavior notes
 
+> The cross-driver feature support and round-trip summary live in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below are Neon-specific.
+
 - **Same SQL as `@sisal/pg`.** Neon is PostgreSQL, so values come back typed the
   way Postgres returns them — `jsonb`/arrays parsed, `bytea` as `Uint8Array`,
   `numeric`/`bigint` as precision-preserving strings, native `ILIKE`.

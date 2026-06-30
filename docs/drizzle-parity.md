@@ -235,7 +235,9 @@ arguments, so conditional filters need no pre-filtering.
 ⁸ `exists`/`notExists` take a select subquery and render `EXISTS (…)` /
 `NOT EXISTS (…)`. The array operators are **Postgres-only** — `arrayContains`
 (`@>`), `arrayContained` (`<@`), and `arrayOverlaps` (`&&`) emit the Postgres
-array operators; SQLite/libSQL/MySQL have no equivalent.
+array operators; SQLite/libSQL/MySQL have no equivalent, so rendering one for a
+SQLite-family dialect throws a typed `OrmError` (see the
+[feature-matrix limits](feature-matrix.md#postgresql-only-limits)).
 
 **Output divergence:** Sisal always renders column references **table-qualified
 and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare

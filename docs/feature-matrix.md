@@ -36,25 +36,46 @@ genuine dialect limit · — not applicable.
 | Rich indexes (DESC / partial / expression)         |    ✅     |  ✅   |    ✅    |       ✅        |
 | Migrator (apply / plan / idempotent)               |    ✅     |  ✅   |    ✅    |       ✅        |
 | Temporal date/time modes                           |    ✅     |  ✅   |    ✅    |       ✅        |
-| `ilike` / `notIlike`                               |    ✅     |  ✅   | ⚠️ LIKE |    ⚠️ LIKE     |
-| `json` / array round-trip                          |    ✅     |  ✅   | ⚠️ text |    ⚠️ text     |
-| `boolean` round-trip                               |    ✅     |  ✅   | ⚠️ 0/1  |     ⚠️ 0/1     |
-| `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | ⚠️ ArrayBuffer |
-| `distinctOn`                                       |    ✅     |  ✅   |    ❌    |       ❌        |
-| Row locking (`.for(...)`)                          |    ✅     |  ✅   |    ❌    |       ❌        |
-| Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    ❌    |       ❌        |
-| Typed function caller (`db.call`)                  |    ✅     |  ✅   |    ❌    |       ❌        |
+| `ilike` / `notIlike`                               |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
+| `json` / array round-trip                          |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| `boolean` round-trip                               |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
+| `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
+| `distinctOn`                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Row locking (`.for(...)`)                          |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Typed function caller (`db.call`)                  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 
-## Notes
+The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
+the only principled, permanent divergences — everything else behaves
+identically across the four adapters.
 
-The ⚠️ and ❌ cells above are the principled, permanent divergences — the
-SQLite family (`@sisal/sqlite`, `@sisal/libsql`) has no equivalent for the
-PostgreSQL-only constructs, and stores a few types differently:
+## Round-trip differences
+
+These ⚠️ cells work — the feature is exercised on every adapter — but a value
+comes back in a different JS shape on the SQLite family than on PostgreSQL:
 
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
 - **`bytea` / BLOB round-trip** — `@libsql/client` returns BLOBs as `ArrayBuffer` (wrap with `new Uint8Array(value)`); SQLite and Postgres return `Uint8Array`.
+
+Value-shape summary (what a read yields, per adapter family):
+
+| Type | `@sisal/pg` / `@sisal/neon` | `@sisal/sqlite` / `@sisal/libsql` |
+| --- | --- | --- |
+| `numeric` / `bigint` | string (precision-preserving) | number |
+| `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) |
+| `boolean` | `boolean` | `INTEGER` `0`/`1` |
+| `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) |
+| `double precision` (float8) | number (`@sisal/pg` returns string; v0.5.0 item 11) | number |
+
+## PostgreSQL-only limits
+
+The SQLite family has no equivalent for these PostgreSQL constructs. Rendering a
+builder that uses one for a SQLite-family dialect throws a typed `OrmError`
+(`ORM_DIALECT_UNSUPPORTED`) at render time (v0.5.0 item 4) — except the typed
+function caller (`db.call`), which has no SQLite-family API surface at all:
+
 - **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; SQLite-family engines reject it. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.

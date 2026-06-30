@@ -1735,6 +1735,14 @@ Sisal-specific history after that baseline through `1f05448`.
   feature tables in favor of a link to the unified cross-driver feature matrix
   (`docs/feature-matrix.md`). Completes v0.5.0 roadmap item 3 (one matrix, one
   source of truth).
+- Made `docs/feature-matrix.md` the single canonical reference for the
+  principled cross-driver divergences (v0.5.0 roadmap item 5): every ⚠️/❌ cell
+  now links to a one-paragraph reason in a generated **Round-trip differences**
+  section (plus a value-shape summary table covering `numeric`/`bigint`,
+  `json`/array, `boolean`, `bytea`, and `double precision`) or a
+  **PostgreSQL-only limits** section. The four per-engine docs and the
+  drizzle-parity array-operator footnote now point to this reference instead of
+  restating the explanations, removing the cross-doc duplication.
 
 ## 0.4.0 - 2026-06-30
 
@@ -3308,7 +3316,9 @@ arguments, so conditional filters need no pre-filtering.
 ⁸ `exists`/`notExists` take a select subquery and render `EXISTS (…)` /
 `NOT EXISTS (…)`. The array operators are **Postgres-only** — `arrayContains`
 (`@>`), `arrayContained` (`<@`), and `arrayOverlaps` (`&&`) emit the Postgres
-array operators; SQLite/libSQL/MySQL have no equivalent.
+array operators; SQLite/libSQL/MySQL have no equivalent, so rendering one for a
+SQLite-family dialect throws a typed `OrmError` (see the
+[feature-matrix limits](feature-matrix.md#postgresql-only-limits)).
 
 **Output divergence:** Sisal always renders column references **table-qualified
 and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
@@ -3687,6 +3697,10 @@ each server and the column count is verified:
 
 ## Behavior notes (driver-level, not version-specific)
 
+> The cross-driver value-shape (round-trip) summary lives in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below are PostgreSQL driver-level detail.
+
 - **`SELECT *` across joins needs distinct column names.** The `@db/postgres`
   driver maps rows into objects keyed by column name, so a `select *` over two
   tables that both expose `id`/`name` throws _"Field names … are duplicated"_.
@@ -3781,6 +3795,10 @@ The generated DDL test exercises the full Postgres type set (`text`,
 
 ## Behavior notes
 
+> The cross-driver feature support and round-trip summary live in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below are Neon-specific.
+
 - **Same SQL as `@sisal/pg`.** Neon is PostgreSQL, so values come back typed the
   way Postgres returns them — `jsonb`/arrays parsed, `bytea` as `Uint8Array`,
   `numeric`/`bigint` as precision-preserving strings, native `ILIKE`.
@@ -3872,6 +3890,11 @@ Every generated type maps onto one of SQLite's five affinities and the
 
 ## Behavior notes (SQLite vs PostgreSQL)
 
+> The cross-driver round-trip differences and PostgreSQL-only limits are
+> documented once in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below add SQLite-specific detail.
+
 - **`ilike` / `notIlike` degrade to `LIKE` / `NOT LIKE`.** SQLite has no `ILIKE`
   keyword, so Sisal renders these as `LIKE`, which is already case-insensitive
   for ASCII. Folding is ASCII-only (not full Unicode like Postgres `ILIKE`).
@@ -3902,10 +3925,12 @@ Every generated type maps onto one of SQLite's five affinities and the
   `"row-value"` `(a, b) < (x, y)` comparison uses SQLite row values (≥ 3.15).
   Functions are **not** covered here: SQLite has no `CREATE FUNCTION` and no
   PostgreSQL `value::type` cast syntax, so `db.call(...)` targets PostgreSQL.
-- **Postgres-only operators are not available here.** `.distinctOn(...)`,
+- **Postgres-only constructs throw a typed error here.** `.distinctOn(...)`,
   `.for("update" | "share")` row locking, and the array operators
-  (`arrayContains`/`arrayContained`/`arrayOverlaps`) target PostgreSQL; SQLite
-  has no equivalent.
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`) are PostgreSQL-only; using
+  one against SQLite throws an `OrmError` at render time (v0.5.0 item 4). See
+  the [PostgreSQL-only limits](feature-matrix.md#postgresql-only-limits)
+  reference.
 
 ## Reproduce
 
@@ -3955,6 +3980,11 @@ round-trip differences and connection notes are below.
 
 ## Behavior notes
 
+> The cross-driver round-trip differences and PostgreSQL-only limits are
+> documented once in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below add libSQL-specific detail.
+
 libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
 
 - **`ilike` / `notIlike` degrade to `LIKE` / `NOT LIKE`**
@@ -3978,9 +4008,12 @@ libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
   `.named()`/`preserve`), `.keyset(...)` returns `{ rows, nextCursor }` for both
   the `"expanded"` and `"row-value"` predicate forms, and `placeholder()` +
   `.prepare()` bind by name — all rendered through the shared SQLite SQL path.
-- **Postgres-only operators are unavailable** — `.distinctOn(...)`,
+- **Postgres-only constructs throw a typed error** — `.distinctOn(...)`,
   `.for("update" | "share")` locking, and the array operators
-  (`arrayContains`/`arrayContained`/`arrayOverlaps`).
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`) are PostgreSQL-only; using
+  one against libSQL throws an `OrmError` at render time (v0.5.0 item 4). See
+  the [PostgreSQL-only limits](feature-matrix.md#postgresql-only-limits)
+  reference.
 
 What is **specific to libSQL/Turso**:
 
@@ -4784,25 +4817,46 @@ genuine dialect limit · — not applicable.
 | Rich indexes (DESC / partial / expression)         |    ✅     |  ✅   |    ✅    |       ✅        |
 | Migrator (apply / plan / idempotent)               |    ✅     |  ✅   |    ✅    |       ✅        |
 | Temporal date/time modes                           |    ✅     |  ✅   |    ✅    |       ✅        |
-| `ilike` / `notIlike`                               |    ✅     |  ✅   | ⚠️ LIKE |    ⚠️ LIKE     |
-| `json` / array round-trip                          |    ✅     |  ✅   | ⚠️ text |    ⚠️ text     |
-| `boolean` round-trip                               |    ✅     |  ✅   | ⚠️ 0/1  |     ⚠️ 0/1     |
-| `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | ⚠️ ArrayBuffer |
-| `distinctOn`                                       |    ✅     |  ✅   |    ❌    |       ❌        |
-| Row locking (`.for(...)`)                          |    ✅     |  ✅   |    ❌    |       ❌        |
-| Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    ❌    |       ❌        |
-| Typed function caller (`db.call`)                  |    ✅     |  ✅   |    ❌    |       ❌        |
+| `ilike` / `notIlike`                               |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
+| `json` / array round-trip                          |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| `boolean` round-trip                               |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
+| `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
+| `distinctOn`                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Row locking (`.for(...)`)                          |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Typed function caller (`db.call`)                  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 
-## Notes
+The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
+the only principled, permanent divergences — everything else behaves
+identically across the four adapters.
 
-The ⚠️ and ❌ cells above are the principled, permanent divergences — the
-SQLite family (`@sisal/sqlite`, `@sisal/libsql`) has no equivalent for the
-PostgreSQL-only constructs, and stores a few types differently:
+## Round-trip differences
+
+These ⚠️ cells work — the feature is exercised on every adapter — but a value
+comes back in a different JS shape on the SQLite family than on PostgreSQL:
 
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
 - **`bytea` / BLOB round-trip** — `@libsql/client` returns BLOBs as `ArrayBuffer` (wrap with `new Uint8Array(value)`); SQLite and Postgres return `Uint8Array`.
+
+Value-shape summary (what a read yields, per adapter family):
+
+| Type | `@sisal/pg` / `@sisal/neon` | `@sisal/sqlite` / `@sisal/libsql` |
+| --- | --- | --- |
+| `numeric` / `bigint` | string (precision-preserving) | number |
+| `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) |
+| `boolean` | `boolean` | `INTEGER` `0`/`1` |
+| `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) |
+| `double precision` (float8) | number (`@sisal/pg` returns string; v0.5.0 item 11) | number |
+
+## PostgreSQL-only limits
+
+The SQLite family has no equivalent for these PostgreSQL constructs. Rendering a
+builder that uses one for a SQLite-family dialect throws a typed `OrmError`
+(`ORM_DIALECT_UNSUPPORTED`) at render time (v0.5.0 item 4) — except the typed
+function caller (`db.call`), which has no SQLite-family API surface at all:
+
 - **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; SQLite-family engines reject it. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
@@ -5487,7 +5541,7 @@ limit:
 | 2  | Neon integration coverage parity                                       | P1       | M            | 🟢     |
 | 3  | Unified cross-driver feature matrix (the **outcome**)                  | P1       | M            | 🟢     |
 | 4  | Typed dialect guards for Postgres-only builders                        | P2       | M            | 🟢     |
-| 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🔴     |
+| 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🟢     |
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🔴     |
 | 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🔴     |
 | 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🔴     |

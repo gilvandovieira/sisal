@@ -179,6 +179,14 @@ Sisal-specific history after that baseline through `1f05448`.
   feature tables in favor of a link to the unified cross-driver feature matrix
   (`docs/feature-matrix.md`). Completes v0.5.0 roadmap item 3 (one matrix, one
   source of truth).
+- Made `docs/feature-matrix.md` the single canonical reference for the
+  principled cross-driver divergences (v0.5.0 roadmap item 5): every ⚠️/❌ cell
+  now links to a one-paragraph reason in a generated **Round-trip differences**
+  section (plus a value-shape summary table covering `numeric`/`bigint`,
+  `json`/array, `boolean`, `bytea`, and `double precision`) or a
+  **PostgreSQL-only limits** section. The four per-engine docs and the
+  drizzle-parity array-operator footnote now point to this reference instead of
+  restating the explanations, removing the cross-doc duplication.
 
 ## 0.4.0 - 2026-06-30
 

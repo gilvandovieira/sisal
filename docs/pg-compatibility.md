@@ -38,6 +38,10 @@ each server and the column count is verified:
 
 ## Behavior notes (driver-level, not version-specific)
 
+> The cross-driver value-shape (round-trip) summary lives in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below are PostgreSQL driver-level detail.
+
 - **`SELECT *` across joins needs distinct column names.** The `@db/postgres`
   driver maps rows into objects keyed by column name, so a `select *` over two
   tables that both expose `id`/`name` throws _"Field names … are duplicated"_.

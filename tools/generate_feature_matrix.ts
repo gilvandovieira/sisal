@@ -16,6 +16,7 @@ import {
   ADAPTER_LABELS,
   ADAPTERS,
   type Cell,
+  type CellStatus,
   cellTest,
   FEATURE_MATRIX,
 } from "./feature_matrix.ts";
@@ -24,7 +25,12 @@ const OUT = new URL("../docs/feature-matrix.md", import.meta.url);
 const suiteUrl = (a: Adapter) =>
   new URL(`../integration/${a}_features_test.ts`, import.meta.url);
 
-function cellSymbol(cell: Cell): string {
+// ⚠️/❌ cells link to the reference section below that explains each one.
+const ROUND_TRIP_ANCHOR = "round-trip-differences";
+const LIMITS_ANCHOR = "postgresql-only-limits";
+
+/** The visible (render-width) text of a cell, ignoring any link wrapper. */
+function cellVisible(cell: Cell): string {
   switch (cell.status) {
     case "tested":
       return "✅";
@@ -37,24 +43,39 @@ function cellSymbol(cell: Cell): string {
   }
 }
 
-/** Renders a Markdown table with simple per-column padding (fmt-excluded). */
+/** The cell as Markdown — ⚠️/❌ become links to their reference section. */
+function cellMarkdown(cell: Cell): string {
+  const visible = cellVisible(cell);
+  if (cell.status === "roundtrip") return `[${visible}](#${ROUND_TRIP_ANCHOR})`;
+  if (cell.status === "unsupported") return `[${visible}](#${LIMITS_ANCHOR})`;
+  return visible;
+}
+
+/** Renders the matrix; columns align on visible width, ⚠️/❌ cells link out. */
 function renderTable(): string {
   const headers = ["Feature", ...ADAPTERS.map((a) => ADAPTER_LABELS[a])];
-  const rows = FEATURE_MATRIX.map((
-    row,
-  ) => [row.feature, ...ADAPTERS.map((a) => cellSymbol(row.cells[a]))]);
+  const visible = FEATURE_MATRIX.map((row) => [
+    row.feature,
+    ...ADAPTERS.map((a) => cellVisible(row.cells[a])),
+  ]);
+  const display = FEATURE_MATRIX.map((row) => [
+    row.feature,
+    ...ADAPTERS.map((a) => cellMarkdown(row.cells[a])),
+  ]);
 
   const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => r[i].length))
+    Math.max(h.length, ...visible.map((r) => r[i].length))
   );
-  const padCell = (s: string, i: number, center: boolean) => {
-    const pad = widths[i] - s.length;
-    if (!center) return s + " ".repeat(pad);
-    const left = Math.floor(pad / 2);
-    return " ".repeat(left) + s + " ".repeat(pad - left);
+  const pad = (text: string, len: number, i: number, center: boolean) => {
+    const space = Math.max(0, widths[i] - len);
+    if (!center) return text + " ".repeat(space);
+    const left = Math.floor(space / 2);
+    return " ".repeat(left) + text + " ".repeat(space - left);
   };
-  const line = (cols: string[], center: boolean) =>
-    "| " + cols.map((c, i) => padCell(c, i, center && i > 0)).join(" | ") +
+  const row = (cells: string[], lens: number[], center: boolean) =>
+    "| " + cells.map((c, i) =>
+      pad(c, lens[i], i, center && i > 0)
+    ).join(" | ") +
     " |";
 
   const sep = "| " +
@@ -65,25 +86,23 @@ function renderTable(): string {
     ).join(" | ") + " |";
 
   return [
-    line(headers, false),
+    row(headers, headers.map((h) => h.length), false),
     sep,
-    ...rows.map((r) => line(r, true)),
+    ...display.map((cells, ri) =>
+      row(cells, visible[ri].map((v) => v.length), true)
+    ),
   ].join("\n");
 }
 
-/** One Notes bullet per feature that has any ⚠️/❌ cell. */
-function renderNotes(): string {
+/** Per-feature reason bullets for every row carrying a cell of `status`. */
+function reasonBullets(status: CellStatus): string {
   const bullets: string[] = [];
-  for (const row of FEATURE_MATRIX) {
-    const reasons = [
-      ...new Set(
-        ADAPTERS.map((a) => row.cells[a].reason).filter((r): r is string =>
-          r !== undefined
-        ),
-      ),
-    ];
-    for (const reason of reasons) {
-      bullets.push(`- **${row.feature}** — ${reason}`);
+  for (const feature of FEATURE_MATRIX) {
+    const reason = ADAPTERS
+      .map((a) => feature.cells[a])
+      .find((c) => c.status === status && c.reason !== undefined)?.reason;
+    if (reason !== undefined) {
+      bullets.push(`- **${feature.feature}** — ${reason}`);
     }
   }
   return bullets.join("\n");
@@ -111,13 +130,35 @@ genuine dialect limit · — not applicable.
 
 ${renderTable()}
 
-## Notes
+The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
+the only principled, permanent divergences — everything else behaves
+identically across the four adapters.
 
-The ⚠️ and ❌ cells above are the principled, permanent divergences — the
-SQLite family (\`@sisal/sqlite\`, \`@sisal/libsql\`) has no equivalent for the
-PostgreSQL-only constructs, and stores a few types differently:
+## Round-trip differences
 
-${renderNotes()}
+These ⚠️ cells work — the feature is exercised on every adapter — but a value
+comes back in a different JS shape on the SQLite family than on PostgreSQL:
+
+${reasonBullets("roundtrip")}
+
+Value-shape summary (what a read yields, per adapter family):
+
+| Type | \`@sisal/pg\` / \`@sisal/neon\` | \`@sisal/sqlite\` / \`@sisal/libsql\` |
+| --- | --- | --- |
+| \`numeric\` / \`bigint\` | string (precision-preserving) | number |
+| \`json\` / \`jsonb\` / array | parsed value | JSON \`TEXT\` string (\`JSON.parse\` on read) |
+| \`boolean\` | \`boolean\` | \`INTEGER\` \`0\`/\`1\` |
+| \`bytea\` / BLOB | \`Uint8Array\` | \`Uint8Array\` (sqlite) · \`ArrayBuffer\` (libsql) |
+| \`double precision\` (float8) | number (\`@sisal/pg\` returns string; v0.5.0 item 11) | number |
+
+## PostgreSQL-only limits
+
+The SQLite family has no equivalent for these PostgreSQL constructs. Rendering a
+builder that uses one for a SQLite-family dialect throws a typed \`OrmError\`
+(\`ORM_DIALECT_UNSUPPORTED\`) at render time (v0.5.0 item 4) — except the typed
+function caller (\`db.call\`), which has no SQLite-family API surface at all:
+
+${reasonBullets("unsupported")}
 
 ## Reproduce
 

@@ -37,6 +37,11 @@ Every generated type maps onto one of SQLite's five affinities and the
 
 ## Behavior notes (SQLite vs PostgreSQL)
 
+> The cross-driver round-trip differences and PostgreSQL-only limits are
+> documented once in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below add SQLite-specific detail.
+
 - **`ilike` / `notIlike` degrade to `LIKE` / `NOT LIKE`.** SQLite has no `ILIKE`
   keyword, so Sisal renders these as `LIKE`, which is already case-insensitive
   for ASCII. Folding is ASCII-only (not full Unicode like Postgres `ILIKE`).
@@ -67,10 +72,12 @@ Every generated type maps onto one of SQLite's five affinities and the
   `"row-value"` `(a, b) < (x, y)` comparison uses SQLite row values (≥ 3.15).
   Functions are **not** covered here: SQLite has no `CREATE FUNCTION` and no
   PostgreSQL `value::type` cast syntax, so `db.call(...)` targets PostgreSQL.
-- **Postgres-only operators are not available here.** `.distinctOn(...)`,
+- **Postgres-only constructs throw a typed error here.** `.distinctOn(...)`,
   `.for("update" | "share")` row locking, and the array operators
-  (`arrayContains`/`arrayContained`/`arrayOverlaps`) target PostgreSQL; SQLite
-  has no equivalent.
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`) are PostgreSQL-only; using
+  one against SQLite throws an `OrmError` at render time (v0.5.0 item 4). See
+  the [PostgreSQL-only limits](feature-matrix.md#postgresql-only-limits)
+  reference.
 
 ## Reproduce
 
