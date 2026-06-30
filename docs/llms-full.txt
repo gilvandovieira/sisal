@@ -6820,10 +6820,16 @@ dialect+change filter the generators call), and `schemaObjectDropStatements`
 (reverse-order `down`). Verified by `packages/orm/schema_test.ts`, pg/sqlite
 render tests, and a `schema objects` integration test in all four suites (now 35
 each) running a real trigger + view on PostgreSQL 18, Neon, SQLite, and libSQL.
-**Deferred (so item 7 stays in progress):** migrate-side `down` emission, drift
-/ checksum diffing of opaque bodies, regenerating `examples/neon-hot-feed`'s
-`0001_init.sql` from its schema, and moving the
-[drizzle-parity](drizzle-parity.md) rows.
+Down emission and drift now land too:
+`schemaObjectDropStatements(snapshot,
+dialect)` gives the matching reverse-order
+drops (a pg integration test applies the up then the down and asserts the
+function/view are gone), and because `schemaObjects` are part of the normalized
+snapshot, `equalSchemaSnapshots` — and therefore `checkDrift` — already flag a
+changed function/trigger **body** (pinned by a `@sisal/migrate` test).
+**Remaining (so item 7 stays in progress):** regenerating
+`examples/neon-hot-feed`'s migrations from its schema (functions moved into
+`schemaObjects`), and moving the [drizzle-parity](drizzle-parity.md) rows.
 
 ---
 

@@ -61,6 +61,7 @@ import {
   or,
   placeholder,
   raw,
+  schemaObjectDropStatements,
   sql,
   sum,
   uniqueIndex,
@@ -1405,6 +1406,19 @@ pgTest("pg: schema objects (functions/triggers/views)", async (db) => {
     sql`select count(*)::int as count from it_so_view`,
   );
   assertEquals(Number(view.rows[0].count), 1);
+
+  // Down: the matching drop statements (reverse declared order) remove the
+  // stored objects — dependents (view, trigger) before the function.
+  const downs = schemaObjectDropStatements(snapshot, "postgres");
+  assertEquals(downs.length, 3);
+  for (const statement of downs) await db.execute(statement);
+  const left = await db.query<{ fn: number; vw: number }>(
+    sql`select
+          (select count(*)::int from pg_proc where proname = ${"it_so_stamp"}) as fn,
+          (select count(*)::int from pg_views where viewname = ${"it_so_view"}) as vw`,
+  );
+  assertEquals(Number(left.rows[0].fn), 0);
+  assertEquals(Number(left.rows[0].vw), 0);
 });
 
 pgTest("pg: teardown", async (db) => {

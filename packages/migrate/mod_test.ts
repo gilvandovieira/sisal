@@ -510,3 +510,29 @@ Deno.test("@sisal/migrate - checkDrift reports schema changes and pending", () =
     "missing_snapshot",
   ]);
 });
+
+Deno.test("@sisal/migrate - checkDrift detects a changed schema-object body", () => {
+  // A stored function/trigger body lives in the snapshot's schemaObjects, so
+  // changing it (same name, new `up`) drifts from the captured snapshot — item
+  // 7's "drift accounts for changed function/trigger bodies".
+  const withFn = (up: string): SisalSchemaSnapshot => ({
+    version: 2,
+    tables: [{ name: "t", columns: [{ name: "id", type: { kind: "uuid" } }] }],
+    schemaObjects: [{
+      name: "touch",
+      kind: "function",
+      dialect: "postgres",
+      up,
+    }],
+  });
+  const v1 = withFn("CREATE OR REPLACE FUNCTION touch() ... v1");
+  const v2 = withFn("CREATE OR REPLACE FUNCTION touch() ... v2");
+
+  assertEquals(
+    checkDrift({ currentSnapshot: v1, latestSnapshot: v1 }).clean,
+    true,
+  );
+  const drifted = checkDrift({ currentSnapshot: v2, latestSnapshot: v1 });
+  assertEquals(drifted.clean, false);
+  assertEquals(drifted.findings.map((f) => f.kind), ["schema_changed"]);
+});
