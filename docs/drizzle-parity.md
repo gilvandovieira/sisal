@@ -120,22 +120,22 @@ columns.customType<number>({
 
 ### Column modifiers
 
-| Drizzle 0.45.2                  | Sisal                                                               | Status |
-| ------------------------------- | ------------------------------------------------------------------- | ------ |
-| `.notNull()`                    | `.notNull()` (opt out of nullable default)                          | ✅     |
-| `.default(v)`                   | `.default(v \| () => v)`                                            | ✅     |
-| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both                                     | 🟡     |
-| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)                              | ✅     |
-| `.unique()`                     | `.unique()` → emits a `UNIQUE` constraint                           | ✅     |
-| `.references(() => t.col)`      | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY`       | ✅⁵    |
-| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)                         | 🔷     |
-| `.array()`                      | `.array()`                                                          | ✅     |
-| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)                              | ✅     |
-| `.generatedAlwaysAs(...)`       | —                                                                   | ❌     |
-| (no equivalent)                 | `.nullable()` (explicit form of the default)                        | 🔷     |
-| (no equivalent)                 | `.optional()` (insert-optional)                                     | 🔷     |
-| `integer("name")` explicit name | `.named("name")` (explicit physical column name)                    | ✅     |
-| `casing: "snake_case"` (db)     | `naming` strategy + `setDefaultColumnNaming` (default `snake_case`) | ✅⁷    |
+| Drizzle 0.45.2                       | Sisal                                                               | Status |
+| ------------------------------------ | ------------------------------------------------------------------- | ------ |
+| `.notNull()`                         | `.notNull()` (opt out of nullable default)                          | ✅     |
+| `.default(v)` / `.default(sql\`…\`)` | `.default(v \| () => v \| sql\`…\`)` (literal/client/server)        | ✅     |
+| `.$default()` / `.$defaultFn()`      | `.default(() => v)` covers both                                     | 🟡     |
+| `.primaryKey()`                      | `.primaryKey()` (implies `.notNull()`)                              | ✅     |
+| `.unique()`                          | `.unique()` → emits a `UNIQUE` constraint                           | ✅     |
+| `.references(() => t.col)`           | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY`       | ✅⁵    |
+| `.$type<T>()`                        | type param on factory (`columns.json<T>()`)                         | 🔷     |
+| `.array()`                           | `.array()`                                                          | ✅     |
+| `.$onUpdate(fn)`                     | `.$onUpdate(fn)` (applied on `UPDATE`)                              | ✅     |
+| `.generatedAlwaysAs(...)`            | —                                                                   | ❌     |
+| (no equivalent)                      | `.nullable()` (explicit form of the default)                        | 🔷     |
+| (no equivalent)                      | `.optional()` (insert-optional)                                     | 🔷     |
+| `integer("name")` explicit name      | `.named("name")` (explicit physical column name)                    | ✅     |
+| `casing: "snake_case"` (db)          | `naming` strategy + `setDefaultColumnNaming` (default `snake_case`) | ✅⁷    |
 
 ⁵ **Constraint emission strategy.** `.unique()` emits a `UNIQUE` constraint and
 `.references(table, column, { onDelete?, onUpdate? })` emits a `FOREIGN KEY`

@@ -11,6 +11,22 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- # Added **SQL-expression column defaults** (v0.5.0 roadmap item 7 follow-up, core). `column.default(...)` now accepts a `sql\`…\``fragment in addition to a
+  literal or a client-side`() => value`— a **server** default emitted into DDL
+  verbatim
+  (`columns.uuid().primaryKey().default(sql\`gen_random_uuid()\`)`→`DEFAULT
+  gen_random_uuid()`;`.default(sql\`now()\`)`→`DEFAULT
+  now()`).
+  Unlike a client default, the column is simply omitted on insert when no value
+  is given, so the database fills it; it stays insert-optional. The snapshot
+  already modeled this (`SisalColumnDefault.kind
+  "expression"`) and the
+  PostgreSQL/SQLite generators already emit it — only the builder entry point was
+  missing, so a`defineTable`schema can now express the`gen_random_uuid()`/`now()`defaults a hand-written`CREATE
+  TABLE`uses. A parameterized default
+  (`sql\`coalesce(${x})\``) throws, since a default must be emitted verbatim.
+  Covered by`packages/orm/mod_test.ts`.
+
 - Added **typed raw-query result mapping** (v0.5.0 roadmap item 13, core). A raw
   `db.query(...)` now returns a `MappableQueryResult` — still an awaitable
   `OrmQueryResult` promise, but it also exposes `.as(...)`, which decodes the

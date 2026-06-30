@@ -8,8 +8,10 @@ import { OrmError } from "./errors.ts";
 import {
   type ColumnName,
   isRecord,
+  isSql,
   normalizeColumnName,
   normalizeTableName,
+  type Sql,
 } from "./sql.ts";
 
 /** Column data types supported by the built-in column builder factory. */
@@ -99,6 +101,16 @@ export interface ColumnDefinition<T> {
     readonly onUpdate?: ReferentialAction;
   };
   readonly defaultValue?: T | (() => T);
+  /**
+   * A SQL-expression default emitted into DDL verbatim (`DEFAULT now()`), set by
+   * `.default(sql\`…\`)`. Unlike `defaultValue` (a client value/function), this
+   * is a **server** default: the column is simply omitted on insert when no
+   * value is given, so the database fills it.
+   *
+   * **Trusted input.** Emitted into DDL unsanitized — set it only from
+   * developer-authored schema code. See `docs/security.md` (SEC-006).
+   */
+  readonly sqlDefault?: Sql;
   readonly onUpdate?: () => unknown;
 }
 
@@ -138,7 +150,15 @@ export interface ColumnBuilder<
    * key becomes optional.
    */
   optional(): ColumnBuilder<T, true, THasDefault>;
-  default(value: T | (() => T)): ColumnBuilder<T, TOptional, true>;
+  /**
+   * Sets the column's default. A literal value or `() => value` is a **client**
+   * default (used for insert optionality + type inference); a `sql\`…\``
+   * fragment is a **server** default, emitted into DDL as `DEFAULT <expr>` (e.g.
+   * `sql\`now()\`` / `sql\`gen_random_uuid()\``) and filled by the database when
+   * the column is omitted on insert. Either way the column becomes
+   * insert-optional.
+   */
+  default(value: T | (() => T) | Sql): ColumnBuilder<T, TOptional, true>;
   /** Adds the column to the primary key. Implies `.notNull()`. */
   primaryKey(): ColumnBuilder<NonNullable<T>, TOptional, THasDefault>;
   unique(): ColumnBuilder<T, TOptional, THasDefault>;
@@ -456,12 +476,17 @@ class SisalColumnBuilder<
     );
   }
 
-  default(value: T | (() => T)): ColumnBuilder<T, TOptional, true> {
+  default(value: T | (() => T) | Sql): ColumnBuilder<T, TOptional, true> {
+    // A `sql` fragment is a server default (emitted as `DEFAULT <expr>`); any
+    // other value is a client default applied through insert optionality.
+    const serverDefault = isSql(value);
     return new SisalColumnBuilder(
       {
         ...this.definition,
         hasDefault: true,
-        defaultValue: value,
+        ...(serverDefault
+          ? { sqlDefault: value }
+          : { defaultValue: value as T | (() => T) }),
       },
       this.optionalInsert,
       true,
@@ -668,6 +693,9 @@ export function cloneColumnDefinition<T>(
     ...(definition.defaultValue === undefined
       ? {}
       : { defaultValue: definition.defaultValue }),
+    ...(definition.sqlDefault === undefined
+      ? {}
+      : { sqlDefault: definition.sqlDefault }),
     ...(definition.onUpdate === undefined
       ? {}
       : { onUpdate: definition.onUpdate }),

@@ -1615,6 +1615,22 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- # Added **SQL-expression column defaults** (v0.5.0 roadmap item 7 follow-up, core). `column.default(...)` now accepts a `sql\`…\``fragment in addition to a
+  literal or a client-side`() => value`— a **server** default emitted into DDL
+  verbatim
+  (`columns.uuid().primaryKey().default(sql\`gen_random_uuid()\`)`→`DEFAULT
+  gen_random_uuid()`;`.default(sql\`now()\`)`→`DEFAULT
+  now()`).
+  Unlike a client default, the column is simply omitted on insert when no value
+  is given, so the database fills it; it stays insert-optional. The snapshot
+  already modeled this (`SisalColumnDefault.kind
+  "expression"`) and the
+  PostgreSQL/SQLite generators already emit it — only the builder entry point was
+  missing, so a`defineTable`schema can now express the`gen_random_uuid()`/`now()`defaults a hand-written`CREATE
+  TABLE`uses. A parameterized default
+  (`sql\`coalesce(${x})\``) throws, since a default must be emitted verbatim.
+  Covered by`packages/orm/mod_test.ts`.
+
 - Added **typed raw-query result mapping** (v0.5.0 roadmap item 13, core). A raw
   `db.query(...)` now returns a `MappableQueryResult` — still an awaitable
   `OrmQueryResult` promise, but it also exposes `.as(...)`, which decodes the
@@ -3401,22 +3417,22 @@ columns.customType<number>({
 
 ### Column modifiers
 
-| Drizzle 0.45.2                  | Sisal                                                               | Status |
-| ------------------------------- | ------------------------------------------------------------------- | ------ |
-| `.notNull()`                    | `.notNull()` (opt out of nullable default)                          | ✅     |
-| `.default(v)`                   | `.default(v \| () => v)`                                            | ✅     |
-| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both                                     | 🟡     |
-| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)                              | ✅     |
-| `.unique()`                     | `.unique()` → emits a `UNIQUE` constraint                           | ✅     |
-| `.references(() => t.col)`      | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY`       | ✅⁵    |
-| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)                         | 🔷     |
-| `.array()`                      | `.array()`                                                          | ✅     |
-| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)                              | ✅     |
-| `.generatedAlwaysAs(...)`       | —                                                                   | ❌     |
-| (no equivalent)                 | `.nullable()` (explicit form of the default)                        | 🔷     |
-| (no equivalent)                 | `.optional()` (insert-optional)                                     | 🔷     |
-| `integer("name")` explicit name | `.named("name")` (explicit physical column name)                    | ✅     |
-| `casing: "snake_case"` (db)     | `naming` strategy + `setDefaultColumnNaming` (default `snake_case`) | ✅⁷    |
+| Drizzle 0.45.2                       | Sisal                                                               | Status |
+| ------------------------------------ | ------------------------------------------------------------------- | ------ |
+| `.notNull()`                         | `.notNull()` (opt out of nullable default)                          | ✅     |
+| `.default(v)` / `.default(sql\`…\`)` | `.default(v \| () => v \| sql\`…\`)` (literal/client/server)        | ✅     |
+| `.$default()` / `.$defaultFn()`      | `.default(() => v)` covers both                                     | 🟡     |
+| `.primaryKey()`                      | `.primaryKey()` (implies `.notNull()`)                              | ✅     |
+| `.unique()`                          | `.unique()` → emits a `UNIQUE` constraint                           | ✅     |
+| `.references(() => t.col)`           | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY`       | ✅⁵    |
+| `.$type<T>()`                        | type param on factory (`columns.json<T>()`)                         | 🔷     |
+| `.array()`                           | `.array()`                                                          | ✅     |
+| `.$onUpdate(fn)`                     | `.$onUpdate(fn)` (applied on `UPDATE`)                              | ✅     |
+| `.generatedAlwaysAs(...)`            | —                                                                   | ❌     |
+| (no equivalent)                      | `.nullable()` (explicit form of the default)                        | 🔷     |
+| (no equivalent)                      | `.optional()` (insert-optional)                                     | 🔷     |
+| `integer("name")` explicit name      | `.named("name")` (explicit physical column name)                    | ✅     |
+| `casing: "snake_case"` (db)          | `naming` strategy + `setDefaultColumnNaming` (default `snake_case`) | ✅⁷    |
 
 ⁵ **Constraint emission strategy.** `.unique()` emits a `UNIQUE` constraint and
 `.references(table, column, { onDelete?, onUpdate? })` emits a `FOREIGN KEY`

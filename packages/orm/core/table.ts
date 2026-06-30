@@ -641,9 +641,9 @@ function tableToSnapshot(
           column: column.references.column,
         },
       }),
-      ...(columnDefaultToSnapshot(column.defaultValue) === undefined
+      ...(columnDefaultToSnapshot(column) === undefined
         ? {}
-        : { default: columnDefaultToSnapshot(column.defaultValue) }),
+        : { default: columnDefaultToSnapshot(column) }),
       metadata: {
         propertyName: column.propertyName,
         optionalInsert: column.optionalInsert,
@@ -660,8 +660,20 @@ function tableToSnapshot(
 }
 
 function columnDefaultToSnapshot(
-  value: unknown,
+  column: { readonly sqlDefault?: Sql; readonly defaultValue?: unknown },
 ): SisalColumnDefault | undefined {
+  // A server (`sql`) default emits as `DEFAULT <expr>` verbatim.
+  if (column.sqlDefault !== undefined) {
+    const rendered = renderSql(column.sqlDefault, { dialect: "generic" });
+    if (rendered.params.length > 0) {
+      throw new OrmError("A column SQL default cannot bind parameters", {
+        code: "ORM_INVALID_COLUMN",
+      });
+    }
+    return { kind: "expression", sql: rendered.text };
+  }
+
+  const value = column.defaultValue;
   if (
     value === null ||
     typeof value === "string" ||
