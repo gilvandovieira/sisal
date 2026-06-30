@@ -24,11 +24,21 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [libSQL / Turso compatibility](https://gilvandovieira.github.io/sisal/libsql-compatibility.html): Sisal's libSQL adapter (@sisal/libsql) is verified end-to-end against a real libSQL database. libSQL is a SQLite fork, so the SQL surface matches SQLite; what differs is the **connection** — a local file:, an...
 - [Benchmarks](https://gilvandovieira.github.io/sisal/benchmarks.html): Sisal benchmarks measure the work the **library** does — building SQL, rendering it, and turning driver rows into typed results — in isolation from the database and the network. A query's wall-clock time is dominated...
 - [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
+- [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL, analytics,...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
+- [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, and libSQL. It will not become an object-first ORM. This page is the index and...
+- [v0.10.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.10.0-roadmap.html): The investigations (v0.6) and substrate (v0.8, v0.9) are done; v0.10 ships the **first preview of Sisal ETL** as a separate package. The model is deliberately small: a **job definition + a single-run runner** that...
+- [v0.11.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.11.0-roadmap.html): With the analytical IR designed (v0.7) and the core IR stabilized (v0.8), v0.11 ships the first **Postgres-first analytical query layer** — a typed OLAP API that queries rollups and analytical tables using Sisal...
+- [v0.12.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.12.0-roadmap.html): v0.12 introduces a **generic dashboard mapping layer** that turns analytics result sets into **semantic presentation models**. It is the last layer of the stack and the most easily misunderstood, so the boundary is...
+- [v0.13+ Roadmap](https://gilvandovieira.github.io/sisal/v0.13.0-roadmap.html): DuckDB is attractive — but only **after** the analytical IR exists. v0.13+ is an **investigation** of DuckDB (and other OLAP engines) as a later **compiler / execution target** for the analytics IR built in...
+- [v0.14+ Roadmap](https://gilvandovieira.github.io/sisal/v0.14.0-roadmap.html): The last milestone on the line, and the most conditional. v0.14+ investigates native/Rust acceleration **only if** benchmarks prove a real bottleneck that **neither SQL pushdown nor DuckDB** (v0.13+) can solve...
 - [v0.4.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.4.0-roadmap.html): This document captures the API gaps surfaced while building the examples/neon-hot-feed example — a Reddit-style hot feed on Neon/PostgreSQL that must stay Deno Deploy / Neon-HTTP friendly. Each gap forced the example...
 - [v0.5.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.5.0-roadmap.html): Where v0.4.0 closed _feature_ gaps surfaced by the neon-hot-feed example, v0.5.0 closes _parity_ gaps **between the adapters**.
-- [v0.6.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.6.0-roadmap.html): Where v0.4.0 closed _feature_ gaps and v0.5.0 closed _parity_ gaps between the adapters, v0.6.0 closes the _runtime_ gap: Sisal is Deno-first and JSR-only today; v0.6.0 makes it **dual-runtime (Deno + Node.js)** and...
+- [v0.6.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.6.0-roadmap.html): Where v0.5.0 makes the OLTP builder boringly correct across the four dialects, v0.6.0 is the **readiness** milestone: it earns the right to build later packages (and reach a fifth dialect) by proving the foundation...
+- [v0.7.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.7.0-roadmap.html): v0.7 carries **two parallel workstreams**:
+- [v0.8.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.8.0-roadmap.html): v0.6 and v0.7 are investigations; v0.8 is where their findings become a **stable substrate**. The goal is to stabilize Sisal's internal SQL representation and expression system — and extract **@sisal/core** — so that...
+- [v0.9.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.9.0-roadmap.html): With the IR stabilized in v0.8 and **MySQL added in v0.7**, v0.9 hardens the **five** adapters against the ETL/analytics SQL shapes surfaced by v0.6/v0.7, and turns the implicit, scattered dialect knowledge into an...
 
 ## Package APIs
 
@@ -133,6 +143,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
 - `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
+- `AtomicOperation` (interface): A portable atomic operation — a "transaction script". Author dependent read-modify-write steps once; {@link AtomicOperation.run} executes them as a single transaction on any adapter (@sisal/pg, @sisal/neon,...
 - `avg` (function): avg(column) aggregate expression.
 - `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
@@ -164,6 +175,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineSchemaSnapshot` (function): Normalizes and validates a schema snapshot.
 - `defineTable` (function): Defines a typed table schema.
@@ -337,6 +349,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL have no array containment operator (rendering throws there).
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
+- `AtomicOperation` (interface): A portable atomic operation — a "transaction script". Author dependent read-modify-write steps once; {@link AtomicOperation.run} executes them as a single transaction on any adapter (@sisal/pg, @sisal/neon,...
 - `avg` (function): avg(column) aggregate expression.
 - `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
@@ -368,6 +381,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
@@ -1600,18 +1614,34 @@ Sisal-specific history after that baseline through `1f05448`.
   preserves types, while a plain TypeScript language server still reports the
   workspace imports as unresolved; the doc records that boundary as a future npm
   packaging signal.
-- Added `docs/v0.6.0-roadmap.md` consolidating a Node.js + npm compatibility
-  exploration into a future-release roadmap (no implementation in this cycle). A
-  June 2026 worktree audit against real Node confirmed the library cores run
-  under Node's type-stripping unchanged, the only hard blockers are bare
-  `@sisal/*` resolution, the six `jsr:`/`npm:` import sites, and the `.ts`
-  import extensions, and all four adapters already inject their driver. The
-  roadmap targets dual-runtime (Deno + Node 24+) and dual-registry (JSR + npm)
-  delivery while keeping the Deno workflow unchanged; it follows the npm
-  packaging signal first recorded in `docs/editor-lsp.md`. Because the `@sisal`
-  scope is unavailable on npm, the roadmap keeps `@sisal/*` for JSR/source and
-  uses a placeholder `@scope/*` npm scope (final name TBD; the build remaps
-  `@sisal/*` → `@scope/*` for the npm artifact only).
+- Added a **forward roadmap line** (`docs/v0.6.0-roadmap.md` …
+  `docs/v0.14.0-roadmap.md`) plus a `docs/roadmap.md` overview/index and a
+  `docs/architecture.md` describing the long-term package split. These are
+  guidelines for future cycles, not commitments; nothing here is implemented
+  yet, and v0.5.0 scope is untouched. The arc: **ORM (OLTP) → ETL (bridge to
+  OLAP shapes) → Analytics (typed OLAP) → Dashboard (renderer-agnostic
+  presentation models)**, with a strict dependency rule —
+  ETL/Analytics/Dashboard depend on `@sisal/core`; `@sisal/orm` never depends on
+  them. Grounded in a June 2026 code audit (the OLTP/aggregation surface is
+  solid; the ETL gap is set-based movement — no `INSERT…SELECT`, SELECT-only
+  CTEs; analytics has no window functions at all; the core is "already layered
+  as if pre-split" so a `@sisal/core` extraction is mostly file-moves; the SQL
+  IR is a compose-oriented _fragment_ IR, a compile target rather than a
+  transformable AST).
+  - **v0.6 — Foundations & Readiness:** three readiness workstreams that ship no
+    new feature package — (A) ETL readiness investigation; (B) the Node.js and
+    npm dual-registry runtime work (the original v0.6 content, now Workstream B
+    — keeps `@sisal/*` on JSR, publishes a placeholder `@scope/*` on npm since
+    `@sisal` is taken there, with the build remapping for the npm artifact
+    only); and (C) MySQL support investigation (the renderer already carries a
+    latent `"mysql"` dialect, but there is no adapter).
+  - **v0.7** Analytics Readiness **+ MySQL Support Implementation** (ships
+    `@sisal/mysql`, the fifth dialect); **v0.8** Advanced SQL IR & expression
+    stabilization (extracts `@sisal/core`); **v0.9** adapter hardening across
+    the five adapters; **v0.10** `@sisal/etl` preview; **v0.11**
+    `@sisal/analytics` preview; **v0.12** `@sisal/dashboard` preview; **v0.13+**
+    DuckDB / external OLAP investigation (after the analytics IR); **v0.14+**
+    optional native/Rust acceleration (only on benchmark evidence).
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
   moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
   functions** — every multi-step mutation is one **data-modifying CTE**
@@ -4660,6 +4690,112 @@ for the private disclosure channel. Report suspected vulnerabilities privately
 rather than opening a public issue, and allow time for a fix before disclosure.
 ```
 
+### docs/architecture.md
+
+URL: https://gilvandovieira.github.io/sisal/architecture.html
+
+```md
+---
+title: Package Architecture (long-term)
+---
+
+# Sisal package architecture — the long-term split
+
+Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for
+**relational** data access. It is not becoming an object-first ORM. As the
+surface grows from OLTP query building toward ETL, analytics, and dashboard
+mapping, the packages stay strictly layered so the OLTP core never pays for the
+analytical ambitions.
+
+This document describes the **target** package graph and the one rule that keeps
+it honest. It is aspirational: most of these packages do not exist yet. The
+release roadmaps (`v0.6` → `v0.14+`) stage the work that gets us here. See the
+[roadmap overview](roadmap.md) for sequencing.
+
+## Workload model, not a compliance protocol
+
+Sisal distinguishes **OLTP** (transactional, row-at-a-time, latency-sensitive
+reads/writes) from **OLAP** (analytical, set-at-a-time, scan/aggregate-heavy) as
+**workload models that shape an API**, not as standards to certify against. The
+query builder is tuned for OLTP; ETL bridges OLTP data into OLAP-ready shapes;
+analytics queries those shapes; dashboard maps the results for presentation.
+Each is a thin, typed layer over the same core primitives.
+
+## The packages
+
+| Package                           | Responsibility                                                                                                                                                                                              | Depends on                     |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **`@sisal/core`**                 | Schema primitives, the serializable snapshot, the SQL IR (`Sql`/`SqlChunk` fragments), expressions/operators, and the dialect interface + renderer. The shared substrate every other package compiles into. | —                              |
+| **`@sisal/orm`**                  | The OLTP query builder: CRUD, `where`/`order`/`limit`, joins, set ops, CTEs, transactions, prepared queries, `db.batch`.                                                                                    | core                           |
+| **`@sisal/migrate`**              | Snapshot diffing, migration planning/running, the `sisal` CLI.                                                                                                                                              | core (+ orm)                   |
+| **`@sisal/pg`**                   | PostgreSQL adapter (dialect + executor + driver).                                                                                                                                                           | core, orm, migrate             |
+| **`@sisal/neon`**                 | Neon serverless-aware PostgreSQL adapter (WebSocket Pool).                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/sqlite`**               | SQLite adapter (embedded).                                                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/libsql`**               | libSQL / Turso adapter (local + remote).                                                                                                                                                                    | core, orm, migrate             |
+| **`@sisal/mysql`** _(v0.7)_       | MySQL / MariaDB adapter. The `"mysql"` dialect is latent in the renderer today (backtick quoting, `?` placeholders); the adapter ships in [v0.7](v0.7.0-roadmap.md).                                        | core, orm, migrate             |
+| **`@sisal/etl`** _(future)_       | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ an adapter to execute) |
+| **`@sisal/analytics`** _(future)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter)            |
+| **`@sisal/dashboard`** _(future)_ | Renderer-agnostic semantic presentation models (KPI, time series, bar, leaderboard, …).                                                                                                                     | core, analytics types          |
+
+## The one rule: dependency direction
+
+```
+              ┌──────────────┐
+              │  @sisal/core │  schema · SQL IR · expressions · dialect
+              └──────┬───────┘
+     ┌───────────────┼────────────────────────────┐
+     │               │                             │
+┌────▼────┐    ┌─────▼──────┐   ┌────────┐   ┌──────▼──────┐   ┌───────────┐
+│   orm   │    │  migrate   │   │  etl   │   │  analytics  │   │ dashboard │
+│ (OLTP)  │    │            │   │(future)│   │  (future)   │   │ (future)  │
+└────┬────┘    └─────┬──────┘   └───┬────┘   └──────┬──────┘   └─────┬─────┘
+     └───────┬───────┘              │               │                │
+     ┌───────▼────────┐             │   (etl/analytics may use an    │
+     │   pg · neon    │◄────────────┴───  adapter to execute SQL) ───┘
+     │ sqlite · libsql│
+     │  mysql (v0.7)  │
+     └────────────────┘
+```
+
+- **ETL, Analytics, and Dashboard depend on `@sisal/core`** (and, to execute, on
+  an adapter). They may consume ORM/analytics _types_.
+- **`@sisal/orm` must never depend on ETL, Analytics, or Dashboard.** The OLTP
+  core stays clean; an app that only does CRUD pulls in none of the analytical
+  surface.
+- **Adapters never import each other** and expose their **dialect capabilities**
+  explicitly (see [v0.9](v0.9.0-roadmap.md)).
+- **Dashboard does not render.** It maps analytical result sets into semantic
+  models that D3 / Recharts / ECharts / Vega / custom renderers consume. The
+  motto: _analytics computes, dashboard maps, renderer renders._
+
+## Where we are today (the honest baseline)
+
+There is **no `@sisal/core` package yet** — everything lives in `@sisal/orm`
+(its `deno.json` already exposes `./core` and `./schema` subpaths). The good
+news, confirmed by a June 2026 code audit: the module graph is **already layered
+as if pre-split**. The internal DAG is
+`errors ← sql ← {operators, columns} ←
+table ← {builders, relations} ← database`,
+and the lower tier (`errors`, `sql`, `operators`, `columns`, `table`,
+`temporal`, and the zero-import leaf `schema.ts`) has **no upward edges** into
+the OLTP builders. The one cross-cut — embedding a query builder as a subquery
+fragment — is already inverted behind the `QUERY_BUILDER_BRAND` symbol + a
+structural `SubquerySource` interface, so `sql.ts` never imports the builders.
+
+Consequently, extracting `@sisal/core` is **mostly file-moves, barrel-splitting,
+and a new `deno.json`** — not an ORM rewrite. That extraction is a
+[v0.8](v0.8.0-roadmap.md) deliverable, and it is the gate that lets ETL and
+analytics be built as _separate_ packages instead of growing inside the ORM.
+
+**Important nuance for ETL/analytics:** what `@sisal/core` exposes is a
+dialect-agnostic **fragment/expression IR plus a serializable schema snapshot**
+— a _compile target_, not a transformable relational AST. Downstream packages
+can **build and render** parameterized SQL/predicates on it, but query
+_introspection/rewriting_ (predicate pushdown, plan optimization) does not exist
+today and would be new core work if a milestone genuinely needs it (flagged in
+[v0.8](v0.8.0-roadmap.md)).
+```
+
 ### docs/editor-lsp.md
 
 URL: https://gilvandovieira.github.io/sisal/editor-lsp.html
@@ -4817,34 +4953,35 @@ fails if a claimed test is missing, so this table cannot drift from the suites.
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
 
-| Feature                                            | Postgres | Neon | SQLite  | libSQL         |
-| :------------------------------------------------- | :------: | :--: | :-----: | :------------: |
-| Connection + raw parameterized SQL                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Generated DDL (all column types)                   |    ✅     |  ✅   |    ✅    |       ✅        |
-| Insert / update / delete / returning               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Filter / ordering / pagination                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Joins (inner / left / right / full)                |    ✅     |  ✅   |    ✅    |       ✅        |
-| Aggregates / group / having                        |    ✅     |  ✅   |    ✅    |       ✅        |
-| Subqueries / exists / scalar                       |    ✅     |  ✅   |    ✅    |       ✅        |
-| Upsert (`onConflict…`)                             |    ✅     |  ✅   |    ✅    |       ✅        |
-| `sql` in `SET` / `VALUES` / `onConflict`           |    ✅     |  ✅   |    ✅    |       ✅        |
-| Column naming (snake_case / `.named()` / preserve) |    ✅     |  ✅   |    ✅    |       ✅        |
-| Keyset pagination (expanded + row-value)           |    ✅     |  ✅   |    ✅    |       ✅        |
-| Prepared statements                                |    ✅     |  ✅   |    ✅    |       ✅        |
-| Transactions (commit + rollback)                   |    ✅     |  ✅   |    ✅    |       ✅        |
-| `db.batch` (non-interactive, atomic)               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Rich indexes (DESC / partial / expression)         |    ✅     |  ✅   |    ✅    |       ✅        |
-| Migrator (apply / plan / idempotent)               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Temporal date/time modes                           |    ✅     |  ✅   |    ✅    |       ✅        |
-| `ilike` / `notIlike`                               |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
-| `json` / array round-trip                          |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| `boolean` round-trip                               |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
-| `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
-| Float (`float4`/`float8`) round-trip → `number`    |    ✅     |  ✅   |    ✅    |       ✅        |
-| `distinctOn`                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Row locking (`.for(...)`)                          |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Typed function caller (`db.call`)                  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Feature                                                         | Postgres | Neon | SQLite  | libSQL         |
+| :-------------------------------------------------------------- | :------: | :--: | :-----: | :------------: |
+| Connection + raw parameterized SQL                              |    ✅     |  ✅   |    ✅    |       ✅        |
+| Generated DDL (all column types)                                |    ✅     |  ✅   |    ✅    |       ✅        |
+| Insert / update / delete / returning                            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Filter / ordering / pagination                                  |    ✅     |  ✅   |    ✅    |       ✅        |
+| Joins (inner / left / right / full)                             |    ✅     |  ✅   |    ✅    |       ✅        |
+| Aggregates / group / having                                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Subqueries / exists / scalar                                    |    ✅     |  ✅   |    ✅    |       ✅        |
+| Upsert (`onConflict…`)                                          |    ✅     |  ✅   |    ✅    |       ✅        |
+| `sql` in `SET` / `VALUES` / `onConflict`                        |    ✅     |  ✅   |    ✅    |       ✅        |
+| Column naming (snake_case / `.named()` / preserve)              |    ✅     |  ✅   |    ✅    |       ✅        |
+| Keyset pagination (expanded + row-value)                        |    ✅     |  ✅   |    ✅    |       ✅        |
+| Prepared statements                                             |    ✅     |  ✅   |    ✅    |       ✅        |
+| Transactions (commit + rollback)                                |    ✅     |  ✅   |    ✅    |       ✅        |
+| `db.batch` (non-interactive, atomic)                            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Atomic operation / transaction script (`defineAtomicOperation`) |    ✅     |  ✅   |    ✅    |       ✅        |
+| Rich indexes (DESC / partial / expression)                      |    ✅     |  ✅   |    ✅    |       ✅        |
+| Migrator (apply / plan / idempotent)                            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Temporal date/time modes                                        |    ✅     |  ✅   |    ✅    |       ✅        |
+| `ilike` / `notIlike`                                            |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
+| `json` / array round-trip                                       |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| `boolean` round-trip                                            |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
+| `bytea` / BLOB round-trip                                       |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
+| Float (`float4`/`float8`) round-trip → `number`                 |    ✅     |  ✅   |    ✅    |       ✅        |
+| `distinctOn`                                                    |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Row locking (`.for(...)`)                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Array operators (`@>` / `<@` / `&&`)                            |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Typed function caller (`db.call`)                               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -4897,6 +5034,669 @@ deno test --env-file=.env -A integration/libsql_features_test.ts
 Per-engine behavior notes live on the
 [Postgres](pg-compatibility.md), [Neon](neon-compatibility.md),
 [SQLite](sqlite-compatibility.md), and [libSQL](libsql-compatibility.md) pages.
+```
+
+### docs/roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/roadmap.html
+
+```md
+---
+title: Roadmap Overview
+---
+
+# Sisal roadmap — from OLTP correctness to a typed analytics stack
+
+Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for
+**relational** data across PostgreSQL, Neon, SQLite, and libSQL. It will not
+become an object-first ORM. This page is the index and narrative spine for the
+release line; each release has its own roadmap doc with full
+goal/scope/deliverables/non-goals/risks/open-questions/acceptance-criteria.
+
+## The arc
+
+The long-term direction is a layered stack where each tier is a thin, typed
+package over shared core primitives — and the OLTP core never depends on the
+analytical layers (see [architecture](architecture.md)):
+
+> **ORM** handles OLTP. **ETL** bridges OLTP data into OLAP-ready shapes.
+> **Analytics** queries those shapes with a typed OLAP API. **Dashboard** maps
+> analytical results into renderer-agnostic presentation models.
+
+The discipline that keeps this realistic: **investigate before building, and
+build the substrate before the feature.** v0.6 and v0.7 are _readiness_
+milestones — they earn the right to build ETL and analytics by proving the core
+can carry them without hacks. The public packages don't arrive until v0.10+.
+
+## Release line
+
+| Release    | Title                                                                            | Theme                                                                                                          | Ships a package?   |
+| ---------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------ |
+| **v0.5**   | [Multi-Dialect OLTP Compatibility](v0.5.0-roadmap.md)                            | Make the OLTP builder boringly correct across pg/neon/sqlite/libsql                                            | hardening          |
+| **v0.6**   | [Foundations & Readiness — ETL + Node/npm + MySQL groundwork](v0.6.0-roadmap.md) | Minimum core changes for `@sisal/etl`; Node.js/npm dual-registry readiness; **investigate MySQL support**      | no                 |
+| **v0.7**   | [Analytics Readiness & MySQL Support](v0.7.0-roadmap.md)                         | Design the analytical IR; **and** build the `@sisal/mysql` adapter (from v0.6)                                 | `@sisal/mysql`     |
+| **v0.8**   | [Advanced SQL IR & Expression Stabilization](v0.8.0-roadmap.md)                  | Stabilize the IR + extract `@sisal/core` so ETL/analytics can compile in safely                                | `@sisal/core`      |
+| **v0.9**   | [Adapter Hardening & Capability Matrix](v0.9.0-roadmap.md)                       | Harden all five adapters (pg/neon/sqlite/libsql/**mysql**) per v0.6–v0.7 findings; explicit capability surface | hardening          |
+| **v0.10**  | [`@sisal/etl` Preview](v0.10.0-roadmap.md)                                       | First ETL package: job + runner + checkpoint, SQL-pushdown, Postgres-first                                     | `@sisal/etl`       |
+| **v0.11**  | [`@sisal/analytics` Preview](v0.11.0-roadmap.md)                                 | First analytics package: metrics/dimensions/windows, Postgres-first                                            | `@sisal/analytics` |
+| **v0.12**  | [`@sisal/dashboard` Preview](v0.12.0-roadmap.md)                                 | Semantic presentation models; **no rendering**                                                                 | `@sisal/dashboard` |
+| **v0.13+** | [DuckDB / External OLAP Engine Investigation](v0.13.0-roadmap.md)                | DuckDB as a later compiler/execution target for the analytics IR                                               | no                 |
+| **v0.14+** | [Optional Native/Rust Acceleration Investigation](v0.14.0-roadmap.md)            | Native acceleration **only** if benchmarks prove a bottleneck                                                  | no                 |
+
+## Release discipline (non-negotiable)
+
+- **v0.6 prepares for ETL; it does not become ETL.** No public `@sisal/etl`.
+- **v0.7 prepares for analytics; it does not become analytics.** No public
+  `@sisal/analytics`.
+- **v0.10 starts ETL. v0.11 starts analytics. v0.12 starts dashboard mapping.**
+- **DuckDB comes after the analytics IR exists** (v0.13+), as an execution
+  target — never as the first analytics milestone.
+- **Rust/native comes only after benchmark evidence** (v0.14+) that SQL pushdown
+  and DuckDB cannot solve a specific hot path cleanly.
+- The first ETL model is a **job definition + a single-run runner**, triggered
+  by an **external** cron/scheduler — not a worker platform, not
+  Airflow/Temporal.
+- Heavy work is **pushed down into the database** (aggregate, group,
+  insert-from-select, upsert). PostgreSQL is the strongest pushdown target.
+- **MySQL is investigated in v0.6, implemented in v0.7.** It joins as a fifth
+  dialect/adapter; PostgreSQL remains the ETL/analytics reference.
+
+## What grounds this (June 2026 code audit)
+
+A capability audit of the current builder/IR informs every milestone:
+
+- **OLTP/aggregation is solid** — GROUP BY/HAVING, aggregates, `countDistinct`,
+  set operations, `ON CONFLICT` upsert, `RETURNING`, prepared plans, `db.batch`,
+  transactions all exist and are tested.
+- **ETL's blocking gap is set-based data movement** — `INSERT … SELECT` has no
+  builder and CTEs are **SELECT-only**, so "stage → insert/upsert from select"
+  isn't buildable today (tracked partly by v0.5 item 12). → drives **v0.6**.
+- **Analytics is the weakest area** — **no window functions at all** (no `OVER`,
+  ranking, `lag`/`lead`, percentiles, moving averages), and none of it is on the
+  v0.5 roadmap. → drives **v0.7**/**v0.11**.
+- **The core is "already layered as if pre-split"** — a clean lower tier with no
+  upward edges; `@sisal/core` extraction is mostly file-moves. → enables
+  **v0.8**.
+- **The IR is a compose-oriented _fragment_ IR**, a compile target rather than a
+  transformable AST — so ETL/analytics can compile into it; query rewriting
+  would be new work. → an explicit **v0.8** open question.
+- **MySQL is latent, not absent** — the renderer already carries a `"mysql"`
+  dialect (backtick quoting, `?` placeholders, `ilike`→`LIKE`), but there is no
+  `@sisal/mysql` adapter, driver, DDL generator, or tests. → scoped in **v0.6**,
+  built in **v0.7**.
+
+## Cross-cutting tracks (not on the version line)
+
+Some work is orthogonal to the OLTP→OLAP feature axis and is folded into the
+nearest readiness milestone rather than owning a version:
+
+- **Runtime & packaging (Node.js + npm, dual-registry JSR+npm)** — incorporated
+  into **[v0.6](v0.6.0-roadmap.md)** as a second workstream alongside ETL
+  readiness. Both are "prepare the foundation, ship no new feature package."
+```
+
+### docs/v0.10.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.10.0-roadmap.html
+
+```md
+---
+title: v0.10.0 Roadmap
+---
+
+# Sisal v0.10.0 roadmap — `@sisal/etl` Preview
+
+The investigations ([v0.6](v0.6.0-roadmap.md)) and substrate
+([v0.8](v0.8.0-roadmap.md), [v0.9](v0.9.0-roadmap.md)) are done; v0.10 ships the
+**first preview of Sisal ETL** as a separate package. The model is deliberately
+small: a **job definition + a single-run runner** that pushes heavy work down
+into the database. It is **not** a scheduler or worker platform.
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Goal
+
+Let a developer define a rollup job in TypeScript/Sisal and execute **one**
+safe, idempotent run that the database does the heavy lifting for —
+extract→group→ aggregate→upsert as generated SQL, with a checkpoint and a lock.
+
+## Package boundary
+
+`@sisal/etl` depends on `@sisal/core` (and an adapter to execute).
+**`@sisal/orm` must not depend on `@sisal/etl`.** (See
+[architecture](architecture.md).)
+
+## Scope — initial features
+
+- `defineJob()` — declare a job: source, target, grain, window column,
+  transform.
+- `rollup()` — the grouped extract→aggregate→upsert shape (the v0.6 PoC, now
+  typed via the v0.8 IR: insert-from-select + date bucket + filtered
+  aggregates + upsert-from-select).
+- **checkpoint table** — a watermark store (`job`, `window_end`, `updated_at`).
+- `run(job)` — execute the next window once.
+- `backfill(job, range)` — run an explicit historical range deterministically.
+- `replay(job, window)` — re-run a specific window idempotently.
+- `status(job)` — report checkpoint + last-run state.
+- **dry-run / explain** — print the generated SQL without executing.
+- **SQL-pushdown execution** — the runner sends one (or few) generated
+  statements; the database scans/groups/aggregates/upserts. No row round-trips.
+- **Postgres-first implementation**; other dialects expose the subset they
+  support correctly (per [v0.9](v0.9.0-roadmap.md)).
+- **External-scheduler documentation** — how cron/systemd-timer/GitHub-Actions/
+  pg_cron triggers a run.
+
+## The execution model (the whole v0.10 runtime)
+
+```
+external cron / scheduler wakes up
+  → calls the Sisal ETL runner
+  → runner reads the job definition
+  → runner reads the checkpoint
+  → runner computes the next time window  [from, until)
+  → runner acquires a lock where supported (pg_advisory_lock; lock-row on SQLite)
+  → runner sends generated SQL to the database
+  → database scans / groups / aggregates / upserts (set-based, pushdown)
+  → runner updates the checkpoint
+  → runner exits
+```
+
+PostgreSQL may _optionally_ schedule jobs later via `pg_cron`, but the external-
+scheduler model is the default — `pg_cron` must never be the only path.
+
+## Non-goals
+
+No full scheduler platform; no worker queue; no Temporal/Airflow clone; no
+Rust/native engine; **no DuckDB dependency required** for v0.10.
+
+## Risks
+
+- **Scope creep into a scheduler** — the gravitational pull of "just add cron."
+  Held by the non-goals: Sisal defines the job and runs one window.
+- **Locking portability** — `pg_advisory_lock` has no SQLite equivalent; the
+  v0.9 lock-strategy must be solid or concurrent runs corrupt rollups.
+- **Idempotency bugs** — a re-run that double-counts. Upsert keyed on the
+  grain + half-open windows `[from, until)` are mandatory invariants.
+- **Window boundary errors** — off-by-one at bucket edges (the rising-feed
+  examples already show `<= now` discipline).
+
+## Open questions
+
+- Checkpoint table ownership: `@sisal/etl`-managed vs a `@sisal/migrate` system
+  table?
+- Does `run()` own transaction boundaries, or compose with the caller's?
+- Multi-statement jobs: a typed `db.batch`-style sequence, or one CTE statement?
+
+## Acceptance criteria
+
+- `defineJob` + `run` execute the `post_events → post_hourly_stats` rollup on
+  PostgreSQL as **generated, pushed-down SQL** (verified by `dry-run` output).
+- A run is **idempotent** (replay a window → identical target state) and
+  **resumable** (checkpoint advances; a second run does the next window).
+- `backfill(range)` reproduces a historical range deterministically.
+- Concurrent runs are serialized by the lock strategy.
+- `@sisal/orm` has **no** dependency on `@sisal/etl`.
+
+## Affected packages
+
+New `@sisal/etl`; depends on `@sisal/core` + an adapter; `@sisal/migrate` if the
+checkpoint table is a managed system table. No change to `@sisal/orm`'s surface.
+
+## Required examples / tests
+
+- A runnable `post_events → post_hourly_stats` ETL example (Postgres-first;
+  gated integration test like the existing `*-rising-feed` suites).
+- Idempotency + resume + backfill + lock-contention tests.
+- `dry-run` golden-SQL snapshot per dialect.
+
+## Dialect compatibility notes
+
+PostgreSQL is the first-class target (full pushdown + advisory locks). Neon
+works via the WebSocket Pool but the **single-statement / generated-SQL**
+preference matters most here — favor one round trip. SQLite/libSQL: rollups run
+where insert-from-select + ON CONFLICT are supported, with a lock-row strategy
+and `FILTER`→`CASE WHEN`; document any unsupported job shapes rather than
+silently degrading.
+```
+
+### docs/v0.11.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.11.0-roadmap.html
+
+```md
+---
+title: v0.11.0 Roadmap
+---
+
+# Sisal v0.11.0 roadmap — `@sisal/analytics` Preview
+
+With the analytical IR designed ([v0.7](v0.7.0-roadmap.md)) and the core IR
+stabilized ([v0.8](v0.8.0-roadmap.md)), v0.11 ships the first **Postgres-first
+analytical query layer** — a typed OLAP API that queries rollups and analytical
+tables using Sisal schema/types. It complements `@sisal/etl`: ETL builds the
+rollups, analytics queries them.
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Goal
+
+A typed analytical query API (metrics × dimensions × windows) that compiles into
+the `@sisal/core` IR, infers result-row types from the metric/dimension set, and
+renders correct SQL — Postgres-first, with other dialects exposing only the
+subset they support correctly.
+
+## Package boundary
+
+`@sisal/analytics` depends on `@sisal/core` (and an adapter to execute).
+**`@sisal/orm` must not depend on `@sisal/analytics`.**
+
+## Scope — initial features
+
+- **typed analytical `from()`** — a source (table / rollup / subquery).
+- **dimensions** — typed group keys (incl. `bucket()` time dimensions).
+- **metrics** — typed aggregate/window expressions: `count()`, `sum()`, `avg()`,
+  `min()`, `max()`, `countDistinct()`.
+- **windowed metrics** — `movingAvg()`, `rank()`, `lag()`, `lead()`.
+- **`bucket()`** — time bucketing (built on the v0.6/v0.8 bucket abstraction).
+- **percentile investigation** — `percentile_cont`/`disc` as a
+  prototype/Postgres-first feature (may stay experimental).
+- **`compareToPreviousWindow()`** — period-over-period comparison.
+- **result typing for computed metrics** — `{dimensions, metrics}` → typed row.
+
+## Examples to include
+
+- **post engagement over time** (time series from `post_hourly_stats`).
+- **active users by day** (countDistinct over a day bucket).
+- **top posts by engagement** (rank/order over a rollup).
+- **`/rising` feed using recent velocity** — the moving-window score the
+  `*-rising-feed` examples hand-write today, now expressed via the analytics
+  API.
+- **dashboard-ready time series** from rollup tables (feeds
+  [v0.12](v0.12.0-roadmap.md)).
+
+## Non-goals
+
+Not a polished/complete analytics product; no renderer integration; no dashboard
+helper (that's v0.12); no DuckDB-first execution (v0.13+); no ETL runtime in
+this package.
+
+## Risks
+
+- **Postgres-only creep** — windows/percentiles barely exist on SQLite. Keep the
+  API honest with capability gates (v0.9) so unsupported analytics fail typed.
+- **Result-type inference complexity** — inferring rows from metric maps may
+  push TS limits; the v0.7 prototype must have de-risked this before v0.11.
+- **Overlap with the ORM builder** — windows might tempt duplication. Minimal
+  window primitives live in `@sisal/core`; the rich API lives here.
+- **Performance expectations** — analytics over raw events (not rollups) can be
+  slow; steer users to query prepared rollups.
+
+## Open questions
+
+- Are `rank`/`lag`/`lead` exposed as core builder primitives too, or
+  analytics-only?
+- Percentiles: ship Postgres-first, or keep experimental until DuckDB (v0.13+)?
+- How much of the API can SQLite/libSQL honestly support (modern SQLite has
+  window functions; PARTITION/frame/percentile coverage varies)?
+
+## Acceptance criteria
+
+- A typed analytical query (dimensions + metrics + a windowed metric) compiles
+  to correct PostgreSQL and returns a **typed** result row inferred from its
+  definition.
+- `compareToPreviousWindow()` produces correct period-over-period results.
+- The `/rising` velocity feed is expressible through the API (or the doc states
+  precisely which sub-feature still needs raw SQL).
+- Unsupported analytics on SQLite/libSQL fail with a typed capability error, not
+  a raw engine error.
+- `@sisal/orm` has **no** dependency on `@sisal/analytics`.
+
+## Affected packages
+
+New `@sisal/analytics`; depends on `@sisal/core` + an adapter. Possibly minimal
+window primitives added to `@sisal/core` (shared). No `@sisal/orm` change.
+
+## Required examples / tests
+
+- The five examples above as runnable, Postgres-first, gated integration tests.
+- Type-level tests pinning metric→row inference.
+- Per-dialect capability tests (supported / typed-error) for
+  windows/percentiles.
+
+## Dialect compatibility notes
+
+**Keep the first analytics release Postgres-first.** Neon mirrors Postgres
+(serverless caveats from v0.9). SQLite/libSQL expose only the window/aggregate
+subset they support correctly; everything else is a typed capability gap, not a
+silent degradation.
+```
+
+### docs/v0.12.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.12.0-roadmap.html
+
+```md
+---
+title: v0.12.0 Roadmap
+---
+
+# Sisal v0.12.0 roadmap — `@sisal/dashboard` Preview
+
+v0.12 introduces a **generic dashboard mapping layer** that turns analytics
+result sets into **semantic presentation models**. It is the last layer of the
+stack and the most easily misunderstood, so the boundary is stated up front:
+
+> **Analytics computes. Dashboard maps. Renderer renders.**
+
+`@sisal/dashboard` **does not render charts** and **does not depend on** D3,
+React, Recharts, ECharts, Vega, or any UI library. It produces renderer-agnostic
+models that a presentation layer consumes.
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Goal
+
+Map an [analytics](v0.11.0-roadmap.md) result set into a typed, semantic
+presentation model (with the metadata a renderer needs: labels, units, formats,
+roles, series identity, trend) — leaving the actual drawing to whatever renderer
+the app chooses.
+
+## Package boundary
+
+`@sisal/dashboard` depends on `@sisal/core` and on `@sisal/analytics` **types**.
+**`@sisal/orm` must not depend on it**, and it must not depend on any renderer
+or UI framework. (See [architecture](architecture.md).)
+
+## Scope — initial model helpers
+
+Each takes an analytics result + a small config and returns a semantic model:
+
+- `kpi()` — a single headline metric (+ optional comparison/trend).
+- `timeSeries()` — one or more series over a time dimension.
+- `bar()` — categorical comparison.
+- `leaderboard()` — ranked rows (top-N).
+- `table()` — tabular projection with typed columns.
+- `heatmap()` — two-dimensional intensity grid.
+- `funnel()` — ordered stage conversion.
+- `histogram()` — bucketed distribution.
+
+## Semantic metadata each model carries
+
+- field **name** and human **label**
+- value **type**, **unit**, and **format** (e.g. `percent`, `currency`, `count`)
+- **role** (dimension / measure / time / category / series)
+- **series identity** (for multi-series charts)
+- **comparison / trend** metadata where relevant (delta, direction, baseline)
+
+## The contract
+
+```
+analytics result  →  dashboard.timeSeries(...)  →  D3 / Recharts / ECharts / custom
+   (computes)             (maps to a model)              (renders)
+```
+
+A renderer adapter (in app code, not in this package) reads the semantic model
+and draws it. The same model can drive any renderer.
+
+## Non-goals
+
+No chart rendering; no DOM/canvas/SVG; no dependency on D3/React/Recharts/
+ECharts/Vega or any UI layer; no styling/theming; no data fetching (it maps a
+result it's handed).
+
+## Risks
+
+- **Renderer leakage** — accidentally encoding one library's chart spec.
+  Mitigated by keeping models renderer-agnostic and proving ≥2 renderer adapters
+  in docs.
+- **Over-abstraction** — too many model types too early. Start with the eight
+  above, driven by real analytics outputs.
+- **Metadata gaps** — a model missing the unit/format a renderer needs. Pin the
+  metadata contract with tests.
+
+## Open questions
+
+- Is there a single `Model` union, or per-helper model types? (Leaning:
+  discriminated union with shared metadata.)
+- How are formats expressed — a format token enum, or an Intl-style descriptor?
+- Does dashboard own number/date formatting, or only _describe_ it for the
+  renderer? (Leaning: describe, don't format.)
+
+## Acceptance criteria
+
+- Each helper maps a real `@sisal/analytics` result into a typed semantic model
+  with complete metadata (label/type/unit/format/role/series/trend as
+  applicable).
+- The package has **zero** runtime dependency on any renderer or UI framework
+  (enforced by a dependency test).
+- Docs show the **same** `timeSeries()` model consumed by **two** different
+  renderers (e.g. a Recharts adapter and a custom one), proving agnosticism.
+
+## Affected packages
+
+New `@sisal/dashboard`; depends on `@sisal/core` + `@sisal/analytics` types
+only. No `@sisal/orm` dependency; no UI dependency.
+
+## Required examples / tests
+
+- For each helper: an analytics-result → model mapping test asserting the
+  semantic metadata.
+- A docs example: one analytics time series → `dashboard.timeSeries()` → two
+  renderer adapters.
+- A dependency-direction test (no UI/renderer imports).
+
+## Dialect compatibility notes
+
+Dashboard is dialect-agnostic — it maps result sets, not SQL. Any dialect
+limitation is inherited from the analytics query that produced the result and is
+out of scope here.
+```
+
+### docs/v0.13.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.13.0-roadmap.html
+
+```md
+---
+title: v0.13+ Roadmap
+---
+
+# Sisal v0.13+ roadmap — DuckDB / External OLAP Engine Investigation
+
+DuckDB is attractive — but only **after** the analytical IR exists. v0.13+ is an
+**investigation** of DuckDB (and other OLAP engines) as a later **compiler /
+execution target** for the analytics IR built in
+[v0.7](v0.7.0-roadmap.md)/[v0.8](v0.8.0-roadmap.md)/[v0.11](v0.11.0-roadmap.md).
+It is explicitly **not** the first analytics milestone and is **not a
+requirement** for any earlier ETL/analytics work.
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Goal
+
+Determine whether, and how, the Sisal analytics IR should compile to DuckDB (and
+similar engines) for analytical workloads the Postgres-first path serves poorly
+— without making DuckDB a dependency of the core stack.
+
+## Scope — investigate
+
+- **DuckDB as an analytical execution backend** (in-process OLAP).
+- **DuckDB as a compiler target** from the existing analytics IR (the IR's
+  `executionPreference` already anticipates this seam — see v0.7).
+- **Querying external / local data** (files, attached databases).
+- **Parquet / Arrow** possibilities (columnar in/out).
+- **Extracting from Postgres/Neon into analytical execution** (read OLTP →
+  analyze in DuckDB) — **ELT**-style workflows.
+- **Performance benchmarks** vs. Postgres pushdown on representative analytics.
+- **Deno compatibility** of DuckDB bindings; **native binding risks**;
+  **deployment tradeoffs** (binary size, cold start, serverless viability).
+
+## Why it comes after the IR (not before)
+
+The analytics IR is the abstraction that lets Sisal target _more than one_
+engine. Building DuckDB-first would couple analytics to one engine and bypass
+the Postgres-first model most apps need. The IR (v0.8) must be the source of
+truth; DuckDB is one of its backends.
+
+## Non-goals
+
+DuckDB is **not** required for v0.10 (ETL) or v0.11 (analytics). No DuckDB
+dependency is added to `@sisal/core`/`orm`/adapters. No commitment to ship a
+DuckDB backend — this milestone may conclude "not yet / not worth it."
+
+## Risks
+
+- **Native binding fragility on Deno** — DuckDB bindings may be immature or
+  FFI-heavy; a hard dependency could hurt portability (and the Node/npm reach
+  from v0.6).
+- **Two-engine semantics drift** — analytics that behave differently on Postgres
+  vs DuckDB. The IR + capability gates must contain this.
+- **Premature optimization** — adopting DuckDB without benchmark evidence of a
+  real Postgres-pushdown shortfall.
+
+## Open questions
+
+- Is DuckDB an **embedded** backend, an **attached** analytical store, or an
+  **ELT scratch** engine? (Could be all three; pick the first use case.)
+- Does compiling to DuckDB need the **transformable AST** deferred in v0.8, or
+  can it compile from the same fragment IR with a DuckDB dialect?
+- Parquet/Arrow: in scope here, or a separate ingestion concern (v0.14+)?
+- Serverless/Deploy viability of a native engine.
+
+## Acceptance criteria
+
+- A written **DuckDB investigation report**: feasibility, IR-compilation sketch,
+  benchmark results vs Postgres pushdown, Deno/Node binding risk assessment, and
+  a go/defer/reject recommendation per use case.
+- A prototype (behind a flag, not shipped) compiling one analytics IR query to
+  DuckDB **only if** the benchmarks justify continuing.
+- A clear statement that no earlier milestone depends on DuckDB.
+
+## Affected packages
+
+Investigation against `@sisal/core`/`@sisal/analytics` (a potential future
+`@sisal/duckdb` backend); no required changes to existing packages.
+
+## Required examples / tests
+
+- Benchmark harness comparing an analytics query on Postgres pushdown vs DuckDB.
+- A prototype IR→DuckDB compilation fixture (flagged), if pursued.
+
+## Dialect compatibility notes
+
+DuckDB would be a **new dialect/execution target** behind the analytics IR's
+`executionPreference`, not a replacement for the pg/neon/sqlite/libsql adapters.
+The Postgres-first analytics path remains the default.
+```
+
+### docs/v0.14.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.14.0-roadmap.html
+
+```md
+---
+title: v0.14+ Roadmap
+---
+
+# Sisal v0.14+ roadmap — Optional Native/Rust Acceleration Investigation
+
+The last milestone on the line, and the most conditional. v0.14+ investigates
+native/Rust acceleration **only if** benchmarks prove a real bottleneck that
+**neither SQL pushdown nor DuckDB** ([v0.13+](v0.13.0-roadmap.md)) can solve
+cleanly. There is no default assumption that Sisal ever ships native code.
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Goal
+
+Decide, on **benchmark evidence**, whether a specific hot path justifies native
+(Rust) acceleration — and if so, scope the smallest possible native surface.
+
+## The gate (non-negotiable)
+
+> **Do not introduce Rust/native complexity without a benchmark-backed reason.**
+
+Native code is considered **only after** SQL pushdown (Postgres) and DuckDB have
+been measured and shown insufficient for a _specific, reproduced_ bottleneck.
+The first deliverable of this milestone is the benchmark, not the binary.
+
+## Scope — potential areas (each must be benchmark-justified)
+
+- **Large local Parquet processing**
+- **Arrow / vectorized transformations**
+- **Compression / decompression hot paths**
+- **Very large CSV / JSON ingestion**
+- **Custom native aggregators**
+- **High-throughput event ingestion**
+
+## Non-goals
+
+No native code without a reproduced, benchmarked bottleneck; no rewrite of
+existing TS/SQL paths that already perform adequately; no native dependency that
+breaks Deno/Node portability (the v0.6 runtime reach) without an explicit,
+documented tradeoff; no general "rewrite it in Rust" ambition.
+
+## Risks
+
+- **Complexity & portability cost** — native bindings threaten the Deno-first /
+  Node-reach story, cross-platform builds, and serverless deploy. This must be
+  weighed explicitly per area.
+- **Maintenance burden** — a Rust surface is a long-term cost; only worth it for
+  a durable, proven bottleneck.
+- **Premature adoption** — the central risk the gate exists to prevent.
+
+## Open questions
+
+- Which bottleneck (if any) survives the v0.13+ DuckDB investigation? DuckDB may
+  already cover Parquet/Arrow/vectorized work, removing the reason for Rust.
+- If native is justified, what's the integration surface — Deno FFI, a Wasm
+  module, a sidecar process?
+- How is the native path kept optional so the pure-TS install always works?
+
+## Acceptance criteria
+
+- A **benchmark report** for any candidate area showing SQL pushdown **and**
+  DuckDB are insufficient for a reproduced workload — or a conclusion that
+  native acceleration is **not** justified (an equally valid outcome).
+- If pursued: a narrowly-scoped native prototype behind a flag, with the pure-TS
+  path remaining the default and the portability tradeoff documented.
+
+## Affected packages
+
+Investigation only; potentially a future optional native helper consumed by
+`@sisal/etl`/`@sisal/analytics`. No required changes to the core stack.
+
+## Required examples / tests
+
+- A reproducible benchmark harness for each candidate hot path.
+- If pursued: parity tests proving the native path matches the TS/SQL result.
+
+## Dialect compatibility notes
+
+Out of scope — native acceleration concerns local data processing
+(Parquet/Arrow/ ingestion), not the SQL dialects. Any native path must not
+regress the portability guarantees established in v0.6 (Deno + Node) or the
+four-dialect support.
 ```
 
 ### docs/v0.4.0-roadmap.md
@@ -6115,35 +6915,177 @@ URL: https://gilvandovieira.github.io/sisal/v0.6.0-roadmap.html
 title: v0.6.0 Roadmap
 ---
 
-# Sisal v0.6.0 roadmap — Node.js & npm runtime reach
+# Sisal v0.6.0 roadmap — Foundations & Readiness
 
-Where [v0.4.0](v0.4.0-roadmap.md) closed _feature_ gaps and
-[v0.5.0](v0.5.0-roadmap.md) closed _parity_ gaps between the adapters, v0.6.0
-closes the _runtime_ gap: Sisal is Deno-first and JSR-only today; v0.6.0 makes
-it **dual-runtime (Deno + Node.js)** and **dual-registry (JSR + npm)** without
-giving up the Deno developer experience.
+Where [v0.5.0](v0.5.0-roadmap.md) makes the OLTP builder boringly correct across
+the four dialects, v0.6.0 is the **readiness** milestone: it earns the right to
+build later packages (and reach a fifth dialect) by proving the foundation can
+carry them. It is deliberately **three parallel workstreams**, all of which
+_prepare the ground and ship no new public feature package_:
 
-**Mission.** Make every package install and run on **Node.js 24 (current LTS)
-and later** from **npm** (published under a placeholder `@scope/*` scope — see
-_Package naming_ below), run the **same** test suite under both `deno test` and
-`node --test`, and publish matching versions to **JSR (`@sisal/*`) and npm
-(`@scope/*`)** from one gated workflow — while the Deno workflow stays exactly
-as it is today.
+- **Workstream A — ETL Readiness Investigation.** The minimum ORM/core changes
+  so a future `@sisal/etl` (v0.10) can be built without hacks.
+- **Workstream B — Node.js + npm Runtime Readiness.** Make the packages
+  installable/runnable on Node 24+ and publishable to npm alongside JSR, without
+  giving up the Deno workflow. (This is the runtime/packaging track folded into
+  v0.6; see [roadmap overview](roadmap.md).)
+- **Workstream C — MySQL Support Investigation.** Map what a `@sisal/mysql`
+  adapter ([v0.7](v0.7.0-roadmap.md) builds it) needs, given that the renderer
+  already carries a latent `"mysql"` dialect. Investigation only — no adapter.
 
-**Outcome.** `npm install @scope/orm` (and every adapter) works on Node 24+,
-with ESM + CJS entrypoints and full types; `npx sisal` runs the migration CLI;
-and a Node contributor can clone, `npm install`, and `node --test` the workspace
-without Deno installed.
+**This release builds nothing it investigates.** v0.6 answers "can Sisal express
+ETL-shaped SQL cleanly?" and "what does MySQL support require?" — it ships
+neither the ETL package nor the MySQL adapter. See
+[release discipline](roadmap.md#release-discipline-non-negotiable).
 
-**Non-goal.** This is deliberately _not_ v0.5.0 work. v0.5.0 is a closed scope;
-nothing here should be pulled forward into it. This document parks the Node/npm
-exploration so the work is ready to start cleanly in a later cycle.
+## Status legend
+
+| Symbol | Meaning                                |
+| ------ | -------------------------------------- |
+| 🔴     | Not started                            |
+| 🟡     | In progress / partial                  |
+| 🟢     | Done — move the entry to the CHANGELOG |
+
+---
+
+# Workstream A — ETL Readiness Investigation
+
+## Goal
+
+Investigate and implement **only** the minimum ORM/core changes needed so a
+future `@sisal/etl` package can express extract→transform→load as pushed-down
+SQL without dropping to raw strings for the core shapes. Produce a **dialect
+capability matrix** and a **proof-of-concept rollup** in docs/pseudo-code.
+
+## Questions this release must answer
+
+- Can Sisal express ETL-shaped SQL (grouped rollup → idempotent upsert) cleanly
+  through the typed builder?
+- Does the current internal query representation support this, or does it need a
+  stronger SQL IR/AST? (See the [v0.8](v0.8.0-roadmap.md) IR work it feeds.)
+- Can each dialect (pg/neon/sqlite/libsql) support the required SQL patterns?
+- Which features belong in **core** and which belong in **dialect adapters**?
+- What must be postponed to v0.8/v0.10?
+
+## Scope — investigate & document support for
+
+Set-based movement and aggregation (the rollup spine):
+
+- `INSERT INTO … SELECT …` (insert-from-select) — **today: absent** (the insert
+  builder takes only client-side literals). The single biggest ETL gap.
+- CTEs (`WITH`) — **today: SELECT-only**; data-modifying CTEs are
+  [v0.5 item 12](v0.5.0-roadmap.md).
+- Aggregate expressions; `GROUP BY`; `HAVING` — **today: supported**.
+- Conditional aggregation: `COUNT(*) FILTER (WHERE …)` where available, with a
+  `SUM(CASE WHEN … THEN … ELSE … END)` fallback where `FILTER` is unavailable
+  (SQLite/libSQL) — **today: absent**, overlaps
+  [v0.5 item 9](v0.5.0-roadmap.md).
+- Upsert from select (`INSERT … SELECT … ON CONFLICT DO UPDATE`) — **today:
+  absent** (upsert exists for literal values only).
+- Typed raw-SQL escape hatches — **today: present** (`sql` tag binds params
+  safely); the fallback for anything unbuilt.
+- Computed expressions and expression **aliases** in projections — partial;
+  needs a first-class typed alias surface for rollup metric columns.
+- Date/time **bucket** abstraction (`date_trunc('hour', …)` and friends) —
+  **today: absent**, [v0.5 item 9](v0.5.0-roadmap.md).
+
+Execution & correctness primitives the runner will need:
+
+- Batch execution; transaction boundaries — **today: supported** (`db.batch`,
+  `db.transaction`). Note `db.batch` forbids cross-statement data dependencies.
+- **Advisory locks or an equivalent locking strategy** — Postgres has
+  `pg_advisory_lock` (already used internally by the migration history store — a
+  reusable pattern); SQLite/libSQL need an equivalent (a lock row /
+  `BEGIN
+  IMMEDIATE`). Document the per-dialect strategy.
+- **Checkpoint table design** — a watermark table (`job`, `window_end`,
+  `updated_at`) so a run resumes from the last committed window.
+- **Idempotent load strategy** — re-running a window must not double-count
+  (upsert/replace semantics keyed by the rollup grain).
+- **Backfill/replay requirements** — re-run an arbitrary historical window range
+  deterministically.
+
+## Deliverable — dialect capability matrix
+
+A matrix across **PostgreSQL · Neon · SQLite · libSQL** covering at least:
+insert-from-select, upsert, returning, CTEs, window functions, filtered
+aggregates, materialized views, advisory locks, date-bucket support, transaction
+behavior, serverless/runtime caveats. The audited starting point:
+
+| Capability           | pg                         | neon                                                  | sqlite                              | libsql                                  |
+| -------------------- | -------------------------- | ----------------------------------------------------- | ----------------------------------- | --------------------------------------- |
+| insert-from-select   | engine ✅ / **no builder** | engine ✅ / **no builder**                            | needs-verification / no builder     | needs-verification / no builder         |
+| upsert (ON CONFLICT) | ✅                         | ✅                                                    | ✅                                  | ✅                                      |
+| returning            | ✅                         | ✅                                                    | ✅                                  | ✅                                      |
+| CTEs (`WITH`)        | ✅ (builder, SELECT-only)  | ✅                                                    | render-only, **no per-engine test** | render-only, **no per-engine test**     |
+| data-modifying CTEs  | engine ✅ / unbuilt        | engine ✅ / unbuilt                                   | "less fully" / unbuilt              | "less fully" / unbuilt                  |
+| window functions     | engine ✅ / **no builder** | engine ✅ / **no builder**                            | engine ✅ / no builder              | engine ✅ / no builder                  |
+| filtered aggregates  | planned (item 9)           | planned                                               | degrade→CASE (item 9)               | degrade→CASE                            |
+| materialized views   | engine ✅ / no DDL         | engine ✅ / no DDL                                    | ❌ none                             | ❌ none                                 |
+| advisory locks       | ✅ (pg_advisory_lock)      | ✅                                                    | ❌ (use lock row)                   | ❌ (use lock row)                       |
+| date bucketing       | planned (item 9)           | planned                                               | planned (unixepoch)                 | planned                                 |
+| transactions         | interactive ✅             | interactive ✅ (WS Pool)                              | interactive ✅                      | interactive ✅                          |
+| serverless caveats   | —                          | WebSocket Pool; favor single-statement; float8→number | embedded/FFI                        | Turso remote (hrana); ArrayBuffer BLOBs |
+
+(Cells marked "no builder" work via the `sql` escape hatch today; the readiness
+question is which deserve a typed builder in v0.8 vs stay raw.)
+
+## Deliverable — proof-of-concept rollup (docs / pseudo-code only)
+
+A `post_events → post_hourly_stats` rollup demonstrating the desired shape (the
+repo's existing `*-rising-feed` examples already bucket activity — this
+generalizes that into an ETL rollup):
+
+- **Extract** from a raw `post_events` table over a half-open time window
+  `[from, until)`.
+- **Group** by `post_id` and an hourly bucket.
+- **Compute** `views`, `votes`, `comments`, `engagement_score`.
+- **Load** into `post_hourly_stats` with idempotent upsert/replace.
+- **Checkpoint** the window end (kept as a _future concern_ — design, don't
+  ship).
+
+The key SQL shape v0.6 must establish a path to express:
+
+```sql
+INSERT INTO post_hourly_stats (post_id, bucket, views, votes, comments, engagement_score)
+SELECT post_id,
+       date_trunc('hour', occurred_at) AS bucket,
+       count(*) FILTER (WHERE kind = 'view')    AS views,
+       count(*) FILTER (WHERE kind = 'vote')    AS votes,
+       count(*) FILTER (WHERE kind = 'comment') AS comments,
+       /* weighted */                            AS engagement_score
+FROM post_events
+WHERE occurred_at >= $from AND occurred_at < $until
+GROUP BY post_id, date_trunc('hour', occurred_at)
+ON CONFLICT (post_id, bucket)
+DO UPDATE SET views = excluded.views, votes = excluded.votes,
+              comments = excluded.comments, engagement_score = excluded.engagement_score;
+```
+
+This single statement exercises every audited gap: insert-from-select, a date
+bucket, filtered aggregates (with the SQLite `CASE WHEN` fallback), and
+upsert-from-select. v0.6 decides which of these become typed builders in v0.8.
+
+## Workstream A non-goals
+
+No public `@sisal/etl` package; no scheduler; no worker daemon; no Rust/native
+engine; no DuckDB adapter; no dashboard API; no full analytics module.
+
+---
+
+# Workstream B — Node.js + npm Runtime Readiness
+
+Make every package install and run on **Node.js 24+** from **npm** and
+dual-publish JSR + npm, while the Deno workflow stays exactly as it is today.
+The library cores already run under Node's type-stripping; the blockers are
+packaging metadata, the six `jsr:`/`npm:` import sites, and the `.ts` import
+extensions — not the library logic. Items 1–8 below carry the full detail.
 
 **Package naming (JSR `@sisal` vs npm `@scope`).** The `@sisal` scope is
 published and owned on **JSR**, but is **unavailable on npm**. So the Deno
 workspace, every source import, and the JSR packages keep the `@sisal/*` names
 unchanged, while the npm artifacts publish under a **placeholder scope written
-`@scope/*`** throughout this document. The final npm name is an open branding
+`@scope/*`** throughout this workstream. The final npm name is an open branding
 decision (an alternate scope like `@sisal-db/*`, unscoped `sisal-*` packages,
 your own scope, …); `@scope` is a deliberate stand-in so the work is not tied to
 a name — swap it in one find-replace once chosen. Mechanically, the npm **build
@@ -6198,14 +7140,6 @@ The coupling inventory the audit produced:
 - **The dev toolchain is the largest surface** — 200 `Deno.test` calls in the
   unit suites, the custom `Deno.lint` plugin, and five `denoland/setup-deno` CI
   workflows.
-
-## Status legend
-
-| Symbol | Meaning                                |
-| ------ | -------------------------------------- |
-| 🔴     | Not started                            |
-| 🟡     | In progress / partial                  |
-| 🟢     | Done — move the entry to the CHANGELOG |
 
 ## Priority summary
 
@@ -6501,21 +7435,720 @@ generated `docs/llms*.txt` (regenerate via `deno task docs:llms`).
 
 ---
 
+## Workstream B non-goals
+
+No change to the Deno developer workflow; no toolchain migration off Deno; no
+new runtime features beyond Node 24 LTS reach.
+
+---
+
+# Workstream C — MySQL Support Investigation
+
+## Goal
+
+Determine exactly what a future `@sisal/mysql` adapter requires, so
+[v0.7](v0.7.0-roadmap.md) can implement it without surprises — and decide which
+work is **core** (shared dialect plumbing) vs **adapter** (driver, executor,
+DDL, type mapping). Investigation and a capability report only; **no adapter
+ships in v0.6.**
+
+## What grounds this — MySQL is latent, not absent
+
+A June 2026 audit found the renderer already half-knows MySQL, but no adapter
+exists:
+
+- **Already present (core render layer):** `SqlDialect` includes `"mysql"`
+  (`core/sql.ts`); the serializable snapshot dialect type includes `"mysql"`
+  (`schema.ts`); `quoteIdentifier` emits **backtick** quoting for `mysql`
+  (`core/sql.ts`); placeholders fall through to `?` (only `postgres` uses `$N`);
+  `ilike` degrades to case-insensitive `LIKE` (MySQL has no `ILIKE`); and the
+  builder comments already treat `FOR UPDATE`/`FOR SHARE` and row-value tuples
+  as Postgres/**MySQL**-supported.
+- **Absent (everything an adapter needs):** there is **no `@sisal/mysql`
+  package** — no `MYSQL_DIALECT` constant, no executor, no driver/pool, no
+  migrate wiring, **no MySQL DDL generator** (only
+  `generate{Postgres,Sqlite,Libsql}UpStatements` exist), no column-type → MySQL
+  type mapping, no integration suite, no `docs/mysql-compatibility.md`, no
+  feature-matrix column, and no chosen MySQL driver.
+
+## Scope — investigate & document
+
+- **Driver choice & runtime** — survey MySQL drivers usable from Deno (and Node,
+  per Workstream B): `jsr`/`npm` options, connection/pool API,
+  prepared-statement and parameter-binding model, TLS, and any serverless
+  variants (e.g. PlanetScale-style HTTP). Note the injectable-executor seam
+  every adapter uses.
+- **Dialect completeness** — verify/extend the latent `"mysql"` render path:
+  identifier quoting (backtick + escaping), `?` placeholders, `LIMIT/OFFSET`,
+  `ON DUPLICATE KEY UPDATE` vs `ON CONFLICT` (MySQL upsert differs
+  **materially** from Postgres/SQLite), `RETURNING` (MySQL lacks it pre-8.0.21 /
+  MariaDB differences), `ILIKE`→`LIKE`, `FOR UPDATE`/`FOR SHARE`, and whether
+  the `dialectGuard` set is correct for MySQL (row locking is supported;
+  `distinctOn` and array operators are not).
+- **Type system & round-trips** — MySQL type mapping (`BOOLEAN`=`TINYINT(1)`,
+  `JSON` type, `DATETIME`/`TIMESTAMP`/timezone handling, `DECIMAL`/`BIGINT`
+  string-vs-number like the pg `numeric` case), and `bytea`/`BLOB` shapes.
+- **DDL generation** — what a `generateMysqlUpStatements` must emit (engine,
+  charset/collation, `AUTO_INCREMENT`, index/`CHECK` support quirks).
+- **MySQL vs MariaDB** — decide whether "MySQL" means MySQL 8+, MariaDB, or
+  both, and where they diverge (`RETURNING`, sequences, JSON functions).
+- **Upsert semantics** — the biggest builder gap: MySQL's
+  `INSERT … ON DUPLICATE
+  KEY UPDATE` (with `VALUES()`/`new.col`) does not map
+  1:1 onto the existing `onConflict*` builder. Document the abstraction.
+
+## Deliverable
+
+A **MySQL-readiness report** + a **draft capability matrix row** (a fifth column
+alongside pg/neon/sqlite/libsql) covering upsert, returning, CTEs, window
+functions, filtered aggregates, row locking, date bucketing, and transaction
+behavior — classifying each as **render-ready today / needs core work / needs
+adapter work / MySQL-specific divergence**.
+
+## Workstream C non-goals
+
+No `@sisal/mysql` package; no driver dependency added; no MySQL integration
+tests; no DDL generator implementation. Those are [v0.7](v0.7.0-roadmap.md).
+
+---
+
+# Shared sections
+
+## Risks
+
+- **A stronger IR may be required** — if insert-from-select / filtered
+  aggregates can't be expressed cleanly as fragments, v0.8 IR work grows. v0.6's
+  job is to surface this early, not absorb it.
+- **Dialect divergence on data-modifying CTEs** — Postgres supports them; SQLite
+  "less fully". Risk of a builder that only works on one family.
+- **Scope creep into ETL** — the temptation to "just build the runner." Held off
+  by the explicit non-goals.
+- **Locking portability** — `pg_advisory_lock` has no SQLite equivalent; a wrong
+  abstraction here leaks into v0.10.
+- **(B) `.ts`→`.js` + scope remap** at build is mandatory for npm; getting the
+  dual JSR `@sisal/*` ↔ npm `@scope/*` identity wrong breaks consumers.
+- **(C) MySQL upsert is not Postgres upsert** — `ON DUPLICATE KEY UPDATE`
+  differs materially from `ON CONFLICT`; a forced-fit abstraction would leak
+  into v0.7 and the ETL load step. And the latent `"mysql"` render path is
+  **untested** — it may be subtly wrong.
+
+## Open questions
+
+- Should `INSERT … SELECT` be a first-class builder, or only reachable through a
+  data-modifying CTE (v0.5 item 12)?
+- Does the readiness work need an introspectable expression AST, or is the
+  compose-only fragment IR enough to compile ETL SQL? (Feeds v0.8.)
+- Checkpoint table: owned by `@sisal/etl`, or a `@sisal/migrate`-managed system
+  table?
+- Is a portable advisory-lock abstraction worth it, or is locking Postgres-first
+  with documented degradation on SQLite/libSQL?
+- **(C)** Does "MySQL" mean MySQL 8+, MariaDB, or both — and how is
+  `RETURNING`'s uneven support handled? Should upsert get a MySQL-aware
+  `onDuplicateKeyUpdate` surface, or a dialect-mapped `onConflict`?
+
+## Acceptance criteria
+
+- A written **ETL-readiness report** answering the five questions, with the
+  capability matrix and the `post_events → post_hourly_stats` PoC, committed to
+  docs.
+- Each required SQL shape is classified: **buildable today / needs a v0.8
+  builder / stays raw**, per dialect.
+- Any **minimum** core changes identified as truly prerequisite (not the ETL
+  package itself) are itemized with effort, or explicitly deferred to v0.8.
+- **(B)** `npm install @scope/*` runs on Node 24+; unit suite green under both
+  runtimes; dual JSR+npm publish gated to matching versions.
+- **(C)** A committed **MySQL-readiness report**, a draft capability-matrix
+  column, and a chosen driver, with every required item classified
+  core-vs-adapter and the upsert/`RETURNING`/type-mapping divergences documented
+  for v0.7.
+- No public ETL package, scheduler, runtime, or MySQL adapter exists in the
+  tree.
+
+## Affected packages
+
+`@sisal/orm` (core IR + latent `"mysql"` dialect investigation; possibly minimal
+additive primitives), `@sisal/migrate` (checkpoint/lock + MySQL DDL design
+questions), the four existing adapters (capability matrix + Node driver
+indirection). **`@sisal/mysql` is scoped here but built in
+[v0.7](v0.7.0-roadmap.md)** — no new package is created in v0.6.
+
+## Required examples / tests
+
+- Docs PoC: `post_events → post_hourly_stats` rollup (pseudo-code/SQL).
+- Render tests pinning any new additive primitive per dialect (if implemented).
+- **(B)** the dual-runtime harness and a Node-native smoke test.
+- **(C)** render tests exercising the latent `"mysql"` dialect (backtick
+  quoting, `?` placeholders, `ilike`→`LIKE`) to confirm/correct it before v0.7.
+
+## Dialect compatibility notes
+
+PostgreSQL is the reference ETL target (full insert-from-select, FILTER,
+advisory locks, materialized views). Neon = Postgres surface but **prefer
+single-statement / generated SQL** (WebSocket Pool supports interactive
+transactions, but serverless favors one round trip). SQLite/libSQL: insert-from-
+select and ON CONFLICT exist at the engine level (verify in-suite), `FILTER`
+degrades to `CASE WHEN`, no materialized views, no advisory locks (use a lock
+row / `BEGIN IMMEDIATE`); libSQL adds remote/Turso caveats. **MySQL (prospective
+fifth dialect, Workstream C):** backtick quoting + `?` placeholders are
+render-ready; the divergences to map are upsert (`ON DUPLICATE KEY UPDATE`),
+uneven `RETURNING`, `BOOLEAN`=`TINYINT(1)`, and MySQL-vs-MariaDB — all
+implemented in v0.7, not here.
+
 ## Tracking
 
-When an item lands:
+When an item lands: implement the minimum additive change, pin it with
+per-dialect render tests, update the capability matrix, flip status to 🟢, and
+record under `Unreleased` in [CHANGELOG.md](../CHANGELOG.md). v0.6 is complete
+when the ETL-readiness report, the MySQL-readiness report, and the capability
+matrix exist, the Node/npm workstream ships installable npm packages, and **no
+ETL package or MySQL adapter has been built**.
+```
 
-1. Implement it, add the dual-runtime coverage (`deno test` **and**
-   `node
-   --test`) for every affected package, and keep the `package.json` ↔
-   `deno.json` generators in sync.
-2. Flip the item's status here to 🟢 and record it under `Unreleased` in
-   [CHANGELOG.md](../CHANGELOG.md), noting any new public entrypoints, `bin`, or
-   driver dependencies.
+### docs/v0.7.0-roadmap.md
 
-The roadmap is complete when `npm install @scope/*` runs on Node 24+ with ESM +
-CJS + types, the unit suite is green under both runtimes in CI, `npx sisal`
-works, and a single release publishes matching versions to JSR and npm — with
-the Deno developer workflow unchanged throughout.
+URL: https://gilvandovieira.github.io/sisal/v0.7.0-roadmap.html
+
+```md
+---
+title: v0.7.0 Roadmap
+---
+
+# Sisal v0.7.0 roadmap — Analytics Readiness & MySQL Support
+
+v0.7 carries **two parallel workstreams**:
+
+- **Workstream A — Analytics Readiness Investigation.** The OLAP analogue of
+  v0.6's ETL readiness: design the analytical IR and prototype the API, but **do
+  not ship `@sisal/analytics`** (that's [v0.11](v0.11.0-roadmap.md)).
+- **Workstream B — MySQL Support Implementation.** Build the `@sisal/mysql`
+  adapter on the findings of
+  [v0.6 Workstream C](v0.6.0-roadmap.md#workstream-c--mysql-support-investigation).
+  This one **does ship code** — a fifth dialect adapter.
+
+(Per the roadmap being a living guideline, these two are bundled by sequencing,
+not by theme; either could move to its own release if scope demands.)
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+---
+
+# Workstream A — Analytics Readiness Investigation
+
+The OLAP readiness question: how should Sisal support analytical queries without
+bloating the OLTP ORM? This is the weakest current area — a June 2026 audit
+found **no window-function support at all** (no `OVER`, `PARTITION BY`, ranking,
+`lag`/`lead`, percentiles, moving averages) and none of it on any prior roadmap.
+So the analytical IR is genuinely new design, not a refactor.
+
+## Goal
+
+Investigate how a typed, OLAP-oriented analytics layer can be built **as a
+package on top of `@sisal/core`** (see [architecture](architecture.md)), without
+the OLTP builder depending on it. Produce an **analytical IR sketch** and prove
+the result types can be inferred cleanly.
+
+## Questions this release must answer
+
+- Can analytics be built as a separate package on core primitives (yes per the
+  audit — core exposes a renderable fragment IR), and where is the seam?
+- What **analytical IR** is needed (source/dimensions/metrics/windows/…)?
+- What belongs in **core expressions** vs. a future `@sisal/analytics`?
+- Can analytical **result types** be inferred from metric/dimension definitions?
+- Which features are **portable** across pg/neon/sqlite/libsql, and which are
+  **Postgres-first**?
+
+## Scope — investigate / prototype the API concepts
+
+- **metrics** and **dimensions** (the core of a typed analytical query)
+- **time buckets** (builds on the v0.6 bucket abstraction)
+- **windows**: moving averages, **ranking**, **lag**, **lead**
+- **percentiles** (`percentile_cont`/`disc`) — investigation only
+- **period comparisons** (this window vs previous)
+- **rollup querying** (query the tables `@sisal/etl` will produce)
+- **result typing** for computed metrics
+
+## Deliverable — analytics IR sketch
+
+A documented IR shape (design, not implementation), e.g.:
+
+```
+source        — a table / rollup / subquery
+joins         — dimension joins
+filters       — predicates (reuse core operators)
+dimensions    — group keys (incl. time buckets)
+metrics       — typed aggregate/window expressions
+windows       — partition/order/frame for windowed metrics
+derivedFields — computed-from-metrics expressions
+order, limit
+executionPreference — pushdown target hint (pg today; DuckDB later, v0.13+)
+```
+
+The sketch must show how it **compiles into the core fragment IR** and renders
+per dialect, and how it infers a typed result row from `{dimensions, metrics}`.
+
+## Examples to include (mapping to the repo's existing feeds)
+
+- **`/new` feed stays ORM territory** — plain keyset SELECT; not analytics.
+- **`/hot` feed** uses a cached/stored score (the `neon-hot-feed` example) —
+  read a precomputed column, not a live analytical query.
+- **`/rising` feed** benefits from **analytics over recent rollups/events** —
+  the moving-window score the `*-rising-feed` examples currently hand-write in
+  SQL/TS is the canonical analytics-IR target.
+- **Dashboard metrics** should query **prepared rollups** (`@sisal/etl` output)
+  where possible, not raw events.
+
+## Non-goals
+
+No polished analytics package; no renderer integration; no production dashboard
+helper; no DuckDB-first implementation; no ETL runtime.
+
+## Risks
+
+- **Bloating the ORM** — analytics primitives leaking into `@sisal/orm`.
+  Mitigated by designing for `@sisal/core` + a separate package from day one.
+- **Portability illusion** — windows/percentiles render differently (or not at
+  all) on SQLite/libSQL; the IR must encode capability, not assume Postgres.
+- **Type-inference complexity** — inferring result rows from metric/dimension
+  maps may strain TS; prototype before committing.
+- **IR over-design** — risk of a grand relational algebra. Keep it a compile
+  sketch tied to real feed examples.
+
+## Open questions
+
+- Does analytics need the introspectable AST flagged in
+  [v0.8](v0.8.0-roadmap.md), or can it compile straight to fragments?
+- Are window functions a **core** primitive (shared with the ORM builder) or an
+  **analytics-package** construct? (Leaning: minimal `over()`/window expression
+  in core; the rich metric/dimension API in the package.)
+- Percentiles: portable abstraction or Postgres-first?
+
+## Acceptance criteria
+
+- A committed **analytics-readiness report** + **IR sketch** answering the five
+  questions, with the per-feed examples.
+- A typed-result-inference **prototype** (types only, no package) showing a
+  metric set → row type.
+- A portability classification per analytical feature across the four dialects.
+- No `@sisal/analytics` package, renderer, or dashboard helper exists.
+
+## Affected packages
+
+`@sisal/orm`/core (candidate minimal window/expression primitives; IR seam),
+investigation against all four adapters. No new package created.
+
+## Required examples / tests
+
+- Docs: the `/rising` analytics-IR walkthrough over a rollup table.
+- Type-level prototype tests for metric→row inference (network-free).
+
+## Dialect compatibility notes
+
+PostgreSQL/Neon: full window functions, percentiles, FILTER. SQLite/libSQL:
+window functions exist in modern SQLite but PARTITION/frame coverage and
+percentiles vary — classify each as portable / degraded / Postgres-first. The IR
+must carry an execution-preference + capability gate so unsupported analytics
+fail typed (à la the v0.5 `dialectGuard`), not as raw engine errors. **MySQL**
+(landing this release, Workstream B): MySQL 8 has window functions and CTEs, so
+much of the analytics surface is portable — the readiness IR should reserve a
+MySQL column from the start.
+
+---
+
+# Workstream B — MySQL Support Implementation
+
+Build the `@sisal/mysql` adapter from the
+[v0.6 Workstream C](v0.6.0-roadmap.md#workstream-c--mysql-support-investigation)
+findings — Sisal's fifth dialect and first new adapter since libSQL. The
+renderer already carries a latent `"mysql"` dialect (backtick quoting, `?`
+placeholders, `ilike`→`LIKE`, row-locking awareness); v0.7 turns that into a
+real, tested adapter.
+
+## Goal
+
+Ship `@sisal/mysql` at OLTP feature-parity with the other adapters **wherever
+MySQL supports it**, with the divergences (upsert, `RETURNING`, types) handled
+explicitly — not silently mis-rendered.
+
+## Why this is low-friction architecturally
+
+Sisal's adapter conventions make a new engine an additive change: **every
+adapter has the same internal shape** (`<adapter>/orm/` = dialect · executor ·
+driver · pool · errors; `<adapter>/migrate/` = driver · history · migrator ·
+ddl), the real driver is imported **lazily** with an **injectable executor** (so
+unit tests stay network-free), and the CLI's `sisal init` targets are a single
+`INIT_TARGETS` registry — **adding a database target is one registry entry**. So
+`@sisal/mysql` slots into existing seams rather than reworking core.
+
+## Scope — build
+
+- **`@sisal/mysql` package** mirroring `@sisal/pg`/`@sisal/sqlite`:
+  `MYSQL_DIALECT = "mysql"`, executor, lazy driver + pool, errors; and
+  `migrate/` (driver, history, migrator, `ddl`).
+- **Driver integration** — wire the driver chosen in v0.6 (Deno + Node per the
+  packaging workstream), behind the injectable-executor seam.
+- **Correct/extend the latent `"mysql"` render path** — verify backtick
+  quoting/escaping, `?` placeholders, `LIMIT/OFFSET`, `FOR UPDATE`/`FOR SHARE`,
+  `ilike`→`LIKE`; fix the `dialectGuard` sets so MySQL-supported constructs (row
+  locking) are allowed and unsupported ones (`distinctOn`, array operators)
+  throw.
+- **Upsert** — a MySQL `ON DUPLICATE KEY UPDATE` path (mapped from `onConflict*`
+  or a dedicated surface, per the v0.6 decision), including
+  `VALUES()`/`new.col`.
+- **`RETURNING`** — emit it where supported (MySQL 8.0.21+/MariaDB), else
+  emulate (`INSERT` + `SELECT` of affected keys) or document the gap.
+- **`generateMysqlUpStatements`** — additive-only DDL
+  (`CREATE TABLE`/`ADD
+  COLUMN`), engine/charset/collation, `AUTO_INCREMENT`,
+  index/`CHECK` quirks; destructive diffs detected and withheld like the other
+  generators.
+- **Type mapping & round-trips** — `BOOLEAN`=`TINYINT(1)`, `JSON`,
+  `DATETIME`/`TIMESTAMP`/timezone, `DECIMAL`/`BIGINT` string-vs-number.
+- **Advisory-lock equivalent** — `GET_LOCK`/`RELEASE_LOCK` (named locks) for the
+  migration history store (parity with pg's `pg_advisory_lock`).
+- **CLI** — one `INIT_TARGETS` entry (id/aliases/dialect/connection hints).
+- **Tests, docs, matrix** — a gated integration suite (`SISAL_MYSQL_IT=1`,
+  Docker `mysql:8` and — if in scope — MariaDB), `docs/mysql-compatibility.md`,
+  and a **fifth column in the feature matrix** (test-backed, per the existing
+  guard).
+
+## Deliverables
+
+`@sisal/mysql` published (JSR + npm per v0.6 packaging), wired into the
+workspace, `check` task, CLI, CI matrix, and the feature matrix.
+
+## Non-goals
+
+MySQL does **not** become the ETL/analytics reference (Postgres stays the
+reference); no MySQL-specific ETL/analytics features beyond dialect parity; full
+MariaDB parity only if the v0.6 investigation scoped it in.
+
+## Risks
+
+- **Upsert / `RETURNING` divergence** — the most likely source of a leaky
+  abstraction; the v0.6 report must have pinned the mapping.
+- **Driver maturity on Deno** — a weak MySQL driver could force more work or a
+  different choice than v0.6 assumed.
+- **Type round-trip surprises** — `TINYINT(1)` booleans, `DATETIME` timezones,
+  `DECIMAL` precision — mirror the pg `numeric`/float8 lessons (v0.5 item 11).
+- **Test infrastructure** — Docker `mysql:8` (+ MariaDB) services in CI, gated
+  like the existing suites.
+
+## Open questions
+
+- MySQL 8 only, or MySQL + MariaDB (affects `RETURNING`, sequences, JSON funcs)?
+- Is `onDuplicateKeyUpdate` a MySQL-only builder method, or does `onConflict*`
+  dialect-map onto it?
+- Does the latent `"mysql"` row-value/keyset path actually work, or need fixes?
+
+## Acceptance criteria
+
+- `@sisal/mysql` passes the shared OLTP feature suite (CRUD, joins, tx,
+  prepared, CTEs, window functions, upsert, migrations) against `mysql:8`, gated
+  by `SISAL_MYSQL_IT=1`.
+- The feature matrix gains a **test-backed MySQL column**; divergences are `⚠️`
+  with documented round-trip notes, genuine limits are `❌`.
+- Upsert and `RETURNING` behave correctly or fail/emulate as documented.
+- `@sisal/orm`/core render output for the other four dialects is unchanged.
+
+## Affected packages
+
+**New `@sisal/mysql`**; `@sisal/orm`/core (latent `"mysql"` render corrections +
+`dialectGuard` set); `@sisal/migrate` (CLI `INIT_TARGETS` entry, MySQL DDL);
+`tools/feature_matrix.ts` + `docs/mysql-compatibility.md` + the unified matrix;
+`.github/workflows` (MySQL service).
+
+## Required examples / tests
+
+- A gated `integration/mysql_features_test.ts` mirroring the pg/sqlite suites.
+- Network-free render tests for the MySQL dialect (quoting, placeholders,
+  upsert, DDL).
+- A basic `examples/basic-mysql` mirroring the other `basic-*` examples.
+
+## Dialect compatibility notes
+
+MySQL 8 supports CTEs, window functions, and row locking (much of the surface is
+portable); the principled divergences are **upsert** (`ON DUPLICATE KEY UPDATE`
+≠ `ON CONFLICT`), **uneven `RETURNING`**, **`BOOLEAN`=`TINYINT(1)`**, and
+**MySQL-vs-MariaDB**. `distinctOn` and the Postgres array operators stay `❌`
+(guarded). This column feeds the v0.9 hardening and the ETL/analytics dialect
+matrices.
+
+---
+
+## Tracking (both workstreams)
+
+When an item lands: implement it, add coverage (network-free render/type tests
+for A; gated integration tests for B), update the feature matrix, flip status to
+🟢, and record under `Unreleased` in [CHANGELOG.md](../CHANGELOG.md). v0.7 is
+complete when the analytics-readiness report + IR sketch exist **and**
+`@sisal/mysql` ships at documented OLTP parity with a test-backed matrix column.
+```
+
+### docs/v0.8.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.8.0-roadmap.html
+
+```md
+---
+title: v0.8.0 Roadmap
+---
+
+# Sisal v0.8.0 roadmap — Advanced SQL IR & Expression Stabilization
+
+v0.6 and v0.7 are investigations; v0.8 is where their findings become a **stable
+substrate**. The goal is to stabilize Sisal's internal SQL representation and
+expression system — and extract **`@sisal/core`** — so that the future
+`@sisal/etl` and `@sisal/analytics` packages can **compile into Sisal safely**,
+without forcing invasive ORM rewrites later.
+
+This release ships the first new package boundary: **`@sisal/core`**.
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Goal
+
+Turn today's two-tier representation into a documented, versioned, public
+**compile target**: a stable fragment IR + expression system + dialect interface
+that downstream packages build on, with golden per-dialect SQL tests guarding
+it.
+
+## What grounds this (audit)
+
+Sisal already has a clean internal split: a **dialect-agnostic fragment IR**
+(`Sql`/`SqlChunk`, `Condition`, `SqlExpression`, `OrderTerm`) rendered by a
+single two-phase renderer, plus a **module-private** statement-level state
+machine (`SelectState` + the clause assembler). The lower tier (`errors`, `sql`,
+`operators`, `columns`, `table`, `temporal`, zero-import `schema.ts`) has **no
+upward edges** into the OLTP builders, and the one cross-cut
+(builder-as-subquery) is already inverted behind `QUERY_BUILDER_BRAND` +
+`SubquerySource`. So extraction is **file-moves + barrel-split + a new
+`deno.json`**, not a rewrite.
+
+The key limitation v0.8 must consciously address: the fragment IR is
+**compose-oriented, not transform-oriented** — expressions are stored
+already-lowered (`eq()` flattens immediately); there is **no introspectable,
+rewritable relational AST**.
+
+## Scope / focus
+
+- **Extract `@sisal/core`** — move the lower tier into a `@sisal/core` package
+  (schema primitives, fragment IR, expressions/operators, dialect interface +
+  renderer); re-point `@sisal/orm`, `@sisal/migrate`, and the adapters at it.
+- **Stable SQL IR/AST boundaries** — version the `Sql`/`SqlChunk` contract;
+  decide and document what is public (compile target) vs internal.
+- **Expression aliasing** — first-class typed aliases for projection/metric
+  columns (needed by ETL rollup columns and analytics metrics).
+- **Computed columns** and **nested selects** — typed, reusable.
+- **CTE rendering** — including the path to **data-modifying CTEs**
+  (`WITH … INSERT/UPDATE/DELETE … RETURNING`, v0.5 item 12) and
+  **insert-from-select rendering** (the v0.6 gap).
+- **Aggregate expression rendering**; **window function rendering** where
+  supported (the v0.7 prerequisite).
+- **Dialect capability gates** — generalize the v0.5 `dialectGuard` into the
+  explicit capability surface v0.9 hardens.
+- **Golden SQL tests per dialect**; **parameter-binding correctness**;
+  **prepared-plan compatibility**; **type inference for computed expressions**.
+
+## Deliverables
+
+- `@sisal/core` package with a documented public IR/compile-target surface.
+- A statement-assembly seam: decide whether to **expose** a minimal builder-
+  assembly API (so ETL/analytics reuse SELECT/CTE assembly) or keep it private
+  and have downstream packages compile fragments directly. (See open questions.)
+- Golden-SQL snapshot tests per dialect for every IR construct.
+- Migration notes for the `@sisal/orm` → `@sisal/core` import changes.
+
+## Non-goals
+
+No ETL/analytics package (v0.10/v0.11); no DuckDB; no query optimizer/planner;
+no breaking change to the public ORM builder API beyond import paths.
+
+## Risks
+
+- **The "do we need a transformable AST?" fork** — predicate pushdown / plan
+  rewriting (relevant to DuckDB pushdown, v0.13+) would be **new core work** the
+  current fragment IR cannot do. Deciding this wrong over- or under-builds v0.8.
+- **Public IR = compatibility commitment** — once `@sisal/core`'s IR is public,
+  it's a contract; under-specifying it forces a later breaking change.
+- **Extraction churn** — touching import paths across every package; mitigated
+  by the clean DAG but still broad.
+- **Window/data-modifying-CTE rendering divergence** across dialects.
+
+## Open questions
+
+- **Compose-only fragment IR, or add an introspectable expression AST?**
+  Recommendation: keep the fragment IR as the compile target; add a
+  transformable AST **only** if a concrete consumer (DuckDB pushdown,
+  optimization) needs it — defer the decision with a documented extension point.
+- Expose the statement assembler publicly, or require downstream packages to
+  compile fragments + a thin assembly helper?
+- Does `@sisal/migrate` depend on `@sisal/core` only, or still on `@sisal/orm`?
+
+## Acceptance criteria
+
+- `@sisal/core` exists, is published (JSR + npm per v0.6 packaging), and
+  `@sisal/orm`/adapters import from it; the public ORM API is unchanged for
+  users.
+- Every IR construct (select/CTE/insert-from-select/aggregate/window where
+  supported) has golden per-dialect SQL tests and correct parameter binding.
+- A downstream package can construct and render a grouped insert-from-select +
+  filtered aggregate using only `@sisal/core` exports (proven by a fixture).
+- The transformable-AST decision is documented (build / defer / reject) with
+  rationale.
+
+## Affected packages
+
+New `@sisal/core`; `@sisal/orm`, `@sisal/migrate`, `@sisal/pg`, `@sisal/neon`,
+`@sisal/sqlite`, `@sisal/libsql` (re-point imports). No app-visible API break.
+
+## Required examples / tests
+
+- Golden-SQL suites per dialect for all IR constructs.
+- A `@sisal/core`-only fixture compiling the v0.6 `post_hourly_stats` rollup
+  SQL.
+- Prepared-plan round-trip tests.
+
+## Dialect compatibility notes
+
+Capability gates become **declarative** (a per-dialect capability descriptor)
+rather than scattered render branches — the single source the v0.9 matrix and
+the `dialectGuard` both read. Window/data-modifying-CTE/insert-from-select
+rendering is Postgres-first with explicit gates for the SQLite family.
+```
+
+### docs/v0.9.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.9.0-roadmap.html
+
+```md
+---
+title: v0.9.0 Roadmap
+---
+
+# Sisal v0.9.0 roadmap — Adapter Hardening & Capability Matrix
+
+With the IR stabilized in [v0.8](v0.8.0-roadmap.md) and **MySQL added in
+[v0.7](v0.7.0-roadmap.md)**, v0.9 hardens the **five** adapters against the
+ETL/analytics SQL shapes surfaced by
+[v0.6](v0.6.0-roadmap.md)/[v0.7](v0.7.0-roadmap.md), and turns the implicit,
+scattered dialect knowledge into an **explicit, tested capability surface**.
+This is the last hardening step before the public `@sisal/etl` (v0.10) and
+`@sisal/analytics` (v0.11) packages are built on top.
+
+## Status legend
+
+| Symbol | Meaning                                                    |
+| ------ | ---------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Goal
+
+Make each adapter a known quantity for ETL/analytics: every dialect-divergent
+behavior is **declared, documented, and tested**, with explicit fallbacks where
+an engine can't match Postgres.
+
+## Scope / focus
+
+- **PostgreSQL** — the strongest ETL/analytics target (insert-from-select,
+  FILTER, windows, advisory locks, materialized views); the reference adapter.
+- **Neon** — Postgres-compatible but **serverless-aware** (WebSocket Pool;
+  prefer generated SQL / atomic statements). Separate generic-Postgres behavior
+  from Neon-specific behavior in code and docs.
+- **SQLite** — embedded/local compatibility and fallbacks (`FILTER`→`CASE WHEN`,
+  no materialized views, lock-row instead of advisory locks).
+- **libSQL** — SQLite semantics + **remote/Turso runtime caveats** (hrana/HTTP,
+  `ArrayBuffer` BLOBs, `intMode`).
+- **MySQL / MariaDB** — harden the v0.7 adapter: `ON DUPLICATE KEY UPDATE`
+  upsert, uneven `RETURNING`, `BOOLEAN`=`TINYINT(1)`, `GET_LOCK` named locks,
+  and the MySQL-vs-MariaDB split.
+- **Transaction behavior differences**; **returning/upsert differences**;
+  **timestamp/date function differences** (the v0.6 bucket abstraction per
+  dialect); **lock/checkpoint strategy differences** (advisory lock vs lock
+  row).
+- **Test coverage for dialect-specific fallbacks** — every degraded path
+  (FILTER→CASE, ilike→LIKE, bucket math) gets a per-engine integration test.
+
+## Specific hardening items (from the audit)
+
+- **Declarative capability descriptors** per dialect (the v0.8 surface): one
+  source of truth the feature matrix, the `dialectGuard`, and ETL/analytics
+  read.
+- **CTE per-engine execution tests** — CTEs render dialect-agnostically today
+  but have **no per-engine integration test**; add them for
+  pg/neon/sqlite/libsql.
+- **Recursive CTE** support decision (`WITH RECURSIVE`) — currently unsupported;
+  decide build vs document-as-unsupported.
+- **`@sisal/pg` float8 → number** (v0.5 item 11) — the only adapter returning
+  `double precision` as a string; fix so numeric reads match the other three
+  adapters (critical for analytics math).
+- **Insert-from-select / data-modifying CTE** execution verified per engine
+  (Postgres yes; SQLite "less fully" — pin the exact supported subset).
+- **Advisory-lock equivalence** — formalize the SQLite/libSQL lock strategy the
+  ETL runner will use.
+
+## Deliverables
+
+- A per-dialect **capability descriptor** wired into the generated feature
+  matrix.
+- Integration tests for every ETL/analytics-relevant shape on every supporting
+  adapter (extending the existing gated `integration/` suites).
+- Updated `docs/{pg,neon,sqlite,libsql}-compatibility.md` + the unified matrix.
+
+## Non-goals
+
+No new ETL/analytics package; no new SQL constructs beyond what v0.8 stabilized;
+no DuckDB.
+
+## Risks
+
+- **Combinatorial test growth** — every shape × four adapters × fallbacks. Lean
+  on the existing matrix coverage-guard to keep claims honest.
+- **Serverless flakiness** — Neon WebSocket tests need the `wsproxy` image; keep
+  them gated and deterministic.
+- **Hidden runtime type lies** (like float8) elsewhere — audit numeric/date
+  round-trips broadly, not just the known case.
+
+## Open questions
+
+- Recursive CTEs: in scope for analytics (hierarchies) or deferred?
+- Is materialized-view DDL worth adding for Postgres (rollup acceleration),
+  given SQLite has none?
+- How much SQLite-family ETL is "supported" vs "Postgres-first, documented gap"?
+
+## Acceptance criteria
+
+- Every dialect-divergent behavior relevant to ETL/analytics is a declared
+  capability with a backing per-engine test (matrix `✅`/`⚠️`/`❌` all
+  test-backed).
+- `@sisal/pg` returns `double precision` as a JS `number`.
+- Insert-from-select, upsert-from-select, data-modifying CTEs, filtered
+  aggregates, and date buckets each have a per-engine pass/fallback test.
+- The four compatibility docs and the unified matrix reflect the hardened
+  reality.
+
+## Affected packages
+
+`@sisal/pg`, `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`, `@sisal/core`
+(capability descriptors), `tools/feature_matrix.ts` + docs.
+
+## Required examples / tests
+
+- Per-engine integration tests for each ETL/analytics shape and fallback.
+- A numeric round-trip suite (float/numeric/bigint) across all four adapters.
+
+## Dialect compatibility notes
+
+This release _is_ the dialect compatibility note: it makes the capability matrix
+authoritative and machine-checked. PostgreSQL is the reference; Neon mirrors it
+with serverless caveats; SQLite/libSQL expose only the subset they support
+correctly, with every degradation tested and documented.
 ```
 

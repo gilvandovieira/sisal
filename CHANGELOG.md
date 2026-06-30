@@ -44,18 +44,34 @@ Sisal-specific history after that baseline through `1f05448`.
   preserves types, while a plain TypeScript language server still reports the
   workspace imports as unresolved; the doc records that boundary as a future npm
   packaging signal.
-- Added `docs/v0.6.0-roadmap.md` consolidating a Node.js + npm compatibility
-  exploration into a future-release roadmap (no implementation in this cycle). A
-  June 2026 worktree audit against real Node confirmed the library cores run
-  under Node's type-stripping unchanged, the only hard blockers are bare
-  `@sisal/*` resolution, the six `jsr:`/`npm:` import sites, and the `.ts`
-  import extensions, and all four adapters already inject their driver. The
-  roadmap targets dual-runtime (Deno + Node 24+) and dual-registry (JSR + npm)
-  delivery while keeping the Deno workflow unchanged; it follows the npm
-  packaging signal first recorded in `docs/editor-lsp.md`. Because the `@sisal`
-  scope is unavailable on npm, the roadmap keeps `@sisal/*` for JSR/source and
-  uses a placeholder `@scope/*` npm scope (final name TBD; the build remaps
-  `@sisal/*` → `@scope/*` for the npm artifact only).
+- Added a **forward roadmap line** (`docs/v0.6.0-roadmap.md` …
+  `docs/v0.14.0-roadmap.md`) plus a `docs/roadmap.md` overview/index and a
+  `docs/architecture.md` describing the long-term package split. These are
+  guidelines for future cycles, not commitments; nothing here is implemented
+  yet, and v0.5.0 scope is untouched. The arc: **ORM (OLTP) → ETL (bridge to
+  OLAP shapes) → Analytics (typed OLAP) → Dashboard (renderer-agnostic
+  presentation models)**, with a strict dependency rule —
+  ETL/Analytics/Dashboard depend on `@sisal/core`; `@sisal/orm` never depends on
+  them. Grounded in a June 2026 code audit (the OLTP/aggregation surface is
+  solid; the ETL gap is set-based movement — no `INSERT…SELECT`, SELECT-only
+  CTEs; analytics has no window functions at all; the core is "already layered
+  as if pre-split" so a `@sisal/core` extraction is mostly file-moves; the SQL
+  IR is a compose-oriented _fragment_ IR, a compile target rather than a
+  transformable AST).
+  - **v0.6 — Foundations & Readiness:** three readiness workstreams that ship no
+    new feature package — (A) ETL readiness investigation; (B) the Node.js and
+    npm dual-registry runtime work (the original v0.6 content, now Workstream B
+    — keeps `@sisal/*` on JSR, publishes a placeholder `@scope/*` on npm since
+    `@sisal` is taken there, with the build remapping for the npm artifact
+    only); and (C) MySQL support investigation (the renderer already carries a
+    latent `"mysql"` dialect, but there is no adapter).
+  - **v0.7** Analytics Readiness **+ MySQL Support Implementation** (ships
+    `@sisal/mysql`, the fifth dialect); **v0.8** Advanced SQL IR & expression
+    stabilization (extracts `@sisal/core`); **v0.9** adapter hardening across
+    the five adapters; **v0.10** `@sisal/etl` preview; **v0.11**
+    `@sisal/analytics` preview; **v0.12** `@sisal/dashboard` preview; **v0.13+**
+    DuckDB / external OLAP investigation (after the analytics IR); **v0.14+**
+    optional native/Rust acceleration (only on benchmark evidence).
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
   moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
   functions** — every multi-step mutation is one **data-modifying CTE**
