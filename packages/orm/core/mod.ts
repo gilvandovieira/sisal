@@ -7,6 +7,7 @@
 export { OrmError } from "./errors.ts";
 export type { OrmErrorCode, OrmErrorOptions } from "./errors.ts";
 export {
+  dialectSql,
   emptySql,
   identifier,
   isColumn,
@@ -54,9 +55,11 @@ export {
   between,
   count,
   countDistinct,
+  dateTrunc,
   desc,
   eq,
   exists,
+  filter,
   gt,
   gte,
   ilike,
@@ -78,6 +81,7 @@ export {
   or,
   sum,
 } from "./operators.ts";
+export type { DateTruncField } from "./operators.ts";
 export { columns, createColumn } from "./columns.ts";
 export type {
   ColumnArray,

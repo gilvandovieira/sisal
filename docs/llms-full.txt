@@ -176,6 +176,8 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
+- `DateTruncField` (typeAlias): Calendar field a {@link dateTrunc} truncates a timestamp down to.
 - `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineSchemaObject` (function): Defines a raw DDL {@link SisalSchemaObjectSnapshot} — a stored function, trigger, extension, or any verbatim CREATE … — to attach to a snapshot via createSchemaSnapshot({ tables, schemaObjects }).
@@ -185,11 +187,13 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DeleteBuilder` (interface): Fluent builder for DELETE queries.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
 - `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `diffSchemaSnapshots` (function): Computes the structural difference from one snapshot to another.
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
 - `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
+- `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
 - `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
 - `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
@@ -387,15 +391,19 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `DatabaseQuery` (typeAlias): Callable raw-query function plus schema keyed relational query helpers.
 - `DatabaseSchema` (typeAlias): Schema map used to expose db.query. relational helpers.
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
+- `DateTruncField` (typeAlias): Calendar field a {@link dateTrunc} truncates a timestamp down to.
 - `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
 - `DeleteBuilder` (interface): Fluent builder for DELETE queries.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
+- `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
+- `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
 - `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
 - `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
@@ -1591,6 +1599,32 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added **conditional aggregates and portable date truncation** (v0.5.0 roadmap
+  item 9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)`
+  clause to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
+  `sum("score") filter (where "kind" = $1)` — supported natively by PostgreSQL
+  and modern SQLite/libSQL, so it renders identically on every adapter.
+  `dateTrunc(field, source)` truncates a timestamp to a calendar field
+  (`year`…`second`) for time-bucket `GROUP BY`s, rendering
+  `date_trunc('field',
+  src)` on PostgreSQL and the equivalent
+  `strftime('format', src)` on the SQLite family (which has no `date_trunc`);
+  the SQLite-family result is an ISO-8601 `TEXT` string that still orders and
+  groups identically to the PostgreSQL `timestamp`. Both build on a new public
+  `dialectSql(construct, variants,
+  fallback?)` primitive — a SQL fragment that
+  renders per dialect and throws a typed `OrmError`
+  (`code: "ORM_DIALECT_UNSUPPORTED"`) when no variant or fallback matches. New
+  `@sisal/orm` exports: `filter`, `dateTrunc`, `DateTruncField`, `dialectSql`.
+  Covered by `packages/orm/aggregates_test.ts` (per-dialect render +
+  fallback/throw) and a `filter aggregate + dateTrunc` integration test in all
+  four suites (now 36 each) executed on PostgreSQL 18, Neon, SQLite, and libSQL;
+  two unified-matrix rows added (filter ✅ everywhere; dateTrunc pg/neon ✅,
+  sqlite/libsql ⚠️ text). Scope: `filter` + calendar-field `dateTrunc` are in;
+  `now()`-relative interval arithmetic, arbitrary-interval bucketing
+  (`date_bin`/floor), and the rising-feed example refactors that would drop
+  their raw-SQL/TS-only window math remain follow-ups, so item 9 stays in
+  progress.
 - Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
   A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
   dialect-gated DDL fragments — functions, triggers, views, extensions, or any
@@ -5029,6 +5063,8 @@ genuine dialect limit · — not applicable.
 | Filter / ordering / pagination                                  |    ✅     |  ✅   |    ✅    |       ✅        |
 | Joins (inner / left / right / full)                             |    ✅     |  ✅   |    ✅    |       ✅        |
 | Aggregates / group / having                                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Conditional aggregate (`filter`)                                |    ✅     |  ✅   |    ✅    |       ✅        |
+| Portable `dateTrunc` (time bucketing)                           |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
 | Subqueries / exists / scalar                                    |    ✅     |  ✅   |    ✅    |       ✅        |
 | Upsert (`onConflict…`)                                          |    ✅     |  ✅   |    ✅    |       ✅        |
 | `sql` in `SET` / `VALUES` / `onConflict`                        |    ✅     |  ✅   |    ✅    |       ✅        |
@@ -5062,6 +5098,7 @@ identically across the four adapters.
 These ⚠️ cells work — the feature is exercised on every adapter — but a value
 comes back in a different JS shape on the SQLite family than on PostgreSQL:
 
+- **Portable `dateTrunc` (time bucketing)** — No `date_trunc`; `dateTrunc` renders via `strftime`, which returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL returns a `timestamp`). Both order and group identically.
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
@@ -6436,7 +6473,7 @@ limit:
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🟢     |
 | 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🟡     |
 | 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🟡     |
-| 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🔴     |
+| 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🟡     |
 | 10 | `.optional()` should not widen the SELECT row type                     | P3       | S            | 🟢     |
 | 11 | `@sisal/pg` float8 → `number` (only adapter returning string)          | P2       | M            | 🟢     |
 | 12 | Data-modifying CTE builder (`WITH … INSERT/UPDATE/DELETE … RETURNING`) | P2       | L            | 🟡     |
@@ -6815,6 +6852,21 @@ bucket helper that renders per dialect (`date_trunc` /
 dialect rendering. **Acceptance:** the rising-score window query is
 builder-native on both engines; render tests pin the per-dialect SQL; the
 examples drop their raw-SQL/TS-only window math.
+
+**Status (🟡 in progress).** Parts (a) and (c) landed. `filter(agg, condition)`
+appends a `FILTER (WHERE …)` clause — and because modern SQLite/libSQL support
+`FILTER` natively (the planned `CASE WHEN` degradation proved unnecessary), it
+renders identically on every adapter. `dateTrunc(field, source)` truncates to a
+calendar field, rendering `date_trunc` on Postgres and the equivalent `strftime`
+on the SQLite family; both build on a new public `dialectSql` primitive (a
+per-dialect SQL fragment that throws `ORM_DIALECT_UNSUPPORTED` when no
+variant/fallback matches). New `@sisal/orm` exports: `filter`, `dateTrunc`,
+`DateTruncField`, `dialectSql`. Verified by `packages/orm/aggregates_test.ts`
+and a `filter aggregate + dateTrunc` integration test on all four engines (two
+matrix rows added). **Deferred (so item 9 stays in progress):** part (b) — a
+`now()`-relative interval-arithmetic helper — plus arbitrary-interval bucketing
+(the `'5 minutes'` `date_bin`/floor) and the rising-feed example refactors that
+would drop their raw-SQL/TS-only window math.
 
 ---
 

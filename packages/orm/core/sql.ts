@@ -66,6 +66,12 @@ export type SqlChunk =
     readonly construct: string;
     readonly unsupported: readonly SqlDialect[];
   }
+  | {
+    readonly kind: "dialect";
+    readonly construct: string;
+    readonly variants: { readonly [D in SqlDialect]?: Sql };
+    readonly fallback?: Sql;
+  }
   | { readonly kind: "sql"; readonly value: Sql };
 
 /** Boolean SQL condition wrapper used by query builders. */
@@ -565,6 +571,22 @@ function renderSqlInto(query: Sql, state: RenderState): void {
       continue;
     }
 
+    if (chunk.kind === "dialect") {
+      const variant = chunk.variants[state.dialect] ?? chunk.fallback;
+      if (variant === undefined) {
+        throw new OrmError(
+          `${chunk.construct} is not supported by the "${state.dialect}" ` +
+            "dialect",
+          {
+            code: "ORM_DIALECT_UNSUPPORTED",
+            details: { construct: chunk.construct, dialect: state.dialect },
+          },
+        );
+      }
+      renderSqlInto(variant, state);
+      continue;
+    }
+
     renderSqlInto(chunk.value, state);
   }
 }
@@ -605,6 +627,27 @@ export function dialectGuard(
   unsupported: readonly SqlDialect[],
 ): Sql {
   return makeSql([{ kind: "guard", construct, unsupported }]);
+}
+
+/**
+ * A SQL fragment that renders differently per dialect: at render time the
+ * `variants` entry for the active dialect is emitted, falling back to
+ * `fallback` when the dialect has no entry. If neither matches, rendering throws
+ * a typed `OrmError` (`code: "ORM_DIALECT_UNSUPPORTED"`) naming `construct`.
+ * This is the portable-construct primitive behind helpers like `dateTrunc`,
+ * whose SQL diverges between PostgreSQL and the SQLite family.
+ */
+export function dialectSql(
+  construct: string,
+  variants: { readonly [D in SqlDialect]?: Sql },
+  fallback?: Sql,
+): Sql {
+  return makeSql([{
+    kind: "dialect",
+    construct,
+    variants,
+    ...(fallback === undefined ? {} : { fallback }),
+  }]);
 }
 
 export function createCondition(conditionSql: Sql): Condition {

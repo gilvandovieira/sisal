@@ -13,6 +13,7 @@ import {
   type Condition,
   createCondition,
   dialectGuard,
+  dialectSql,
   isColumn,
   isQueryBuilder,
   joinSql,
@@ -261,6 +262,82 @@ export function min<T = unknown>(column: unknown): SqlExpression<T | null> {
 /** `max(column)` aggregate expression. */
 export function max<T = unknown>(column: unknown): SqlExpression<T | null> {
   return sql`max(${columnToSql(column)})` as SqlExpression<T | null>;
+}
+
+/**
+ * Conditional aggregate: appends a `FILTER (WHERE …)` clause to an aggregate so
+ * it only sees rows matching `condition` —
+ * `filter(sum(score), gte(bucket, cutoff))` renders
+ * `sum("score") filter (where "bucket" >= $1)`. Supported natively by
+ * PostgreSQL and by modern SQLite/libSQL, so it renders identically on every
+ * Sisal adapter.
+ */
+export function filter<T>(
+  aggregate: SqlExpression<T>,
+  condition: Condition,
+): SqlExpression<T> {
+  assertCondition(condition);
+  return sql`${aggregate} filter (where ${condition.sql})` as SqlExpression<T>;
+}
+
+/** Calendar field a {@link dateTrunc} truncates a timestamp down to. */
+export type DateTruncField =
+  | "year"
+  | "month"
+  | "day"
+  | "hour"
+  | "minute"
+  | "second";
+
+// The per-field SQL literals, pre-quoted so they are passed to `raw()` as fixed
+// constants (never interpolated, so no value can reach the SQL unparameterized).
+// On Postgres the literal is the `date_trunc` unit; SQLite has no `date_trunc`,
+// so the equivalent floors a timestamp with `strftime`, zeroing the finer
+// fields. Both are ISO-8601, so values still sort and group identically.
+const PG_DATE_TRUNC_UNIT: Record<DateTruncField, string> = {
+  year: "'year'",
+  month: "'month'",
+  day: "'day'",
+  hour: "'hour'",
+  minute: "'minute'",
+  second: "'second'",
+};
+const SQLITE_DATE_TRUNC_FORMAT: Record<DateTruncField, string> = {
+  year: "'%Y-01-01 00:00:00'",
+  month: "'%Y-%m-01 00:00:00'",
+  day: "'%Y-%m-%d 00:00:00'",
+  hour: "'%Y-%m-%d %H:00:00'",
+  minute: "'%Y-%m-%d %H:%M:00'",
+  second: "'%Y-%m-%d %H:%M:%S'",
+};
+
+/**
+ * Portable timestamp truncation to a calendar `field`: renders
+ * `date_trunc('<field>', src)` on PostgreSQL and the equivalent
+ * `strftime('<format>', src)` on the SQLite family, so a time-bucket
+ * `GROUP BY` reads the same on every adapter. `source` may be a column or any
+ * SQL expression.
+ *
+ * **Round-trip:** PostgreSQL yields a `timestamp`; the SQLite family yields an
+ * ISO-8601 `TEXT` string. Both order and group identically.
+ */
+export function dateTrunc(
+  field: DateTruncField,
+  source: unknown,
+): SqlExpression<string> {
+  const unit = PG_DATE_TRUNC_UNIT[field];
+  const format = SQLITE_DATE_TRUNC_FORMAT[field];
+  if (unit === undefined || format === undefined) {
+    throw new OrmError(`Unknown dateTrunc field "${field}"`, {
+      code: "ORM_INVALID_SQL",
+      details: { field },
+    });
+  }
+  const src = columnToSql(source);
+  return dialectSql("dateTrunc", {
+    postgres: sql`date_trunc(${raw(unit)}, ${src})`,
+    sqlite: sql`strftime(${raw(format)}, ${src})`,
+  }) as SqlExpression<string>;
 }
 
 function binaryCondition(

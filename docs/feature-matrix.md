@@ -25,6 +25,8 @@ genuine dialect limit · — not applicable.
 | Filter / ordering / pagination                                  |    ✅     |  ✅   |    ✅    |       ✅        |
 | Joins (inner / left / right / full)                             |    ✅     |  ✅   |    ✅    |       ✅        |
 | Aggregates / group / having                                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Conditional aggregate (`filter`)                                |    ✅     |  ✅   |    ✅    |       ✅        |
+| Portable `dateTrunc` (time bucketing)                           |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
 | Subqueries / exists / scalar                                    |    ✅     |  ✅   |    ✅    |       ✅        |
 | Upsert (`onConflict…`)                                          |    ✅     |  ✅   |    ✅    |       ✅        |
 | `sql` in `SET` / `VALUES` / `onConflict`                        |    ✅     |  ✅   |    ✅    |       ✅        |
@@ -58,6 +60,7 @@ identically across the four adapters.
 These ⚠️ cells work — the feature is exercised on every adapter — but a value
 comes back in a different JS shape on the SQLite family than on PostgreSQL:
 
+- **Portable `dateTrunc` (time bucketing)** — No `date_trunc`; `dateTrunc` renders via `strftime`, which returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL returns a `timestamp`). Both order and group identically.
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.

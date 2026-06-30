@@ -11,6 +11,32 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added **conditional aggregates and portable date truncation** (v0.5.0 roadmap
+  item 9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)`
+  clause to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
+  `sum("score") filter (where "kind" = $1)` — supported natively by PostgreSQL
+  and modern SQLite/libSQL, so it renders identically on every adapter.
+  `dateTrunc(field, source)` truncates a timestamp to a calendar field
+  (`year`…`second`) for time-bucket `GROUP BY`s, rendering
+  `date_trunc('field',
+  src)` on PostgreSQL and the equivalent
+  `strftime('format', src)` on the SQLite family (which has no `date_trunc`);
+  the SQLite-family result is an ISO-8601 `TEXT` string that still orders and
+  groups identically to the PostgreSQL `timestamp`. Both build on a new public
+  `dialectSql(construct, variants,
+  fallback?)` primitive — a SQL fragment that
+  renders per dialect and throws a typed `OrmError`
+  (`code: "ORM_DIALECT_UNSUPPORTED"`) when no variant or fallback matches. New
+  `@sisal/orm` exports: `filter`, `dateTrunc`, `DateTruncField`, `dialectSql`.
+  Covered by `packages/orm/aggregates_test.ts` (per-dialect render +
+  fallback/throw) and a `filter aggregate + dateTrunc` integration test in all
+  four suites (now 36 each) executed on PostgreSQL 18, Neon, SQLite, and libSQL;
+  two unified-matrix rows added (filter ✅ everywhere; dateTrunc pg/neon ✅,
+  sqlite/libsql ⚠️ text). Scope: `filter` + calendar-field `dateTrunc` are in;
+  `now()`-relative interval arithmetic, arbitrary-interval bucketing
+  (`date_bin`/floor), and the rising-feed example refactors that would drop
+  their raw-SQL/TS-only window math remain follow-ups, so item 9 stays in
+  progress.
 - Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
   A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
   dialect-gated DDL fragments — functions, triggers, views, extensions, or any

@@ -37,12 +37,14 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  dateTrunc,
   defineAtomicOperation,
   defineFunction,
   defineTable,
   desc,
   eq,
   exists,
+  filter,
   gt,
   gte,
   ilike,
@@ -1137,6 +1139,43 @@ neonTest("neon: migrator applies, plans, and is idempotent", async () => {
   }
 });
 
+neonTest("neon: filter aggregate + dateTrunc bucketing", async (db) => {
+  await db.execute(raw("drop table if exists it_agg cascade"));
+  const agg = defineTable("it_agg", {
+    id: columns.integer().primaryKey(),
+    kind: columns.text().notNull(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [agg] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(agg).values([
+    { id: 1, kind: "a", score: 10, at: "2026-01-01 10:15:00" },
+    { id: 2, kind: "a", score: 20, at: "2026-01-01 10:45:00" },
+    { id: 3, kind: "b", score: 5, at: "2026-01-01 11:30:00" },
+    { id: 4, kind: "b", score: 7, at: "2026-01-01 11:45:00" },
+  ]).execute();
+
+  // FILTER aggregate: a conditional sum next to the unconditional total.
+  const [totals] = await db.select({
+    aSum: filter(sum(agg.columns.score), eq(agg.columns.kind, "a")),
+    total: sum(agg.columns.score),
+  }).from(agg).execute();
+  assertEquals(Number(totals.aSum), 30);
+  assertEquals(Number(totals.total), 42);
+
+  // dateTrunc bucketing: two hour buckets, each summing its own rows.
+  const bucket = dateTrunc("hour", agg.columns.at);
+  const rows = await db.select({ n: count(), s: sum(agg.columns.score) })
+    .from(agg).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(rows.map((r) => Number(r.n)), [2, 2]);
+  assertEquals(rows.map((r) => Number(r.s)), [30, 12]);
+});
+
 neonTest("neon: schema objects (functions/triggers/views)", async (db) => {
   await db.execute(raw("drop view if exists it_so_view cascade"));
   await db.execute(raw("drop table if exists it_so cascade"));
@@ -1198,7 +1237,7 @@ neonTest("neon: teardown", async (db) => {
   await db.execute(raw("drop view if exists it_so_view cascade"));
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg cascade",
     ),
   );
   await db.execute(raw("drop function if exists it_so_stamp() cascade"));

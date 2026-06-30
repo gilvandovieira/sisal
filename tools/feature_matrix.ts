@@ -84,6 +84,10 @@ const DB_CALL = "No stored-function concept in the SQLite family; " +
 const DM_CTE =
   "Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) " +
   "are PostgreSQL-only; the SQLite family's CTEs are `SELECT`-only." + PG_ONLY;
+const DATE_TRUNC =
+  "No `date_trunc`; `dateTrunc` renders via `strftime`, which " +
+  "returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL " +
+  "returns a `timestamp`). Both order and group identically.";
 
 /** A row where every adapter is `tested` against the same `test` substring. */
 const allTested = (feature: string, test: string): FeatureRow => ({
@@ -100,6 +104,17 @@ export const FEATURE_MATRIX: FeatureRow[] = [
   allTested("Filter / ordering / pagination", "filter operators"),
   allTested("Joins (inner / left / right / full)", "joins"),
   allTested("Aggregates / group / having", "aggregates"),
+  allTested("Conditional aggregate (`filter`)", "filter aggregate"),
+  {
+    feature: "Portable `dateTrunc` (time bucketing)",
+    test: "dateTrunc",
+    cells: {
+      pg: ok(),
+      neon: ok(),
+      sqlite: warn("text", DATE_TRUNC),
+      libsql: warn("text", DATE_TRUNC),
+    },
+  },
   allTested("Subqueries / exists / scalar", "subqueries"),
   allTested("Upsert (`onConflict…`)", "upsert"),
   allTested(
