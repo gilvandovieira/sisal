@@ -1617,6 +1617,46 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+### Added
+
+- **Documentation-only advanced SQL example contracts** under
+  [`examples/advanced-sql-contracts/`](examples/advanced-sql-contracts/README.md).
+  Twelve Markdown **future compatibility contracts** — ETL rollup, window
+  analytics, sessionization, top-N per group, cohort retention, funnel analysis,
+  recursive comments, job-queue locking, idempotent backfill, JSON→table
+  extraction, generated columns/indexes, and MySQL compatibility — that preserve
+  product-shaped advanced-SQL example ideas and map each to the roadmap release
+  that must build the missing primitive first (v0.6 ETL/locking/MySQL readiness
+  → v0.7 analytics/MySQL → v0.8 IR → v0.10 `@sisal/etl` → v0.11
+  `@sisal/analytics`). Each contract carries a status, roadmap owner, related
+  runnable examples, the SQL shape to preserve, required future primitives, a
+  per-dialect classification (PostgreSQL · Neon · SQLite · libSQL · future
+  MySQL), a portable/emulatable/dialect-native/fail-guarded split that routes
+  genuine per-dialect limits to a future `❌` row in
+  [`docs/feature-matrix.md`](docs/feature-matrix.md), non-goals, and future
+  acceptance criteria. **Nothing here is runnable or part of the workspace**: no
+  `deno.json`, no `mod.ts`, no entry in the root workspace or `deno task check`.
+- **`examples/README.md`** — a new index separating the **runnable** workspace
+  examples from the **documentation-only** future contracts, making explicit
+  that `examples/advanced-sql-contracts/` is not runnable and not in the
+  workspace.
+
+### Changed
+
+- **Docs (examples):** corrected two stale example READMEs.
+  `neon-activity-vectors` now calls its `libsql-activity-vectors` counterpart a
+  **planned/future** sibling (it does not exist yet) and links the relevant
+  advanced-SQL contracts. `neon-hot-feed`'s pressure points now note that
+  `UPDATE … FROM` / `INSERT … SELECT` **landed in v0.5** (mutation joins +
+  `insert().select()`, as the `neon-rising-feed-ctes` sibling demonstrates), and
+  explain the narrower, honest reason its bulk recompute stays raw (a joined
+  `FROM … LEFT JOIN (subquery)` source kept as a deliberate escape-hatch demo)
+  rather than the old "no builder surface" claim.
+- **Docs (roadmap):** [v0.6.0](docs/v0.6.0-roadmap.md) (A5/A6) and
+  [v0.7.0](docs/v0.7.0-roadmap.md) (required examples) now link
+  `examples/advanced-sql-contracts/` as the preserved backlog of future,
+  product-shaped examples.
+
 ## 0.5.0 - 2026-06-30
 
 ### Added
@@ -7578,10 +7618,19 @@ recorded here and handed to [v0.7](v0.7.0-roadmap.md)/[v0.8](v0.8.0-roadmap.md).
 - **A5 — Runnable PoC + siblings.**
   [`neon-activity-vectors`](../examples/neon-activity-vectors/README.md) is
   done; the `postgres`/`libsql` siblings are pending (separate example per
-  dialect).
+  dialect). The sibling/follow-up example ideas are preserved as product-shaped
+  contracts in
+  [`examples/advanced-sql-contracts/`](../examples/advanced-sql-contracts/README.md)
+  (e.g. [01-etl-rollup](../examples/advanced-sql-contracts/01-etl-rollup.md),
+  [05-cohort-retention](../examples/advanced-sql-contracts/05-cohort-retention.md)).
 - **A6 — Hand off the analytics gaps.** Document the genuinely-unbuilt shapes
   the PoC hit (window functions, `ARRAY[…]` projection, `unnest`) and route them
-  to [v0.7](v0.7.0-roadmap.md)/[v0.8](v0.8.0-roadmap.md).
+  to [v0.7](v0.7.0-roadmap.md)/[v0.8](v0.8.0-roadmap.md). The unbuilt analytics
+  shapes are written up as future contracts in
+  [`examples/advanced-sql-contracts/`](../examples/advanced-sql-contracts/README.md)
+  ([02-window-analytics](../examples/advanced-sql-contracts/02-window-analytics.md),
+  [03-sessionization](../examples/advanced-sql-contracts/03-sessionization.md),
+  [04-top-n-per-group](../examples/advanced-sql-contracts/04-top-n-per-group.md)).
 - **A2 — Locking strategy.** Per-dialect advisory locks (`pg_advisory_lock`;
   SQLite lock-row / `BEGIN IMMEDIATE`) — document.
 - **A3 — Checkpoint design.** A watermark table (`job`, `window_end`) so a run
@@ -8300,6 +8349,15 @@ investigation against all four adapters. No new package created.
 
 - Docs: the `/rising` analytics-IR walkthrough over a rollup table.
 - Type-level prototype tests for metric→row inference (network-free).
+- The analytics example targets are preserved as product-shaped contracts in
+  [`examples/advanced-sql-contracts/`](../examples/advanced-sql-contracts/README.md):
+  [02-window-analytics](../examples/advanced-sql-contracts/02-window-analytics.md),
+  [03-sessionization](../examples/advanced-sql-contracts/03-sessionization.md),
+  [04-top-n-per-group](../examples/advanced-sql-contracts/04-top-n-per-group.md),
+  [05-cohort-retention](../examples/advanced-sql-contracts/05-cohort-retention.md),
+  and
+  [06-funnel-analysis](../examples/advanced-sql-contracts/06-funnel-analysis.md)
+  — each becomes a runnable example once the window/analytics surface lands.
 
 ## Dialect compatibility notes
 

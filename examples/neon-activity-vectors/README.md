@@ -19,10 +19,14 @@ similarity, and retention.
 
 > **Dialect note.** This example is Postgres-family (`@sisal/pg` /
 > `@sisal/neon`) and uses advanced Postgres SQL on purpose (stored functions,
-> `FILTER`, window functions, `array[...]`, `unnest WITH ORDINALITY`). A sibling
-> `libsql-activity-vectors` covers the SQLite family, where some of these have
-> no equivalent (no stored functions, no array type) — which is exactly why the
-> dialects get separate examples.
+> `FILTER`, window functions, `array[...]`, `unnest WITH ORDINALITY`). A
+> **planned** sibling `libsql-activity-vectors` (not built yet) would cover the
+> SQLite family, where some of these have no equivalent (no stored functions, no
+> array type) — which is exactly why the dialects get separate examples. Until
+> it exists, the SQLite-family divergences are written up as future contracts in
+> [`examples/advanced-sql-contracts`](../advanced-sql-contracts/README.md) (see
+> [02-window-analytics](../advanced-sql-contracts/02-window-analytics.md) and
+> [10-json-table-extraction](../advanced-sql-contracts/10-json-table-extraction.md)).
 
 ## The computation chain
 

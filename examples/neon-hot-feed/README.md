@@ -210,12 +210,21 @@ expression is now a valid column value).
    defaults**
    (`.default(sql\`…\`)`), and the two **functions** (carried as`schemaObjects`). So`src/schema.ts`is the single source of truth and`src/migrate.ts`generates the full init from it — there are no hand-written`.sql`files. (Drop/`down`
    generation and drift over opaque function bodies are tracked separately.)
-2. **No `UPDATE … FROM` / `INSERT … SELECT` in the builder.** Scalar `sql`
-   expressions in `.set()` / `.values()` now work, so a simple
-   `set hot_score = app.calculate_hot_score(score, created_at)` is
-   builder-native — but the bulk `recomputeAggregates` joins a derived table in
-   its `FROM`, and `UPDATE … FROM (subquery)` has no builder surface yet, so it
-   stays raw SQL.
+2. **`UPDATE … FROM` / `INSERT … SELECT` now have a builder — resolved (v0.5).**
+   v0.5 shipped **mutation joins** (`update(t).from(source)` renders
+   `UPDATE … FROM`) and **`insert(t).select(query)`**, both demonstrated
+   builder-native by the sibling
+   [`neon-rising-feed-ctes`](../neon-rising-feed-ctes/README.md)
+   (`db.with(...).update(posts).from(computedScore)`). So the surface this
+   example once called missing exists today. The bulk `recomputeAggregates` here
+   stays a single raw statement for a **narrower** reason: its `FROM` is a
+   `posts base LEFT JOIN (aggregate subquery)` joined source, and
+   `.from(source)` takes **one** relation — so the builder-native form is to
+   lift the LEFT-JOIN aggregate into a CTE and `update(posts).from(thatCte)`,
+   with scalar `sql` in `.set()` calling `app.calculate_hot_score(...)` (both
+   already valid since v0.5). That is exactly the refactor the CTE sibling
+   already performed; this example keeps the one raw `UPDATE … FROM (subquery)`
+   on purpose, as the documented clean escape hatch.
 
 ## Tests
 
@@ -264,8 +273,12 @@ examples/neon-hot-feed/
 These gaps are written up in full — with proposed APIs, affected packages, and
 acceptance criteria — in the [v0.4.0 roadmap](../../docs/v0.4.0-roadmap.md).
 
-- **`UPDATE … FROM` / `INSERT … SELECT`** in the builder (scalar `sql` in
-  `.set()` / `.values()` already works; the join-in-`FROM` form does not yet).
+- **`UPDATE … FROM` / `INSERT … SELECT`** — **landed in v0.5** (mutation joins +
+  `insert().select()`; see the sibling
+  [`neon-rising-feed-ctes`](../neon-rising-feed-ctes/README.md)). The
+  join-in-`FROM` derived table here could move onto a CTE +
+  `update(posts).from(cte)`; it stays raw only as the documented escape-hatch
+  demo (see pressure point 2 above).
 - **Richer DDL generation**: DESC/partial/expression indexes, CHECK constraints,
   and (eventually) functions/triggers in the snapshot pipeline.
 

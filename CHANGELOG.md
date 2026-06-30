@@ -9,6 +9,46 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+### Added
+
+- **Documentation-only advanced SQL example contracts** under
+  [`examples/advanced-sql-contracts/`](examples/advanced-sql-contracts/README.md).
+  Twelve Markdown **future compatibility contracts** — ETL rollup, window
+  analytics, sessionization, top-N per group, cohort retention, funnel analysis,
+  recursive comments, job-queue locking, idempotent backfill, JSON→table
+  extraction, generated columns/indexes, and MySQL compatibility — that preserve
+  product-shaped advanced-SQL example ideas and map each to the roadmap release
+  that must build the missing primitive first (v0.6 ETL/locking/MySQL readiness
+  → v0.7 analytics/MySQL → v0.8 IR → v0.10 `@sisal/etl` → v0.11
+  `@sisal/analytics`). Each contract carries a status, roadmap owner, related
+  runnable examples, the SQL shape to preserve, required future primitives, a
+  per-dialect classification (PostgreSQL · Neon · SQLite · libSQL · future
+  MySQL), a portable/emulatable/dialect-native/fail-guarded split that routes
+  genuine per-dialect limits to a future `❌` row in
+  [`docs/feature-matrix.md`](docs/feature-matrix.md), non-goals, and future
+  acceptance criteria. **Nothing here is runnable or part of the workspace**: no
+  `deno.json`, no `mod.ts`, no entry in the root workspace or `deno task check`.
+- **`examples/README.md`** — a new index separating the **runnable** workspace
+  examples from the **documentation-only** future contracts, making explicit
+  that `examples/advanced-sql-contracts/` is not runnable and not in the
+  workspace.
+
+### Changed
+
+- **Docs (examples):** corrected two stale example READMEs.
+  `neon-activity-vectors` now calls its `libsql-activity-vectors` counterpart a
+  **planned/future** sibling (it does not exist yet) and links the relevant
+  advanced-SQL contracts. `neon-hot-feed`'s pressure points now note that
+  `UPDATE … FROM` / `INSERT … SELECT` **landed in v0.5** (mutation joins +
+  `insert().select()`, as the `neon-rising-feed-ctes` sibling demonstrates), and
+  explain the narrower, honest reason its bulk recompute stays raw (a joined
+  `FROM … LEFT JOIN (subquery)` source kept as a deliberate escape-hatch demo)
+  rather than the old "no builder surface" claim.
+- **Docs (roadmap):** [v0.6.0](docs/v0.6.0-roadmap.md) (A5/A6) and
+  [v0.7.0](docs/v0.7.0-roadmap.md) (required examples) now link
+  `examples/advanced-sql-contracts/` as the preserved backlog of future,
+  product-shaped examples.
+
 ## 0.5.0 - 2026-06-30
 
 ### Added
