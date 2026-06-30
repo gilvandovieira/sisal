@@ -105,10 +105,15 @@ Sisal-specific history after that baseline through `1f05448`.
   pg/sqlite render tests, plus a `schema objects` integration test in all four
   suites (now 35 each) executing a real trigger + view on PostgreSQL 18, Neon,
   SQLite, and libSQL and asserting cross-dialect gating; a unified-matrix row
-  added (pg/neon/sqlite/libsql ✅). Scope: snapshot-carried emission of `up`
-  fragments is in; migrate-side `down` generation, drift/checksum diffing of
-  stored objects, drizzle-parity rows, and the `neon-hot-feed` example refactor
-  to drop its hand-written DDL remain follow-ups, so item 7 stays in progress.
+  added (pg/neon/sqlite/libsql ✅). The down side is
+  `schemaObjectDropStatements` (reverse-order drops, a pg integration test
+  applies up then down and asserts the objects are gone); drift over a changed
+  function/trigger **body** is caught by `equalSchemaSnapshots`/`checkDrift`
+  (schemaObjects are part of the normalized snapshot). With the new
+  `.default(sql\`…\`)`server defaults,`examples/neon-hot-feed`now **generates** its full init DDL (tables, DESC
+  indexes, the CHECK, and both functions) from`src/schema.ts`with no
+  hand-written`.sql`
+  files — verified against real Neon. This completes item 7.
 - Added **data-modifying CTEs** (v0.5.0 roadmap item 12, core). A CTE body may
   now be an `INSERT`/`UPDATE`/`DELETE … RETURNING` builder, not just a `SELECT`
   — `db.$with("x").as(db.insert(t).values(...).returning())` — and the

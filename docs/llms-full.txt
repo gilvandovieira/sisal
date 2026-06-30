@@ -1709,10 +1709,15 @@ Sisal-specific history after that baseline through `1f05448`.
   pg/sqlite render tests, plus a `schema objects` integration test in all four
   suites (now 35 each) executing a real trigger + view on PostgreSQL 18, Neon,
   SQLite, and libSQL and asserting cross-dialect gating; a unified-matrix row
-  added (pg/neon/sqlite/libsql ✅). Scope: snapshot-carried emission of `up`
-  fragments is in; migrate-side `down` generation, drift/checksum diffing of
-  stored objects, drizzle-parity rows, and the `neon-hot-feed` example refactor
-  to drop its hand-written DDL remain follow-ups, so item 7 stays in progress.
+  added (pg/neon/sqlite/libsql ✅). The down side is
+  `schemaObjectDropStatements` (reverse-order drops, a pg integration test
+  applies up then down and asserts the objects are gone); drift over a changed
+  function/trigger **body** is caught by `equalSchemaSnapshots`/`checkDrift`
+  (schemaObjects are part of the normalized snapshot). With the new
+  `.default(sql\`…\`)`server defaults,`examples/neon-hot-feed`now **generates** its full init DDL (tables, DESC
+  indexes, the CHECK, and both functions) from`src/schema.ts`with no
+  hand-written`.sql`
+  files — verified against real Neon. This completes item 7.
 - Added **data-modifying CTEs** (v0.5.0 roadmap item 12, core). A CTE body may
   now be an `INSERT`/`UPDATE`/`DELETE … RETURNING` builder, not just a `SELECT`
   — `db.$with("x").as(db.insert(t).values(...).returning())` — and the
@@ -6538,7 +6543,7 @@ limit:
 | 4  | Typed dialect guards for Postgres-only builders                        | P2       | M            | 🟢     |
 | 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🟢     |
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🟢     |
-| 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🟡     |
+| 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🟢     |
 | 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🟡     |
 | 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🟡     |
 | 10 | `.optional()` should not widen the SELECT row type                     | P3       | S            | 🟢     |
@@ -6843,20 +6848,18 @@ drops (a pg integration test applies the up then the down and asserts the
 function/view are gone), and because `schemaObjects` are part of the normalized
 snapshot, `equalSchemaSnapshots` — and therefore `checkDrift` — already flag a
 changed function/trigger **body** (pinned by a `@sisal/migrate` test).
-**Remaining (so item 7 stays in progress):** regenerating
-`examples/neon-hot-feed`'s `0001_init.sql` from its schema. The functions
-themselves move cleanly into `schemaObjects`, but a **byte-identical** regen is
-blocked by a separate, newly-surfaced gap: the builder's `.default()` accepts
-only a literal or a JS client-side function, so a column can't express a
-**SQL-expression default** (`gen_random_uuid()`, `now()`) — even though the
-snapshot (`SisalColumnDefault.kind === "expression"`) and the DDL generators
-already support it. Closing that needs a
-`.default(sql\`…\`)`overload plus
-insert-builder handling (omit the column so the server default fires), which
-spans columns + builders and is its own follow-up. The
-[drizzle-parity](drizzle-parity.md) matrix has no schema-object row to move —
-Drizzle has no structured function/trigger concept either, so Sisal's`schemaObjects`
-is ahead rather than at parity.
+Regenerating `examples/neon-hot-feed` surfaced one more gap — the builder's
+`.default()` took only a literal or a JS client-side function, so a column
+couldn't express a **SQL-expression server default** (`gen_random_uuid()`,
+`now()`), even though the snapshot (`SisalColumnDefault.kind === "expression"`)
+and the generators already emit one. That landed as a
+`.default(sql\`…\`)`overload (stored as`ColumnDefinition.sqlDefault`; the column is omitted on
+insert so the database fills it — no insert-builder change needed). With it,`neon-hot-feed`now **generates** its full init (tables, DESC indexes, the
+CHECK, and both functions moved into`schemaObjects`) from`src/schema.ts`— no
+hand-written`.sql`files — verified end-to-end against real Neon. The
+[drizzle-parity](drizzle-parity.md) matrix had no schema-object row to move
+(Drizzle has no structured function/trigger concept), so Sisal's`schemaObjects`
+is ahead rather than at parity. **Item 7 is complete.**
 
 ---
 
