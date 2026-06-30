@@ -9,6 +9,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.4.0 - 2026-06-30
+
 ### Added
 
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
