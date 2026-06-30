@@ -535,21 +535,29 @@ class SisalDatabase<
     table: TTable,
   ): InsertBuilder<TTable> {
     assertTable(table);
-    return new SisalInsertBuilder(this, table);
+    return new SisalInsertBuilder(this, { table, returning: false });
   }
 
   update<TTable extends TableDefinition>(
     table: TTable,
   ): UpdateBuilder<TTable> {
     assertTable(table);
-    return new SisalUpdateBuilder(this, table);
+    return new SisalUpdateBuilder(this, {
+      table,
+      allowAllRows: false,
+      returning: false,
+    });
   }
 
   delete<TTable extends TableDefinition>(
     table: TTable,
   ): DeleteBuilder<TTable> {
     assertTable(table);
-    return new SisalDeleteBuilder(this, table);
+    return new SisalDeleteBuilder(this, {
+      table,
+      allowAllRows: false,
+      returning: false,
+    });
   }
 
   async transaction<T>(
