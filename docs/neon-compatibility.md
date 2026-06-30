@@ -14,8 +14,8 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (33 tests)           |
-| Last run      | 2026-06-30 — **33 / 33 passed** (neon-proxy + live Neon) |
+| Suite         | `integration/neon_features_test.ts` (34 tests)           |
+| Last run      | 2026-06-30 — **34 / 34 passed** (neon-proxy + live Neon) |
 
 ## Feature coverage
 
@@ -23,7 +23,7 @@ Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
-every Postgres-family ✅ applies. The 33-test suite is verified through the
+every Postgres-family ✅ applies. The 34-test suite is verified through the
 Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
 additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
 secure WebSocket, no proxy) — all green.

@@ -1114,6 +1114,32 @@ pgTest("pg: rich indexes (DESC / partial / expression) apply", async (db) => {
   assert(/lower/i.test(all), all);
 });
 
+pgTest("pg: data-modifying CTE (WITH INSERT … RETURNING)", async (db) => {
+  const dmcte = defineTable("it_dmcte", {
+    id: columns.integer().primaryKey(),
+    msg: columns.text().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_dmcte cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [dmcte] }),
+    ).statements[0],
+  );
+
+  // One statement: an INSERT inside a WITH, exposing its RETURNING to the
+  // terminal SELECT — Postgres-only, single round trip.
+  const inserted = db.$with("inserted").as(
+    db.insert(dmcte).values({ id: 1, msg: "hello" }).returning(),
+  );
+  const rows = await db.with(inserted)
+    .select({ id: inserted.id, msg: inserted.msg }).from(inserted).execute();
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].msg, "hello");
+
+  // The CTE actually persisted the row.
+  assertEquals((await db.select().from(dmcte).execute()).length, 1);
+});
+
 pgTest("pg: atomic operation (transaction script)", async (db) => {
   const counters = defineTable("it_counters", {
     id: columns.integer().primaryKey(),
@@ -1191,7 +1217,7 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte cascade",
     ),
   );
   await db.execute(

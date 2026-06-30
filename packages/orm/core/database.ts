@@ -8,12 +8,13 @@ import type { Logger } from "../logger.ts";
 import {
   type Cte,
   CTE_DEFINITIONS,
+  cteBodySql,
   type CteBuilder,
   cteColumnKeys,
+  type CteOperand,
   type DeleteBuilder,
   type InsertBuilder,
   type SelectBuilder,
-  type SetOperand,
   SisalDeleteBuilder,
   SisalInsertBuilder,
   SisalSelectBuilder,
@@ -365,7 +366,7 @@ class SisalDatabase<
   $with(name: string): CteBuilder {
     return {
       as: <TResult>(
-        query: SetOperand<TResult>,
+        query: CteOperand<TResult>,
       ): Cte<{ readonly [K in keyof TResult]-?: SelectColumnRef }> => {
         const columns: Record<string, SelectColumnRef> = {};
         for (const key of cteColumnKeys(query)) {
@@ -375,7 +376,7 @@ class SisalDatabase<
             dataType: "unknown",
           } as unknown as SelectColumnRef;
         }
-        CTE_DEFINITIONS.set(columns, { name, query: query.toSql() });
+        CTE_DEFINITIONS.set(columns, { name, query: cteBodySql(query) });
         return columns as Cte<
           { readonly [K in keyof TResult]-?: SelectColumnRef }
         >;

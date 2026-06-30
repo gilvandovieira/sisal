@@ -81,6 +81,9 @@ const ARRAY_OPS = "No array type or operators (`@>`/`<@`/`&&`) in the SQLite " +
   "family." + PG_ONLY;
 const DB_CALL = "No stored-function concept in the SQLite family; " +
   "`defineFunction`/`db.call` target Postgres.";
+const DM_CTE =
+  "Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) " +
+  "are PostgreSQL-only; the SQLite family's CTEs are `SELECT`-only." + PG_ONLY;
 
 /** A row where every adapter is `tested` against the same `test` substring. */
 const allTested = (feature: string, test: string): FeatureRow => ({
@@ -193,6 +196,15 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("typed function caller"),
       sqlite: no(DB_CALL),
       libsql: no(DB_CALL),
+    },
+  },
+  {
+    feature: "Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)",
+    cells: {
+      pg: ok("data-modifying CTE"),
+      neon: ok("data-modifying CTE"),
+      sqlite: no(DM_CTE),
+      libsql: no(DM_CTE),
     },
   },
 ];

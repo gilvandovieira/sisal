@@ -46,6 +46,7 @@ genuine dialect limit · — not applicable.
 | Row locking (`.for(...)`)                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Array operators (`@>` / `<@` / `&&`)                            |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Typed function caller (`db.call`)                               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -82,6 +83,7 @@ function caller (`db.call`), which has no SQLite-family API surface at all:
 - **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Typed function caller (`db.call`)** — No stored-function concept in the SQLite family; `defineFunction`/`db.call` target Postgres.
+- **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; the SQLite family's CTEs are `SELECT`-only. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 
 ## Reproduce
 

@@ -13,18 +13,18 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (33 tests)                |
+| Suite           | `integration/pg_features_test.ts` (34 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-30 — **33 / 33 passed** (pg18)                      |
+| Last run        | 2026-06-30 — **34 / 34 passed** (pg18)                      |
 
 ## Feature coverage
 
 Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
-`deno task docs:matrix:check`. All 31 `pg:` tests pass **identically on
-pg16/17/18** (`scripts/pg-matrix.sh`). Below are the PostgreSQL-specific
-column-type coverage and driver-level behavior notes.
+`deno task docs:matrix:check`. All 34 `pg:` tests pass on **pg18**;
+`scripts/pg-matrix.sh` runs the suite across pg16/17/18. Below are the
+PostgreSQL-specific column-type coverage and driver-level behavior notes.
 
 ## Column types proven by the DDL test
 

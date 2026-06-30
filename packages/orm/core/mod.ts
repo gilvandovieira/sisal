@@ -130,6 +130,7 @@ export type {
   CompoundSelectBuilder,
   Cte,
   CteBuilder,
+  CteOperand,
   DeleteBuilder,
   ForLockOptions,
   InsertBuilder,

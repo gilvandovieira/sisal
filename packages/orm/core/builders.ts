@@ -297,11 +297,26 @@ export interface ForLockOptions {
   readonly noWait?: boolean;
 }
 
+/**
+ * A query usable as a CTE body: a `SELECT`/compound, or — **PostgreSQL-only** —
+ * a data-modifying `INSERT`/`UPDATE`/`DELETE` with `.returning()`. A
+ * data-modifying body lets a `WITH` chain perform a mutation and expose its
+ * `RETURNING` columns to the terminal `SELECT`.
+ */
+export type CteOperand<TResult> =
+  | SetOperand<TResult>
+  | InsertBuilder<TableDefinition, TResult>
+  | UpdateBuilder<TableDefinition, TResult>
+  | DeleteBuilder<TableDefinition, TResult>;
+
 /** Intermediate returned by {@link Database.$with}; complete it with `.as`. */
 export interface CteBuilder {
-  /** Binds the CTE to a query, inferring its columns from the query's projection. */
+  /**
+   * Binds the CTE to a query, inferring its columns from the query's projection
+   * — a `SELECT`, or an `INSERT`/`UPDATE`/`DELETE … RETURNING` (PostgreSQL-only).
+   */
   as<TResult>(
-    query: SetOperand<TResult>,
+    query: CteOperand<TResult>,
   ): Cte<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
 }
 
@@ -537,14 +552,64 @@ function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
   ], emptySql());
 }
 
-export function cteColumnKeys(query: SetOperand<unknown>): readonly string[] {
+/**
+ * Column keys a data-modifying CTE body (`INSERT`/`UPDATE`/`DELETE`) exposes via
+ * `RETURNING`. A body without `.returning()` exposes no columns and cannot seed
+ * a referenceable CTE, so this throws.
+ */
+function mutationCteColumnKeys(
+  returning: SelectProjection | boolean,
+  table: TableDefinition,
+  operation: string,
+): readonly string[] {
+  if (returning === false) {
+    throw new OrmError(
+      `a data-modifying CTE body (${operation}) requires .returning()`,
+      { code: "ORM_INVALID_QUERY" },
+    );
+  }
+  return returning === true
+    ? Object.keys(table.columns)
+    : Object.keys(returning);
+}
+
+/** The projected column keys a query exposes when used as a CTE body. */
+export function cteColumnKeys(query: CteOperand<unknown>): readonly string[] {
   if (query instanceof SisalSelectBuilder) {
     return query.projectionKeys() ?? [];
   }
   if (query instanceof SisalCompoundSelectBuilder) {
     return query.projectionKeys() ?? [];
   }
+  if (
+    query instanceof SisalInsertBuilder ||
+    query instanceof SisalUpdateBuilder ||
+    query instanceof SisalDeleteBuilder
+  ) {
+    return query.returningColumnKeys();
+  }
   return [];
+}
+
+/**
+ * The CTE body SQL for a query. Data-modifying bodies (an `INSERT`/`UPDATE`/
+ * `DELETE` inside a `WITH`) are **PostgreSQL-only**, so they carry a dialect
+ * guard that throws a typed `OrmError` if the chain is rendered for a
+ * SQLite-family dialect.
+ */
+export function cteBodySql(query: CteOperand<unknown>): Sql {
+  if (
+    query instanceof SisalInsertBuilder ||
+    query instanceof SisalUpdateBuilder ||
+    query instanceof SisalDeleteBuilder
+  ) {
+    return sql`${
+      dialectGuard("a data-modifying CTE (INSERT/UPDATE/DELETE in WITH)", [
+        "sqlite",
+      ])
+    }${query.toSql()}`;
+  }
+  return query.toSql();
 }
 
 export class SisalSelectBuilder<TTable, TResult>
@@ -1605,6 +1670,10 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
     ) as unknown as InsertBuilder<TTable, InferSelect<TTable>>;
   }
 
+  returningColumnKeys(): readonly string[] {
+    return mutationCteColumnKeys(this.#returning, this.#table, "insert");
+  }
+
   toSql(): Sql {
     if (this.#rows === undefined || this.#rows.length === 0) {
       throw new OrmError("Insert query requires values", {
@@ -1753,6 +1822,10 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
     ) as unknown as UpdateBuilder<TTable, InferSelect<TTable>>;
   }
 
+  returningColumnKeys(): readonly string[] {
+    return mutationCteColumnKeys(this.#returning, this.#table, "update");
+  }
+
   toSql(): Sql {
     if (this.#values === undefined) {
       throw new OrmError("Update query requires set values", {
@@ -1872,6 +1945,10 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
       this.#allowAllRows,
       projection ?? true,
     ) as unknown as DeleteBuilder<TTable, InferSelect<TTable>>;
+  }
+
+  returningColumnKeys(): readonly string[] {
+    return mutationCteColumnKeys(this.#returning, this.#table, "delete");
   }
 
   toSql(): Sql {

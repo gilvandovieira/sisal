@@ -169,6 +169,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `CreateSchemaSnapshotOptions` (interface): Options applied when building a schema snapshot from ORM tables.
 - `Cte` (typeAlias): A named common table expression. Its keys are the projected columns of the inner query, each usable as a column reference in select, where, etc. Create one with {@link Database.$with} and reference it via {@link...
 - `CteBuilder` (interface): Intermediate returned by {@link Database.$with}; complete it with .as.
+- `CteOperand` (typeAlias): A query usable as a CTE body: a SELECT/compound, or — **PostgreSQL-only** — a data-modifying INSERT/UPDATE/DELETE with .returning(). A data-modifying body lets a WITH chain perform a mutation and expose its RETURNING...
 - `CustomColumnTypeOptions` (interface): Trusted custom column type metadata for {@link columns.customType}.
 - `Database` (interface): Database facade used by query builders and manual SQL execution.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
@@ -375,6 +376,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `CreateSchemaSnapshotOptions` (interface): Options applied when building a schema snapshot from ORM tables.
 - `Cte` (typeAlias): A named common table expression. Its keys are the projected columns of the inner query, each usable as a column reference in select, where, etc. Create one with {@link Database.$with} and reference it via {@link...
 - `CteBuilder` (interface): Intermediate returned by {@link Database.$with}; complete it with .as.
+- `CteOperand` (typeAlias): A query usable as a CTE body: a SELECT/compound, or — **PostgreSQL-only** — a data-modifying INSERT/UPDATE/DELETE with .returning(). A data-modifying body lets a WITH chain perform a mutation and expose its RETURNING...
 - `CustomColumnTypeOptions` (interface): Trusted custom column type metadata for {@link columns.customType}.
 - `Database` (interface): Database facade used by query builders and manual SQL execution.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
@@ -1581,6 +1583,20 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added **data-modifying CTEs** (v0.5.0 roadmap item 12, core). A CTE body may
+  now be an `INSERT`/`UPDATE`/`DELETE … RETURNING` builder, not just a `SELECT`
+  — `db.$with("x").as(db.insert(t).values(...).returning())` — and the
+  `db.with(...)` chain terminates in a `SELECT` that reads the `RETURNING`
+  columns, so a mutation and its result are one statement. **PostgreSQL-only:**
+  the SQLite family's CTEs are `SELECT`-only, so rendering a data-modifying CTE
+  for a SQLite-family dialect throws a typed `OrmError` (via the item-4 dialect
+  guard). New public `CteOperand` type; `.as()` accepts the mutation builders.
+  Render tests pin the SQL + both guards; executed on PostgreSQL 18 and Neon,
+  and a unified-matrix row added (pg/neon ✅, sqlite/libsql ❌). Scope: the
+  single-body + `SELECT`-terminal shape is in; chained data-modifying CTEs (one
+  referencing another's `RETURNING`), a mutating terminal
+  (`with(...).update(...).returning()`), and the `neon-rising-feed-ctes` example
+  refactor remain follow-ups, so item 12 stays in progress.
 - Added `defineAtomicOperation` — a portable atomic **transaction script**
   (v0.5.0 roadmap item 8). Author dependent read-modify-write steps once;
   `op.run(db, input)` executes them as a single transaction on every adapter
@@ -3742,18 +3758,18 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (33 tests)                |
+| Suite           | `integration/pg_features_test.ts` (34 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-30 — **33 / 33 passed** (pg18)                      |
+| Last run        | 2026-06-30 — **34 / 34 passed** (pg18)                      |
 
 ## Feature coverage
 
 Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
-`deno task docs:matrix:check`. All 31 `pg:` tests pass **identically on
-pg16/17/18** (`scripts/pg-matrix.sh`). Below are the PostgreSQL-specific
-column-type coverage and driver-level behavior notes.
+`deno task docs:matrix:check`. All 34 `pg:` tests pass on **pg18**;
+`scripts/pg-matrix.sh` runs the suite across pg16/17/18. Below are the
+PostgreSQL-specific column-type coverage and driver-level behavior notes.
 
 ## Column types proven by the DDL test
 
@@ -3844,8 +3860,8 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (33 tests)           |
-| Last run      | 2026-06-30 — **33 / 33 passed** (neon-proxy + live Neon) |
+| Suite         | `integration/neon_features_test.ts` (34 tests)           |
+| Last run      | 2026-06-30 — **34 / 34 passed** (neon-proxy + live Neon) |
 
 ## Feature coverage
 
@@ -3853,7 +3869,7 @@ Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
-every Postgres-family ✅ applies. The 33-test suite is verified through the
+every Postgres-family ✅ applies. The 34-test suite is verified through the
 Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
 additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
 secure WebSocket, no proxy) — all green.
@@ -5003,6 +5019,7 @@ genuine dialect limit · — not applicable.
 | Row locking (`.for(...)`)                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Array operators (`@>` / `<@` / `&&`)                            |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Typed function caller (`db.call`)                               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -5039,6 +5056,7 @@ function caller (`db.call`), which has no SQLite-family API surface at all:
 - **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Typed function caller (`db.call`)** — No stored-function concept in the SQLite family; `defineFunction`/`db.call` target Postgres.
+- **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; the SQLite family's CTEs are `SELECT`-only. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 
 ## Reproduce
 
@@ -6389,7 +6407,7 @@ limit:
 | 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🔴     |
 | 10 | `.optional()` should not widen the SELECT row type                     | P3       | S            | 🟢     |
 | 11 | `@sisal/pg` float8 → `number` (only adapter returning string)          | P2       | M            | 🟢     |
-| 12 | Data-modifying CTE builder (`WITH … INSERT/UPDATE/DELETE … RETURNING`) | P2       | L            | 🔴     |
+| 12 | Data-modifying CTE builder (`WITH … INSERT/UPDATE/DELETE … RETURNING`) | P2       | L            | 🟡     |
 | 13 | Typed raw-query result mapping (`db.query` row decoding)               | P3       | M            | 🔴     |
 
 Items 8–13 were surfaced by the rising-feed example family (June 2026) — a
@@ -6883,6 +6901,19 @@ adapter's render path.
 - The `neon-rising-feed-ctes` recorder + recompute can drop to the builder (or
   the example documents precisely which sub-feature still needs raw SQL).
 - Render tests pin the generated `WITH` SQL and parameter order.
+
+**Status (🟡 in progress).** The core landed: a CTE body can be an
+`INSERT`/`UPDATE`/`DELETE … RETURNING` builder
+(`db.$with("x").as(db.insert(t).values(...).returning())`, new `CteOperand`
+type) and the `with(...)` chain terminates in a `SELECT` that reads its
+`RETURNING`. **PostgreSQL-only** — the SQLite family rejects data-modifying
+CTEs, so rendering one for a SQLite-family dialect throws a typed `OrmError`
+(item-4 guard). Render tests pin the SQL + the guards; executed on PostgreSQL 18
+and Neon, with a unified-matrix row (pg/neon ✅, sqlite/libsql ❌).
+**Deferred:** chained data-modifying CTEs (one referencing another's
+`RETURNING`, i.e. `INSERT … SELECT`), a mutating terminal
+(`with(...).update(...).returning()`), and dropping the `neon-rising-feed-ctes`
+recorder/recompute to the builder.
 
 ---
 

@@ -11,6 +11,20 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added **data-modifying CTEs** (v0.5.0 roadmap item 12, core). A CTE body may
+  now be an `INSERT`/`UPDATE`/`DELETE … RETURNING` builder, not just a `SELECT`
+  — `db.$with("x").as(db.insert(t).values(...).returning())` — and the
+  `db.with(...)` chain terminates in a `SELECT` that reads the `RETURNING`
+  columns, so a mutation and its result are one statement. **PostgreSQL-only:**
+  the SQLite family's CTEs are `SELECT`-only, so rendering a data-modifying CTE
+  for a SQLite-family dialect throws a typed `OrmError` (via the item-4 dialect
+  guard). New public `CteOperand` type; `.as()` accepts the mutation builders.
+  Render tests pin the SQL + both guards; executed on PostgreSQL 18 and Neon,
+  and a unified-matrix row added (pg/neon ✅, sqlite/libsql ❌). Scope: the
+  single-body + `SELECT`-terminal shape is in; chained data-modifying CTEs (one
+  referencing another's `RETURNING`), a mutating terminal
+  (`with(...).update(...).returning()`), and the `neon-rising-feed-ctes` example
+  refactor remain follow-ups, so item 12 stays in progress.
 - Added `defineAtomicOperation` — a portable atomic **transaction script**
   (v0.5.0 roadmap item 8). Author dependent read-modify-write steps once;
   `op.run(db, input)` executes them as a single transaction on every adapter
