@@ -57,10 +57,16 @@ Sisal-specific history after that baseline through `1f05448`.
   integration tests in all four suites (now 38/38/37/37) — the latter runs the
   actual rising-score moving window (filter + dateSub + now) and `dateBin`
   bucketing on PostgreSQL 18, Neon, SQLite, and libSQL. Three unified-matrix
-  rows added. Scope: the builder-native window query lands here; the rising-feed
-  example refactors that would drop their raw-SQL / TS-only window math are
-  deliberately left as-is (the `libsql-rising-feed` example teaches the TS
-  approach by design), so item 9 stays in progress.
+  rows added. The `neon-rising-feed-ctes` example gains a builder-native
+  `selectRisingScore` (in `src/queries.ts`) that computes the moving-window
+  score with `filter` + `dateSub` — verified against real Neon to equal the
+  raw-SQL recompute CTE and the TypeScript model — so its item-9 "no
+  `FILTER`/interval math" pressure point is resolved. Scope: the builder-native
+  window query lands here; the full rising-feed example _rewrites_ that would
+  drop their raw-SQL / TS-only window math are deliberately left as-is (the
+  `libsql-rising-feed` example teaches the no-stored-proc TS approach by design,
+  and the CTE example's atomic write still needs a data-modifying CTE), so item
+  9 stays in progress.
 - Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
   A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
   dialect-gated DDL fragments — functions, triggers, views, extensions, or any

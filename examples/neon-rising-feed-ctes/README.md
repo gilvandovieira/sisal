@@ -226,11 +226,15 @@ Honest gaps this example surfaced. Each is a candidate for the
    statement through the builder. So the entire activity recorder and both
    recompute paths are raw `sql` strings. **This is the headline gap.**
    (Roadmap.)
-2. **No `FILTER` aggregates, interval math, or `date_trunc`/bucket helper.** The
+2. **`FILTER` aggregates + interval/date math — resolved (v0.5.0 item 9).** The
    moving-window sums
-   (`sum(...) FILTER (WHERE bucket_start >= now - interval '15
-   minutes')`)
-   and the inline bucket expression have no builder surface. (Roadmap item 9.)
+   (`sum(...) FILTER (WHERE bucket_start >= now - interval '15 minutes')`) are
+   now builder-native: `filter(sum(...), …)` with `dateSub(now, { minutes })`,
+   plus `dateBin` for arbitrary-width buckets. `selectRisingScore` in
+   `src/queries.ts` computes the same `score_windows` aggregate the recompute
+   CTE runs — read-only, since the atomic _write_ still needs the CTE (point 1).
+   So the aggregate left the raw-SQL escape hatch even though the mutation has
+   not.
 3. **No typed raw-query result mapping.**
    `db.query<T>(sql\`…\`)`trusts the
    caller's`<T>`generic and does no column-metadata-driven decoding. Each CTE's

@@ -42,6 +42,7 @@ import {
   type FeedPost,
   getRisingFeed,
   type RisingCursor,
+  selectRisingScore,
 } from "./src/queries.ts";
 
 function env(key: string): string | undefined {
@@ -266,6 +267,22 @@ Deno.test({
       // re-enter the window at a later p_now — see the decay post below, which
       // has ONLY an in-window bucket so it cleanly decays to 0.)
       assertAlmostEquals(atNow.rising_score, 18, 1e-9);
+
+      // The builder-native read (filter + dateSub, v0.5.0 item 9) computes the
+      // same windows as the raw-SQL CTE over the same data — the moving-window
+      // aggregate no longer needs the escape hatch.
+      const builderNative = await selectRisingScore(db, { postId, now: T0 });
+      assertAlmostEquals(builderNative.rising_score, atNow.rising_score, 1e-9);
+      assertAlmostEquals(
+        builderNative.last_15m_score,
+        atNow.last_15m_score,
+        1e-9,
+      );
+      assertAlmostEquals(
+        builderNative.previous_60m_score,
+        atNow.previous_60m_score,
+        1e-9,
+      );
 
       // ---- 10. window decay: a post with ONLY a recent bucket falls to 0 --
       const decayPost = await newPost(db, "decays");
