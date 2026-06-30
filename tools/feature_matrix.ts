@@ -140,6 +140,10 @@ export const FEATURE_MATRIX: FeatureRow[] = [
     "Atomic operation / transaction script (`defineAtomicOperation`)",
     "atomic operation",
   ),
+  allTested(
+    "Atomic op single-round-trip dispatch (CTE on PG / interactive on SQLite)",
+    "single-round-trip dispatch",
+  ),
   allTested("Rich indexes (DESC / partial / expression)", "rich indexes"),
   allTested("Migrator (apply / plan / idempotent)", "migrator applies"),
   allTested(

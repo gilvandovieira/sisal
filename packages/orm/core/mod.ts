@@ -188,6 +188,8 @@ export {
 } from "./database.ts";
 export type {
   AtomicOperation,
+  AtomicOperationBody,
+  AtomicOperationConfig,
   BatchStatement,
   ColumnMap,
   ColumnMapping,

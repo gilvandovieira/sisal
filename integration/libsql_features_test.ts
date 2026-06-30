@@ -969,6 +969,44 @@ libsqlTest(
   },
 );
 
+libsqlTest("libsql: atomic op single-round-trip dispatch", async (db) => {
+  await db.execute(raw("drop table if exists it_srt"));
+  const t = defineTable("it_srt", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generateLibsqlUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+  await db.insert(t).values({ id: 1, n: 0 }).execute();
+
+  const bump = defineAtomicOperation<{ id: number }, number>("bump_srt", {
+    body: async (tx, { id }) => {
+      const [row] = await tx.select({ n: t.columns.n }).from(t)
+        .where(eq(t.columns.id, id)).execute();
+      const next = Number(row.n) + 1;
+      await tx.update(t).set({ n: next }).where(eq(t.columns.id, id)).execute();
+      return next;
+    },
+    singleStatement: async (database, { id }) => {
+      const u = database.$with("u").as(
+        database.update(t).set({ n: sql`${t.columns.n} + 1` })
+          .where(eq(t.columns.id, id)).returning({ n: t.columns.n }),
+      );
+      const [row] = await database.with(u).select({ n: u.n }).from(u).execute();
+      return Number(row.n);
+    },
+  });
+
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+  const [final] = await db.select().from(t).where(eq(t.columns.id, 1))
+    .execute();
+  assertEquals(Number(final.n), 2);
+});
+
 libsqlTest("libsql: atomic operation (transaction script)", async (db) => {
   const counters = defineTable("it_counters", {
     id: columns.integer().primaryKey(),

@@ -144,6 +144,8 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
 - `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
 - `AtomicOperation` (interface): A portable atomic operation — a "transaction script". Author dependent read-modify-write steps once; {@link AtomicOperation.run} executes them as a single transaction on any adapter (@sisal/pg, @sisal/neon,...
+- `AtomicOperationBody` (typeAlias): The interactive form of an atomic operation — runs on every adapter.
+- `AtomicOperationConfig` (interface): An atomic operation with two render strategies behind one definition. body is the portable interactive transaction (required, runs everywhere). singleStatement is an optional **single-round-trip** path for the...
 - `avg` (function): avg(column) aggregate expression.
 - `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
@@ -184,7 +186,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `dateSub` (function): source - duration, the mirror of {@link dateAdd} — the building block for moving-window predicates, e.g. gte(col, dateSub(now(), { minutes: 15 })).
 - `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
 - `DateTruncField` (typeAlias): Calendar field a {@link dateTrunc} truncates a timestamp down to.
-- `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
+- `defineAtomicOperation` (function): Defines an {@link AtomicOperation}. Pass a transaction-scoped body — which may run dependent steps (a read that drives a later write) — or an {@link AtomicOperationConfig} with both a portable body and an optional...
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineSchemaObject` (function): Defines a raw DDL {@link SisalSchemaObjectSnapshot} — a stored function, trigger, extension, or any verbatim CREATE … — to attach to a snapshot via createSchemaSnapshot({ tables, schemaObjects }).
 - `defineSchemaSnapshot` (function): Normalizes and validates a schema snapshot.
@@ -367,6 +369,8 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
 - `AtomicOperation` (interface): A portable atomic operation — a "transaction script". Author dependent read-modify-write steps once; {@link AtomicOperation.run} executes them as a single transaction on any adapter (@sisal/pg, @sisal/neon,...
+- `AtomicOperationBody` (typeAlias): The interactive form of an atomic operation — runs on every adapter.
+- `AtomicOperationConfig` (interface): An atomic operation with two render strategies behind one definition. body is the portable interactive transaction (required, runs everywhere). singleStatement is an optional **single-round-trip** path for the...
 - `avg` (function): avg(column) aggregate expression.
 - `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
@@ -407,7 +411,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `dateSub` (function): source - duration, the mirror of {@link dateAdd} — the building block for moving-window predicates, e.g. gte(col, dateSub(now(), { minutes: 15 })).
 - `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
 - `DateTruncField` (typeAlias): Calendar field a {@link dateTrunc} truncates a timestamp down to.
-- `defineAtomicOperation` (function): Defines an {@link AtomicOperation} from a transaction-scoped body. The body receives a transaction-scoped {@link Database} plus the typed input and may run dependent steps (a read that drives a later write). The same...
+- `defineAtomicOperation` (function): Defines an {@link AtomicOperation}. Pass a transaction-scoped body — which may run dependent steps (a read that drives a later write) — or an {@link AtomicOperationConfig} with both a portable body and an optional...
 - `defineFunction` (function): Declares a typed database function: its positional argument column types and its return shape (a RETURNS TABLE (...) row map or a single scalar column).
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
@@ -1755,16 +1759,25 @@ Sisal-specific history after that baseline through `1f05448`.
   refactor remain follow-ups, so item 12 stays in progress.
 - Added `defineAtomicOperation` — a portable atomic **transaction script**
   (v0.5.0 roadmap item 8). Author dependent read-modify-write steps once;
-  `op.run(db, input)` executes them as a single transaction on every adapter
-  (`@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql`), committing
-  together and rolling back on error — replacing per-engine hand-written
-  transaction/function code with one definition shaped by the domain, not the
-  engine. Covered by `packages/orm/atomic_test.ts` (network-free) and an
-  `atomic operation` integration test in all four suites (now 33 each) plus a
-  unified-matrix row. Scope: this is the uniform interactive-transaction path;
-  the single-round-trip Postgres path (dispatch to a generated function / a
-  data-modifying CTE) is a future follow-up tied to roadmap items 7/12, so the
-  authored body is forward-compatible but item 8 stays in progress.
+  `op.run(db, input)` executes them on every adapter
+  (`@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql`), replacing
+  per-engine hand-written transaction/function code with one definition shaped
+  by the domain, not the engine. Called with a plain body it runs as a single
+  interactive transaction everywhere (committing together, rolling back on
+  error). Called with the config form `{ body, singleStatement }` it
+  **dispatches on dialect**: the PostgreSQL family runs `singleStatement` as one
+  statement — no `BEGIN`/`COMMIT` round trips, intended for a data-modifying
+  `WITH` (item 12) such as `with u as (update … returning n) select n from u` —
+  so it is one round trip on Neon HTTP, while the SQLite family runs the
+  interactive `body` in a transaction. Both forms return the identical
+  read-modify-write result from one call site. Covered by
+  `packages/orm/atomic_test.ts` (network-free wrapping + dialect dispatch) and
+  `atomic operation` + `atomic op single-round-trip
+  dispatch` integration
+  tests in all four suites (now 40/40 on PostgreSQL 18 and Neon) plus a
+  unified-matrix row. The remaining follow-up is the rising-feed example
+  unification (Phase 5) and an optional generated-`CREATE FUNCTION` backing
+  (item 7), so item 8 stays in progress.
 - Added typed render-time dialect guards for the PostgreSQL-only query builders
   (v0.5.0 roadmap item 4): rendering `distinctOn`, `.for("update"/"share")` row
   locking, or the array operators (`@>`/`<@`/`&&`) for a SQLite-family dialect
@@ -5152,42 +5165,43 @@ fails if a claimed test is missing, so this table cannot drift from the suites.
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
 
-| Feature                                                         | Postgres | Neon | SQLite  | libSQL         |
-| :-------------------------------------------------------------- | :------: | :--: | :-----: | :------------: |
-| Connection + raw parameterized SQL                              |    ✅     |  ✅   |    ✅    |       ✅        |
-| Generated DDL (all column types)                                |    ✅     |  ✅   |    ✅    |       ✅        |
-| Insert / update / delete / returning                            |    ✅     |  ✅   |    ✅    |       ✅        |
-| Filter / ordering / pagination                                  |    ✅     |  ✅   |    ✅    |       ✅        |
-| Joins (inner / left / right / full)                             |    ✅     |  ✅   |    ✅    |       ✅        |
-| Aggregates / group / having                                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Conditional aggregate (`filter`)                                |    ✅     |  ✅   |    ✅    |       ✅        |
-| Portable `dateTrunc` (time bucketing)                           |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)        |    ✅     |  ✅   |    ✅    |       ✅        |
-| Subqueries / exists / scalar                                    |    ✅     |  ✅   |    ✅    |       ✅        |
-| Upsert (`onConflict…`)                                          |    ✅     |  ✅   |    ✅    |       ✅        |
-| `sql` in `SET` / `VALUES` / `onConflict`                        |    ✅     |  ✅   |    ✅    |       ✅        |
-| Column naming (snake_case / `.named()` / preserve)              |    ✅     |  ✅   |    ✅    |       ✅        |
-| Keyset pagination (expanded + row-value)                        |    ✅     |  ✅   |    ✅    |       ✅        |
-| Prepared statements                                             |    ✅     |  ✅   |    ✅    |       ✅        |
-| Transactions (commit + rollback)                                |    ✅     |  ✅   |    ✅    |       ✅        |
-| `db.batch` (non-interactive, atomic)                            |    ✅     |  ✅   |    ✅    |       ✅        |
-| Atomic operation / transaction script (`defineAtomicOperation`) |    ✅     |  ✅   |    ✅    |       ✅        |
-| Rich indexes (DESC / partial / expression)                      |    ✅     |  ✅   |    ✅    |       ✅        |
-| Migrator (apply / plan / idempotent)                            |    ✅     |  ✅   |    ✅    |       ✅        |
-| Stored schema objects (functions / triggers / views)            |    ✅     |  ✅   |    ✅    |       ✅        |
-| Typed raw-query mapping (`db.query(...).as(table)`)             |    ✅     |  ✅   |    ✅    |       ✅        |
-| Temporal date/time modes                                        |    ✅     |  ✅   |    ✅    |       ✅        |
-| `ilike` / `notIlike`                                            |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
-| `json` / array round-trip                                       |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| `boolean` round-trip                                            |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
-| `bytea` / BLOB round-trip                                       |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
-| Float (`float4`/`float8`) round-trip → `number`                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| `distinctOn`                                                    |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Row locking (`.for(...)`)                                       |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Array operators (`@>` / `<@` / `&&`)                            |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Typed function caller (`db.call`)                               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Feature                                                                  | Postgres | Neon | SQLite  | libSQL         |
+| :----------------------------------------------------------------------- | :------: | :--: | :-----: | :------------: |
+| Connection + raw parameterized SQL                                       |    ✅     |  ✅   |    ✅    |       ✅        |
+| Generated DDL (all column types)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
+| Insert / update / delete / returning                                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Filter / ordering / pagination                                           |    ✅     |  ✅   |    ✅    |       ✅        |
+| Joins (inner / left / right / full)                                      |    ✅     |  ✅   |    ✅    |       ✅        |
+| Aggregates / group / having                                              |    ✅     |  ✅   |    ✅    |       ✅        |
+| Conditional aggregate (`filter`)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
+| Portable `dateTrunc` (time bucketing)                                    |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)                 |    ✅     |  ✅   |    ✅    |       ✅        |
+| Subqueries / exists / scalar                                             |    ✅     |  ✅   |    ✅    |       ✅        |
+| Upsert (`onConflict…`)                                                   |    ✅     |  ✅   |    ✅    |       ✅        |
+| `sql` in `SET` / `VALUES` / `onConflict`                                 |    ✅     |  ✅   |    ✅    |       ✅        |
+| Column naming (snake_case / `.named()` / preserve)                       |    ✅     |  ✅   |    ✅    |       ✅        |
+| Keyset pagination (expanded + row-value)                                 |    ✅     |  ✅   |    ✅    |       ✅        |
+| Prepared statements                                                      |    ✅     |  ✅   |    ✅    |       ✅        |
+| Transactions (commit + rollback)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
+| `db.batch` (non-interactive, atomic)                                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Atomic operation / transaction script (`defineAtomicOperation`)          |    ✅     |  ✅   |    ✅    |       ✅        |
+| Atomic op single-round-trip dispatch (CTE on PG / interactive on SQLite) |    ✅     |  ✅   |    ✅    |       ✅        |
+| Rich indexes (DESC / partial / expression)                               |    ✅     |  ✅   |    ✅    |       ✅        |
+| Migrator (apply / plan / idempotent)                                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Stored schema objects (functions / triggers / views)                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Typed raw-query mapping (`db.query(...).as(table)`)                      |    ✅     |  ✅   |    ✅    |       ✅        |
+| Temporal date/time modes                                                 |    ✅     |  ✅   |    ✅    |       ✅        |
+| `ilike` / `notIlike`                                                     |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
+| `json` / array round-trip                                                |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
+| `boolean` round-trip                                                     |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
+| `bytea` / BLOB round-trip                                                |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
+| Float (`float4`/`float8`) round-trip → `number`                          |    ✅     |  ✅   |    ✅    |       ✅        |
+| `distinctOn`                                                             |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Row locking (`.for(...)`)                                                |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Array operators (`@>` / `<@` / `&&`)                                     |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Typed function caller (`db.call`)                                        |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -6928,15 +6942,24 @@ item 7's DDL generation. **Acceptance:** the rising-feed recorder reads
 identically in both examples; it is one round trip on Neon HTTP and one
 interactive transaction on libSQL; covered on every adapter.
 
-**Status (🟡 in progress).** The uniform path landed: `defineAtomicOperation`
-(`@sisal/orm`) authors dependent read-modify-write steps once and runs them as
-one **interactive transaction on every adapter** — covered by
-`packages/orm/atomic_test.ts` (network-free) + an `atomic operation` integration
-test in all four suites and a unified-matrix row. **Deferred:** the
-**single-round-trip Postgres path** (dispatch to a generated function or a
-data-modifying CTE — items 7/12) and the rising-feed example unification (the
-examples still showcase their engine-optimal patterns until the function path
-exists). The authored body is forward-compatible with that dispatch.
+**Status (🟡 in progress).** Both paths landed. `defineAtomicOperation`
+(`@sisal/orm`) authors dependent read-modify-write steps once. Called with a
+plain body it runs as one **interactive transaction on every adapter**; called
+with a config form `{ body, singleStatement }` it **dispatches on dialect** —
+PostgreSQL-family adapters run the `singleStatement` form as one statement (no
+`BEGIN`/`COMMIT` round trips — a data-modifying CTE built with item 12's
+mutating `WITH`, e.g. `with u as (update … returning n) select n from u`), while
+the SQLite family runs the interactive `body` in a transaction. So the
+serverless **single-round-trip guarantee** is met on Neon while libSQL keeps the
+interactive path, from one `op.run(db, input)` call site. Covered by
+`packages/orm/atomic_test.ts` (network-free wrapping + dialect dispatch) + an
+`atomic operation` and an `atomic op single-round-trip dispatch` integration
+test in all four suites (asserting both engines return the identical
+read-modify-write result), and a unified-matrix row. **Remaining (so item 8
+stays in progress):** the rising-feed example unification — the recorder still
+reads per-engine until the examples adopt this dispatch (Phase 5); the
+generated-`CREATE FUNCTION` backing (item 7) remains a future option beyond the
+CTE form.
 
 ---
 

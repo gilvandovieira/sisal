@@ -795,40 +795,84 @@ export interface AtomicOperation<TInput, TOutput> {
   run(db: Database, input: TInput): Promise<TOutput>;
 }
 
+/** The interactive form of an atomic operation — runs on every adapter. */
+export type AtomicOperationBody<TInput, TOutput> = (
+  tx: Database,
+  input: TInput,
+) => Promise<TOutput>;
+
 /**
- * Defines an {@link AtomicOperation} from a transaction-scoped body. The body
- * receives a transaction-scoped {@link Database} plus the typed input and may run
- * dependent steps (a read that drives a later write). The same operation runs
- * identically on every adapter, so application code is shaped by the domain, not
- * the engine.
- *
- * Currently every adapter runs the body as an **interactive transaction**. The
- * authored body is forward-compatible with a future single-round-trip path that
- * dispatches Postgres-family adapters to a generated database function (v0.5.0
- * roadmap items 7/12).
+ * An atomic operation with two render strategies behind one definition. `body`
+ * is the portable interactive transaction (required, runs everywhere).
+ * `singleStatement` is an optional **single-round-trip** path for the
+ * Postgres family: build the same logic as one data-modifying CTE (item 12) and
+ * execute it with one `db.execute` — no `BEGIN`/`COMMIT`, ideal for Neon HTTP /
+ * Deno Deploy. `run` picks the single statement on `"postgres"` when present and
+ * the interactive `body` everywhere else, so callers invoke `op.run(db, input)`
+ * the same way on every engine.
+ */
+export interface AtomicOperationConfig<TInput, TOutput> {
+  readonly body: AtomicOperationBody<TInput, TOutput>;
+  readonly singleStatement?: (
+    db: Database,
+    input: TInput,
+  ) => Promise<TOutput>;
+}
+
+/**
+ * Defines an {@link AtomicOperation}. Pass a transaction-scoped body — which may
+ * run dependent steps (a read that drives a later write) — or an
+ * {@link AtomicOperationConfig} with both a portable `body` and an optional
+ * Postgres-family `singleStatement` path. The same operation runs identically
+ * from the caller's side on every adapter, so application code is shaped by the
+ * domain, not the engine: `op.run(db, input)` is one round trip on Neon (when a
+ * `singleStatement` is given) and one interactive transaction on libSQL.
  *
  * @example
  * const recordVote = defineAtomicOperation<{ postId: number }, number>(
  *   "record_vote",
- *   async (tx, { postId }) => {
- *     const [post] = await tx.select().from(posts)
- *       .where(eq(posts.columns.id, postId)).execute();
- *     const next = Number(post.votes) + 1;
- *     await tx.update(posts).set({ votes: next })
- *       .where(eq(posts.columns.id, postId)).execute();
- *     return next;
+ *   {
+ *     // Portable: read-modify-write inside one interactive transaction.
+ *     body: async (tx, { postId }) => {
+ *       const [post] = await tx.select({ v: posts.columns.votes }).from(posts)
+ *         .where(eq(posts.columns.id, postId)).execute();
+ *       const next = Number(post.v) + 1;
+ *       await tx.update(posts).set({ votes: next })
+ *         .where(eq(posts.columns.id, postId)).execute();
+ *       return next;
+ *     },
+ *     // Postgres family: the same effect as one data-modifying CTE statement.
+ *     singleStatement: async (db, { postId }) => {
+ *       const bumped = db.$with("bumped").as(
+ *         db.update(posts).set({ votes: sql`${posts.columns.votes} + 1` })
+ *           .where(eq(posts.columns.id, postId))
+ *           .returning({ v: posts.columns.votes }),
+ *       );
+ *       const [row] = await db.with(bumped).select({ v: bumped.v })
+ *         .from(bumped).execute();
+ *       return Number(row.v);
+ *     },
  *   },
  * );
  * const votes = await recordVote.run(db, { postId: 1 });
  */
 export function defineAtomicOperation<TInput, TOutput>(
   name: string,
-  body: (tx: Database, input: TInput) => Promise<TOutput>,
+  bodyOrConfig:
+    | AtomicOperationBody<TInput, TOutput>
+    | AtomicOperationConfig<TInput, TOutput>,
 ): AtomicOperation<TInput, TOutput> {
+  const config: AtomicOperationConfig<TInput, TOutput> =
+    typeof bodyOrConfig === "function" ? { body: bodyOrConfig } : bodyOrConfig;
   return Object.freeze({
     name,
     run(db: Database, input: TInput): Promise<TOutput> {
-      return db.transaction((tx) => body(tx, input));
+      // A single data-modifying CTE is atomic on its own; the Postgres family
+      // runs it as one round trip. Every other engine runs the interactive form.
+      if (config.singleStatement !== undefined && db.dialect === "postgres") {
+        return config.singleStatement(db, input);
+      }
+      return db.transaction((tx) => config.body(tx, input));
     },
   });
 }

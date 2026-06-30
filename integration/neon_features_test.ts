@@ -1052,7 +1052,9 @@ neonTest(
 );
 
 neonTest("neon: mutation joins (UPDATE FROM + INSERT SELECT)", async (db) => {
-  await db.execute(raw("drop table if exists it_mj, it_mj_arch cascade"));
+  await db.execute(
+    raw("drop table if exists it_mj, it_mj_arch, it_srt cascade"),
+  );
   const mj = defineTable("it_mj", {
     id: columns.integer().primaryKey(),
     n: columns.integer().notNull(),
@@ -1112,6 +1114,45 @@ neonTest("neon: data-modifying CTE (WITH INSERT … RETURNING)", async (db) => {
   assertEquals(rows.length, 1);
   assertEquals(rows[0].msg, "hello");
   assertEquals((await db.select().from(dmcte).execute()).length, 1);
+});
+
+neonTest("neon: atomic op single-round-trip dispatch", async (db) => {
+  await db.execute(raw("drop table if exists it_srt cascade"));
+  const t = defineTable("it_srt", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+  await db.insert(t).values({ id: 1, n: 0 }).execute();
+
+  const bump = defineAtomicOperation<{ id: number }, number>("bump_srt", {
+    body: async (tx, { id }) => {
+      const [row] = await tx.select({ n: t.columns.n }).from(t)
+        .where(eq(t.columns.id, id)).execute();
+      const next = Number(row.n) + 1;
+      await tx.update(t).set({ n: next }).where(eq(t.columns.id, id)).execute();
+      return next;
+    },
+    singleStatement: async (database, { id }) => {
+      const u = database.$with("u").as(
+        database.update(t).set({ n: sql`${t.columns.n} + 1` })
+          .where(eq(t.columns.id, id)).returning({ n: t.columns.n }),
+      );
+      const [row] = await database.with(u).select({ n: u.n }).from(u).execute();
+      return Number(row.n);
+    },
+  });
+
+  // On Neon this is one round trip (the CTE); the result is identical.
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+  const [final] = await db.select().from(t).where(eq(t.columns.id, 1))
+    .execute();
+  assertEquals(Number(final.n), 2);
 });
 
 neonTest("neon: atomic operation (transaction script)", async (db) => {
