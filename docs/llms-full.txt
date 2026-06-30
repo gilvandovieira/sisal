@@ -1619,6 +1619,26 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **Example consolidation: the `neon-rising-feed-ctes` recompute is now
+  builder-native** (v0.5.0 roadmap items 9 + 12 + 13, examples). The example's
+  per-post and bulk rising-score recompute (`src/rising.ts`) moved off a raw
+  `sql` string onto the builder —
+  `db.with(scoreWindows, computedScore).update(posts).from(computedScore)
+  .returning(...)`
+  — with the moving-window aggregates as `filter(sum(...), …)` over
+  `dateSub(now, …)` bounds. It still renders one `UPDATE … FROM` over chained
+  CTEs, so the example keeps teaching the CTE shape; only the authoring changed.
+  The raw activity recorder (`src/activity.ts`) stays a raw CTE — its
+  `onConflictDoUpdate` recompute bridged by an `exists(...)` actor-flag is the
+  one shape the builder can't yet author — but now decodes its result with
+  `db.query(...).as(postActivityBuckets)`, and both `RecordedBucket`
+  (`InferSelect<typeof postActivityBuckets>`) and `RecomputedPost`
+  (`Pick<Post, …>`) derive from the table models instead of being hand-restated.
+  Verified end-to-end against **real Neon** to produce results identical to the
+  previous raw CTE and the TypeScript model. This closes the example follow-ups
+  for items 9, 12, and 13; the sibling `neon-rising-feed` (stored function) and
+  `libsql-rising-feed` (interactive TypeScript) keep their idiomatic per-engine
+  forms by design.
 - Added **mutation joins and the mutating `WITH` terminal** (v0.5.0 roadmap item
   12 core). `db.with(...)` can now terminate in `update`/`insert`/`delete`, not
   only `select`, prepending the CTEs to the mutation. A mutation can read
@@ -1637,8 +1657,8 @@ Sisal-specific history after that baseline through `1f05448`.
   by `packages/orm/mutation_cte_test.ts` (render + guard + mutual-exclusion) and
   a `mutation joins` integration test on PostgreSQL 18, Neon, SQLite, and libSQL
   (now 39/39/38/38); a unified-matrix row added (✅ on every adapter). Item 12's
-  builder gaps are closed; only dropping the `neon-rising-feed-ctes` recompute
-  to the builder remains, so item 12 stays in progress.
+  builder gaps are closed and the `neon-rising-feed-ctes` recompute now uses
+  them (see the example-consolidation entry above), so item 12 is complete.
 
 - Added **SQL-expression column defaults** (v0.5.0 roadmap item 7 follow-up,
   core). `column.default(...)` now accepts a `sql` fragment in addition to a
@@ -1675,10 +1695,10 @@ Sisal-specific history after that baseline through `1f05448`.
   `typed raw-query mapping` integration test in all four suites (now
   38/38/37/37) executing both `.as(table)` and `.as(map)` on PostgreSQL 18,
   Neon, SQLite, and libSQL; a unified-matrix row added (✅ on every adapter).
-  Scope: both input forms are in; only the `neon-rising-feed-ctes` example
-  refactor that would derive its hand-written `RecordedBucket` /
-  `RecomputedPost` shapes from the table models remains, so item 13 stays in
-  progress.
+  Both input forms are in, and the `neon-rising-feed-ctes` example now uses them
+  — its recorder decodes via `db.query(...).as(postActivityBuckets)` and both
+  `RecordedBucket` and `RecomputedPost` derive from the table models (see the
+  example-consolidation entry above) — completing item 13.
 - Added **conditional aggregates and portable date math** (v0.5.0 roadmap item
   9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)` clause
   to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
@@ -1709,12 +1729,12 @@ Sisal-specific history after that baseline through `1f05448`.
   `selectRisingScore` (in `src/queries.ts`) that computes the moving-window
   score with `filter` + `dateSub` — verified against real Neon to equal the
   raw-SQL recompute CTE and the TypeScript model — so its item-9 "no
-  `FILTER`/interval math" pressure point is resolved. Scope: the builder-native
-  window query lands here; the full rising-feed example _rewrites_ that would
-  drop their raw-SQL / TS-only window math are deliberately left as-is (the
-  `libsql-rising-feed` example teaches the no-stored-proc TS approach by design,
-  and the CTE example's atomic write still needs a data-modifying CTE), so item
-  9 stays in progress.
+  `FILTER`/interval math" pressure point is resolved. The
+  `neon-rising-feed-ctes` recompute _write_ also now uses these helpers (see the
+  example-consolidation entry above), so that example's window math left raw SQL
+  entirely; `libsql-rising-feed` (no-stored-proc TS) and `neon-rising-feed`
+  (stored function) keep their idiomatic per-engine forms by design. Item 9 is
+  complete.
 - Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
   A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
   dialect-gated DDL fragments — functions, triggers, views, extensions, or any
@@ -1752,11 +1772,11 @@ Sisal-specific history after that baseline through `1f05448`.
   for a SQLite-family dialect throws a typed `OrmError` (via the item-4 dialect
   guard). New public `CteOperand` type; `.as()` accepts the mutation builders.
   Render tests pin the SQL + both guards; executed on PostgreSQL 18 and Neon,
-  and a unified-matrix row added (pg/neon ✅, sqlite/libsql ❌). Scope: the
-  single-body + `SELECT`-terminal shape is in; chained data-modifying CTEs (one
-  referencing another's `RETURNING`), a mutating terminal
+  and a unified-matrix row added (pg/neon ✅, sqlite/libsql ❌). This was the
+  first slice; chained data-modifying CTEs, the mutating terminal
   (`with(...).update(...).returning()`), and the `neon-rising-feed-ctes` example
-  refactor remain follow-ups, so item 12 stays in progress.
+  refactor all landed subsequently (see the mutation-joins and
+  example-consolidation entries above), completing item 12.
 - Added `defineAtomicOperation` — a portable atomic **transaction script**
   (v0.5.0 roadmap item 8). Author dependent read-modify-write steps once;
   `op.run(db, input)` executes them on every adapter
@@ -1775,9 +1795,12 @@ Sisal-specific history after that baseline through `1f05448`.
   `atomic operation` + `atomic op single-round-trip
   dispatch` integration
   tests in all four suites (now 40/40 on PostgreSQL 18 and Neon) plus a
-  unified-matrix row. The remaining follow-up is the rising-feed example
-  unification (Phase 5) and an optional generated-`CREATE FUNCTION` backing
-  (item 7), so item 8 stays in progress.
+  unified-matrix row. The single-statement path is exercised end-to-end on real
+  Neon by the `neon-rising-feed-ctes` recompute (see the example-consolidation
+  entry above). Full recorder unification across the sibling examples was
+  deliberately not pursued — they keep their idiomatic per-engine forms — and an
+  optional generated-`CREATE FUNCTION` backing (item 7) remains a future option,
+  so item 8 is complete.
 - Added typed render-time dialect guards for the PostgreSQL-only query builders
   (v0.5.0 roadmap item 4): rendering `distinctOn`, `.for("update"/"share")` row
   locking, or the array operators (`@>`/`<@`/`&&`) for a SQLite-family dialect
@@ -6586,12 +6609,12 @@ limit:
 | 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🟢     |
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🟢     |
 | 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🟢     |
-| 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🟡     |
-| 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🟡     |
+| 8  | Portable atomic "transaction script" (procedure parity)                | P2       | L            | 🟢     |
+| 9  | `FILTER` aggregates + interval/date math + `dateTrunc`                 | P2       | M            | 🟢     |
 | 10 | `.optional()` should not widen the SELECT row type                     | P3       | S            | 🟢     |
 | 11 | `@sisal/pg` float8 → `number` (only adapter returning string)          | P2       | M            | 🟢     |
-| 12 | Data-modifying CTE builder (`WITH … INSERT/UPDATE/DELETE … RETURNING`) | P2       | L            | 🟡     |
-| 13 | Typed raw-query result mapping (`db.query` row decoding)               | P3       | M            | 🟡     |
+| 12 | Data-modifying CTE builder (`WITH … INSERT/UPDATE/DELETE … RETURNING`) | P2       | L            | 🟢     |
+| 13 | Typed raw-query result mapping (`db.query` row decoding)               | P3       | M            | 🟢     |
 
 Items 8–13 were surfaced by the rising-feed example family (June 2026) — a
 `/rising` moving-window feed built across engines and styles:
@@ -6942,22 +6965,27 @@ item 7's DDL generation. **Acceptance:** the rising-feed recorder reads
 identically in both examples; it is one round trip on Neon HTTP and one
 interactive transaction on libSQL; covered on every adapter.
 
-**Status (🟡 in progress).** Both paths landed. `defineAtomicOperation`
-(`@sisal/orm`) authors dependent read-modify-write steps once. Called with a
-plain body it runs as one **interactive transaction on every adapter**; called
-with a config form `{ body, singleStatement }` it **dispatches on dialect** —
-PostgreSQL-family adapters run the `singleStatement` form as one statement (no
-`BEGIN`/`COMMIT` round trips — a data-modifying CTE built with item 12's
-mutating `WITH`, e.g. `with u as (update … returning n) select n from u`), while
-the SQLite family runs the interactive `body` in a transaction. So the
-serverless **single-round-trip guarantee** is met on Neon while libSQL keeps the
+**Status (🟢 done).** Both paths landed. `defineAtomicOperation` (`@sisal/orm`)
+authors dependent read-modify-write steps once. Called with a plain body it runs
+as one **interactive transaction on every adapter**; called with a config form
+`{ body, singleStatement }` it **dispatches on dialect** — PostgreSQL-family
+adapters run the `singleStatement` form as one statement (no `BEGIN`/`COMMIT`
+round trips — a data-modifying CTE built with item 12's mutating `WITH`, e.g.
+`with u as (update … returning n) select n from u`), while the SQLite family
+runs the interactive `body` in a transaction. So the serverless
+**single-round-trip guarantee** is met on Neon while libSQL keeps the
 interactive path, from one `op.run(db, input)` call site. Covered by
 `packages/orm/atomic_test.ts` (network-free wrapping + dialect dispatch) + an
 `atomic operation` and an `atomic op single-round-trip dispatch` integration
 test in all four suites (asserting both engines return the identical
-read-modify-write result), and a unified-matrix row. **Remaining (so item 8
-stays in progress):** the rising-feed example unification — the recorder still
-reads per-engine until the examples adopt this dispatch (Phase 5); the
+read-modify-write result), and a unified-matrix row. The single-statement form
+is exercised end-to-end on **real Neon** by the `neon-rising-feed-ctes`
+recompute (item 12c), which sends its `UPDATE … FROM` over chained CTEs in one
+round trip. **By design, not a gap:** full recorder unification across the
+sibling examples was deliberately not pursued — `neon-rising-feed` (stored
+function) and `libsql-rising-feed` (interactive TS) keep their idiomatic
+per-engine forms; `defineAtomicOperation` is the portable primitive that makes a
+unified recorder _possible_ without flattening those lessons. The
 generated-`CREATE FUNCTION` backing (item 7) remains a future option beyond the
 CTE form.
 
@@ -6991,7 +7019,7 @@ dialect rendering. **Acceptance:** the rising-score window query is
 builder-native on both engines; render tests pin the per-dialect SQL; the
 examples drop their raw-SQL/TS-only window math.
 
-**Status (🟡 in progress).** All three parts (a/b/c) landed as builder helpers.
+**Status (🟢 done).** All three parts (a/b/c) landed as builder helpers.
 `filter(agg, condition)` appends a `FILTER (WHERE …)` clause — and because
 modern SQLite/libSQL support `FILTER` natively (the planned `CASE WHEN`
 degradation proved unnecessary), it renders identically on every adapter. The
@@ -7011,17 +7039,16 @@ variant/fallback matches). New `@sisal/orm` exports: `filter`, `dateTrunc`,
 four engines — the latter runs the **actual rising-score moving window**
 (`filter` + `dateSub` + `now`) and `dateBin` bucketing — so "the window query is
 builder-native on both engines" is met (three matrix rows added). The
-`neon-rising-feed-ctes` example gained an **additive** builder-native
-`selectRisingScore` (`src/queries.ts`) that computes its moving-window score
-with `filter` + `dateSub`, verified against real Neon to equal the raw-SQL
-recompute CTE and the TypeScript model — resolving that example's item-9
-pressure point. **Remaining (so item 9 stays in progress):** the full
-rising-feed example _rewrites_ that would drop their raw-SQL / TS-only window
-math are left as-is by design — `libsql-rising-feed` deliberately teaches the
-no-stored-proc TypeScript approach, `neon-rising-feed` the stored-function
-approach, and the CTE example's atomic _write_ still needs a data-modifying CTE;
-the new helpers make a builder-native aggregate possible without rewriting those
-lessons.
+`neon-rising-feed-ctes` example now uses the helpers in **both** directions: the
+read-only `selectRisingScore` (`src/queries.ts`) and the **recompute write**
+itself (`src/rising.ts`, with item 12's `update().from()`) compute the
+moving-window aggregate with `filter` + `dateSub` + `now`, verified against real
+Neon to equal the prior raw-SQL CTE and the TypeScript model — so the example's
+window math left the raw-SQL escape hatch entirely (write included). **By
+design, not a gap:** the sibling `libsql-rising-feed` (no-stored-proc
+TypeScript) and `neon-rising-feed` (stored function) keep their idiomatic
+per-engine teaching forms; the helpers make the builder-native aggregate
+available without flattening those distinct lessons.
 
 ---
 
@@ -7158,16 +7185,16 @@ adapter's render path.
   the example documents precisely which sub-feature still needs raw SQL).
 - Render tests pin the generated `WITH` SQL and parameter order.
 
-**Status (🟡 in progress).** The core landed: a CTE body can be an
+**Status (🟢 done).** A CTE body can be an
 `INSERT`/`UPDATE`/`DELETE … RETURNING` builder
 (`db.$with("x").as(db.insert(t).values(...).returning())`, new `CteOperand`
 type) and the `with(...)` chain terminates in a `SELECT` that reads its
 `RETURNING`. **PostgreSQL-only** — the SQLite family rejects data-modifying
 CTEs, so rendering one for a SQLite-family dialect throws a typed `OrmError`
 (item-4 guard). Render tests pin the SQL + the guards; executed on PostgreSQL 18
-and Neon, with a unified-matrix row (pg/neon ✅, sqlite/libsql ❌). The core
-**builder gaps are now closed** (the three mutation builders were first
-refactored to the `#state` + `#with(patch)` shape to make this safe):
+and Neon, with a unified-matrix row (pg/neon ✅, sqlite/libsql ❌). The
+**builder gaps are closed** (the three mutation builders were first refactored
+to the `#state` + `#with(patch)` shape to make this safe):
 
 1. **`UPDATE … FROM`** — `update(t).from(source)` (the rising-feed recompute's
    keystone). CTE columns referenced in `SET`/`WHERE` render as `"cte"."col"`.
@@ -7182,9 +7209,18 @@ refactored to the `#state` + `#with(patch)` shape to make this safe):
 Chained `SELECT` CTEs already worked. `UPDATE … FROM` / `INSERT … SELECT` run on
 **every adapter** (modern SQLite/libSQL included); covered by
 `packages/orm/mutation_cte_test.ts` and a `mutation joins` integration test on
-all four engines. **Remaining:** only **item 12c** — dropping the
-`neon-rising-feed-ctes` recorder/recompute to the builder (Phase 5) — so item 12
-stays in progress.
+all four engines. **Item 12c (the example proof) landed:** the
+[`neon-rising-feed-ctes`](../examples/neon-rising-feed-ctes/README.md) recompute
+(`recomputePostRisingScore` / `recomputeAllRisingScores`, `src/rising.ts`) is
+now authored builder-native —
+`db.with(scoreWindows, computedScore).update(posts).from(computedScore)
+.returning(...)`
+— and verified against **real Neon** to produce results identical to the prior
+raw CTE and the TypeScript model. The recorder (`src/activity.ts`) stays a raw
+CTE on purpose: its `onConflictDoUpdate` recompute of `activity_score` from
+post-update counters, bridged by an `exists(...)` actor-flag across chained
+data-modifying stages, is the one shape the builder still can't author — a
+documented, honest pressure point rather than a blocker.
 
 ---
 
@@ -7221,9 +7257,9 @@ mapper reusing the column descriptors `defineFunction`/select already carry).
 - The CTE example's hand-written `RecordedBucket` / `RecomputedPost` shapes can
   be derived from the table models instead of restated.
 
-**Status (🟡 in progress).** Both input forms landed. A raw `db.query(...)`
-returns a `MappableQueryResult` — still an awaitable `OrmQueryResult`, but with
-an `.as(...)` method that decodes the raw driver rows (physical→JS column naming
+**Status (🟢 done).** Both input forms landed. A raw `db.query(...)` returns a
+`MappableQueryResult` — still an awaitable `OrmQueryResult`, but with an
+`.as(...)` method that decodes the raw driver rows (physical→JS column naming
 
 - the same opt-in Temporal decoding the builder applies). Pass a `defineTable`
   model for typed `InferSelect<table>` rows, or a free-form `ColumnMap` for a
@@ -7234,9 +7270,12 @@ an `.as(...)` method that decodes the raw driver rows (physical→JS column nami
   four adapter facades widen their `query` return to match). Verified by
   `packages/orm/raw_mapping_test.ts` and a `typed raw-query mapping` integration
   test on all four engines exercising both `.as(table)` and `.as(map)`; a
-  unified-matrix row added. **Remaining (so item 13 stays in progress):** only
-  the `neon-rising-feed-ctes` example refactor that would derive its
-  `RecordedBucket` / `RecomputedPost` shapes from the table models.
+  unified-matrix row added. **The example proof landed:** in
+  [`neon-rising-feed-ctes`](../examples/neon-rising-feed-ctes/README.md) the raw
+  recorder now decodes its result with `db.query(...).as(postActivityBuckets)`,
+  and both `RecordedBucket` (`InferSelect<typeof postActivityBuckets>`) and
+  `RecomputedPost` (`Pick<Post, …>`) derive from the table models instead of
+  being hand-restated — verified against real Neon.
 
 ---
 
