@@ -131,7 +131,13 @@ export interface ColumnBuilder<
   named(name: string): ColumnBuilder<T, TOptional, THasDefault>;
   notNull(): ColumnBuilder<NonNullable<T>, TOptional, THasDefault>;
   nullable(): ColumnBuilder<T | null, TOptional, THasDefault>;
-  optional(): ColumnBuilder<T | undefined, true, THasDefault>;
+  /**
+   * Marks the column omittable on insert — an **insert-only** axis. It does not
+   * change the column's nullability or its `InferSelect` type (a nullable column
+   * still reads back as `T | null`, never `T | null | undefined`); on insert the
+   * key becomes optional.
+   */
+  optional(): ColumnBuilder<T, true, THasDefault>;
   default(value: T | (() => T)): ColumnBuilder<T, TOptional, true>;
   /** Adds the column to the primary key. Implies `.notNull()`. */
   primaryKey(): ColumnBuilder<NonNullable<T>, TOptional, THasDefault>;
@@ -442,9 +448,9 @@ class SisalColumnBuilder<
     );
   }
 
-  optional(): ColumnBuilder<T | undefined, true, THasDefault> {
+  optional(): ColumnBuilder<T, true, THasDefault> {
     return new SisalColumnBuilder(
-      this.definition as ColumnDefinition<T | undefined>,
+      this.definition,
       true,
       this.defaultInsert,
     );

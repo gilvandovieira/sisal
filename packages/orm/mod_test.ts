@@ -100,15 +100,17 @@ Deno.test("@sisal/orm - table columns and inference compile", () => {
   type User = InferSelect<typeof users>;
   type NewUser = InferInsert<typeof users>;
 
+  // `.optional()` is insert-only: a nullable optional column still reads back as
+  // `T | null` on select (never `undefined`) — roadmap item 10.
   const selected: User = {
     id: "u_123",
     name: "Lucas",
     email: "lucas@example.com",
-    age: undefined,
+    age: null,
     score: null,
     active: true,
-    profile: undefined,
-    birthday: undefined,
+    profile: null,
+    birthday: null,
     createdAt: new Date(),
     orgId: "org_123",
   };

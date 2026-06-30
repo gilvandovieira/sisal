@@ -177,6 +177,15 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Fixed `.optional()` to not widen the inferred **SELECT** row type (v0.5.0
+  roadmap item 10). `.optional()` is an insert-only axis, but it was adding
+  `undefined` to the column's value type, so a nullable `.optional()` column
+  inferred `T | null | undefined` on select instead of `T | null` — breaking
+  assignment to a hand-written `T | null` row interface. It now affects only
+  `InferInsert` (the key stays omittable, accepting `T | null` when present);
+  `InferSelect` is `T | null`. This is a type-only change (no runtime behavior
+  change). Pinned by a type test in
+  `packages/orm/drizzle_parity/columns_test.ts`.
 - Fixed `@sisal/pg` to decode `float4`/`float8` (`columns.real()` /
   `columns.doublePrecision()`) as `number` (v0.5.0 roadmap item 11). The bundled
   `jsr:@db/postgres` driver decodes those OIDs (700/701) to **strings**, so a

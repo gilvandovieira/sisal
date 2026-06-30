@@ -128,6 +128,40 @@ Deno.test("parity: new column types render in DDL via snapshot", () => {
   assertEquals(_insert.code, "ABCD");
 });
 
+Deno.test("parity: .optional() does not widen the InferSelect type", () => {
+  // Roadmap item 10: `.optional()` is an insert-only axis. A nullable column
+  // marked `.optional()` must still read back as `T | null` (never
+  // `T | null | undefined`), while staying omittable on insert.
+  const posts = defineTable("posts", {
+    id: columns.integer().primaryKey(),
+    note: columns.text().optional(),
+    at: columns.timestamp({ mode: "date" }).optional(),
+  });
+
+  // SELECT: assigning to a `T | null` shape only compiles when no `undefined`
+  // leaked in — this assignment failed before the item-10 fix.
+  const select: {
+    readonly id: number;
+    readonly note: string | null;
+    readonly at: Date | null;
+  } = {} as InferSelect<typeof posts>;
+  const _exact: InferSelect<typeof posts> = select; // reverse => exact match
+  void _exact;
+  assertEquals(posts.columns.note.optionalInsert, true);
+
+  // INSERT: `note`/`at` are omittable and accept `T | null` when present.
+  const _omitted: InferInsert<typeof posts> = { id: 1 };
+  const _null: InferInsert<typeof posts> = { id: 1, note: null, at: null };
+  const _value: InferInsert<typeof posts> = {
+    id: 1,
+    note: "hi",
+    at: new Date("2020-01-01T00:00:00Z"),
+  };
+  assertEquals(_omitted.id, 1);
+  assertEquals(_null.note, null);
+  assertEquals(_value.note, "hi");
+});
+
 Deno.test("parity: customType exposes dialectType escape hatch", () => {
   const extensions = defineTable(
     "extensions",
