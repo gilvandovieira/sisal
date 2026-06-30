@@ -1120,6 +1120,52 @@ pgTest("pg: rich indexes (DESC / partial / expression) apply", async (db) => {
   assert(/lower/i.test(all), all);
 });
 
+pgTest("pg: mutation joins (UPDATE FROM + INSERT SELECT)", async (db) => {
+  await db.execute(raw("drop table if exists it_mj, it_mj_arch cascade"));
+  const mj = defineTable("it_mj", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  const arch = defineTable("it_mj_arch", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [mj, arch] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(mj).values([
+    { id: 1, n: 10 },
+    { id: 2, n: 20 },
+    { id: 3, n: 30 },
+  ]).execute();
+
+  // UPDATE … FROM a CTE, via the mutating terminal of db.with(...): zero the
+  // rows a CTE selects.
+  const big = db.$with("big").as(
+    db.select({ id: mj.columns.id }).from(mj).where(gte(mj.columns.n, 20)),
+  );
+  // Explicit RETURNING (not `*`): with a FROM join, `RETURNING *` would expose
+  // both relations' `id` columns and the driver rejects the duplicate.
+  const updated = await db.with(big).update(mj).set({ n: 0 })
+    .from(big).where(eq(mj.columns.id, big.id))
+    .returning({ id: mj.columns.id }).execute();
+  assertEquals(updated.rows.length, 2); // ids 2, 3
+
+  const zeroed = await db.select().from(mj).where(eq(mj.columns.n, 0))
+    .execute();
+  assertEquals(zeroed.map((r) => r.id).sort(), [2, 3]);
+
+  // INSERT … SELECT: archive the zeroed rows from a query, not literal values.
+  await db.insert(arch).select(
+    db.select({ id: mj.columns.id, n: mj.columns.n }).from(mj)
+      .where(eq(mj.columns.n, 0)),
+  ).execute();
+  assertEquals((await db.select().from(arch).execute()).length, 2);
+});
+
 pgTest("pg: data-modifying CTE (WITH INSERT … RETURNING)", async (db) => {
   const dmcte = defineTable("it_dmcte", {
     id: columns.integer().primaryKey(),
@@ -1429,7 +1475,7 @@ pgTest("pg: teardown", async (db) => {
   );
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg, it_rawmap, it_dm, it_dmbin cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg, it_rawmap, it_dm, it_dmbin, it_mj, it_mj_arch cascade",
     ),
   );
   await db.execute(

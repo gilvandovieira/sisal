@@ -509,6 +509,38 @@ class SisalDatabase<
           ctes: definitions,
           ...(projection === undefined ? {} : { projection }),
         }),
+      insert: <TTable extends TableDefinition>(
+        table: TTable,
+      ): InsertBuilder<TTable> => {
+        assertTable(table);
+        return new SisalInsertBuilder(database, {
+          table,
+          returning: false,
+          ctes: definitions,
+        });
+      },
+      update: <TTable extends TableDefinition>(
+        table: TTable,
+      ): UpdateBuilder<TTable> => {
+        assertTable(table);
+        return new SisalUpdateBuilder(database, {
+          table,
+          allowAllRows: false,
+          returning: false,
+          ctes: definitions,
+        });
+      },
+      delete: <TTable extends TableDefinition>(
+        table: TTable,
+      ): DeleteBuilder<TTable> => {
+        assertTable(table);
+        return new SisalDeleteBuilder(database, {
+          table,
+          allowAllRows: false,
+          returning: false,
+          ctes: definitions,
+        });
+      },
     } as WithQueryBuilder;
   }
 

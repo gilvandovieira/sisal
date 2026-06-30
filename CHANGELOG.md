@@ -11,6 +11,27 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added **mutation joins and the mutating `WITH` terminal** (v0.5.0 roadmap item
+  12 core). `db.with(...)` can now terminate in `update`/`insert`/`delete`, not
+  only `select`, prepending the CTEs to the mutation. A mutation can read
+  another relation: `update(t).from(source)` renders `UPDATE … FROM` and
+  `insert(t).select(query)` renders `INSERT … SELECT` (both supported on every
+  adapter, incl. modern SQLite/libSQL); `delete(t).using(source)` renders
+  `DELETE … USING` (PostgreSQL-only — a typed `OrmError` guard throws on the
+  SQLite family). Together these let one CTE's mutation read another's
+  `RETURNING`
+  (`with moved as (delete … returning) insert into archive select …
+  from moved`).
+  The three mutation builders were first refactored to the same `#state` +
+  `#with(patch)` shape `SisalSelectBuilder` uses (behavior-preserving; no public
+  change). New methods: `WithQueryBuilder.insert/update/delete`,
+  `UpdateBuilder.from`, `DeleteBuilder.using`, `InsertBuilder.select`. Covered
+  by `packages/orm/mutation_cte_test.ts` (render + guard + mutual-exclusion) and
+  a `mutation joins` integration test on PostgreSQL 18, Neon, SQLite, and libSQL
+  (now 39/39/38/38); a unified-matrix row added (✅ on every adapter). Item 12's
+  builder gaps are closed; only dropping the `neon-rising-feed-ctes` recompute
+  to the builder remains, so item 12 stays in progress.
+
 - Added **SQL-expression column defaults** (v0.5.0 roadmap item 7 follow-up,
   core). `column.default(...)` now accepts a `sql` fragment in addition to a
   literal or a client-side `() => value`. A `sql` fragment is a **server**

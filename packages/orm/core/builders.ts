@@ -326,6 +326,22 @@ export interface WithQueryBuilder {
   select<TProjection extends SelectProjection>(
     projection: TProjection,
   ): SelectBuilder<unknown, InferProjection<TProjection>>;
+  /**
+   * Terminates the `WITH` chain in an `INSERT`, prepending the CTEs. The chain's
+   * CTE bodies must be `SELECT`s on the SQLite family (a data-modifying CTE body
+   * is PostgreSQL-only and throws its own guard).
+   */
+  insert<TTable extends TableDefinition>(
+    table: TTable,
+  ): InsertBuilder<TTable>;
+  /** Terminates the `WITH` chain in an `UPDATE`, prepending the CTEs. */
+  update<TTable extends TableDefinition>(
+    table: TTable,
+  ): UpdateBuilder<TTable>;
+  /** Terminates the `WITH` chain in a `DELETE`, prepending the CTEs. */
+  delete<TTable extends TableDefinition>(
+    table: TTable,
+  ): DeleteBuilder<TTable>;
 }
 
 /**
@@ -352,6 +368,14 @@ export interface InsertBuilder<
   values(
     value: InsertValues<TTable> | InsertValues<TTable>[],
   ): InsertBuilder<TTable, TReturn>;
+
+  /**
+   * `INSERT INTO t (cols) SELECT …`: insert the rows a query produces instead of
+   * literal `values(...)`. The query's projected keys become the target columns
+   * (each must be a column of `t`), so an insert can read another CTE's
+   * `RETURNING`. Mutually exclusive with `.values(...)`.
+   */
+  select(query: SetOperand<unknown>): InsertBuilder<TTable, TReturn>;
 
   /** `ON CONFLICT [(target)] DO NOTHING`. */
   onConflictDoNothing(
@@ -389,6 +413,14 @@ export interface UpdateBuilder<
     values: UpdateValues<TTable>,
   ): UpdateBuilder<TTable, TReturn>;
 
+  /**
+   * `UPDATE … FROM <source>`: an auxiliary table, CTE, or derived-table subquery
+   * the `SET`/`WHERE` can reference (e.g. `update(posts).set({ … }).from(scores)
+   * .where(eq(posts.columns.id, scores.id))`). Lets one CTE's mutation read
+   * another CTE's `RETURNING`.
+   */
+  from(source: SelectFromSource): UpdateBuilder<TTable, TReturn>;
+
   where(condition: Condition): UpdateBuilder<TTable, TReturn>;
 
   unsafeAllowAllRows(): UpdateBuilder<TTable, TReturn>;
@@ -411,6 +443,12 @@ export interface DeleteBuilder<
   TTable extends TableDefinition,
   TReturn = InferSelect<TTable>,
 > {
+  /**
+   * `DELETE … USING <source>`: an auxiliary table, CTE, or subquery the `WHERE`
+   * can join against (the `DELETE` mirror of `UPDATE … FROM`).
+   */
+  using(source: SelectFromSource): DeleteBuilder<TTable, TReturn>;
+
   where(condition: Condition): DeleteBuilder<TTable, TReturn>;
 
   unsafeAllowAllRows(): DeleteBuilder<TTable, TReturn>;
@@ -534,6 +572,27 @@ function makeSubqueryColumns(
   }
   SUBQUERY_DEFINITIONS.set(columns, { alias, query });
   return columns;
+}
+
+// Renders a mutation's auxiliary relation (an `UPDATE … FROM` / `DELETE …
+// USING` source): a table or CTE renders as its quoted name; a derived-table
+// subquery renders as `(<query>) as <alias>`. Lets the mutation reference
+// another CTE's columns (e.g. `update posts set … from computed`).
+function mutationRelationSql(source: SelectFromSource): Sql {
+  if (isCte(source)) {
+    return identifier(CTE_DEFINITIONS.get(source)!.name);
+  }
+  if (isSubquery(source)) {
+    const definition = SUBQUERY_DEFINITIONS.get(source)!;
+    return joinSql([
+      raw("("),
+      definition.query,
+      raw(") as "),
+      identifier(definition.alias),
+    ], emptySql());
+  }
+  assertTable(source);
+  return identifier((source as TableDefinition).name);
 }
 
 function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
@@ -1576,6 +1635,8 @@ interface InsertState<TTable extends TableDefinition> {
   readonly conflict?: InsertConflict;
   /** CTEs prepended as a `WITH` (mutating terminal of `db.with(...)`). */
   readonly ctes?: readonly CteDefinition[];
+  /** `INSERT INTO t (cols) <query>` source (mutually exclusive with `rows`). */
+  readonly select?: { readonly keys: readonly string[]; readonly body: Sql };
 }
 
 export class SisalInsertBuilder<TTable extends TableDefinition>
@@ -1607,6 +1668,19 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
     }
 
     return this.#with({ rows: rows.map((row) => ({ ...row })) });
+  }
+
+  select(query: SetOperand<unknown>): InsertBuilder<TTable> {
+    const keys = cteColumnKeys(query as CteOperand<unknown>);
+    if (keys.length === 0) {
+      throw new OrmError("insert().select() requires a projected query", {
+        code: "ORM_INVALID_QUERY",
+      });
+    }
+    for (const key of keys) {
+      assertTableColumn(this.#state.table, key);
+    }
+    return this.#with({ select: { keys, body: query.toSql() } });
   }
 
   onConflictDoNothing(
@@ -1666,50 +1740,70 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
   }
 
   toSql(): Sql {
-    const { table, rows, returning, conflict, ctes } = this.#state;
-    if (rows === undefined || rows.length === 0) {
-      throw new OrmError("Insert query requires values", {
+    const { table, rows, returning, conflict, ctes, select } = this.#state;
+    if (rows !== undefined && select !== undefined) {
+      throw new OrmError("Insert cannot combine .values() and .select()", {
         code: "ORM_INVALID_QUERY",
       });
     }
 
-    const columnNames = getInsertColumnNames(table, rows);
-
-    if (columnNames.length === 0) {
-      throw new OrmError("Insert query has no columns", {
-        code: "ORM_INVALID_QUERY",
-      });
-    }
-
-    const columnSql = joinSql(
-      columnNames.map((name) => identifier(physicalColumnName(table, name))),
-    );
-    const valuesSql = joinSql(
-      rows.map((row) =>
-        sql`(${
-          joinSql(
-            columnNames.map((name) => {
-              const value = (row as Record<string, unknown>)[name];
-              // A `Sql` expression (e.g. sql`now()`) renders inline; any other
-              // value binds as a parameter.
-              return isSql(value) ? value : paramSql(value);
-            }),
-          )
-        })`
-      ),
-    );
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
       parts.push(withPrefixSql(ctes));
     }
-    parts.push(
-      raw("insert into "),
-      identifier(table.name),
-      raw(" ("),
-      columnSql,
-      raw(") values "),
-      valuesSql,
-    );
+
+    if (select !== undefined) {
+      // INSERT INTO t (cols) <query> — the query supplies the rows.
+      parts.push(
+        raw("insert into "),
+        identifier(table.name),
+        raw(" ("),
+        joinSql(
+          select.keys.map((key) => identifier(physicalColumnName(table, key))),
+        ),
+        raw(") "),
+        select.body,
+      );
+    } else {
+      if (rows === undefined || rows.length === 0) {
+        throw new OrmError("Insert query requires values", {
+          code: "ORM_INVALID_QUERY",
+        });
+      }
+
+      const columnNames = getInsertColumnNames(table, rows);
+      if (columnNames.length === 0) {
+        throw new OrmError("Insert query has no columns", {
+          code: "ORM_INVALID_QUERY",
+        });
+      }
+
+      const columnSql = joinSql(
+        columnNames.map((name) => identifier(physicalColumnName(table, name))),
+      );
+      const valuesSql = joinSql(
+        rows.map((row) =>
+          sql`(${
+            joinSql(
+              columnNames.map((name) => {
+                const value = (row as Record<string, unknown>)[name];
+                // A `Sql` expression (e.g. sql`now()`) renders inline; any
+                // other value binds as a parameter.
+                return isSql(value) ? value : paramSql(value);
+              }),
+            )
+          })`
+        ),
+      );
+      parts.push(
+        raw("insert into "),
+        identifier(table.name),
+        raw(" ("),
+        columnSql,
+        raw(") values "),
+        valuesSql,
+      );
+    }
 
     const conflictPart = conflictSql(conflict, table);
     if (conflictPart !== undefined) {
@@ -1749,6 +1843,8 @@ interface UpdateState<TTable extends TableDefinition> {
   readonly returning: SelectProjection | boolean;
   /** CTEs prepended as a `WITH` (mutating terminal of `db.with(...)`). */
   readonly ctes?: readonly CteDefinition[];
+  /** `UPDATE … FROM <source>` auxiliary relation (a table/CTE/subquery). */
+  readonly from?: Sql;
 }
 
 export class SisalUpdateBuilder<TTable extends TableDefinition>
@@ -1770,6 +1866,10 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
 
   set(values: UpdateValues<TTable>): UpdateBuilder<TTable> {
     return this.#with({ values: { ...values } });
+  }
+
+  from(source: SelectFromSource): UpdateBuilder<TTable> {
+    return this.#with({ from: mutationRelationSql(source) });
   }
 
   where(condition: Condition): UpdateBuilder<TTable> {
@@ -1802,7 +1902,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
   }
 
   toSql(): Sql {
-    const { table, values, condition, allowAllRows, returning, ctes } =
+    const { table, values, condition, allowAllRows, returning, ctes, from } =
       this.#state;
     if (values === undefined) {
       throw new OrmError("Update query requires set values", {
@@ -1834,6 +1934,11 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
       raw(" set "),
       setSql,
     );
+
+    // `UPDATE … FROM <source>` precedes the WHERE so the predicate can join it.
+    if (from !== undefined) {
+      parts.push(raw(" from "), from);
+    }
 
     if (condition === undefined) {
       assertUnsafeAllRowsAllowed("update", allowAllRows, table.name);
@@ -1873,6 +1978,8 @@ interface DeleteState<TTable extends TableDefinition> {
   readonly returning: SelectProjection | boolean;
   /** CTEs prepended as a `WITH` (mutating terminal of `db.with(...)`). */
   readonly ctes?: readonly CteDefinition[];
+  /** `DELETE … USING <source>` auxiliary relation (a table/CTE/subquery). */
+  readonly using?: Sql;
 }
 
 export class SisalDeleteBuilder<TTable extends TableDefinition>
@@ -1889,6 +1996,16 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
     return new SisalDeleteBuilder<TTable>(this.#database, {
       ...this.#state,
       ...patch,
+    });
+  }
+
+  using(source: SelectFromSource): DeleteBuilder<TTable> {
+    // `DELETE … USING` is PostgreSQL-only; the SQLite family has no USING clause
+    // on DELETE, so rendering for it throws a typed guard.
+    return this.#with({
+      using: sql`${dialectGuard("DELETE … USING", ["sqlite"])}${
+        mutationRelationSql(source)
+      }`,
     });
   }
 
@@ -1922,12 +2039,17 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
   }
 
   toSql(): Sql {
-    const { table, condition, allowAllRows, returning, ctes } = this.#state;
+    const { table, condition, allowAllRows, returning, ctes, using } =
+      this.#state;
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
       parts.push(withPrefixSql(ctes));
     }
     parts.push(raw("delete from "), identifier(table.name));
+
+    if (using !== undefined) {
+      parts.push(raw(" using "), using);
+    }
 
     if (condition === undefined) {
       assertUnsafeAllRowsAllowed("delete", allowAllRows, table.name);

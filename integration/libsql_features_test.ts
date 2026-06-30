@@ -1128,6 +1128,49 @@ libsqlTest("libsql: date math window (now / dateSub / dateBin)", async (db) => {
   assertEquals(groups.map((g) => Number(g.n)), [2, 1]);
 });
 
+libsqlTest(
+  "libsql: mutation joins (UPDATE FROM + INSERT SELECT)",
+  async (db) => {
+    await db.execute(raw("drop table if exists it_mj"));
+    await db.execute(raw("drop table if exists it_mj_arch"));
+    const mj = defineTable("it_mj", {
+      id: columns.integer().primaryKey(),
+      n: columns.integer().notNull(),
+    });
+    const arch = defineTable("it_mj_arch", {
+      id: columns.integer().primaryKey(),
+      n: columns.integer().notNull(),
+    });
+    for (
+      const stmt of generateLibsqlUpStatements(
+        createSchemaSnapshot({ dialect: "sqlite", tables: [mj, arch] }),
+      ).statements
+    ) await db.execute(stmt);
+
+    await db.insert(mj).values([
+      { id: 1, n: 10 },
+      { id: 2, n: 20 },
+      { id: 3, n: 30 },
+    ]).execute();
+
+    const big = db.$with("big").as(
+      db.select({ id: mj.columns.id }).from(mj).where(gte(mj.columns.n, 20)),
+    );
+    await db.with(big).update(mj).set({ n: 0 })
+      .from(big).where(eq(mj.columns.id, big.id)).execute();
+
+    const zeroed = await db.select().from(mj).where(eq(mj.columns.n, 0))
+      .execute();
+    assertEquals(zeroed.map((r) => r.id).sort(), [2, 3]);
+
+    await db.insert(arch).select(
+      db.select({ id: mj.columns.id, n: mj.columns.n }).from(mj)
+        .where(eq(mj.columns.n, 0)),
+    ).execute();
+    assertEquals((await db.select().from(arch).execute()).length, 2);
+  },
+);
+
 libsqlTest("libsql: filter aggregate + dateTrunc bucketing", async (db) => {
   await db.execute(raw("drop table if exists it_agg"));
   const agg = defineTable("it_agg", {

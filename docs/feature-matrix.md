@@ -52,6 +52,7 @@ genuine dialect limit · — not applicable.
 | Array operators (`@>` / `<@` / `&&`)                            |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Typed function caller (`db.call`)                               |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
+| Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)            |    ✅     |  ✅   |    ✅    |       ✅        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves

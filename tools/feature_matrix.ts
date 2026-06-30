@@ -234,6 +234,10 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       libsql: no(DM_CTE),
     },
   },
+  allTested(
+    "Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)",
+    "mutation joins",
+  ),
 ];
 
 /** Resolves the effective backing-test substring for a cell. */
