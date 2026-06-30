@@ -24,6 +24,8 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [libSQL / Turso compatibility](https://gilvandovieira.github.io/sisal/libsql-compatibility.html): Sisal's libSQL adapter (@sisal/libsql) is verified end-to-end against a real libSQL database. libSQL is a SQLite fork, so the SQL surface matches SQLite; what differs is the **connection** — a local file:, an...
 - [Benchmarks](https://gilvandovieira.github.io/sisal/benchmarks.html): Sisal benchmarks measure the work the **library** does — building SQL, rendering it, and turning driver rows into typed results — in isolation from the database and the network. A query's wall-clock time is dominated...
 - [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
+- [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
+- [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
 - [v0.4.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.4.0-roadmap.html): This document captures the API gaps surfaced while building the examples/neon-hot-feed example — a Reddit-style hot feed on Neon/PostgreSQL that must stay Deno Deploy / Neon-HTTP friendly. Each gap forced the example...
 - [v0.5.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.5.0-roadmap.html): Where v0.4.0 closed _feature_ gaps surfaced by the neon-hot-feed example, v0.5.0 closes _parity_ gaps **between the adapters**.
 
@@ -1564,6 +1566,30 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added the unified **cross-driver feature matrix** (v0.5.0 roadmap item 3): a
+  single `docs/feature-matrix.md` — one row per feature, one column per adapter
+  across `@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` — generated
+  from a machine-readable source of truth (`tools/feature_matrix.ts`) by
+  `tools/generate_feature_matrix.ts`. New tasks `deno task docs:matrix`
+  (regenerate) and `docs:matrix:check` (verify current). The generator also
+  asserts every `✅`/`⚠️` cell is backed by a named integration test in the
+  matching suite — a coverage guard that fails if the matrix claims coverage no
+  test backs (the mechanism behind roadmap item 6). Wired into the pre-commit
+  hook (regenerated + staged alongside the LLM docs) and surfaced from the
+  homepage `#compat`. 25 features × 4 adapters, 92 ✅/⚠️ cells all test-backed.
+- Added a committed `.env.example` documenting every integration-test env var
+  (the `DATABASE_URL` / `NEON_*` / `TURSO_*` connection vars and the
+  `SISAL_*_IT` suite gates), grouped per adapter with the local-vs-real and
+  empty-vs-unset caveats. Run the gated suites with
+  `deno test --env-file=.env …` (Deno does not auto-load `.env`). Added `.env`,
+  `.env.local`, and `.env.*.local` to `.gitignore` so local/secret values are
+  never committed.
+- Added `docs/editor-lsp.md` and a minimal `.vscode/settings.json` to document
+  verified `deno lsp` editor setup for the Deno/JSR workspace. The probe
+  confirms Deno's language server resolves `@sisal/*` package exports and
+  preserves types, while a plain TypeScript language server still reports the
+  workspace imports as unresolved; the doc records that boundary as a future npm
+  packaging signal.
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
   moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
   functions** — every multi-step mutation is one **data-modifying CTE**
@@ -1654,6 +1680,33 @@ Sisal-specific history after that baseline through `1f05448`.
   where **`@sisal/pg` returns `double precision` as a string** while
   `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` all return a `number` (verified
   against real databases).
+
+### Changed
+
+- Closed the libSQL integration coverage gap (v0.5.0 roadmap item 1): ported the
+  three SQLite parity tests the libSQL suite was missing — **column naming**
+  (snake_case default / `.named()` / `preserve`), **keyset pagination** (both
+  predicate forms), and **prepared statements** — into
+  `integration/libsql_features_test.ts`. libSQL renders identical SQLite SQL
+  (`LIBSQL_DIALECT = "sqlite"`), so the assertions are dialect-identical; only
+  `connect`/teardown differ. Refreshed `docs/libsql-compatibility.md` (matrix
+  gains the three rows, now **31 / 31**) and the homepage `#compat` libSQL badge
+  (`28/28 → 31/31`). All 31 verified green on a local libSQL file.
+- Closed the Neon integration coverage gap (v0.5.0 roadmap item 2): added the
+  seven `@sisal/pg` parity tests the Neon suite was missing — **column naming**,
+  **keyset pagination** (both forms), the **typed function caller**
+  (`defineFunction` / `db.call`, incl. `RETURNS TABLE` + arg casts), **prepared
+  statements**, **`sql` in `SET`/`VALUES`/`onConflict`**, **`db.batch`** (atomic
+  commit + rollback), and **rich indexes** (DESC / partial / expression) — to
+  `integration/neon_features_test.ts`. Neon is PostgreSQL through
+  `createPgOrmDriver` + `POSTGRES_DIALECT`, so these mirror the `pg:` tests
+  verbatim apart from connect/teardown. Refreshed `docs/neon-compatibility.md`
+  (matrix reaches feature parity with the pg matrix, now **31 / 31**) and the
+  homepage `#compat` Neon badge (`17/17 → 31/31`). All 31 verified green through
+  the Docker `neon-proxy` against PostgreSQL 17, and once end-to-end against a
+  live Neon endpoint. This also makes the `db.batch` entry's "the gated
+  integration suites" coverage claim true on every adapter
+  (pg/neon/sqlite/libsql).
 
 ## 0.4.0 - 2026-06-30
 
@@ -3710,15 +3763,17 @@ serverless PostgreSQL. It speaks the Postgres wire protocol over a WebSocket via
 feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 `bytea`.
 
-| Item          | Value                                                   |
-| ------------- | ------------------------------------------------------- |
-| Engine tested | **PostgreSQL 17** via Neon serverless driver + wsproxy  |
-| Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)         |
-| Suite         | `integration/neon_features_test.ts` (24 feature groups) |
-| Last run      | 2026-06-28 — **24 / 24 passed** via Docker `neon-proxy` |
+| Item          | Value                                                    |
+| ------------- | -------------------------------------------------------- |
+| Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
+| Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
+| Suite         | `integration/neon_features_test.ts` (31 feature groups)  |
+| Last run      | 2026-06-30 — **31 / 31 passed** (neon-proxy + live Neon) |
 
 ✅ = verified through the Neon serverless driver against Docker `neon-proxy`
-bridging to PostgreSQL 17.
+bridging to PostgreSQL 17. The full 31-test suite was additionally run once
+end-to-end against a **live Neon endpoint** (2026-06-30, secure WebSocket, no
+proxy) — all green.
 
 ## Matrix
 
@@ -3748,10 +3803,17 @@ bridging to PostgreSQL 17.
 | **Update** — `set`, `where`, `returning`, `$onUpdate`                   |  ✅  |
 | **Delete** — `where`, `returning`                                       |  ✅  |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |  ✅  |
+| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |  ✅  |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |  ✅  |
+| **Keyset pagination** — `.keyset(...)`, expanded + row-value            |  ✅  |
+| **Function caller** — `defineFunction` / `db.call`, casts               |  ✅  |
+| **Prepared** — `placeholder()` + `.prepare()`                           |  ✅  |
 | **Transactions** — commit + rollback on error                           |  ✅  |
+| **Batch** — `db.batch([...])` non-interactive, atomic                   |  ✅  |
 | **JSONB** — object round-trip                                           |  ✅  |
 | **Arrays** — `text[]` round-trip                                        |  ✅  |
 | **Binary** — `bytea` round-trip (`Uint8Array`)                          |  ✅  |
+| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |  ✅  |
 | **Migrator** — apply, plan, history table, idempotent re-run            |  ✅  |
 
 The generated DDL test exercises the full Postgres type set (`text`,
@@ -3764,6 +3826,12 @@ The generated DDL test exercises the full Postgres type set (`text`,
 - **Same SQL as `@sisal/pg`.** Neon is PostgreSQL, so values come back typed the
   way Postgres returns them — `jsonb`/arrays parsed, `bytea` as `Uint8Array`,
   `numeric`/`bigint` as precision-preserving strings, native `ILIKE`.
+- **Full `@sisal/pg` surface, verified.** Column naming, keyset pagination,
+  prepared statements, `sql` expressions in `SET`/`VALUES`/`onConflict`,
+  `db.batch`, rich indexes, and the typed function caller (`defineFunction` /
+  `db.call`, incl. `RETURNS TABLE` and arg casts) all run through
+  `createPgOrmDriver` + `POSTGRES_DIALECT` and are now covered by the suite —
+  same render path and results as `@sisal/pg`.
 - **Date/time semantics.** The ORM defaults to Temporal: `date` ->
   `Temporal.PlainDate`, `time` -> `Temporal.PlainTime`, `timestamp` ->
   `Temporal.PlainDateTime`, and `timestamptz` -> `Temporal.Instant`. Enable
@@ -3774,7 +3842,12 @@ The generated DDL test exercises the full Postgres type set (`text`,
 - **Serverless transport.** The adapter uses the WebSocket `Pool` from
   `@neon/serverless` (full protocol, real transactions), not the HTTP one-shot
   `neon()` function. Real usage just needs a Neon connection string:
-  `connect({ url: "postgres://…@ep-xxx.neon.tech/db?sslmode=require" })`.
+  `connect({ url: "postgres://…@ep-xxx.neon.tech/db?sslmode=require" })`. The
+  local test path therefore runs Neon's official **`wsproxy`** image (the
+  `neon-proxy` service) to terminate that WebSocket protocol in front of a
+  Postgres data backend — **not Neon Local** (`neondatabase/neon_local`), which
+  is HTTP-only and so cannot drive the WebSocket `Pool`. Against real Neon no
+  proxy is needed: the driver speaks secure WebSocket to the endpoint directly.
 - **Joins.** As with `@sisal/pg`, use explicit projections in joins rather than
   `select *` so duplicate column names across tables don't collide in the
   row-object mapping.
@@ -3944,8 +4017,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (28 tests)       |
-| Last run      | 2026-06-28 — **28 / 28 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (31 tests)       |
+| Last run      | 2026-06-30 — **31 / 31 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
@@ -3977,6 +4050,9 @@ unsupported (SQLite-family).
 | **Delete** — `where`, `returning`                                       |   ✅   |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |   ✅   |
 | **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |   ✅   |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |   ✅   |
+| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |   ✅   |
+| **Prepared statements** — `placeholder()` + `.prepare()`                |   ✅   |
 | **Transactions** — commit + rollback on error                           |   ✅   |
 | **Batch** — `db.batch([...])` non-interactive, atomic                   |   ✅   |
 | **Boolean** — round-trip                                                |   ⚠️   |
@@ -4006,6 +4082,11 @@ libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
   affinity and return as numbers.
 - **`serial`/`bigserial`** map to `INTEGER` under a table-level `PRIMARY KEY`
   (not the rowid auto-increment).
+- **Column naming, keyset pagination, and prepared statements behave identically
+  to PostgreSQL.** camelCase keys map to snake_case columns (or
+  `.named()`/`preserve`), `.keyset(...)` returns `{ rows, nextCursor }` for both
+  the `"expanded"` and `"row-value"` predicate forms, and `placeholder()` +
+  `.prepare()` bind by name — all rendered through the shared SQLite SQL path.
 - **Postgres-only operators are unavailable** — `.distinctOn(...)`,
   `.for("update" | "share")` locking, and the array operators
   (`arrayContains`/`arrayContained`/`arrayOverlaps`).
@@ -4634,6 +4715,223 @@ See
 [`SECURITY.md`](https://github.com/gilvandovieira/sisal/blob/main/SECURITY.md)
 for the private disclosure channel. Report suspected vulnerabilities privately
 rather than opening a public issue, and allow time for a fix before disclosure.
+```
+
+### docs/editor-lsp.md
+
+URL: https://gilvandovieira.github.io/sisal/editor-lsp.html
+
+```md
+---
+title: Editor LSP Setup
+---
+
+# Editor LSP Setup
+
+Sisal is a Deno workspace, so editors should attach TypeScript files to
+`deno lsp`, not to a plain Node/TypeScript language server. A generic LSP client
+is fine as long as the server process is Deno's language server.
+
+The important distinction:
+
+- **Generic LSP client:** works when it launches `deno lsp`.
+- **Generic TypeScript server:** does not understand Deno workspace package
+  names, JSR specifiers, or the package `deno.json` export maps by itself.
+
+Open the repository root, not an individual package directory. The root
+`deno.json` declares the workspace, while each package `deno.json` declares its
+JSR package name and exports.
+
+## Verified Probe
+
+The local probe used Deno 2.9.0 from the repository root.
+
+Positive check with `deno lsp --quiet`:
+
+- `textDocument/definition` on `examples/basic-postgres/mod.ts:22` for
+  `generatePostgresUpStatements` resolved to `packages/pg/migrate/ddl.ts`.
+- `textDocument/hover` on the `migration` variable returned
+  `const migration: PostgresUpStatements`.
+
+Control check with `typescript-language-server` 5.1.3:
+
+- `@sisal/orm` and `@sisal/pg/ddl` produced TS2307 unresolved-module
+  diagnostics.
+- Hover on the same `migration` variable returned `any`.
+- Definition could only jump to the import statement in the same file.
+
+That result is expected. Deno resolves the workspace through `deno.json`;
+TypeScript's Node-oriented server needs npm-shaped metadata that Sisal does not
+publish today.
+
+## VS Code
+
+Install the official Deno extension (`denoland.vscode-deno`) and keep this
+workspace setting:
+
+```json
+{
+  "deno.enable": true,
+  "deno.config": "./deno.json",
+  "deno.lint": true
+}
+```
+
+This repository checks those settings in at `.vscode/settings.json` so VS Code
+uses the workspace root config automatically.
+
+## Generic LSP Clients
+
+Use `deno lsp` as the language server command:
+
+```json
+{
+  "command": "deno",
+  "args": ["lsp"],
+  "initializationOptions": {
+    "enable": true,
+    "lint": true,
+    "config": "/absolute/path/to/sisal/deno.json"
+  }
+}
+```
+
+Some clients treat `config` as relative to the editor process instead of the
+workspace root. Use an absolute path if local imports resolve in the terminal
+but not in the editor.
+
+Attach the server to TypeScript and JavaScript files:
+
+- `typescript`
+- `typescriptreact`
+- `javascript`
+- `javascriptreact`
+
+Avoid running `tsserver`, `typescript-language-server`, or `vtsls` on the same
+Sisal files unless the client can disable their diagnostics for this workspace.
+Running both usually produces duplicate or misleading diagnostics, and the plain
+TypeScript server currently reports Sisal workspace imports as missing.
+
+## Neovim Example
+
+With `nvim-lspconfig`, configure `denols` from the repository root:
+
+```lua
+require("lspconfig").denols.setup({
+  root_dir = require("lspconfig.util").root_pattern("deno.json"),
+  init_options = {
+    enable = true,
+    lint = true,
+    config = vim.fn.getcwd() .. "/deno.json",
+  },
+})
+```
+
+If the same editor also starts `tsserver`, disable it for this workspace or make
+the Deno root detector win whenever `deno.json` is present.
+
+## Future npm Support Signal
+
+The LSP probe draws a useful line for a possible npm deployment strategy:
+
+- Deno and JSR users can rely on the existing `deno.json` workspace, package
+  names, and exports.
+- npm and ordinary TypeScript-server users will need generated npm artifacts:
+  `package.json` export maps, declaration files, `types` entries, and import
+  specifiers that Node/TypeScript can resolve.
+- Workspace development for npm should likely generate a staging tree or
+  `tsconfig` path aliases so `@sisal/*` resolves before packages are published.
+- The dependency boundary still matters: `@sisal/orm` should remain driverless,
+  with runtime-specific npm dependencies kept in adapter packages or benchmark
+  code.
+
+This does not require changing the source layout today. It records what future
+npm support must reproduce for editors that only speak the ordinary TypeScript
+package model.
+```
+
+### docs/feature-matrix.md
+
+URL: https://gilvandovieira.github.io/sisal/feature-matrix.html
+
+```md
+---
+title: Feature matrix
+---
+
+<!-- GENERATED FILE — do not edit by hand.
+     Source of truth: tools/feature_matrix.ts
+     Regenerate: deno task docs:matrix   ·   Verify: deno task docs:matrix:check -->
+
+# Cross-driver feature matrix
+
+One row per feature, one column per adapter, across `@sisal/pg`,
+`@sisal/neon`, `@sisal/sqlite`, and `@sisal/libsql`. Every ✅ and ⚠️ is
+backed by a named integration test in
+`integration/<adapter>_features_test.ts` — `deno task docs:matrix:check`
+fails if a claimed test is missing, so this table cannot drift from the suites.
+
+**Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
+genuine dialect limit · — not applicable.
+
+| Feature                                            | Postgres | Neon | SQLite  | libSQL         |
+| :------------------------------------------------- | :------: | :--: | :-----: | :------------: |
+| Connection + raw parameterized SQL                 |    ✅     |  ✅   |    ✅    |       ✅        |
+| Generated DDL (all column types)                   |    ✅     |  ✅   |    ✅    |       ✅        |
+| Insert / update / delete / returning               |    ✅     |  ✅   |    ✅    |       ✅        |
+| Filter / ordering / pagination                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| Joins (inner / left / right / full)                |    ✅     |  ✅   |    ✅    |       ✅        |
+| Aggregates / group / having                        |    ✅     |  ✅   |    ✅    |       ✅        |
+| Subqueries / exists / scalar                       |    ✅     |  ✅   |    ✅    |       ✅        |
+| Upsert (`onConflict…`)                             |    ✅     |  ✅   |    ✅    |       ✅        |
+| `sql` in `SET` / `VALUES` / `onConflict`           |    ✅     |  ✅   |    ✅    |       ✅        |
+| Column naming (snake_case / `.named()` / preserve) |    ✅     |  ✅   |    ✅    |       ✅        |
+| Keyset pagination (expanded + row-value)           |    ✅     |  ✅   |    ✅    |       ✅        |
+| Prepared statements                                |    ✅     |  ✅   |    ✅    |       ✅        |
+| Transactions (commit + rollback)                   |    ✅     |  ✅   |    ✅    |       ✅        |
+| `db.batch` (non-interactive, atomic)               |    ✅     |  ✅   |    ✅    |       ✅        |
+| Rich indexes (DESC / partial / expression)         |    ✅     |  ✅   |    ✅    |       ✅        |
+| Migrator (apply / plan / idempotent)               |    ✅     |  ✅   |    ✅    |       ✅        |
+| Temporal date/time modes                           |    ✅     |  ✅   |    ✅    |       ✅        |
+| `ilike` / `notIlike`                               |    ✅     |  ✅   | ⚠️ LIKE |    ⚠️ LIKE     |
+| `json` / array round-trip                          |    ✅     |  ✅   | ⚠️ text |    ⚠️ text     |
+| `boolean` round-trip                               |    ✅     |  ✅   | ⚠️ 0/1  |     ⚠️ 0/1     |
+| `bytea` / BLOB round-trip                          |    ✅     |  ✅   |    ✅    | ⚠️ ArrayBuffer |
+| `distinctOn`                                       |    ✅     |  ✅   |    ❌    |       ❌        |
+| Row locking (`.for(...)`)                          |    ✅     |  ✅   |    ❌    |       ❌        |
+| Array operators (`@>` / `<@` / `&&`)               |    ✅     |  ✅   |    ❌    |       ❌        |
+| Typed function caller (`db.call`)                  |    ✅     |  ✅   |    ❌    |       ❌        |
+
+## Notes
+
+The ⚠️ and ❌ cells above are the principled, permanent divergences — the
+SQLite family (`@sisal/sqlite`, `@sisal/libsql`) has no equivalent for the
+PostgreSQL-only constructs, and stores a few types differently:
+
+- **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
+- **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
+- **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
+- **`bytea` / BLOB round-trip** — `@libsql/client` returns BLOBs as `ArrayBuffer` (wrap with `new Uint8Array(value)`); SQLite and Postgres return `Uint8Array`.
+- **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; SQLite-family engines reject it.
+- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family.
+- **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family.
+- **Typed function caller (`db.call`)** — No stored-function concept in the SQLite family; `defineFunction`/`db.call` target Postgres.
+
+## Reproduce
+
+Each adapter's suite is gated and run on its own (see the per-engine pages for
+setup — Docker, env vars, the bundled `neon-proxy`):
+
+```sh
+deno test --env-file=.env -A integration/pg_features_test.ts
+deno test --env-file=.env -A integration/neon_features_test.ts
+deno test --env-file=.env -A integration/sqlite_features_test.ts
+deno test --env-file=.env -A integration/libsql_features_test.ts
+```
+
+Per-engine behavior notes live on the
+[Postgres](pg-compatibility.md), [Neon](neon-compatibility.md),
+[SQLite](sqlite-compatibility.md), and [libSQL](libsql-compatibility.md) pages.
 ```
 
 ### docs/v0.4.0-roadmap.md
@@ -5294,9 +5592,9 @@ limit:
 
 | #  | Item                                                                   | Priority | Rough effort | Status |
 | -- | ---------------------------------------------------------------------- | -------- | ------------ | ------ |
-| 1  | libSQL integration coverage parity                                     | P1       | S            | 🔴     |
-| 2  | Neon integration coverage parity                                       | P1       | M            | 🔴     |
-| 3  | Unified cross-driver feature matrix (the **outcome**)                  | P1       | M            | 🔴     |
+| 1  | libSQL integration coverage parity                                     | P1       | S            | 🟢     |
+| 2  | Neon integration coverage parity                                       | P1       | M            | 🟢     |
+| 3  | Unified cross-driver feature matrix (the **outcome**)                  | P1       | M            | 🟡     |
 | 4  | Typed dialect guards for Postgres-only builders                        | P2       | M            | 🔴     |
 | 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🔴     |
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🔴     |
@@ -5328,14 +5626,16 @@ integration test on that adapter):
 
 | Feature                           | pg  | neon | sqlite | libsql |
 | --------------------------------- | :-: | :--: | :----: | :----: |
-| Column naming                     | ✅  | gap  |   ✅   |  gap   |
-| Keyset pagination                 | ✅  | gap  |   ✅   |  gap   |
-| Prepared statements               | ✅  | gap  |   ✅   |  gap   |
-| `sql` in `SET`/`VALUES`           | ✅  | gap  |   ✅   |   ✅   |
-| `db.batch`                        | ✅  | gap  |   ✅   |   ✅   |
-| Typed function caller (`db.call`) | ✅  | gap  |  n/a   |  n/a   |
+| Column naming                     | ✅  |  ✅  |   ✅   |   ✅   |
+| Keyset pagination                 | ✅  |  ✅  |   ✅   |   ✅   |
+| Prepared statements               | ✅  |  ✅  |   ✅   |   ✅   |
+| `sql` in `SET`/`VALUES`           | ✅  |  ✅  |   ✅   |   ✅   |
+| `db.batch`                        | ✅  |  ✅  |   ✅   |   ✅   |
+| Typed function caller (`db.call`) | ✅  |  ✅  |  n/a   |  n/a   |
 
-→ **libSQL: 3 gaps. Neon: 6 gaps.** Both are coverage, not capability.
+→ **libSQL: 0 gaps (item 1 ✅). Neon: 0 gaps (item 2 ✅).** Both were coverage,
+not capability. (Item 2 also ported **rich indexes**, a 7th pg-suite test the
+Neon suite lacked beyond the six above.)
 
 ---
 
@@ -5439,6 +5739,17 @@ page. Target shape:
 
 (The ✅ columns above are the _target_ once items 1–2 land; ❌/⚠️ rows are the
 permanent, principled rows from items 4–5.)
+
+**Status (🟡 in progress).** The generated matrix is live:
+[`docs/feature-matrix.md`](feature-matrix.md) is rendered from a
+machine-readable source of truth (`tools/feature_matrix.ts`) by
+`tools/generate_feature_matrix.ts`, with `deno task docs:matrix` (regenerate)
+and `docs:matrix:check` (verify). The check asserts **every ✅/⚠️ cell is backed
+by a named integration test** in the matching suite — already the coverage-guard
+half of item 6. 25 features × 4 adapters, 92 test-backed cells; regenerated by
+the pre-commit hook and linked from the homepage `#compat`. **Remaining:** trim
+the four per-engine compatibility docs to engine-specific behavior notes + a
+link to the unified matrix (acceptance criterion 3).
 
 **Affected.** A new `docs/feature-matrix.md` (or a generated section), the
 homepage `docs/index.html` `#compat`, and the four per-engine docs (which can

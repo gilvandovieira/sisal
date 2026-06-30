@@ -11,6 +11,30 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added the unified **cross-driver feature matrix** (v0.5.0 roadmap item 3): a
+  single `docs/feature-matrix.md` — one row per feature, one column per adapter
+  across `@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` — generated
+  from a machine-readable source of truth (`tools/feature_matrix.ts`) by
+  `tools/generate_feature_matrix.ts`. New tasks `deno task docs:matrix`
+  (regenerate) and `docs:matrix:check` (verify current). The generator also
+  asserts every `✅`/`⚠️` cell is backed by a named integration test in the
+  matching suite — a coverage guard that fails if the matrix claims coverage no
+  test backs (the mechanism behind roadmap item 6). Wired into the pre-commit
+  hook (regenerated + staged alongside the LLM docs) and surfaced from the
+  homepage `#compat`. 25 features × 4 adapters, 92 ✅/⚠️ cells all test-backed.
+- Added a committed `.env.example` documenting every integration-test env var
+  (the `DATABASE_URL` / `NEON_*` / `TURSO_*` connection vars and the
+  `SISAL_*_IT` suite gates), grouped per adapter with the local-vs-real and
+  empty-vs-unset caveats. Run the gated suites with
+  `deno test --env-file=.env …` (Deno does not auto-load `.env`). Added `.env`,
+  `.env.local`, and `.env.*.local` to `.gitignore` so local/secret values are
+  never committed.
+- Added `docs/editor-lsp.md` and a minimal `.vscode/settings.json` to document
+  verified `deno lsp` editor setup for the Deno/JSR workspace. The probe
+  confirms Deno's language server resolves `@sisal/*` package exports and
+  preserves types, while a plain TypeScript language server still reports the
+  workspace imports as unresolved; the doc records that boundary as a future npm
+  packaging signal.
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
   moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
   functions** — every multi-step mutation is one **data-modifying CTE**
@@ -101,6 +125,33 @@ Sisal-specific history after that baseline through `1f05448`.
   where **`@sisal/pg` returns `double precision` as a string** while
   `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` all return a `number` (verified
   against real databases).
+
+### Changed
+
+- Closed the libSQL integration coverage gap (v0.5.0 roadmap item 1): ported the
+  three SQLite parity tests the libSQL suite was missing — **column naming**
+  (snake_case default / `.named()` / `preserve`), **keyset pagination** (both
+  predicate forms), and **prepared statements** — into
+  `integration/libsql_features_test.ts`. libSQL renders identical SQLite SQL
+  (`LIBSQL_DIALECT = "sqlite"`), so the assertions are dialect-identical; only
+  `connect`/teardown differ. Refreshed `docs/libsql-compatibility.md` (matrix
+  gains the three rows, now **31 / 31**) and the homepage `#compat` libSQL badge
+  (`28/28 → 31/31`). All 31 verified green on a local libSQL file.
+- Closed the Neon integration coverage gap (v0.5.0 roadmap item 2): added the
+  seven `@sisal/pg` parity tests the Neon suite was missing — **column naming**,
+  **keyset pagination** (both forms), the **typed function caller**
+  (`defineFunction` / `db.call`, incl. `RETURNS TABLE` + arg casts), **prepared
+  statements**, **`sql` in `SET`/`VALUES`/`onConflict`**, **`db.batch`** (atomic
+  commit + rollback), and **rich indexes** (DESC / partial / expression) — to
+  `integration/neon_features_test.ts`. Neon is PostgreSQL through
+  `createPgOrmDriver` + `POSTGRES_DIALECT`, so these mirror the `pg:` tests
+  verbatim apart from connect/teardown. Refreshed `docs/neon-compatibility.md`
+  (matrix reaches feature parity with the pg matrix, now **31 / 31**) and the
+  homepage `#compat` Neon badge (`17/17 → 31/31`). All 31 verified green through
+  the Docker `neon-proxy` against PostgreSQL 17, and once end-to-end against a
+  live Neon endpoint. This also makes the `db.batch` entry's "the gated
+  integration suites" coverage claim true on every adapter
+  (pg/neon/sqlite/libsql).
 
 ## 0.4.0 - 2026-06-30
 
