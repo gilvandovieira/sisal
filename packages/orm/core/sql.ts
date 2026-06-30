@@ -61,6 +61,11 @@ export type SqlChunk =
   | { readonly kind: "raw"; readonly value: string }
   | { readonly kind: "identifier"; readonly value: string }
   | { readonly kind: "operator"; readonly value: string }
+  | {
+    readonly kind: "guard";
+    readonly construct: string;
+    readonly unsupported: readonly SqlDialect[];
+  }
   | { readonly kind: "sql"; readonly value: Sql };
 
 /** Boolean SQL condition wrapper used by query builders. */
@@ -546,6 +551,20 @@ function renderSqlInto(query: Sql, state: RenderState): void {
       continue;
     }
 
+    if (chunk.kind === "guard") {
+      if (chunk.unsupported.includes(state.dialect)) {
+        throw new OrmError(
+          `${chunk.construct} is not supported by the "${state.dialect}" ` +
+            `dialect; it is PostgreSQL-only`,
+          {
+            code: "ORM_DIALECT_UNSUPPORTED",
+            details: { construct: chunk.construct, dialect: state.dialect },
+          },
+        );
+      }
+      continue;
+    }
+
     renderSqlInto(chunk.value, state);
   }
 }
@@ -573,6 +592,19 @@ function renderOperator(operator: string, dialect: SqlDialect): string {
 
 export function operatorSql(name: string): Sql {
   return makeSql([{ kind: "operator", value: name }]);
+}
+
+/**
+ * A zero-width SQL marker that makes rendering throw an `OrmError` when the
+ * query is rendered for any dialect in `unsupported`. Used to fail fast on
+ * PostgreSQL-only constructs (`distinctOn`, row locking, array operators) with a
+ * clear, typed error before they reach a SQLite-family engine as invalid SQL.
+ */
+export function dialectGuard(
+  construct: string,
+  unsupported: readonly SqlDialect[],
+): Sql {
+  return makeSql([{ kind: "guard", construct, unsupported }]);
 }
 
 export function createCondition(conditionSql: Sql): Condition {

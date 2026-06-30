@@ -11,6 +11,15 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added typed render-time dialect guards for the PostgreSQL-only query builders
+  (v0.5.0 roadmap item 4): rendering `distinctOn`, `.for("update"/"share")` row
+  locking, or the array operators (`@>`/`<@`/`&&`) for a SQLite-family dialect
+  now throws a typed `OrmError` (`code: "ORM_DIALECT_UNSUPPORTED"`) naming the
+  construct and the dialect, instead of emitting SQL the engine rejects as a raw
+  syntax error. Implemented as a zero-width `dialectGuard` SQL marker checked in
+  the renderer, so Postgres/Neon rendering and execution are byte-for-byte
+  unchanged (verified: the pg suite stays 31/31, including all three
+  constructs). Covered by `packages/orm/dialect_guard_test.ts`.
 - Added the unified **cross-driver feature matrix** (v0.5.0 roadmap item 3): a
   single `docs/feature-matrix.md` — one row per feature, one column per adapter
   across `@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` — generated
@@ -35,6 +44,18 @@ Sisal-specific history after that baseline through `1f05448`.
   preserves types, while a plain TypeScript language server still reports the
   workspace imports as unresolved; the doc records that boundary as a future npm
   packaging signal.
+- Added `docs/v0.6.0-roadmap.md` consolidating a Node.js + npm compatibility
+  exploration into a future-release roadmap (no implementation in this cycle). A
+  June 2026 worktree audit against real Node confirmed the library cores run
+  under Node's type-stripping unchanged, the only hard blockers are bare
+  `@sisal/*` resolution, the six `jsr:`/`npm:` import sites, and the `.ts`
+  import extensions, and all four adapters already inject their driver. The
+  roadmap targets dual-runtime (Deno + Node 24+) and dual-registry (JSR + npm)
+  delivery while keeping the Deno workflow unchanged; it follows the npm
+  packaging signal first recorded in `docs/editor-lsp.md`. Because the `@sisal`
+  scope is unavailable on npm, the roadmap keeps `@sisal/*` for JSR/source and
+  uses a placeholder `@scope/*` npm scope (final name TBD; the build remaps
+  `@sisal/*` → `@scope/*` for the npm artifact only).
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
   moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
   functions** — every multi-step mutation is one **data-modifying CTE**

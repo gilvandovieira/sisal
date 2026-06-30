@@ -28,6 +28,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
 - [v0.4.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.4.0-roadmap.html): This document captures the API gaps surfaced while building the examples/neon-hot-feed example — a Reddit-style hot feed on Neon/PostgreSQL that must stay Deno Deploy / Neon-HTTP friendly. Each gap forced the example...
 - [v0.5.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.5.0-roadmap.html): Where v0.4.0 closed _feature_ gaps surfaced by the neon-hot-feed example, v0.5.0 closes _parity_ gaps **between the adapters**.
+- [v0.6.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.6.0-roadmap.html): Where v0.4.0 closed _feature_ gaps and v0.5.0 closed _parity_ gaps between the adapters, v0.6.0 closes the _runtime_ gap: Sisal is Deno-first and JSR-only today; v0.6.0 makes it **dual-runtime (Deno + Node.js)** and...
 
 ## Package APIs
 
@@ -128,7 +129,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `and` (function): Combines conditions with SQL AND, ignoring nullish values.
 - `AnyTableDefinition` (typeAlias): Any Sisal table definition, regardless of its column map.
 - `arrayContained` (function): Postgres array <@ — true when column is contained by value.
-- `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL/MySQL have no array containment operator.
+- `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL have no array containment operator (rendering throws there).
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
 - `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
@@ -333,7 +334,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `and` (function): Combines conditions with SQL AND, ignoring nullish values.
 - `AnyTableDefinition` (typeAlias): Any Sisal table definition, regardless of its column map.
 - `arrayContained` (function): Postgres array <@ — true when column is contained by value.
-- `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL/MySQL have no array containment operator.
+- `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL have no array containment operator (rendering throws there).
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
 - `avg` (function): avg(column) aggregate expression.
@@ -1566,6 +1567,15 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Added typed render-time dialect guards for the PostgreSQL-only query builders
+  (v0.5.0 roadmap item 4): rendering `distinctOn`, `.for("update"/"share")` row
+  locking, or the array operators (`@>`/`<@`/`&&`) for a SQLite-family dialect
+  now throws a typed `OrmError` (`code: "ORM_DIALECT_UNSUPPORTED"`) naming the
+  construct and the dialect, instead of emitting SQL the engine rejects as a raw
+  syntax error. Implemented as a zero-width `dialectGuard` SQL marker checked in
+  the renderer, so Postgres/Neon rendering and execution are byte-for-byte
+  unchanged (verified: the pg suite stays 31/31, including all three
+  constructs). Covered by `packages/orm/dialect_guard_test.ts`.
 - Added the unified **cross-driver feature matrix** (v0.5.0 roadmap item 3): a
   single `docs/feature-matrix.md` — one row per feature, one column per adapter
   across `@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` — generated
@@ -1590,6 +1600,18 @@ Sisal-specific history after that baseline through `1f05448`.
   preserves types, while a plain TypeScript language server still reports the
   workspace imports as unresolved; the doc records that boundary as a future npm
   packaging signal.
+- Added `docs/v0.6.0-roadmap.md` consolidating a Node.js + npm compatibility
+  exploration into a future-release roadmap (no implementation in this cycle). A
+  June 2026 worktree audit against real Node confirmed the library cores run
+  under Node's type-stripping unchanged, the only hard blockers are bare
+  `@sisal/*` resolution, the six `jsr:`/`npm:` import sites, and the `.ts`
+  import extensions, and all four adapters already inject their driver. The
+  roadmap targets dual-runtime (Deno + Node 24+) and dual-registry (JSR + npm)
+  delivery while keeping the Deno workflow unchanged; it follows the npm
+  packaging signal first recorded in `docs/editor-lsp.md`. Because the `@sisal`
+  scope is unavailable on npm, the roadmap keeps `@sisal/*` for JSR/source and
+  uses a placeholder `@scope/*` npm scope (final name TBD; the build remaps
+  `@sisal/*` → `@scope/*` for the npm artifact only).
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
   moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
   functions** — every multi-step mutation is one **data-modifying CTE**
@@ -4781,9 +4803,9 @@ PostgreSQL-only constructs, and stores a few types differently:
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
 - **`bytea` / BLOB round-trip** — `@libsql/client` returns BLOBs as `ArrayBuffer` (wrap with `new Uint8Array(value)`); SQLite and Postgres return `Uint8Array`.
-- **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; SQLite-family engines reject it.
-- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family.
-- **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family.
+- **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; SQLite-family engines reject it. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
+- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
+- **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
 - **Typed function caller (`db.call`)** — No stored-function concept in the SQLite family; `defineFunction`/`db.call` target Postgres.
 
 ## Reproduce
@@ -5464,7 +5486,7 @@ limit:
 | 1  | libSQL integration coverage parity                                     | P1       | S            | 🟢     |
 | 2  | Neon integration coverage parity                                       | P1       | M            | 🟢     |
 | 3  | Unified cross-driver feature matrix (the **outcome**)                  | P1       | M            | 🟢     |
-| 4  | Typed dialect guards for Postgres-only builders                        | P2       | M            | 🔴     |
+| 4  | Typed dialect guards for Postgres-only builders                        | P2       | M            | 🟢     |
 | 5  | Document principled divergences & round-trip behavior                  | P2       | S            | 🔴     |
 | 6  | Coverage-honesty: CHANGELOG fix + CI parity guard                      | P3       | S            | 🔴     |
 | 7  | Richer DDL: functions & triggers (from v0.4.0 item 5)                  | P2       | L            | 🔴     |
@@ -6008,5 +6030,418 @@ When an item lands:
 The roadmap is complete when the unified matrix shows, for every feature, either
 a tested `✅` on every supporting adapter or a documented `❌`/`⚠️`/`—` with a
 linked reason — and CI enforces that every `✅` is backed by a test.
+```
+
+### docs/v0.6.0-roadmap.md
+
+URL: https://gilvandovieira.github.io/sisal/v0.6.0-roadmap.html
+
+```md
+---
+title: v0.6.0 Roadmap
+---
+
+# Sisal v0.6.0 roadmap — Node.js & npm runtime reach
+
+Where [v0.4.0](v0.4.0-roadmap.md) closed _feature_ gaps and
+[v0.5.0](v0.5.0-roadmap.md) closed _parity_ gaps between the adapters, v0.6.0
+closes the _runtime_ gap: Sisal is Deno-first and JSR-only today; v0.6.0 makes
+it **dual-runtime (Deno + Node.js)** and **dual-registry (JSR + npm)** without
+giving up the Deno developer experience.
+
+**Mission.** Make every package install and run on **Node.js 24 (current LTS)
+and later** from **npm** (published under a placeholder `@scope/*` scope — see
+_Package naming_ below), run the **same** test suite under both `deno test` and
+`node --test`, and publish matching versions to **JSR (`@sisal/*`) and npm
+(`@scope/*`)** from one gated workflow — while the Deno workflow stays exactly
+as it is today.
+
+**Outcome.** `npm install @scope/orm` (and every adapter) works on Node 24+,
+with ESM + CJS entrypoints and full types; `npx sisal` runs the migration CLI;
+and a Node contributor can clone, `npm install`, and `node --test` the workspace
+without Deno installed.
+
+**Non-goal.** This is deliberately _not_ v0.5.0 work. v0.5.0 is a closed scope;
+nothing here should be pulled forward into it. This document parks the Node/npm
+exploration so the work is ready to start cleanly in a later cycle.
+
+**Package naming (JSR `@sisal` vs npm `@scope`).** The `@sisal` scope is
+published and owned on **JSR**, but is **unavailable on npm**. So the Deno
+workspace, every source import, and the JSR packages keep the `@sisal/*` names
+unchanged, while the npm artifacts publish under a **placeholder scope written
+`@scope/*`** throughout this document. The final npm name is an open branding
+decision (an alternate scope like `@sisal-db/*`, unscoped `sisal-*` packages,
+your own scope, …); `@scope` is a deliberate stand-in so the work is not tied to
+a name — swap it in one find-replace once chosen. Mechanically, the npm **build
+remaps** the source `@sisal/*` scope to `@scope/*` (package `name`, dependency
+names, and the internal import specifiers), so dev, test, and JSR publishing are
+unaffected and keep using `@sisal/*`; only the published npm artifact carries
+`@scope/*`.
+
+## Where this came from
+
+A Node/npm feasibility audit (June 2026) ran the actual codebase against real
+**Node v26.4.0 / npm 11.16.0** in a throwaway git worktree, and built on the
+signal already recorded in [editor-lsp.md](editor-lsp.md) (a plain TypeScript
+language server reports the `@sisal/*` workspace imports as unresolved — "a
+future npm packaging signal"). The audit's finding: **the repo is unusually
+close to dual-runtime already.** The library cores carry zero Deno-runtime
+coupling, all four adapters already _inject_ their driver, and the code reads
+the `Deno` global defensively through `globalThis`. The blockers are
+concentrated in **packaging metadata, module-specifier syntax, one static
+import, and the dev toolchain** — not in the library logic.
+
+Probes run under real Node:
+
+| Probe                                                                    | Result                                                       |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Load + run the pure `@sisal/orm` core (relative `.ts`, type-stripped)    | ✅ module graph instantiates and executes real logic         |
+| `@sisal/pg` → `@sisal/orm` after adding minimal `package.json` `exports` | ✅ `createSchemaSnapshot` + DDL generation run cross-package |
+| Load `pg/orm/pool.ts` (static `jsr:@db/postgres` import)                 | ❌ `ERR_UNSUPPORTED_ESM_URL_SCHEME: protocol 'jsr:'`         |
+| Import bare `@sisal/orm` with no `package.json`                          | ❌ `ERR_MODULE_NOT_FOUND` (pure resolution, not a code bug)  |
+| `import.meta.main`, `node:sqlite` (`DatabaseSync`), `node:test`          | ✅ all present                                               |
+
+Three concrete blockers, none of which touch business logic:
+
+1. **Bare cross-package specifiers** (`@sisal/orm`, `@sisal/migrate`, …) — Deno
+   resolves these from the workspace; Node needs `package.json` `exports`.
+   Proven resolvable by synthesizing minimal manifests in the worktree.
+2. **`jsr:` / `npm:` URL-scheme imports** — Node's loader hard-rejects them.
+   Only **six sites** (item 2).
+3. **`.ts` import extensions** on all 271 internal imports — Deno-mandatory, but
+   they must become `.js` in published output, so a build step is required (item
+   3).
+
+The coupling inventory the audit produced:
+
+- **Library source is essentially clean.** The only `Deno.*` in non-test source
+  is `Deno.env` in `cli.ts`, already read via `globalThis.Deno?.env?.get` with a
+  try/catch. The migration filesystem is abstracted behind
+  `MigrationFileSystem`; `denoMigrationFileSystem()` throws cleanly when `Deno`
+  is absent, leaving room for a `node:fs` sibling.
+- **Drivers are injectable.** Every adapter accepts a caller-supplied
+  pool/client/database; only the _default_ import is Deno-specific.
+- **The dev toolchain is the largest surface** — 200 `Deno.test` calls in the
+  unit suites, the custom `Deno.lint` plugin, and five `denoland/setup-deno` CI
+  workflows.
+
+## Status legend
+
+| Symbol | Meaning                                |
+| ------ | -------------------------------------- |
+| 🔴     | Not started                            |
+| 🟡     | In progress / partial                  |
+| 🟢     | Done — move the entry to the CHANGELOG |
+
+## Priority summary
+
+| # | Item                                                    | Priority | Rough effort | Status |
+| - | ------------------------------------------------------- | -------- | ------------ | ------ |
+| 1 | Shared package manifests & workspace resolution         | P1       | M            | 🔴     |
+| 2 | Driver indirection & the six `jsr:`/`npm:` import sites | P1       | M            | 🔴     |
+| 3 | npm build pipeline — dual ESM/CJS + types               | P1       | M            | 🔴     |
+| 4 | Dual-runtime test harness (`deno test` + `node --test`) | P1       | M            | 🔴     |
+| 5 | CLI under Node — `node:fs` filesystem + `bin`           | P2       | S            | 🔴     |
+| 6 | CI Node matrix + dual JSR/npm publish                   | P1       | M            | 🔴     |
+| 7 | Lint & format parity for Node-only contributors         | P3       | S            | 🔴     |
+| 8 | Node-native examples & "Use from Node" docs             | P2       | S            | 🔴     |
+
+**Sequencing.** Items 1 → 2 → 4 are the de-risking spine and need no build
+tooling: once manifests resolve `@sisal/*` (1) and adapters stop importing
+`jsr:`/`npm:` eagerly (2), the dual-runtime test harness (4) can turn
+`node
+--test` green for the whole workspace — proving Node compatibility before
+any packaging exists. Item 3 (build) then produces installable artifacts, item 6
+ships them, and items 5/7/8 round out the CLI, contributor tooling, and docs. A
+suggested milestone order: **M1** = items 1 + 4 (pure packages dual-run); **M2**
+= item 2 (adapters dual-run); **M3** = item 3 (installable npm tarballs); **M4**
+= items 5 + 8 (CLI + integration + examples on Node); **M5** = items 6 + 7 (CI +
+dual publish + lint parity).
+
+**Build-tool decision (open).** Item 3 can use Deno's official
+[`dnt`](https://github.com/denoland/dnt) (Deno→Node transform — rewrites
+specifiers and `.ts`→`.js`, emits dual ESM/CJS + `.d.ts` + `package.json`, keeps
+Deno as source of truth) or a Node-native build (`tsdown`/`unbuild` +
+`tsc rewriteRelativeImportExtensions`). The roadmap recommends **dnt** for the
+first cut and revisiting only if a fully Node-native build becomes worthwhile.
+
+---
+
+## 1. Shared package manifests & workspace resolution — P1
+
+**Problem.** Node cannot resolve the bare `@sisal/*` cross-package specifiers
+(45 `@sisal/orm`, 20 `@sisal/migrate`, plus subpath imports) — Deno resolves
+them from the `deno.json` workspace, but Node needs `package.json` `exports`.
+The worktree audit confirmed this is _pure packaging metadata_: synthesizing
+minimal manifests made `@sisal/pg` → `@sisal/orm` resolve and execute under Node
+with no code change.
+
+**Proposed work.** Add a `package.json` beside each `deno.json` (six library
+packages + a root workspace manifest). Deno keeps reading `deno.json`; Node
+reads `package.json`. Each package manifest declares `"type": "module"`,
+`"engines": { "node": ">=24" }`, an `"exports"` map mirroring the `deno.json`
+subpath exports (`.`, `./core`, `./orm`, `./migrate`, `./ddl`, `./schema`, and
+migrate's `./cli`/`./workflow`) but pointing at built artifacts with
+`import`/`require`/`types` conditions, cross-package deps via the `workspace:*`
+protocol, and the real npm driver deps (item 2). The root manifest declares
+`"workspaces"` mirroring the `deno.json` workspace array. Each package's local
+`"name"` stays `@sisal/*` so source imports resolve in the workspace during
+dev/test; the npm **build** (item 3) renames the published artifact to
+`@scope/*` — the dev/JSR identity and the npm identity diverge only in published
+output (`@sisal` is unavailable on npm; see _Package naming_). To prevent the
+two manifests drifting, generate `package.json` from `deno.json` via a new
+`deno task` plus a CI freshness check (the same pattern as `docs:matrix:check`).
+
+**Affected.** A new `package.json` per package + root; a generator under
+`tools/`; `.github/workflows` (freshness check); CLAUDE.md commands list.
+
+**Acceptance criteria.**
+
+- Each `deno.json` export has a matching `package.json` `exports` entry; a CI
+  check fails when they diverge.
+- Under Node, importing a package resolves its `@sisal/*` cross-package deps
+  transitively through the local workspace (the published-artifact equivalent,
+  under the `@scope/*` npm names, is covered by item 3).
+- `deno test` / `deno check` / `deno publish --dry-run` are unchanged.
+
+---
+
+## 2. Driver indirection & the six `jsr:`/`npm:` import sites — P1
+
+**Problem.** Six import sites use Deno-only specifier schemes Node rejects
+(`ERR_UNSUPPORTED_ESM_URL_SCHEME`). Critically, `@sisal/pg` imports its driver
+**statically** (`pg/orm/pool.ts:2`, `pg/migrate/pool.ts:2`), so merely importing
+the adapter fails on Node even though the executor is injectable — unlike
+`@sisal/sqlite`/`@sisal/libsql`/`@sisal/neon`, which import their driver lazily.
+
+**Proposed work.** Centralize each adapter's _default_ driver load behind a lazy
+resolver that branches on `globalThis.Deno`, keeping the existing injection
+seams (a caller-supplied pool/client/database always wins). Per site:
+
+| Site                                                   | Change                                                                                                                                                                                                   |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pg/orm/pool.ts`, `pg/migrate/pool.ts`                 | static `jsr:@db/postgres` → **lazy**; default to `pg` (node-postgres) on Node, wrapped to the existing `PgPool`/`PgClient` shape (`client.query` → `queryObject`, both return `{rows, rowCount}`).       |
+| `sqlite/orm/database.ts`, `sqlite/migrate/database.ts` | `jsr:@db/sqlite` → resolve to the built-in **`node:sqlite`** `DatabaseSync` on Node (no dependency) / `@db/sqlite` on Deno, wrapped to `SqliteLikeDatabase` (`prepare → { all, run: number }`, `close`). |
+| `libsql/client.ts`                                     | drop the `npm:` prefix → `@libsql/client`; declare it a dependency. Works on Node unchanged.                                                                                                             |
+| `neon/client.ts`                                       | already a **bare** `@neon/serverless`; map it to npm **`@neondatabase/serverless`** (identical `Pool`/`Client`/`*Config` API) — no code change beyond the dependency alias.                              |
+| `cli.ts` adapter strings (`jsr:@sisal/<adapter>/…`)    | emit a Node-resolvable bare specifier when running under Node (`@sisal/pg/ddl` in source/dev, remapped to `@scope/pg/ddl` by the npm build, item 3); keep `jsr:@sisal/…` under Deno.                     |
+
+**Affected.** `@sisal/pg` (the one behavioral change — lazy default import),
+`@sisal/sqlite`, `@sisal/libsql`, `@sisal/neon`, `packages/migrate/cli.ts`;
+driver deps `pg` (+ `@types/pg`), `@libsql/client`, `@neondatabase/serverless`.
+
+**Acceptance criteria.**
+
+- Importing any adapter under Node succeeds with no driver installed until a
+  real connection is opened (parity with the lazy adapters today).
+- A Node consumer can open a real connection per engine: `pg` for Postgres,
+  `node:sqlite` (or `better-sqlite3`) for SQLite, `@libsql/client` for libSQL,
+  `@neondatabase/serverless` for Neon.
+- The injected-driver path is unchanged on both runtimes; render output is
+  identical.
+
+---
+
+## 3. npm build pipeline — dual ESM/CJS + types — P1
+
+**Problem.** All 271 internal imports carry explicit `.ts` extensions (Deno
+requires them), so published JavaScript and `.d.ts` must rewrite `.ts` → `.js`;
+npm consumers via `tsc`/bundlers cannot import `.ts` specifiers. A build step is
+therefore mandatory for npm even though Deno needs none.
+
+**Proposed work.** A per-package build, ordered by the dependency DAG (`orm` →
+`migrate` → adapters), that rewrites specifiers, rewrites `.ts` → `.js`, and
+emits **ESM + CJS + `.d.ts`** into `dist/`, wired to the `package.json`
+`exports` from item 1. Recommended: Deno's `dnt`, configured to skip its own
+test pass (item 4 runs tests natively) and to omit the `Deno` global shim
+(runtime code already guards `globalThis.Deno`). As part of the build, **remap
+the source `@sisal/*` scope to the npm `@scope/*` scope** — the published
+package `name`, its `@sisal/*` dependencies, and the internal `@sisal/*` import
+specifiers all become `@scope/*` (`@sisal` is unavailable on npm; the JSR/dev
+identity stays `@sisal/*` — see _Package naming_). `dnt` does this rename per
+package.
+
+**Affected.** A build script per package; root build orchestration in `tools/`;
+`package.json` `exports`/`files`/`dist`.
+
+**Acceptance criteria.**
+
+- `npm pack` of each package contains ESM + CJS entrypoints and `.d.ts` for
+  every subpath export.
+- A clean `npm install` of the packed tarballs, imported from both an ESM and a
+  CJS Node 24 project, type-checks and runs.
+- Build output for the pure packages contains no `jsr:`/`npm:` specifiers and no
+  `.ts` import paths.
+- The published npm output references only `@scope/*` names (no `@sisal/*`
+  remains in the emitted `name`, deps, or import specifiers); JSR/dev output
+  still uses `@sisal/*`.
+
+---
+
+## 4. Dual-runtime test harness (`deno test` + `node --test`) — P1
+
+**Problem.** The unit suites are Deno-native: **200** `Deno.test("name", fn)`
+calls and **7** `@std/assert` symbols (`assertEquals`, `assert`, `assertThrows`,
+`assertStringIncludes`, `assertRejects`, `assertInstanceOf`, `assertExists`).
+They run only under Deno today. The surface is uniform, though — all the simple
+name+fn form, no `t.step`, no `permissions`/sanitizer options — which makes a
+single dual-runtime harness viable.
+
+**Proposed work.** One shared `packages/_testing/harness.ts` exporting
+`test(name,
+fn)` (→ `Deno.test` under Deno, `node:test`'s `test()` under Node,
+branching on `globalThis.Deno`) and the seven assertions (re-export
+`@std/assert` under Deno; back them with `node:assert/strict` under Node — each
+a 1–3 line adapter). A codemod replaces `Deno.test(` → `test(` and the
+`@std/assert` import → the harness import across every `*_test.ts` (~200
+mechanical edits, zero logic change). The two project-defined assertions
+(`assertMigrationChecksum`, `assertValidSchemaSnapshot`) are already pure source
+exports and need no change. Apply the same treatment to the env-gated
+`integration/` suites so they run under both runtimes against the same
+databases.
+
+**Affected.** A new `packages/_testing/harness.ts`; every `*_test.ts` in
+`packages/**` and `integration/**`; the `test` task definitions.
+
+**Acceptance criteria.**
+
+- `deno test` (as today) and `node --test 'packages/**/*_test.ts'` run the
+  **same** files and are both green for the unit suites on Node 24.
+- No test body changes semantics; only the `test`/assert imports differ.
+- The env-gated integration suites run under both runtimes against the Docker
+  services.
+
+---
+
+## 5. CLI under Node — `node:fs` filesystem + `bin` — P2
+
+**Problem.** The `sisal` CLI reads/writes via the injectable
+`MigrationFileSystem`, but only a `denoMigrationFileSystem()` exists, and the
+executable entry (`if (import.meta.main)`) reads `Deno.args`/`Deno.exit`. There
+is no Node entrypoint.
+
+**Proposed work.** Add a `nodeMigrationFileSystem()` beside the Deno one in
+`workflow.ts`, backed by `node:fs/promises`
+(`readdir`/`readFile`/`writeFile`/`mkdir`) and matching the `NotFound` → `[]` /
+`undefined` semantics. Add a `bin/sisal.mjs` (wired through `package.json#bin`)
+that calls `runSisalCli(process.argv.slice(2))` and `process.exit`; keep the
+existing `import.meta.main` block for Deno. Pick the FS impl and env reader by
+`globalThis.Deno` presence.
+
+**Affected.** `packages/migrate/core/workflow.ts`, `packages/migrate/cli.ts`, a
+`bin/` entry, `@sisal/migrate` `package.json` (`bin`).
+
+**Acceptance criteria.**
+
+- `npx sisal init|generate|migrate|status|drift` works on Node 24 with the same
+  output as `deno task sisal`.
+- The CLI's filesystem behavior (missing dir → empty, idempotent `mkdir`)
+  matches across runtimes, pinned by a test that runs the runner against both FS
+  impls.
+
+---
+
+## 6. CI Node matrix + dual JSR/npm publish — P1
+
+**Problem.** All five workflows are `denoland/setup-deno` +
+`deno
+fmt|lint|check|test|publish`. Nothing builds, tests, or publishes for
+Node, and a release targets JSR only.
+
+**Proposed work.** Add a **Node 24** leg (and optionally Node "current") to
+`ci.yml` (`npm ci` → build → `node --test`) and to `integration.yml` (Node legs
+for the env-gated DB suites, reusing the Docker services), keeping every
+existing Deno step. Extend `publish.yml`: after `deno publish` (JSR `@sisal/*`),
+add `npm publish` of the `@scope/*` artifact (item 3) per package, behind the
+same version gate (`tools/check_release_version.ts`) so the paired JSR
+`@sisal/*` and npm `@scope/*` packages never diverge in version; use npm
+provenance/OIDC. Add `npm audit` (or osv-scanner over the npm lockfile)
+alongside the existing `deno task audit`.
+
+**Affected.** `.github/workflows/{ci,integration,publish,advisories}.yml`;
+`tools/check_release_version.ts` (assert the paired JSR `@sisal/*` and npm
+`@scope/*` versions match per package).
+
+**Acceptance criteria.**
+
+- CI runs the unit suite under Deno **and** Node 24 on every PR; both must pass.
+- A release publishes the paired packages — `@sisal/*` to JSR and `@scope/*` to
+  npm — at identical versions in one gated run; a version mismatch fails the
+  gate.
+- The advisory job covers both the Deno and npm dependency trees.
+
+---
+
+## 7. Lint & format parity for Node-only contributors — P3
+
+**Problem.** Formatting/linting is Deno-only (`deno fmt`, `deno lint`, plus the
+custom `Deno.lint` `no-raw-interpolation` plugin in `tools/lint/`). A Node-only
+contributor has no local formatter, and the custom safety rule has no Node
+equivalent.
+
+**Proposed work.** Keep `deno fmt`/`deno lint` as the **canonical** gate (style
+stays single-source). Add a Biome (or Prettier) config mirroring `deno fmt`
+(lineWidth 80, semicolons) so Node editors don't fight formatting, while CI
+formatting enforcement stays `deno fmt --check`. Optionally reimplement
+`no-raw-interpolation` as a Biome/ESLint rule if Node-only contribution becomes
+common — flagged, not committed.
+
+**Affected.** A mirrored formatter config; CLAUDE.md (document that `deno fmt`
+remains canonical); optionally a ported lint rule.
+
+**Acceptance criteria.**
+
+- A Node-only contributor can auto-format to the same result `deno fmt`
+  produces.
+- CI still enforces formatting via `deno fmt --check` (no double source of
+  truth).
+- If ported, the `no-raw-interpolation` rule fires on the same cases the Deno
+  plugin does, pinned by a test.
+
+---
+
+## 8. Node-native examples & "Use from Node" docs — P2
+
+**Problem.** Every example is Deno-shaped (`Deno.test`/`Deno.env`/`Deno.args` +
+`import.meta.main`), and there is no documentation for consuming Sisal from Node
+or choosing a Node driver. The npm story is unproven from a user's seat until at
+least one example runs on Node.
+
+**Proposed work.** Provide at least one **Node-native** example per engine
+(`package.json` + a `node` entry) that installs the published packages and runs,
+demonstrating the driver choices (incl. zero-dependency `node:sqlite`). Add a
+"Use Sisal from Node / npm" docs page (install, ESM vs CJS, per-engine driver
+selection, the Node 24 baseline) and update the homepage `docs/index.html`
+accordingly. Convert the remaining examples opportunistically.
+
+**Affected.** New Node example(s); a new docs page; `docs/index.html`; the
+generated `docs/llms*.txt` (regenerate via `deno task docs:llms`).
+
+**Acceptance criteria.**
+
+- A documented Node example per engine installs the published `@scope/*`
+  packages from the built artifacts and runs end-to-end on Node 24.
+- The docs explain Node consumption and driver selection, including the
+  built-in-`node:sqlite` path.
+- `deno task docs:llms:check` passes after regeneration.
+
+---
+
+## Tracking
+
+When an item lands:
+
+1. Implement it, add the dual-runtime coverage (`deno test` **and**
+   `node
+   --test`) for every affected package, and keep the `package.json` ↔
+   `deno.json` generators in sync.
+2. Flip the item's status here to 🟢 and record it under `Unreleased` in
+   [CHANGELOG.md](../CHANGELOG.md), noting any new public entrypoints, `bin`, or
+   driver dependencies.
+
+The roadmap is complete when `npm install @scope/*` runs on Node 24+ with ESM +
+CJS + types, the unit suite is green under both runtimes in CI, `npx sisal`
+works, and a single release publishes matching versions to JSR and npm — with
+the Deno developer workflow unchanged throughout.
 ```
 

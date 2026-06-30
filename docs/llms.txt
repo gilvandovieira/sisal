@@ -22,6 +22,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
 - [v0.4.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.4.0-roadmap.html): This document captures the API gaps surfaced while building the examples/neon-hot-feed example — a Reddit-style hot feed on Neon/PostgreSQL that must stay Deno Deploy / Neon-HTTP friendly. Each gap forced the example...
 - [v0.5.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.5.0-roadmap.html): Where v0.4.0 closed _feature_ gaps surfaced by the neon-hot-feed example, v0.5.0 closes _parity_ gaps **between the adapters**.
+- [v0.6.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.6.0-roadmap.html): Where v0.4.0 closed _feature_ gaps and v0.5.0 closed _parity_ gaps between the adapters, v0.6.0 closes the _runtime_ gap: Sisal is Deno-first and JSR-only today; v0.6.0 makes it **dual-runtime (Deno + Node.js)** and...
 
 ## Package APIs
 

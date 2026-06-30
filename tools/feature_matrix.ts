@@ -71,12 +71,14 @@ const TEXT = "No `json`/array type; values auto-serialize to `TEXT` and read " +
 const BOOL = "No native boolean; stored as `INTEGER` `0`/`1`.";
 const BLOB = "`@libsql/client` returns BLOBs as `ArrayBuffer` (wrap with " +
   "`new Uint8Array(value)`); SQLite and Postgres return `Uint8Array`.";
+const PG_ONLY = " Rendering it for a SQLite-family dialect throws a typed " +
+  "`OrmError` at render time, before execution.";
 const DISTINCT_ON = "`DISTINCT ON` is PostgreSQL-only; SQLite-family engines " +
-  "reject it.";
+  "reject it." + PG_ONLY;
 const LOCKING = "No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the " +
-  "SQLite family.";
+  "SQLite family." + PG_ONLY;
 const ARRAY_OPS = "No array type or operators (`@>`/`<@`/`&&`) in the SQLite " +
-  "family.";
+  "family." + PG_ONLY;
 const DB_CALL = "No stored-function concept in the SQLite family; " +
   "`defineFunction`/`db.call` target Postgres.";
 

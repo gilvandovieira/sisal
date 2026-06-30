@@ -14,6 +14,7 @@ import {
   columnToSql,
   type Condition,
   createCondition,
+  dialectGuard,
   emptySql,
   fillPreparedPlan,
   getResultMetadata,
@@ -854,6 +855,7 @@ export class SisalSelectBuilder<TTable, TResult>
     }
     if (distinctOn !== undefined && distinctOn.length > 0) {
       parts.push(
+        dialectGuard("distinctOn", ["sqlite"]),
         raw("select distinct on ("),
         joinSql([...distinctOn], raw(", ")),
         raw(") "),
@@ -909,6 +911,7 @@ export class SisalSelectBuilder<TTable, TResult>
 
     if (forLock !== undefined) {
       parts.push(
+        dialectGuard('.for("update"/"share") row locking', ["sqlite"]),
         raw(forLock.strength === "share" ? " for share" : " for update"),
       );
       if (forLock.of !== undefined && forLock.of.length > 0) {

@@ -12,6 +12,7 @@ import {
   columnToSql,
   type Condition,
   createCondition,
+  dialectGuard,
   isColumn,
   isQueryBuilder,
   joinSql,
@@ -19,6 +20,7 @@ import {
   type OrderTerm,
   raw,
   sql,
+  type SqlDialect,
   type SqlExpression,
   type SubquerySource,
   subquerySql,
@@ -141,22 +143,41 @@ export function notExists(subquery: SubquerySource): Condition {
   return createCondition(sql`not exists ${subquery}`);
 }
 
+// The Postgres array operators render literally (`@>`/`<@`/`&&`); a dialect
+// guard makes rendering throw a typed `OrmError` on SQLite-family engines (which
+// have no array operators) instead of emitting SQL they reject.
+const ARRAY_OP_UNSUPPORTED: readonly SqlDialect[] = ["sqlite"];
+
+function arrayCondition(
+  column: unknown,
+  operator: string,
+  value: unknown,
+  construct: string,
+): Condition {
+  const right = isColumn(value) ? columnToSql(value) : value;
+  return createCondition(
+    sql`${dialectGuard(construct, ARRAY_OP_UNSUPPORTED)}${
+      columnToSql(column)
+    } ${raw(operator)} ${right}`,
+  );
+}
+
 /**
  * Postgres array `@>` — true when `column` contains every element of `value`.
- * SQLite/libSQL/MySQL have no array containment operator.
+ * SQLite/libSQL have no array containment operator (rendering throws there).
  */
 export function arrayContains(column: unknown, value: unknown): Condition {
-  return binaryCondition(column, "@>", value);
+  return arrayCondition(column, "@>", value, 'arrayContains ("@>")');
 }
 
 /** Postgres array `<@` — true when `column` is contained by `value`. */
 export function arrayContained(column: unknown, value: unknown): Condition {
-  return binaryCondition(column, "<@", value);
+  return arrayCondition(column, "<@", value, 'arrayContained ("<@")');
 }
 
 /** Postgres array `&&` — true when `column` and `value` share any element. */
 export function arrayOverlaps(column: unknown, value: unknown): Condition {
-  return binaryCondition(column, "&&", value);
+  return arrayCondition(column, "&&", value, 'arrayOverlaps ("&&")');
 }
 
 /** Combines conditions with SQL `AND`, ignoring nullish values. */
