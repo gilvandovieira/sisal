@@ -30,7 +30,7 @@ re-sort the whole table on every read. That does not scale and cannot be
 indexed.
 
 This example uses a **Reddit-inspired, time-anchored** model instead
-(`src/hot.ts` and `migrations/0002_hot_score_function.sql`):
+(`src/hot.ts` and the `app.calculate_hot_score` function in `src/schema.ts`):
 
 ```
 order = log10(max(|score|, 1))
@@ -179,16 +179,16 @@ Point it at a scratch Neon branch, never production.
 
 **Raw-SQL escape hatches (parameterized, isolated, justified):**
 
-- **`CREATE FUNCTION` migrations** — `app.calculate_hot_score` and
-  `app.vote_post` (`migrations/0002…`, `0003…`). Sisal's snapshot DDL generator
-  emits only additive table/column DDL.
+- **The two `CREATE FUNCTION` bodies** — `app.calculate_hot_score` and
+  `app.vote_post` are raw PL/pgSQL, but they now live in `src/schema.ts` as
+  `schemaObjects` (a v0.5.0 capability), so they are part of the typed schema
+  and the generated migration, not separate hand-written `.sql` files.
 - **The bulk recompute** — a data-modifying `UPDATE … FROM (… LEFT JOIN …)` that
   calls the hot-score function in its `SET` clause
-  (`src/seed.ts →
-  recomputeAggregates`).
-- **The migration runner** — `src/migrate.ts` reads each `.sql` file and applies
-  it one statement at a time (the Neon driver sends one statement per call),
-  using `splitSqlStatements` now shared from `@sisal/migrate`.
+  (`src/seed.ts → recomputeAggregates`).
+- **The migration runner** — `src/migrate.ts` **generates** the full init DDL
+  from `src/schema.ts` (`generatePostgresUpStatements`) and applies it one
+  statement at a time (the Neon driver sends one statement per call).
 
 ## Sisal API pressure points
 
@@ -204,11 +204,12 @@ Several have since landed in v0.4.0: the **typed database-function caller**
 splitter), and **raw `sql` in `.set()` / `.values()`** (a scalar `sql`
 expression is now a valid column value).
 
-1. **Snapshot DDL can't express this schema.** `generatePostgresUpStatements`
-   emits additive `CREATE TABLE` / `ADD COLUMN` only — no **DESC index
-   ordering**, no functions, no triggers, no partial/expression indexes. So the
-   `.sql` migrations are the source of truth and `src/schema.ts` is a _typed
-   mirror_ for the builder, not the generator's output.
+1. **Snapshot DDL expresses this whole schema — resolved (v0.4.0 → v0.5.0).**
+   `generatePostgresUpStatements` now emits **DESC index ordering** (rich
+   indexes), the value **CHECK**, `gen_random_uuid()` / `now()` **server
+   defaults**
+   (`.default(sql\`…\`)`), and the two **functions** (carried as`schemaObjects`). So`src/schema.ts`is the single source of truth and`src/migrate.ts`generates the full init from it — there are no hand-written`.sql`files. (Drop/`down`
+   generation and drift over opaque function bodies are tracked separately.)
 2. **No `UPDATE … FROM` / `INSERT … SELECT` in the builder.** Scalar `sql`
    expressions in `.set()` / `.values()` now work, so a simple
    `set hot_score = app.calculate_hot_score(score, created_at)` is
@@ -247,15 +248,11 @@ examples/neon-hot-feed/
   mod.ts                    entrypoint; re-exports + runs the demo
   hot_test.ts               network-free unit tests
   feed_db_test.ts           gated database integration test
-  migrations/
-    0001_init.sql           tables, indexes, CHECK
-    0002_hot_score_function.sql   app.calculate_hot_score (IMMUTABLE)
-    0003_vote_post_function.sql   app.vote_post (atomic mutation)
   src/
     db.ts                   runtime vs admin connections
-    schema.ts               typed defineTable models (builder access)
+    schema.ts               typed models + functions (single source of truth)
     hot.ts                  TypeScript mirror of the hot-score model
-    migrate.ts              applies .sql files via @sisal/migrate splitter
+    migrate.ts              generates the init DDL from schema.ts and applies it
     queries.ts              getNewFeed + getHotFeed (both .keyset())
     vote.ts                 votePost → app.vote_post (single statement)
     seed.ts                 demo data + bulk recompute

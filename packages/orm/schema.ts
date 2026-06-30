@@ -21,7 +21,32 @@ export interface SisalSchemaSnapshot {
   readonly version: typeof SCHEMA_SNAPSHOT_VERSION;
   readonly dialect?: SisalDialectName;
   readonly tables: readonly SisalTableSnapshot[];
+  /**
+   * Raw, dialect-specific DDL fragments (functions, triggers, extensions, …)
+   * emitted **after** table/column/constraint/index creation, in declared order.
+   */
+  readonly schemaObjects?: readonly SisalSchemaObjectSnapshot[];
   readonly metadata?: Record<string, unknown>;
+}
+
+/**
+ * A raw, dialect-specific DDL fragment attached to a snapshot — a stored
+ * function, trigger, extension, view, or any verbatim `CREATE …`. Emitted after
+ * table creation, gated by {@link SisalSchemaObjectSnapshot.dialect}, so a
+ * `defineTable` schema can carry the stored logic an app would otherwise keep in
+ * a hand-written `.sql` migration.
+ */
+export interface SisalSchemaObjectSnapshot {
+  /** Stable identity used for ordering, diffing, and drop generation. */
+  readonly name: string;
+  /** What the object is (documents intent; does not change rendering). */
+  readonly kind: "function" | "trigger" | "extension" | "view" | "raw";
+  /** Dialect this object targets; omit to emit for every dialect. */
+  readonly dialect?: SisalDialectName;
+  /** The `CREATE …` DDL emitted verbatim, after table creation. */
+  readonly up: string;
+  /** The matching `DROP …` DDL for the down migration. */
+  readonly down?: string;
 }
 
 /** Serializable table definition inside a schema snapshot. */
@@ -193,6 +218,66 @@ export function defineSchemaSnapshot(
   return snapshot;
 }
 
+/**
+ * Defines a raw DDL {@link SisalSchemaObjectSnapshot} — a stored function,
+ * trigger, extension, or any verbatim `CREATE …` — to attach to a snapshot via
+ * `createSchemaSnapshot({ tables, schemaObjects })`.
+ */
+export function defineSchemaObject(
+  object: SisalSchemaObjectSnapshot,
+): SisalSchemaObjectSnapshot {
+  return normalizeSchemaObject(object);
+}
+
+function normalizeSchemaObject(
+  object: SisalSchemaObjectSnapshot,
+): SisalSchemaObjectSnapshot {
+  return {
+    name: object.name,
+    kind: object.kind,
+    ...(object.dialect === undefined ? {} : { dialect: object.dialect }),
+    up: object.up,
+    ...(object.down === undefined ? {} : { down: object.down }),
+  };
+}
+
+/**
+ * The schema objects to emit for `dialect` when migrating `from` → `to`: those
+ * matching the dialect (or dialect-agnostic) and not byte-identical in `from`,
+ * in declared order. Used by adapter DDL generators to append stored DDL after
+ * table creation.
+ */
+export function selectSchemaObjects(
+  to: SisalSchemaSnapshot,
+  from: SisalSchemaSnapshot | undefined,
+  dialect: SisalDialectName,
+): readonly SisalSchemaObjectSnapshot[] {
+  const previous = from?.schemaObjects ?? [];
+  return (to.schemaObjects ?? []).filter((object) => {
+    if (object.dialect !== undefined && object.dialect !== dialect) {
+      return false;
+    }
+    return !previous.some((p) => p.name === object.name && p.up === object.up);
+  });
+}
+
+/**
+ * The `down` drop statements for a snapshot's `dialect` schema objects, in
+ * reverse declared order (so dependents drop before their dependencies).
+ */
+export function schemaObjectDropStatements(
+  snapshot: SisalSchemaSnapshot,
+  dialect: SisalDialectName,
+): readonly string[] {
+  return (snapshot.schemaObjects ?? [])
+    .filter((object) =>
+      (object.dialect === undefined || object.dialect === dialect) &&
+      object.down !== undefined
+    )
+    .map((object) => object.down as string)
+    .reverse();
+}
+
 /** Returns validation issues for a schema snapshot without mutating it. */
 export function validateSchemaSnapshot(
   snapshot: SisalSchemaSnapshot,
@@ -307,6 +392,12 @@ export function normalizeSchemaSnapshot(
     tables: [...(snapshot.tables ?? [])]
       .map(normalizeTableSnapshot)
       .sort(compareTables),
+    // Schema objects keep declared order — they are dependency-ordered (a
+    // trigger after its function), so they are not sorted like tables.
+    ...(snapshot.schemaObjects === undefined ||
+        snapshot.schemaObjects.length === 0
+      ? {}
+      : { schemaObjects: snapshot.schemaObjects.map(normalizeSchemaObject) }),
     ...(snapshot.metadata === undefined
       ? {}
       : { metadata: cloneRecord(snapshot.metadata) }),

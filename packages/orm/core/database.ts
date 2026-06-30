@@ -8,12 +8,13 @@ import type { Logger } from "../logger.ts";
 import {
   type Cte,
   CTE_DEFINITIONS,
+  cteBodySql,
   type CteBuilder,
   cteColumnKeys,
+  type CteOperand,
   type DeleteBuilder,
   type InsertBuilder,
   type SelectBuilder,
-  type SetOperand,
   SisalDeleteBuilder,
   SisalInsertBuilder,
   SisalSelectBuilder,
@@ -50,12 +51,19 @@ import {
   type SqlParameter,
   type SqlQuery,
 } from "./sql.ts";
+import type { ColumnDataType, ColumnValueMode } from "./columns.ts";
 import {
   type AnyTableDefinition,
   assertTable,
+  type InferSelect,
+  isTable,
   type TableDefinition,
 } from "./table.ts";
-import { decodeTemporalRow, type TemporalParsingOptions } from "./temporal.ts";
+import {
+  decodeTemporalRow,
+  type ResultColumnMetadata,
+  type TemporalParsingOptions,
+} from "./temporal.ts";
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
@@ -102,12 +110,52 @@ export type BatchStatement = { toSql(): Sql } | Sql | SqlQuery;
 /** Schema map used to expose `db.query.<table>` relational helpers. */
 export type DatabaseSchema = Record<string, AnyTableDefinition>;
 
+/**
+ * One column's mapping for `.as(map)`: the physical name to read from the raw
+ * row plus the decode metadata. Every field is optional — a bare `{}` keeps the
+ * key as-is and applies no decoding.
+ */
+export interface ColumnMapping {
+  /** Physical column name in the raw result; defaults to the map key. */
+  readonly name?: string;
+  /** Column data type — drives Temporal decoding when parsing is enabled. */
+  readonly dataType?: ColumnDataType;
+  /** Value mode (`"date"`/`"string"`/…) — drives Temporal decoding. */
+  readonly valueMode?: ColumnValueMode;
+  /** Whether the column is an array (each element is decoded). */
+  readonly array?: boolean;
+}
+
+/**
+ * A free-form column-descriptor map for `.as(map)` — JS key → {@link
+ * ColumnMapping} — for raw results that do not correspond to a single
+ * `defineTable` (a join, an aggregate, a CTE projection).
+ */
+export type ColumnMap = Record<string, ColumnMapping>;
+
+/**
+ * The awaitable result of a raw `db.query(...)` call: a normal query-result
+ * promise that also exposes `.as(...)`, which decodes the raw driver rows —
+ * physical→JS column naming plus the same opt-in Temporal decoding the query
+ * builder applies. Pass a `defineTable` model to get typed `InferSelect<table>`
+ * rows, or a free-form {@link ColumnMap} for a result that does not match one
+ * table (a join/aggregate/CTE projection). Lets a hand-written `sql` query reuse
+ * existing column metadata instead of a restated row type.
+ */
+export interface MappableQueryResult<T = unknown>
+  extends Promise<OrmQueryResult<T>> {
+  as<TTable extends TableDefinition>(
+    table: TTable,
+  ): Promise<InferSelect<TTable>[]>;
+  as<TRow = Record<string, unknown>>(map: ColumnMap): Promise<TRow[]>;
+}
+
 /** A raw SQL query executor. */
 export interface RawQueryExecutor {
   <T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
-  ): Promise<OrmQueryResult<T>>;
+  ): MappableQueryResult<T>;
 }
 
 /** Callable raw-query function plus schema keyed relational query helpers. */
@@ -320,11 +368,67 @@ class SisalDatabase<
     this.#temporal = options.temporal ?? {};
     this.#relationRegistry = createRelationRegistry(options.relations ?? []);
     this.query = createDatabaseQuery<TSchema, TRelations>(
-      (query, params) => this.#query(query, params),
+      (query, params) => this.#mappableQuery(query, params),
       this,
       this.#schema,
       this.#relationRegistry,
     );
+  }
+
+  // Wraps a raw query promise with `.as(...)` so its rows can be decoded against
+  // a table model or a free-form column map (physical→JS naming + opt-in
+  // Temporal parsing).
+  #mappableQuery<T>(
+    query: SqlInput,
+    params?: readonly SqlParameter[],
+  ): MappableQueryResult<T> {
+    const promise = this.#query<T>(query, params) as MappableQueryResult<T>;
+    const as = (source: TableDefinition | ColumnMap) => {
+      if (!isTable(source) && (typeof source !== "object" || source === null)) {
+        throw new OrmError("Expected a table definition or column map", {
+          code: "ORM_INVALID_TABLE",
+        });
+      }
+      return promise.then((result) =>
+        this.#mapRows(result.rows as Record<string, unknown>[], source)
+      );
+    };
+    promise.as = as as MappableQueryResult<T>["as"];
+    return promise;
+  }
+
+  // Maps raw driver rows onto a table model or column map: renames physical
+  // column names to their JS keys, then applies the same opt-in Temporal
+  // decoding the builder uses. Unknown keys pass through untouched.
+  #mapRows(
+    rows: readonly Record<string, unknown>[],
+    source: TableDefinition | ColumnMap,
+  ): Record<string, unknown>[] {
+    const rename: Record<string, string> = {};
+    const metadata: Record<string, ResultColumnMetadata> = {};
+    if (isTable(source)) {
+      for (const [property, column] of Object.entries(source.columns)) {
+        rename[column.name] = property;
+        metadata[property] = column;
+      }
+    } else {
+      for (const [key, descriptor] of Object.entries(source)) {
+        rename[descriptor.name ?? key] = key;
+        metadata[key] = {
+          array: descriptor.array,
+          dataType: descriptor.dataType,
+          valueMode: descriptor.valueMode,
+        } as ResultColumnMetadata;
+      }
+    }
+    const parse = this.#temporal.parse === true;
+    return rows.map((row) => {
+      const mapped: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(row)) {
+        mapped[rename[key] ?? key] = value;
+      }
+      return parse ? decodeTemporalRow(mapped, metadata) : mapped;
+    });
   }
 
   async execute<T = unknown>(
@@ -365,7 +469,7 @@ class SisalDatabase<
   $with(name: string): CteBuilder {
     return {
       as: <TResult>(
-        query: SetOperand<TResult>,
+        query: CteOperand<TResult>,
       ): Cte<{ readonly [K in keyof TResult]-?: SelectColumnRef }> => {
         const columns: Record<string, SelectColumnRef> = {};
         for (const key of cteColumnKeys(query)) {
@@ -375,7 +479,7 @@ class SisalDatabase<
             dataType: "unknown",
           } as unknown as SelectColumnRef;
         }
-        CTE_DEFINITIONS.set(columns, { name, query: query.toSql() });
+        CTE_DEFINITIONS.set(columns, { name, query: cteBodySql(query) });
         return columns as Cte<
           { readonly [K in keyof TResult]-?: SelectColumnRef }
         >;
@@ -405,6 +509,38 @@ class SisalDatabase<
           ctes: definitions,
           ...(projection === undefined ? {} : { projection }),
         }),
+      insert: <TTable extends TableDefinition>(
+        table: TTable,
+      ): InsertBuilder<TTable> => {
+        assertTable(table);
+        return new SisalInsertBuilder(database, {
+          table,
+          returning: false,
+          ctes: definitions,
+        });
+      },
+      update: <TTable extends TableDefinition>(
+        table: TTable,
+      ): UpdateBuilder<TTable> => {
+        assertTable(table);
+        return new SisalUpdateBuilder(database, {
+          table,
+          allowAllRows: false,
+          returning: false,
+          ctes: definitions,
+        });
+      },
+      delete: <TTable extends TableDefinition>(
+        table: TTable,
+      ): DeleteBuilder<TTable> => {
+        assertTable(table);
+        return new SisalDeleteBuilder(database, {
+          table,
+          allowAllRows: false,
+          returning: false,
+          ctes: definitions,
+        });
+      },
     } as WithQueryBuilder;
   }
 
@@ -431,21 +567,29 @@ class SisalDatabase<
     table: TTable,
   ): InsertBuilder<TTable> {
     assertTable(table);
-    return new SisalInsertBuilder(this, table);
+    return new SisalInsertBuilder(this, { table, returning: false });
   }
 
   update<TTable extends TableDefinition>(
     table: TTable,
   ): UpdateBuilder<TTable> {
     assertTable(table);
-    return new SisalUpdateBuilder(this, table);
+    return new SisalUpdateBuilder(this, {
+      table,
+      allowAllRows: false,
+      returning: false,
+    });
   }
 
   delete<TTable extends TableDefinition>(
     table: TTable,
   ): DeleteBuilder<TTable> {
     assertTable(table);
-    return new SisalDeleteBuilder(this, table);
+    return new SisalDeleteBuilder(this, {
+      table,
+      allowAllRows: false,
+      returning: false,
+    });
   }
 
   async transaction<T>(
@@ -632,4 +776,103 @@ function transactionToDriver(transaction: OrmTransaction): OrmDriver {
 
 function elapsedMs(startedAt: number): number {
   return Math.max(0, performance.now() - startedAt);
+}
+
+/**
+ * A portable atomic operation — a "transaction script". Author dependent
+ * read-modify-write steps once; {@link AtomicOperation.run} executes them as a
+ * single transaction on any adapter (`@sisal/pg`, `@sisal/neon`,
+ * `@sisal/sqlite`, `@sisal/libsql`), replacing per-engine hand-written
+ * transaction/function code with one definition.
+ */
+export interface AtomicOperation<TInput, TOutput> {
+  /** Stable operation name (used by tooling and future function dispatch). */
+  readonly name: string;
+  /**
+   * Runs the operation against `db` inside one `db.transaction(...)` — the steps
+   * commit together and roll back on any error — returning the body's result.
+   */
+  run(db: Database, input: TInput): Promise<TOutput>;
+}
+
+/** The interactive form of an atomic operation — runs on every adapter. */
+export type AtomicOperationBody<TInput, TOutput> = (
+  tx: Database,
+  input: TInput,
+) => Promise<TOutput>;
+
+/**
+ * An atomic operation with two render strategies behind one definition. `body`
+ * is the portable interactive transaction (required, runs everywhere).
+ * `singleStatement` is an optional **single-round-trip** path for the
+ * Postgres family: build the same logic as one data-modifying CTE (item 12) and
+ * execute it with one `db.execute` — no `BEGIN`/`COMMIT`, ideal for Neon HTTP /
+ * Deno Deploy. `run` picks the single statement on `"postgres"` when present and
+ * the interactive `body` everywhere else, so callers invoke `op.run(db, input)`
+ * the same way on every engine.
+ */
+export interface AtomicOperationConfig<TInput, TOutput> {
+  readonly body: AtomicOperationBody<TInput, TOutput>;
+  readonly singleStatement?: (
+    db: Database,
+    input: TInput,
+  ) => Promise<TOutput>;
+}
+
+/**
+ * Defines an {@link AtomicOperation}. Pass a transaction-scoped body — which may
+ * run dependent steps (a read that drives a later write) — or an
+ * {@link AtomicOperationConfig} with both a portable `body` and an optional
+ * Postgres-family `singleStatement` path. The same operation runs identically
+ * from the caller's side on every adapter, so application code is shaped by the
+ * domain, not the engine: `op.run(db, input)` is one round trip on Neon (when a
+ * `singleStatement` is given) and one interactive transaction on libSQL.
+ *
+ * @example
+ * const recordVote = defineAtomicOperation<{ postId: number }, number>(
+ *   "record_vote",
+ *   {
+ *     // Portable: read-modify-write inside one interactive transaction.
+ *     body: async (tx, { postId }) => {
+ *       const [post] = await tx.select({ v: posts.columns.votes }).from(posts)
+ *         .where(eq(posts.columns.id, postId)).execute();
+ *       const next = Number(post.v) + 1;
+ *       await tx.update(posts).set({ votes: next })
+ *         .where(eq(posts.columns.id, postId)).execute();
+ *       return next;
+ *     },
+ *     // Postgres family: the same effect as one data-modifying CTE statement.
+ *     singleStatement: async (db, { postId }) => {
+ *       const bumped = db.$with("bumped").as(
+ *         db.update(posts).set({ votes: sql`${posts.columns.votes} + 1` })
+ *           .where(eq(posts.columns.id, postId))
+ *           .returning({ v: posts.columns.votes }),
+ *       );
+ *       const [row] = await db.with(bumped).select({ v: bumped.v })
+ *         .from(bumped).execute();
+ *       return Number(row.v);
+ *     },
+ *   },
+ * );
+ * const votes = await recordVote.run(db, { postId: 1 });
+ */
+export function defineAtomicOperation<TInput, TOutput>(
+  name: string,
+  bodyOrConfig:
+    | AtomicOperationBody<TInput, TOutput>
+    | AtomicOperationConfig<TInput, TOutput>,
+): AtomicOperation<TInput, TOutput> {
+  const config: AtomicOperationConfig<TInput, TOutput> =
+    typeof bodyOrConfig === "function" ? { body: bodyOrConfig } : bodyOrConfig;
+  return Object.freeze({
+    name,
+    run(db: Database, input: TInput): Promise<TOutput> {
+      // A single data-modifying CTE is atomic on its own; the Postgres family
+      // runs it as one round trip. Every other engine runs the interactive form.
+      if (config.singleStatement !== undefined && db.dialect === "postgres") {
+        return config.singleStatement(db, input);
+      }
+      return db.transaction((tx) => config.body(tx, input));
+    },
+  });
 }

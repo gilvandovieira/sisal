@@ -120,22 +120,22 @@ columns.customType<number>({
 
 ### Column modifiers
 
-| Drizzle 0.45.2                  | Sisal                                                               | Status |
-| ------------------------------- | ------------------------------------------------------------------- | ------ |
-| `.notNull()`                    | `.notNull()` (opt out of nullable default)                          | ✅     |
-| `.default(v)`                   | `.default(v \| () => v)`                                            | ✅     |
-| `.$default()` / `.$defaultFn()` | `.default(() => v)` covers both                                     | 🟡     |
-| `.primaryKey()`                 | `.primaryKey()` (implies `.notNull()`)                              | ✅     |
-| `.unique()`                     | `.unique()` → emits a `UNIQUE` constraint                           | ✅     |
-| `.references(() => t.col)`      | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY`       | ✅⁵    |
-| `.$type<T>()`                   | type param on factory (`columns.json<T>()`)                         | 🔷     |
-| `.array()`                      | `.array()`                                                          | ✅     |
-| `.$onUpdate(fn)`                | `.$onUpdate(fn)` (applied on `UPDATE`)                              | ✅     |
-| `.generatedAlwaysAs(...)`       | —                                                                   | ❌     |
-| (no equivalent)                 | `.nullable()` (explicit form of the default)                        | 🔷     |
-| (no equivalent)                 | `.optional()` (insert-optional)                                     | 🔷     |
-| `integer("name")` explicit name | `.named("name")` (explicit physical column name)                    | ✅     |
-| `casing: "snake_case"` (db)     | `naming` strategy + `setDefaultColumnNaming` (default `snake_case`) | ✅⁷    |
+| Drizzle 0.45.2                       | Sisal                                                               | Status |
+| ------------------------------------ | ------------------------------------------------------------------- | ------ |
+| `.notNull()`                         | `.notNull()` (opt out of nullable default)                          | ✅     |
+| `.default(v)` / `.default(sql\`…\`)` | `.default(v \| () => v \| sql\`…\`)` (literal/client/server)        | ✅     |
+| `.$default()` / `.$defaultFn()`      | `.default(() => v)` covers both                                     | 🟡     |
+| `.primaryKey()`                      | `.primaryKey()` (implies `.notNull()`)                              | ✅     |
+| `.unique()`                          | `.unique()` → emits a `UNIQUE` constraint                           | ✅     |
+| `.references(() => t.col)`           | `.references(t, c, { onDelete?, onUpdate? })` → `FOREIGN KEY`       | ✅⁵    |
+| `.$type<T>()`                        | type param on factory (`columns.json<T>()`)                         | 🔷     |
+| `.array()`                           | `.array()`                                                          | ✅     |
+| `.$onUpdate(fn)`                     | `.$onUpdate(fn)` (applied on `UPDATE`)                              | ✅     |
+| `.generatedAlwaysAs(...)`            | —                                                                   | ❌     |
+| (no equivalent)                      | `.nullable()` (explicit form of the default)                        | 🔷     |
+| (no equivalent)                      | `.optional()` (insert-optional)                                     | 🔷     |
+| `integer("name")` explicit name      | `.named("name")` (explicit physical column name)                    | ✅     |
+| `casing: "snake_case"` (db)          | `naming` strategy + `setDefaultColumnNaming` (default `snake_case`) | ✅⁷    |
 
 ⁵ **Constraint emission strategy.** `.unique()` emits a `UNIQUE` constraint and
 `.references(table, column, { onDelete?, onUpdate? })` emits a `FOREIGN KEY`
@@ -235,7 +235,9 @@ arguments, so conditional filters need no pre-filtering.
 ⁸ `exists`/`notExists` take a select subquery and render `EXISTS (…)` /
 `NOT EXISTS (…)`. The array operators are **Postgres-only** — `arrayContains`
 (`@>`), `arrayContained` (`<@`), and `arrayOverlaps` (`&&`) emit the Postgres
-array operators; SQLite/libSQL/MySQL have no equivalent.
+array operators; SQLite/libSQL/MySQL have no equivalent, so rendering one for a
+SQLite-family dialect throws a typed `OrmError` (see the
+[feature-matrix limits](feature-matrix.md#postgresql-only-limits)).
 
 **Output divergence:** Sisal always renders column references **table-qualified
 and parameterized** (`"users"."id" = $1`), where Drizzle may emit a bare
@@ -294,7 +296,13 @@ more `asc()`/`desc()` terms (or bare columns), e.g.
 
 ⁵ **CTEs and set operations are fluent in Sisal.** A CTE is created with
 `db.$with("name").as(subquery)` (its columns are inferred from the subquery's
-projection) and consumed with `db.with(cte).select(...).from(cte)`. Set
+projection) and consumed with `db.with(cte).select(...).from(cte)`. A `WITH`
+chain may also terminate in a mutation — `db.with(cte).update/insert/delete(t)`
+— and a mutation can read another relation via `update(t).from(source)`
+(`UPDATE … FROM`), `insert(t).select(query)` (`INSERT … SELECT`), or
+`delete(t).using(source)` (`DELETE … USING`, PostgreSQL-only), so one CTE's
+mutation can consume another's `RETURNING`. A CTE body may itself be a
+data-modifying `INSERT`/`UPDATE`/`DELETE … RETURNING` (PostgreSQL-only). Set
 operations are chainable methods on the select builder (`q1.union(q2)`,
 `.unionAll`, `.intersect`, `.intersectAll`, `.except`, `.exceptAll`) returning a
 compound builder that still accepts `.orderBy`/`.limit`/`.offset` for the whole

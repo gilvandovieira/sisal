@@ -45,3 +45,50 @@ Deno.test("@sisal/pg - generates additive PostgreSQL migration SQL", () => {
     'ALTER TABLE "users" ADD COLUMN "email" varchar(320);',
   ]);
 });
+
+Deno.test("@sisal/pg - emits schema objects after table creation", () => {
+  const fn = "CREATE FUNCTION touch() RETURNS trigger AS $$ BEGIN " +
+    "NEW.updated_at = now(); RETURN NEW; END; $$ LANGUAGE plpgsql;";
+  const to: SisalSchemaSnapshot = {
+    version: 2,
+    tables: [users],
+    schemaObjects: [
+      { name: "touch", kind: "function", dialect: "postgres", up: fn },
+      // A sqlite-only object must be skipped by the Postgres generator.
+      {
+        name: "sqlite_only",
+        kind: "trigger",
+        dialect: "sqlite",
+        up: "CREATE TRIGGER t AFTER INSERT ON users BEGIN SELECT 1; END;",
+      },
+    ],
+  };
+
+  const plan = generatePostgresUpStatements(to);
+
+  // The function trails the CREATE TABLE; the sqlite-only object is gated out.
+  assertEquals(plan.statements[0].startsWith('CREATE TABLE "users"'), true);
+  assertEquals(plan.statements[plan.statements.length - 1], fn);
+  assertEquals(plan.statements.filter((s) => s.includes("CREATE TRIGGER")), []);
+});
+
+Deno.test("@sisal/pg - does not re-emit unchanged schema objects", () => {
+  const fn = "CREATE FUNCTION touch() RETURNS trigger AS $$ BEGIN " +
+    "RETURN NEW; END; $$ LANGUAGE plpgsql;";
+  const object = {
+    name: "touch",
+    kind: "function" as const,
+    dialect: "postgres" as const,
+    up: fn,
+  };
+  const snapshot: SisalSchemaSnapshot = {
+    version: 2,
+    tables: [users],
+    schemaObjects: [object],
+  };
+
+  // from === to for the object → nothing to apply for it.
+  const plan = generatePostgresUpStatements(snapshot, snapshot);
+
+  assertEquals(plan.statements.includes(fn), false);
+});

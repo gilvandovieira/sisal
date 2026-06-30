@@ -16,10 +16,13 @@ activity, a moving-window score, and the raw-SQL CTE escape hatch.
 1. Sisal works with Neon/Postgres for **time-bucketed activity**.
 2. A **moving-average / rising** score can be modeled **without database
    functions**.
-3. Multi-step **activity recording** is one atomic SQL statement (a CTE).
-4. Multi-step **rising-score recompute** is one atomic SQL statement (a CTE).
-5. Sisal's **raw-SQL CTE escape hatch** is good enough for advanced Postgres
-   patterns that the fluent builder cannot express.
+3. Multi-step **activity recording** is one atomic SQL statement (a raw CTE —
+   the remaining escape-hatch case, see below).
+4. Multi-step **rising-score recompute** is one atomic `UPDATE … FROM` over
+   chained CTEs — now authored **builder-native** with
+   `db.with(...).update(...).from(...)` (v0.5.0 items 9 + 12), not a raw string.
+5. Sisal's **raw-SQL CTE escape hatch** is still there for the one pattern the
+   builder cannot yet express (the recorder's conflict-recompute upsert).
 6. Sisal's fluent-API boundaries are documented honestly (see
    [Sisal API pressure points](#sisal-api-pressure-points)).
 7. A stored, indexed `rising_score` powers a `/rising` timeline efficiently.
@@ -116,10 +119,13 @@ becomes **larger and less reusable** than a named database function.
 
 The recording CTE (`src/activity.ts`) has clearly-named stages:
 `input_data → validated_input → bucket_data → actor_insert → actor_flag →
-bucket_upsert`.
-The recompute CTEs (`src/rising.ts`) are
-`input_data → score_windows → computed_score → updated_post(s)`. Each is one
-`WITH … SELECT`/`UPDATE … RETURNING` statement.
+bucket_upsert`
+— still a raw `sql` string (the one pattern the builder can't yet author; see
+the pressure points). The recompute (`src/rising.ts`) is
+`score_windows → computed_score → updated_post(s)` and is now authored
+**builder-native** with `db.with(...).update(...).from(...)` — it renders as the
+same one `UPDATE … FROM … RETURNING` statement, but the moving-window aggregates
+are `filter(sum(…))` over `dateSub(now, …)` bounds instead of raw SQL.
 
 ## CTEs vs database functions
 
@@ -129,9 +135,10 @@ The recompute CTEs (`src/rising.ts`) are
 - easier to change during early iteration
 - no database-function migration lifecycle
 - very explicit
-- _can become large and hard to read_
+- _can become large and hard to read_ (mitigated once authored through the
+  builder — the recompute is now `db.with(...).update(...).from(...)`)
 - _repeated logic may be duplicated_ (the weight formula appears in both the
-  recording CTE and the recompute CTEs)
+  recording CTE and the recompute)
 
 **Database functions** (the [`neon-rising-feed`](../neon-rising-feed/)
 approach):
@@ -198,20 +205,26 @@ task recomputes at the **real** clock — right after a `seed` pinned to
 - Post inserts in the seed — `db.insert(posts).values(...)`.
 - **Both feeds** — `/new` and `/rising` via `.keyset({ orderBy, after })`,
   including `nextCursor` (`src/queries.ts`).
+- **The recompute** — `recomputePostRisingScore` and `recomputeAllRisingScores`
+  (`src/rising.ts`): one `UPDATE … FROM` over chained CTEs, built with
+  `db.with(scoreWindows, computedScore).update(posts).from(computedScore)
+  .returning(...)`,
+  the windows being `filter(sum(...), …)` + `dateSub(now, …)` (v0.5.0 items 9 +
+  12).
+- **Decoding the raw recorder result** — `db.query(...).as(postActivityBuckets)`
+  maps the recording CTE's rows onto the table model (`RecordedBucket`, v0.5.0
+  item 13), so no hand-restated row type.
 - `db.$count` and parameterized one-off lookups via the `sql` tag.
 
 **Raw SQL (parameterized, isolated in small wrappers):**
 
 - **The recording CTE** — `recordPostActivity` (`src/activity.ts`): one
-  data-modifying `WITH … INSERT … ON CONFLICT … RETURNING` statement.
-- **The recompute CTEs** — `recomputePostRisingScore` and
-  `recomputeAllRisingScores` (`src/rising.ts`): one
-  `WITH … UPDATE … FROM …
-  RETURNING` statement each, with `FILTER`ed
-  moving-window aggregates, interval math, and the inline 5-minute
-  `bucket_start` expression
-  (`date_trunc('hour', at) + floor(extract(minute from at) / 5) * interval '5
-  minutes'`).
+  data-modifying `WITH … INSERT … ON CONFLICT … RETURNING` statement. The
+  conflict branch recomputes `activity_score` from the post-update counters and
+  an `exists(...)` actor-flag bridges chained data-modifying stages — shapes the
+  builder can't yet express, so this stays raw (the inline 5-minute
+  `bucket_start` is `date_trunc('hour', at) + floor(extract(minute from at) / 5)
+  - interval '5 minutes'`). Its result is decoded with`.as(...)` (above).
 - **The schema migration** — `CREATE TABLE` / `CREATE INDEX` (DESC).
 
 ## Sisal API pressure points
@@ -219,27 +232,35 @@ task recomputes at the **real** clock — right after a `seed` pinned to
 Honest gaps this example surfaced. Each is a candidate for the
 [v0.5.0 roadmap](../../docs/v0.5.0-roadmap.md).
 
-1. **No data-modifying CTE builder.** `db.$with(name).as(query)` /
-   `db.with(...)` build **SELECT-only** CTEs that terminate in a `.select()`.
-   There is no way to express a `WITH` whose stages are
-   `INSERT`/`UPDATE`/`DELETE … RETURNING`, nor to return rows from such a
-   statement through the builder. So the entire activity recorder and both
-   recompute paths are raw `sql` strings. **This is the headline gap.**
-   (Roadmap.)
-2. **No `FILTER` aggregates, interval math, or `date_trunc`/bucket helper.** The
+1. **Data-modifying CTE builder — mostly resolved (v0.5.0 item 12).**
+   `db.with(...)` now terminates in `update`/`insert`/`delete`, and
+   `update(t).from(source)` renders `UPDATE … FROM`, so the **recompute** is now
+   builder-native:
+   `db.with(scoreWindows, computedScore).update(posts)
+   .from(computedScore).returning(...)`
+   (`src/rising.ts`). **Remaining gap:** the **recorder** still needs a raw CTE
+   — its conflict branch recomputes `activity_score` from post-update counters
+   and an `exists(...)` actor-flag bridges chained data-modifying stages;
+   `insert(...).onConflictDoUpdate(...)` with `excluded`-derived recompute
+   expressions across earlier data-modifying CTEs isn't expressible through the
+   builder yet. So one raw mutation remains.
+2. **`FILTER` aggregates + interval/date math — resolved (v0.5.0 item 9).** The
    moving-window sums
-   (`sum(...) FILTER (WHERE bucket_start >= now - interval '15
-   minutes')`)
-   and the inline bucket expression have no builder surface. (Roadmap item 9.)
-3. **No typed raw-query result mapping.**
-   `db.query<T>(sql\`…\`)`trusts the
-   caller's`<T>`generic and does no column-metadata-driven decoding. Each CTE's
-   result shape is hand-written (`RecordedBucket`,`RecomputedPost`) and trusted;
-   there is no`defineTable`-driven
-   mapping from a raw CTE result to a typed row. (Roadmap.)
-4. **Schema mirror is informational for the mutations.** `src/schema.ts` types
-   the builder-native feeds, but the CTE mutations bypass it entirely — the
-   `.sql` migration is the source of truth.
+   (`sum(...) FILTER (WHERE bucket_start >= now - interval '15 minutes')`) are
+   now builder-native: `filter(sum(...), …)` with `dateSub(now, { minutes })`,
+   plus `dateBin` for arbitrary-width buckets. Both the recompute write
+   (`src/rising.ts`) and the read-only `selectRisingScore` (`src/queries.ts`)
+   compute the `score_windows` aggregate this way — so the window math left the
+   raw-SQL escape hatch entirely.
+3. **Typed raw-query result mapping — resolved (v0.5.0 item 13).**
+   `db.query(sql\`…\`).as(table)`decodes raw driver rows onto a`defineTable`model (physical→JS naming + opt-in Temporal decoding). The recorder's result
+   uses`.as(postActivityBuckets)`, and`RecordedBucket`/`RecomputedPost`now
+   **derive from the table models** (`InferSelect<…>`/`Pick<Post,
+   …>`) instead of being hand-restated, so a raw CTE's result shape can't drift
+   from the schema.
+4. **Schema mirror is informational for the recorder.** `src/schema.ts` types
+   the builder-native feeds and the recompute, but the one remaining raw CTE
+   (the recorder) bypasses it — the `.sql` migration is the source of truth.
 
 Notably **NOT** a pressure point: **keyset pagination over the computed score**
 — Sisal's `.keyset({ form: "row-value" })` handles the three-column predicate,

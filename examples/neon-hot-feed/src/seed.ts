@@ -288,7 +288,8 @@ export async function recomputeAggregates(db: NeonDatabase): Promise<void> {
       downvotes = coalesce(v.down, 0),
       score = coalesce(v.up, 0) - coalesce(v.down, 0),
       hot_score = app.calculate_hot_score(
-        coalesce(v.up, 0) - coalesce(v.down, 0), base.created_at
+        -- count(*) is bigint; the function takes integer, so cast explicitly.
+        (coalesce(v.up, 0) - coalesce(v.down, 0))::integer, base.created_at
       ),
       updated_at = now()
     from posts base

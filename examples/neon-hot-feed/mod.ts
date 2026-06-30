@@ -24,7 +24,7 @@ export { splitSqlStatements } from "@sisal/migrate";
 export * from "./src/queries.ts";
 export * from "./src/vote.ts";
 export * from "./src/seed.ts";
-export { MIGRATION_FILES, resetSchema, runMigrations } from "./src/migrate.ts";
+export { initStatements, resetSchema, runMigrations } from "./src/migrate.ts";
 export { main } from "./src/main.ts";
 
 import { main } from "./src/main.ts";

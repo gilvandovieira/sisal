@@ -2,10 +2,15 @@
  * The rising-score model: pure TypeScript helpers + the recompute CTEs.
  *
  * This example computes everything with **data-modifying CTEs**, not database
- * functions. The pure helpers (`bucket5m`, `bucketActivityScore`,
- * `calculateRisingScoreTs`) exist so the model is unit-testable without a
- * database; the SQL is the source of truth at runtime and is kept byte-for-byte
- * aligned with these helpers (same constants, same window boundaries).
+ * functions. The recompute is now authored **builder-native** with
+ * `db.with(...).update(...).from(...)` (v0.5.0 roadmap items 9 + 12) — it still
+ * renders as one `UPDATE … FROM` over chained CTEs, but the moving-window
+ * aggregates are `filter(sum(…))` + `dateSub(now, …)` instead of raw SQL. (The
+ * recording mutation in src/activity.ts stays a raw CTE; see the README
+ * "Sisal API pressure points".) The pure helpers (`bucket5m`,
+ * `bucketActivityScore`, `calculateRisingScoreTs`) exist so the model is
+ * unit-testable without a database; they are kept aligned with the SQL (same
+ * constants, same window boundaries) and the gated suite asserts the two agree.
  *
  * Everything is deterministic: like the SQL, the helpers and the CTEs take the
  * reference time (`now` / `p_now`) as an argument and never read the wall clock.
@@ -15,8 +20,10 @@
  * @module
  */
 
-import { sql } from "@sisal/orm";
+import { and, dateSub, eq, filter, gte, lt, lte, sql, sum } from "@sisal/orm";
 import type { NeonDatabase } from "./db.ts";
+import { postActivityBuckets, posts } from "./schema.ts";
+import type { Post } from "./schema.ts";
 
 /** Width of one activity bucket, in seconds (5 minutes). */
 export const BUCKET_SECONDS = 300;
@@ -145,11 +152,18 @@ export function calculateRisingScoreTs(
     accel * RISING.accelWeight;
 }
 
-/** The updated post row returned by a single recompute, plus the window parts. */
-export interface RecomputedPost {
-  readonly id: string;
-  readonly rising_score: number;
-  readonly rising_score_updated_at: Date;
+/**
+ * The updated post row returned by a single recompute, plus the window parts.
+ *
+ * The stored fields (`id`, `rising_score`, `rising_score_updated_at`) are
+ * **derived from the {@link Post} table model** rather than restated, so the
+ * shape can't drift from the schema (v0.5.0 roadmap item 13). A recompute always
+ * sets `rising_score_updated_at`, so it narrows the model's nullable column.
+ */
+export interface RecomputedPost extends Pick<Post, "id" | "rising_score"> {
+  readonly rising_score_updated_at: NonNullable<
+    Post["rising_score_updated_at"]
+  >;
   readonly last_15m_score: number;
   readonly last_60m_score: number;
   readonly previous_60m_score: number;
@@ -158,80 +172,102 @@ export interface RecomputedPost {
 
 /**
  * Recomputes one post's rising score at `now` and stores it — ONE
- * data-modifying CTE statement (no `app.calculate_rising_score` function).
+ * data-modifying CTE statement, now authored **builder-native** with
+ * `db.with(...).update(...).from(...)` instead of a raw SQL string (v0.5.0
+ * roadmap items 9 + 12). It still renders as one `UPDATE … FROM` over chained
+ * CTEs (the same SQL the raw version sent), so the example keeps teaching the
+ * CTE approach — only the authoring moves from a template literal to the
+ * builder.
  *
- * Stages: `input_data` (bound params) → `score_windows` (filtered moving-window
- * aggregates over the post's recent buckets) → `computed_score` (formula) →
- * `updated_post` (`UPDATE … FROM computed_score … RETURNING`). The recent
+ * Stages: `score_windows` (filtered moving-window aggregates — `filter(sum(…))`
+ * over `dateSub(now, …)` bounds, item 9 — `LEFT JOIN`ed from `posts` so a post
+ * with no recent buckets still yields a row to update) → `computed_score`
+ * (formula) → the `UPDATE posts … FROM computed_score … RETURNING`. The recent
  * windows are bounded `<= now` so a bucket dated after `now` never counts.
  */
 export async function recomputePostRisingScore(
   db: NeonDatabase,
   args: { readonly postId: string; readonly now: Date },
 ): Promise<RecomputedPost> {
-  const result = await db.query<RecomputedPost>(sql`
-    with input_data as (
-      select ${args.postId}::uuid as post_id, ${args.now}::timestamptz as now_at
-    ),
-    score_windows as (
-      select
-        input_data.post_id,
-        input_data.now_at,
-        coalesce(sum(b.activity_score) filter (
-          where b.bucket_start >= input_data.now_at - interval '15 minutes'
-            and b.bucket_start <= input_data.now_at
-        ), 0) as last_15m_score,
-        coalesce(sum(b.activity_score) filter (
-          where b.bucket_start >= input_data.now_at - interval '60 minutes'
-            and b.bucket_start <= input_data.now_at
-        ), 0) as last_60m_score,
-        coalesce(sum(b.activity_score) filter (
-          where b.bucket_start >= input_data.now_at - interval '120 minutes'
-            and b.bucket_start < input_data.now_at - interval '60 minutes'
-        ), 0) as previous_60m_score
-      from input_data
-      left join post_activity_buckets b
-        on b.post_id = input_data.post_id
-        and b.bucket_start >= input_data.now_at - interval '120 minutes'
-        and b.bucket_start <= input_data.now_at
-      group by input_data.post_id, input_data.now_at
-    ),
-    computed_score as (
-      select
-        post_id,
-        now_at,
-        last_15m_score,
-        last_60m_score,
-        previous_60m_score,
-        greatest(last_15m_score - (previous_60m_score / 4.0), 0)
-          as acceleration_bonus,
-        (
-          last_15m_score * 3.0
-          + last_60m_score
-          + greatest(last_15m_score - (previous_60m_score / 4.0), 0) * 2.0
-        ) as rising_score
-      from score_windows
-    ),
-    updated_post as (
-      update posts
-      set
-        rising_score = computed_score.rising_score,
-        rising_score_updated_at = computed_score.now_at,
-        updated_at = computed_score.now_at
-      from computed_score
-      where posts.id = computed_score.post_id
-      returning
-        posts.id,
-        posts.rising_score,
-        posts.rising_score_updated_at,
-        computed_score.last_15m_score,
-        computed_score.last_60m_score,
-        computed_score.previous_60m_score,
-        computed_score.acceleration_bonus
-    )
-    select * from updated_post;
-  `);
-  const row = result.rows[0];
+  const b = postActivityBuckets.columns;
+  // The caller pins `now` (deterministic); type it once for Postgres.
+  const at = sql`${args.now}::timestamptz`;
+  const minsAgo = (minutes: number) => dateSub(at, { minutes });
+  // The post's recent buckets, bounded `<= now`, joined so a post with no
+  // activity still produces one (zero) row — matching the raw CTE's behavior.
+  const recentBuckets = and(
+    eq(b.post_id, posts.columns.id),
+    gte(b.bucket_start, minsAgo(120)),
+    lte(b.bucket_start, at),
+  );
+
+  const scoreWindows = db.$with("score_windows").as(
+    db.select({
+      post_id: posts.columns.id,
+      last_15m_score: sql`coalesce(${
+        filter(
+          sum(b.activity_score),
+          and(gte(b.bucket_start, minsAgo(15)), lte(b.bucket_start, at)),
+        )
+      }, 0)`,
+      last_60m_score: sql`coalesce(${
+        filter(
+          sum(b.activity_score),
+          and(gte(b.bucket_start, minsAgo(60)), lte(b.bucket_start, at)),
+        )
+      }, 0)`,
+      previous_60m_score: sql`coalesce(${
+        filter(
+          sum(b.activity_score),
+          and(
+            gte(b.bucket_start, minsAgo(120)),
+            lt(b.bucket_start, minsAgo(60)),
+          ),
+        )
+      }, 0)`,
+    })
+      .from(posts)
+      .leftJoin(postActivityBuckets, recentBuckets)
+      .where(eq(posts.columns.id, sql`${args.postId}::uuid`))
+      .groupBy(posts.columns.id),
+  );
+
+  const computedScore = db.$with("computed_score").as(
+    db.select({
+      post_id: scoreWindows.post_id,
+      last_15m_score: scoreWindows.last_15m_score,
+      last_60m_score: scoreWindows.last_60m_score,
+      previous_60m_score: scoreWindows.previous_60m_score,
+      acceleration_bonus:
+        sql`greatest(${scoreWindows.last_15m_score} - (${scoreWindows.previous_60m_score} / 4.0), 0)`,
+      rising_score:
+        sql`(${scoreWindows.last_15m_score} * 3.0 + ${scoreWindows.last_60m_score} + greatest(${scoreWindows.last_15m_score} - (${scoreWindows.previous_60m_score} / 4.0), 0) * 2.0)`,
+    }).from(scoreWindows),
+  );
+
+  const result = await db.with(scoreWindows, computedScore)
+    .update(posts)
+    .set({
+      rising_score: sql`${computedScore.rising_score}`,
+      rising_score_updated_at: at,
+      updated_at: at,
+    })
+    .from(computedScore)
+    .where(eq(posts.columns.id, computedScore.post_id))
+    .returning({
+      id: posts.columns.id,
+      rising_score: posts.columns.rising_score,
+      rising_score_updated_at: posts.columns.rising_score_updated_at,
+      last_15m_score: computedScore.last_15m_score,
+      last_60m_score: computedScore.last_60m_score,
+      previous_60m_score: computedScore.previous_60m_score,
+      acceleration_bonus: computedScore.acceleration_bonus,
+    })
+    .execute();
+
+  // The builder's UPDATE result type isn't narrowed by `.returning(projection)`,
+  // so name the projected row shape explicitly.
+  const row = result.rows[0] as unknown as RecomputedPost | undefined;
   if (row === undefined) {
     throw new Error(`recomputePostRisingScore: post ${args.postId} not found`);
   }
@@ -240,70 +276,76 @@ export async function recomputePostRisingScore(
 
 /**
  * Recomputes and stores the rising score for every published post at `now` —
- * ONE data-modifying CTE statement. Returns the number of posts updated.
+ * ONE `UPDATE … FROM` over chained CTEs, authored builder-native (v0.5.0
+ * roadmap items 9 + 12). Returns the number of posts updated.
  *
- * `post_scope` selects all published posts, `score_windows` aggregates each
- * post's recent buckets (LEFT JOIN so posts with no recent activity get 0), and
- * `updated_posts` writes them all in one `UPDATE … FROM`.
+ * `score_windows` aggregates each published post's recent buckets (`LEFT JOIN`
+ * so posts with no recent activity get 0), `computed_score` applies the formula,
+ * and the `UPDATE posts … FROM computed_score` writes them all at once.
  */
 export async function recomputeAllRisingScores(
   db: NeonDatabase,
   args: { readonly now: Date },
 ): Promise<number> {
-  const result = await db.query<{ id: string }>(sql`
-    with input_data as (
-      select ${args.now}::timestamptz as now_at
-    ),
-    post_scope as (
-      select id as post_id from posts where status = 'published'
-    ),
-    score_windows as (
-      select
-        post_scope.post_id,
-        input_data.now_at,
-        coalesce(sum(b.activity_score) filter (
-          where b.bucket_start >= input_data.now_at - interval '15 minutes'
-            and b.bucket_start <= input_data.now_at
-        ), 0) as last_15m_score,
-        coalesce(sum(b.activity_score) filter (
-          where b.bucket_start >= input_data.now_at - interval '60 minutes'
-            and b.bucket_start <= input_data.now_at
-        ), 0) as last_60m_score,
-        coalesce(sum(b.activity_score) filter (
-          where b.bucket_start >= input_data.now_at - interval '120 minutes'
-            and b.bucket_start < input_data.now_at - interval '60 minutes'
-        ), 0) as previous_60m_score
-      from post_scope
-      cross join input_data
-      left join post_activity_buckets b
-        on b.post_id = post_scope.post_id
-        and b.bucket_start >= input_data.now_at - interval '120 minutes'
-        and b.bucket_start <= input_data.now_at
-      group by post_scope.post_id, input_data.now_at
-    ),
-    computed_score as (
-      select
-        post_id,
-        now_at,
-        (
-          last_15m_score * 3.0
-          + last_60m_score
-          + greatest(last_15m_score - (previous_60m_score / 4.0), 0) * 2.0
-        ) as rising_score
-      from score_windows
-    ),
-    updated_posts as (
-      update posts
-      set
-        rising_score = computed_score.rising_score,
-        rising_score_updated_at = computed_score.now_at,
-        updated_at = computed_score.now_at
-      from computed_score
-      where posts.id = computed_score.post_id
-      returning posts.id
-    )
-    select id from updated_posts;
-  `);
+  const b = postActivityBuckets.columns;
+  const at = sql`${args.now}::timestamptz`;
+  const minsAgo = (minutes: number) => dateSub(at, { minutes });
+  const recentBuckets = and(
+    eq(b.post_id, posts.columns.id),
+    gte(b.bucket_start, minsAgo(120)),
+    lte(b.bucket_start, at),
+  );
+
+  const scoreWindows = db.$with("score_windows").as(
+    db.select({
+      post_id: posts.columns.id,
+      last_15m_score: sql`coalesce(${
+        filter(
+          sum(b.activity_score),
+          and(gte(b.bucket_start, minsAgo(15)), lte(b.bucket_start, at)),
+        )
+      }, 0)`,
+      last_60m_score: sql`coalesce(${
+        filter(
+          sum(b.activity_score),
+          and(gte(b.bucket_start, minsAgo(60)), lte(b.bucket_start, at)),
+        )
+      }, 0)`,
+      previous_60m_score: sql`coalesce(${
+        filter(
+          sum(b.activity_score),
+          and(
+            gte(b.bucket_start, minsAgo(120)),
+            lt(b.bucket_start, minsAgo(60)),
+          ),
+        )
+      }, 0)`,
+    })
+      .from(posts)
+      .leftJoin(postActivityBuckets, recentBuckets)
+      .where(eq(posts.columns.status, "published"))
+      .groupBy(posts.columns.id),
+  );
+
+  const computedScore = db.$with("computed_score").as(
+    db.select({
+      post_id: scoreWindows.post_id,
+      rising_score:
+        sql`(${scoreWindows.last_15m_score} * 3.0 + ${scoreWindows.last_60m_score} + greatest(${scoreWindows.last_15m_score} - (${scoreWindows.previous_60m_score} / 4.0), 0) * 2.0)`,
+    }).from(scoreWindows),
+  );
+
+  const result = await db.with(scoreWindows, computedScore)
+    .update(posts)
+    .set({
+      rising_score: sql`${computedScore.rising_score}`,
+      rising_score_updated_at: at,
+      updated_at: at,
+    })
+    .from(computedScore)
+    .where(eq(posts.columns.id, computedScore.post_id))
+    .returning({ id: posts.columns.id })
+    .execute();
   return result.rows.length;
 }
 

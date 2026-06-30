@@ -9,8 +9,253 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.5.0 - 2026-06-30
+
 ### Added
 
+- **Example consolidation: the `neon-rising-feed-ctes` recompute is now
+  builder-native** (v0.5.0 roadmap items 9 + 12 + 13, examples). The example's
+  per-post and bulk rising-score recompute (`src/rising.ts`) moved off a raw
+  `sql` string onto the builder —
+  `db.with(scoreWindows, computedScore).update(posts).from(computedScore)
+  .returning(...)`
+  — with the moving-window aggregates as `filter(sum(...), …)` over
+  `dateSub(now, …)` bounds. It still renders one `UPDATE … FROM` over chained
+  CTEs, so the example keeps teaching the CTE shape; only the authoring changed.
+  The raw activity recorder (`src/activity.ts`) stays a raw CTE — its
+  `onConflictDoUpdate` recompute bridged by an `exists(...)` actor-flag is the
+  one shape the builder can't yet author — but now decodes its result with
+  `db.query(...).as(postActivityBuckets)`, and both `RecordedBucket`
+  (`InferSelect<typeof postActivityBuckets>`) and `RecomputedPost`
+  (`Pick<Post, …>`) derive from the table models instead of being hand-restated.
+  Verified end-to-end against **real Neon** to produce results identical to the
+  previous raw CTE and the TypeScript model. This closes the example follow-ups
+  for items 9, 12, and 13; the sibling `neon-rising-feed` (stored function) and
+  `libsql-rising-feed` (interactive TypeScript) keep their idiomatic per-engine
+  forms by design.
+- Added **mutation joins and the mutating `WITH` terminal** (v0.5.0 roadmap item
+  12 core). `db.with(...)` can now terminate in `update`/`insert`/`delete`, not
+  only `select`, prepending the CTEs to the mutation. A mutation can read
+  another relation: `update(t).from(source)` renders `UPDATE … FROM` and
+  `insert(t).select(query)` renders `INSERT … SELECT` (both supported on every
+  adapter, incl. modern SQLite/libSQL); `delete(t).using(source)` renders
+  `DELETE … USING` (PostgreSQL-only — a typed `OrmError` guard throws on the
+  SQLite family). Together these let one CTE's mutation read another's
+  `RETURNING`
+  (`with moved as (delete … returning) insert into archive select …
+  from moved`).
+  The three mutation builders were first refactored to the same `#state` +
+  `#with(patch)` shape `SisalSelectBuilder` uses (behavior-preserving; no public
+  change). New methods: `WithQueryBuilder.insert/update/delete`,
+  `UpdateBuilder.from`, `DeleteBuilder.using`, `InsertBuilder.select`. Covered
+  by `packages/orm/mutation_cte_test.ts` (render + guard + mutual-exclusion) and
+  a `mutation joins` integration test on PostgreSQL 18, Neon, SQLite, and libSQL
+  (now 39/39/38/38); a unified-matrix row added (✅ on every adapter). Item 12's
+  builder gaps are closed and the `neon-rising-feed-ctes` recompute now uses
+  them (see the example-consolidation entry above), so item 12 is complete.
+
+- Added **SQL-expression column defaults** (v0.5.0 roadmap item 7 follow-up,
+  core). `column.default(...)` now accepts a `sql` fragment in addition to a
+  literal or a client-side `() => value`. A `sql` fragment is a **server**
+  default emitted into DDL verbatim — a `uuid` primary key defaulted to
+  `gen_random_uuid()`, or a timestamp defaulted to `now()`, generate
+  `DEFAULT gen_random_uuid()` / `DEFAULT now()`. Unlike a client default, the
+  column is simply omitted on insert when no value is given, so the database
+  fills it; it stays insert-optional. The snapshot already modeled this
+  (`SisalColumnDefault` with `kind: "expression"`) and the PostgreSQL/SQLite
+  generators already emit it — only the builder entry point was missing, so a
+  `defineTable` schema can now express the `gen_random_uuid()` / `now()`
+  defaults a hand-written `CREATE TABLE` uses. A parameterized default throws,
+  since a default must be emitted verbatim. Stored as
+  `ColumnDefinition.sqlDefault` (separate from `defaultValue`, so projection
+  type inference is unaffected). Covered by `packages/orm/mod_test.ts`.
+
+- Added **typed raw-query result mapping** (v0.5.0 roadmap item 13, core). A raw
+  `db.query(...)` now returns a `MappableQueryResult` — still an awaitable
+  `OrmQueryResult` promise, but it also exposes `.as(...)`, which decodes the
+  raw driver rows: physical→JS column naming (`hot_score` → `hotScore`) plus the
+  same opt-in Temporal decoding the query builder applies. Pass a `defineTable`
+  model for typed `InferSelect<table>` rows, or a free-form `ColumnMap`
+  (`{ key: { name?, dataType?, valueMode?, array? } }`) for a result that
+  doesn't match one table — a join, an aggregate, a CTE projection. A
+  hand-written `sql` query (e.g. a data-modifying CTE) can reuse existing column
+  metadata instead of a restated row type. Unknown columns pass through
+  untouched, and a plain `await db.query(...)` is unchanged (raw, driver-shaped
+  rows). New `@sisal/orm` exports: `MappableQueryResult`, `ColumnMap`,
+  `ColumnMapping`; the four adapter facades
+  (`PgDatabase`/`NeonDatabase`/`SqliteDatabase`/`LibsqlDatabase`) widen their
+  `query` return type to match. Covered by `packages/orm/raw_mapping_test.ts`
+  (table + map, naming + Temporal decode + pass-through + rejection) and a
+  `typed raw-query mapping` integration test in all four suites (now
+  38/38/37/37) executing both `.as(table)` and `.as(map)` on PostgreSQL 18,
+  Neon, SQLite, and libSQL; a unified-matrix row added (✅ on every adapter).
+  Both input forms are in, and the `neon-rising-feed-ctes` example now uses them
+  — its recorder decodes via `db.query(...).as(postActivityBuckets)` and both
+  `RecordedBucket` and `RecomputedPost` derive from the table models (see the
+  example-consolidation entry above) — completing item 13.
+- Added **conditional aggregates and portable date math** (v0.5.0 roadmap item
+  9, core). `filter(aggregate, condition)` appends a `FILTER (WHERE …)` clause
+  to any aggregate — `filter(sum(score), eq(kind, "a"))` renders
+  `sum("score") filter (where "kind" = $1)` — supported natively by PostgreSQL
+  and modern SQLite/libSQL, so it renders identically on every adapter. A
+  portable date-math set makes a moving-window query builder-native on every
+  engine: `dateTrunc(field, source)` truncates to a calendar field; `now()` is
+  the current timestamp; `dateAdd`/`dateSub(source, duration)` do interval
+  arithmetic (`gte(col, dateSub(now(), { minutes: 15 }))`); and
+  `dateBin(every, source)` floors to an arbitrary-width bucket (the 5-minute
+  floor `dateTrunc`'s calendar fields can't express). Each renders its own
+  per-dialect SQL — `date_trunc` / `now()` / `… ± interval` /
+  `to_timestamp(floor(epoch/N)*N)` on PostgreSQL, and `strftime` /
+  `datetime('now')` / chained `datetime(…)` modifiers /
+  `datetime((unixepoch/N)*N)` on the SQLite family — built on a new public
+  `dialectSql(construct, variants, fallback?)` primitive (a per-dialect SQL
+  fragment that throws a typed `OrmError`, `code: "ORM_DIALECT_UNSUPPORTED"`,
+  when no variant or fallback matches). Date results come back as a `timestamp`
+  on PostgreSQL and ISO-8601 `TEXT` on the SQLite family, both ordering and
+  grouping identically. New `@sisal/orm` exports: `filter`, `dateTrunc`,
+  `DateTruncField`, `now`, `dateAdd`, `dateSub`, `dateBin`, `DateDuration`,
+  `dialectSql`. Covered by `packages/orm/aggregates_test.ts` (per-dialect
+  render + validation) and `filter aggregate + dateTrunc` and `date math window`
+  integration tests in all four suites (now 38/38/37/37) — the latter runs the
+  actual rising-score moving window (filter + dateSub + now) and `dateBin`
+  bucketing on PostgreSQL 18, Neon, SQLite, and libSQL. Three unified-matrix
+  rows added. The `neon-rising-feed-ctes` example gains a builder-native
+  `selectRisingScore` (in `src/queries.ts`) that computes the moving-window
+  score with `filter` + `dateSub` — verified against real Neon to equal the
+  raw-SQL recompute CTE and the TypeScript model — so its item-9 "no
+  `FILTER`/interval math" pressure point is resolved. The
+  `neon-rising-feed-ctes` recompute _write_ also now uses these helpers (see the
+  example-consolidation entry above), so that example's window math left raw SQL
+  entirely; `libsql-rising-feed` (no-stored-proc TS) and `neon-rising-feed`
+  (stored function) keep their idiomatic per-engine forms by design. Item 9 is
+  complete.
+- Added **stored schema objects** to the snapshot (v0.5.0 roadmap item 7, core).
+  A `createSchemaSnapshot({ tables, schemaObjects })` may now carry raw,
+  dialect-gated DDL fragments — functions, triggers, views, extensions, or any
+  verbatim `CREATE …` — emitted **after** all table/column/constraint/index
+  creation, in declared order, so a `defineTable` schema can hold the stored
+  logic an app would otherwise keep in a hand-written `.sql` migration. New
+  public surface on `@sisal/orm`: the `SisalSchemaObjectSnapshot` type,
+  `defineSchemaObject`, `selectSchemaObjects` (dialect + change filter, used by
+  the adapter DDL generators), and `schemaObjectDropStatements` (reverse-order
+  `down` drops). Each object has an optional `dialect`: omit it to emit
+  everywhere, or set it to gate to one engine — a Postgres-only function is
+  skipped by the SQLite-family generator, never emitted as SQL the engine
+  rejects. The three additive DDL generators
+  (`generate{Postgres,Sqlite,Libsql}UpStatements`) append the selected objects
+  after their index loop; libSQL shares the SQLite path. Covered by
+  `packages/orm/schema_test.ts` (select/gating/drop-order/normalization) and
+  pg/sqlite render tests, plus a `schema objects` integration test in all four
+  suites (now 35 each) executing a real trigger + view on PostgreSQL 18, Neon,
+  SQLite, and libSQL and asserting cross-dialect gating; a unified-matrix row
+  added (pg/neon/sqlite/libsql ✅). The down side is
+  `schemaObjectDropStatements` (reverse-order drops, a pg integration test
+  applies up then down and asserts the objects are gone); drift over a changed
+  function/trigger **body** is caught by `equalSchemaSnapshots`/`checkDrift`
+  (schemaObjects are part of the normalized snapshot). With the new
+  SQL-expression server defaults (above), `examples/neon-hot-feed` now
+  **generates** its full init DDL — tables, DESC indexes, the CHECK, and both
+  functions — from `src/schema.ts`, with no hand-written `.sql` files (verified
+  against real Neon). This completes item 7.
+- Added **data-modifying CTEs** (v0.5.0 roadmap item 12, core). A CTE body may
+  now be an `INSERT`/`UPDATE`/`DELETE … RETURNING` builder, not just a `SELECT`
+  — `db.$with("x").as(db.insert(t).values(...).returning())` — and the
+  `db.with(...)` chain terminates in a `SELECT` that reads the `RETURNING`
+  columns, so a mutation and its result are one statement. **PostgreSQL-only:**
+  the SQLite family's CTEs are `SELECT`-only, so rendering a data-modifying CTE
+  for a SQLite-family dialect throws a typed `OrmError` (via the item-4 dialect
+  guard). New public `CteOperand` type; `.as()` accepts the mutation builders.
+  Render tests pin the SQL + both guards; executed on PostgreSQL 18 and Neon,
+  and a unified-matrix row added (pg/neon ✅, sqlite/libsql ❌). This was the
+  first slice; chained data-modifying CTEs, the mutating terminal
+  (`with(...).update(...).returning()`), and the `neon-rising-feed-ctes` example
+  refactor all landed subsequently (see the mutation-joins and
+  example-consolidation entries above), completing item 12.
+- Added `defineAtomicOperation` — a portable atomic **transaction script**
+  (v0.5.0 roadmap item 8). Author dependent read-modify-write steps once;
+  `op.run(db, input)` executes them on every adapter
+  (`@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql`), replacing
+  per-engine hand-written transaction/function code with one definition shaped
+  by the domain, not the engine. Called with a plain body it runs as a single
+  interactive transaction everywhere (committing together, rolling back on
+  error). Called with the config form `{ body, singleStatement }` it
+  **dispatches on dialect**: the PostgreSQL family runs `singleStatement` as one
+  statement — no `BEGIN`/`COMMIT` round trips, intended for a data-modifying
+  `WITH` (item 12) such as `with u as (update … returning n) select n from u` —
+  so it is one round trip on Neon HTTP, while the SQLite family runs the
+  interactive `body` in a transaction. Both forms return the identical
+  read-modify-write result from one call site. Covered by
+  `packages/orm/atomic_test.ts` (network-free wrapping + dialect dispatch) and
+  `atomic operation` + `atomic op single-round-trip
+  dispatch` integration
+  tests in all four suites (now 40/40 on PostgreSQL 18 and Neon) plus a
+  unified-matrix row. The single-statement path is exercised end-to-end on real
+  Neon by the `neon-rising-feed-ctes` recompute (see the example-consolidation
+  entry above). Full recorder unification across the sibling examples was
+  deliberately not pursued — they keep their idiomatic per-engine forms — and an
+  optional generated-`CREATE FUNCTION` backing (item 7) remains a future option,
+  so item 8 is complete.
+- Added typed render-time dialect guards for the PostgreSQL-only query builders
+  (v0.5.0 roadmap item 4): rendering `distinctOn`, `.for("update"/"share")` row
+  locking, or the array operators (`@>`/`<@`/`&&`) for a SQLite-family dialect
+  now throws a typed `OrmError` (`code: "ORM_DIALECT_UNSUPPORTED"`) naming the
+  construct and the dialect, instead of emitting SQL the engine rejects as a raw
+  syntax error. Implemented as a zero-width `dialectGuard` SQL marker checked in
+  the renderer, so Postgres/Neon rendering and execution are byte-for-byte
+  unchanged (verified: the pg suite stays 31/31, including all three
+  constructs). Covered by `packages/orm/dialect_guard_test.ts`.
+- Added the unified **cross-driver feature matrix** (v0.5.0 roadmap item 3): a
+  single `docs/feature-matrix.md` — one row per feature, one column per adapter
+  across `@sisal/pg`/`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` — generated
+  from a machine-readable source of truth (`tools/feature_matrix.ts`) by
+  `tools/generate_feature_matrix.ts`. New tasks `deno task docs:matrix`
+  (regenerate) and `docs:matrix:check` (verify current). The generator also
+  asserts every `✅`/`⚠️` cell is backed by a named integration test in the
+  matching suite — a coverage guard that fails if the matrix claims coverage no
+  test backs (the mechanism behind roadmap item 6). Wired into the pre-commit
+  hook (regenerated + staged alongside the LLM docs) and surfaced from the
+  homepage `#compat`. 25 features × 4 adapters, 92 ✅/⚠️ cells all test-backed.
+- Added a committed `.env.example` documenting every integration-test env var
+  (the `DATABASE_URL` / `NEON_*` / `TURSO_*` connection vars and the
+  `SISAL_*_IT` suite gates), grouped per adapter with the local-vs-real and
+  empty-vs-unset caveats. Run the gated suites with
+  `deno test --env-file=.env …` (Deno does not auto-load `.env`). Added `.env`,
+  `.env.local`, and `.env.*.local` to `.gitignore` so local/secret values are
+  never committed.
+- Added `docs/editor-lsp.md` and a minimal `.vscode/settings.json` to document
+  verified `deno lsp` editor setup for the Deno/JSR workspace. The probe
+  confirms Deno's language server resolves `@sisal/*` package exports and
+  preserves types, while a plain TypeScript language server still reports the
+  workspace imports as unresolved; the doc records that boundary as a future npm
+  packaging signal.
+- Added a **forward roadmap line** (`docs/v0.6.0-roadmap.md` …
+  `docs/v0.14.0-roadmap.md`) plus a `docs/roadmap.md` overview/index and a
+  `docs/architecture.md` describing the long-term package split. These are
+  guidelines for future cycles, not commitments; nothing here is implemented
+  yet, and v0.5.0 scope is untouched. The arc: **ORM (OLTP) → ETL (bridge to
+  OLAP shapes) → Analytics (typed OLAP) → Dashboard (renderer-agnostic
+  presentation models)**, with a strict dependency rule —
+  ETL/Analytics/Dashboard depend on `@sisal/core`; `@sisal/orm` never depends on
+  them. Grounded in a June 2026 code audit (the OLTP/aggregation surface is
+  solid; the ETL gap is set-based movement — no `INSERT…SELECT`, SELECT-only
+  CTEs; analytics has no window functions at all; the core is "already layered
+  as if pre-split" so a `@sisal/core` extraction is mostly file-moves; the SQL
+  IR is a compose-oriented _fragment_ IR, a compile target rather than a
+  transformable AST).
+  - **v0.6 — Foundations & Readiness:** three readiness workstreams that ship no
+    new feature package — (A) ETL readiness investigation; (B) the Node.js and
+    npm dual-registry runtime work (the original v0.6 content, now Workstream B
+    — keeps `@sisal/*` on JSR, publishes a placeholder `@scope/*` on npm since
+    `@sisal` is taken there, with the build remapping for the npm artifact
+    only); and (C) MySQL support investigation (the renderer already carries a
+    latent `"mysql"` dialect, but there is no adapter).
+  - **v0.7** Analytics Readiness **+ MySQL Support Implementation** (ships
+    `@sisal/mysql`, the fifth dialect); **v0.8** Advanced SQL IR & expression
+    stabilization (extracts `@sisal/core`); **v0.9** adapter hardening across
+    the five adapters; **v0.10** `@sisal/etl` preview; **v0.11**
+    `@sisal/analytics` preview; **v0.12** `@sisal/dashboard` preview; **v0.13+**
+    DuckDB / external OLAP investigation (after the analytics IR); **v0.14+**
+    optional native/Rust acceleration (only on benchmark evidence).
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
   moving-window feed on Neon/PostgreSQL (`@sisal/neon`) but with **no database
   functions** — every multi-step mutation is one **data-modifying CTE**
@@ -101,6 +346,75 @@ Sisal-specific history after that baseline through `1f05448`.
   where **`@sisal/pg` returns `double precision` as a string** while
   `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` all return a `number` (verified
   against real databases).
+
+### Changed
+
+- Fixed `.optional()` to not widen the inferred **SELECT** row type (v0.5.0
+  roadmap item 10). `.optional()` is an insert-only axis, but it was adding
+  `undefined` to the column's value type, so a nullable `.optional()` column
+  inferred `T | null | undefined` on select instead of `T | null` — breaking
+  assignment to a hand-written `T | null` row interface. It now affects only
+  `InferInsert` (the key stays omittable, accepting `T | null` when present);
+  `InferSelect` is `T | null`. This is a type-only change (no runtime behavior
+  change). Pinned by a type test in
+  `packages/orm/drizzle_parity/columns_test.ts`.
+- Fixed `@sisal/pg` to decode `float4`/`float8` (`columns.real()` /
+  `columns.doublePrecision()`) as `number` (v0.5.0 roadmap item 11). The bundled
+  `jsr:@db/postgres` driver decodes those OIDs (700/701) to **strings**, so a
+  `doublePrecision` column — typed `number` — read back a `string` on
+  `@sisal/pg` alone (`@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` already
+  return numbers), silently breaking `.toFixed()` and lexicographic-vs-numeric
+  ordering. The ORM executor now coerces float-typed result columns by OID;
+  `numeric`/`bigint` (1700/20) deliberately stay precision-preserving strings.
+  Verified against PostgreSQL 18, and a
+  `float (real/double) reads back as number` test is added to all four
+  integration suites (now 32 each) plus a tested
+  `Float (float4/float8) round-trip` row in the unified matrix.
+- Closed the libSQL integration coverage gap (v0.5.0 roadmap item 1): ported the
+  three SQLite parity tests the libSQL suite was missing — **column naming**
+  (snake_case default / `.named()` / `preserve`), **keyset pagination** (both
+  predicate forms), and **prepared statements** — into
+  `integration/libsql_features_test.ts`. libSQL renders identical SQLite SQL
+  (`LIBSQL_DIALECT = "sqlite"`), so the assertions are dialect-identical; only
+  `connect`/teardown differ. Refreshed `docs/libsql-compatibility.md` (matrix
+  gains the three rows, now **31 / 31**) and the homepage `#compat` libSQL badge
+  (`28/28 → 31/31`). All 31 verified green on a local libSQL file.
+- Closed the Neon integration coverage gap (v0.5.0 roadmap item 2): added the
+  seven `@sisal/pg` parity tests the Neon suite was missing — **column naming**,
+  **keyset pagination** (both forms), the **typed function caller**
+  (`defineFunction` / `db.call`, incl. `RETURNS TABLE` + arg casts), **prepared
+  statements**, **`sql` in `SET`/`VALUES`/`onConflict`**, **`db.batch`** (atomic
+  commit + rollback), and **rich indexes** (DESC / partial / expression) — to
+  `integration/neon_features_test.ts`. Neon is PostgreSQL through
+  `createPgOrmDriver` + `POSTGRES_DIALECT`, so these mirror the `pg:` tests
+  verbatim apart from connect/teardown. Refreshed `docs/neon-compatibility.md`
+  (matrix reaches feature parity with the pg matrix, now **31 / 31**) and the
+  homepage `#compat` Neon badge (`17/17 → 31/31`). All 31 verified green through
+  the Docker `neon-proxy` against PostgreSQL 17, and once end-to-end against a
+  live Neon endpoint. This also makes the `db.batch` entry's "the gated
+  integration suites" coverage claim true on every adapter
+  (pg/neon/sqlite/libsql).
+- Trimmed the four per-engine compatibility docs
+  (`docs/{pg,neon,sqlite,libsql}-compatibility.md`) to engine-specific metadata,
+  behavior notes, and reproduce steps, retiring their now-redundant per-engine
+  feature tables in favor of a link to the unified cross-driver feature matrix
+  (`docs/feature-matrix.md`). Completes v0.5.0 roadmap item 3 (one matrix, one
+  source of truth).
+- Made `docs/feature-matrix.md` the single canonical reference for the
+  principled cross-driver divergences (v0.5.0 roadmap item 5): every ⚠️/❌ cell
+  now links to a one-paragraph reason in a generated **Round-trip differences**
+  section (plus a value-shape summary table covering `numeric`/`bigint`,
+  `json`/array, `boolean`, `bytea`, and `double precision`) or a
+  **PostgreSQL-only limits** section. The four per-engine docs and the
+  drizzle-parity array-operator footnote now point to this reference instead of
+  restating the explanations, removing the cross-doc duplication.
+- Wired the feature-matrix coverage guard into CI (v0.5.0 roadmap item 6):
+  `deno task docs:matrix:check` now runs in the `ci` and `publish` workflows,
+  and the `pages` build regenerates the matrix before publishing. CI fails if
+  the unified matrix marks a `✅`/`⚠️` for an adapter whose suite has no
+  correspondingly-named test. With item 2 landed, the `db.batch` "gated
+  integration suites" coverage claim is now accurate on all four adapters,
+  closing the coverage-honesty gap item 6 was opened for.
 
 ## 0.4.0 - 2026-06-30
 

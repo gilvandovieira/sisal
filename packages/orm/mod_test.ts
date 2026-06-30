@@ -100,15 +100,17 @@ Deno.test("@sisal/orm - table columns and inference compile", () => {
   type User = InferSelect<typeof users>;
   type NewUser = InferInsert<typeof users>;
 
+  // `.optional()` is insert-only: a nullable optional column still reads back as
+  // `T | null` on select (never `undefined`) — roadmap item 10.
   const selected: User = {
     id: "u_123",
     name: "Lucas",
     email: "lucas@example.com",
-    age: undefined,
+    age: null,
     score: null,
     active: true,
-    profile: undefined,
-    birthday: undefined,
+    profile: null,
+    birthday: null,
     createdAt: new Date(),
     orgId: "org_123",
   };
@@ -407,4 +409,38 @@ Deno.test("@sisal/orm - projected and star returning", () => {
   const removed = db.delete(users).where(eq(users.columns.id, "u_1"))
     .returning().toSql();
   assert(renderSql(removed).text.includes("returning *"));
+});
+
+Deno.test("@sisal/orm - .default(sql`…`) is a server expression default", () => {
+  const t = defineTable("t", {
+    id: columns.uuid().primaryKey().default(sql`gen_random_uuid()`),
+    createdAt: columns.timestamp({ withTimezone: true }).notNull()
+      .default(sql`now()`),
+    status: columns.text().notNull().default("published"),
+  });
+  const snap = createSchemaSnapshot({ tables: [t] });
+  const byName = Object.fromEntries(
+    snap.tables[0].columns.map((c) => [c.name, c.default]),
+  );
+  // A `sql` default becomes a verbatim expression; a literal stays a literal.
+  assertEquals(byName.id, { kind: "expression", sql: "gen_random_uuid()" });
+  assertEquals(byName.created_at, { kind: "expression", sql: "now()" });
+  assertEquals(byName.status, { kind: "literal", value: "published" });
+
+  // Every column has a default ⇒ all are insert-optional (an empty insert
+  // type-checks; the database fills the server defaults).
+  const insert: InferInsert<typeof t> = {};
+  assertEquals(insert.id, undefined);
+
+  // A parameterized default cannot be emitted verbatim, so it is rejected.
+  assertThrows(
+    () =>
+      createSchemaSnapshot({
+        tables: [defineTable("b", {
+          id: columns.integer().primaryKey(),
+          x: columns.text().default(sql`coalesce(${"v"}, 'x')`),
+        })],
+      }),
+    OrmError,
+  );
 });

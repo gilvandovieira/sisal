@@ -37,14 +37,21 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  dateBin,
+  dateSub,
+  dateTrunc,
+  defineAtomicOperation,
+  defineFunction,
   defineTable,
   desc,
   eq,
   exists,
+  filter,
   gt,
   gte,
   ilike,
   inArray,
+  index,
   isNotNull,
   isNull,
   like,
@@ -59,10 +66,13 @@ import {
   notIlike,
   notInArray,
   notLike,
+  now,
   or,
+  placeholder,
   raw,
   sql,
   sum,
+  uniqueIndex,
 } from "@sisal/orm";
 import { defineSqlMigration } from "@sisal/migrate";
 import { connect, createNeonMigrator, type NeonDatabase } from "@sisal/neon";
@@ -717,6 +727,480 @@ neonTest("neon: bytea binary round-trip", async (db) => {
   assertEquals(Array.from(out), [0, 1, 2, 250, 255]);
 });
 
+neonTest("neon: float (real/double) reads back as number", async (db) => {
+  const floats = defineTable("it_floats", {
+    id: columns.integer().primaryKey(),
+    f8: columns.doublePrecision(),
+  });
+  await db.execute(raw("drop table if exists it_floats cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [floats] }),
+    ).statements[0],
+  );
+  await db.insert(floats).values({ id: 1, f8: 306.25 }).execute();
+  const [row] = await db.select().from(floats)
+    .where(eq(floats.columns.id, 1)).execute();
+  assertEquals(typeof row.f8, "number");
+  assertEquals(row.f8, 306.25);
+});
+
+// ---- v0.4.0 features (parity with the @sisal/pg suite) --------------------
+// Neon is PostgreSQL reached through createPgOrmDriver + POSTGRES_DIALECT, so
+// these mirror the matching `pg:` tests verbatim apart from connect/teardown.
+
+neonTest(
+  "neon: column naming (snake_case default, .named, preserve)",
+  async (db) => {
+    const accounts = defineTable("it_accounts", {
+      id: columns.integer().primaryKey(),
+      fullName: columns.text(),
+      hotScore: columns.doublePrecision(),
+      legacyTag: columns.text().named("legacy"),
+    });
+    const legacyTable = defineTable("it_legacy", {
+      id: columns.integer().primaryKey(),
+      keepThis: columns.text(),
+    }, { naming: "preserve" });
+
+    await db.execute(
+      raw("drop table if exists it_accounts, it_legacy cascade"),
+    );
+    for (
+      const stmt of generatePostgresUpStatements(
+        createSchemaSnapshot({
+          dialect: "postgres",
+          tables: [accounts, legacyTable],
+        }),
+      ).statements
+    ) {
+      await db.execute(stmt);
+    }
+
+    const names = async (table: string) =>
+      (await db.query<{ column_name: string }>(
+        sql`select column_name from information_schema.columns
+            where table_name = ${table} order by ordinal_position`,
+      )).rows.map((r) => r.column_name);
+
+    assertEquals(await names("it_accounts"), [
+      "id",
+      "full_name",
+      "hot_score",
+      "legacy",
+    ]);
+    assertEquals(await names("it_legacy"), ["id", "keepThis"]);
+
+    await db.insert(accounts).values({
+      id: 1,
+      fullName: "Ada",
+      hotScore: 1.5,
+      legacyTag: "L",
+    }).execute();
+    const [row] = await db.select().from(accounts)
+      .where(eq(accounts.columns.id, 1)).execute();
+    assertEquals(row.fullName, "Ada");
+    assertEquals(Number(row.hotScore), 1.5);
+    assertEquals(row.legacyTag, "L");
+
+    await db.update(accounts).set({ hotScore: 2.5 })
+      .where(eq(accounts.columns.id, 1)).execute();
+    const [updated] = await db.select().from(accounts)
+      .where(eq(accounts.columns.id, 1)).execute();
+    assertEquals(Number(updated.hotScore), 2.5);
+  },
+);
+
+neonTest("neon: keyset pagination (expanded + row-value)", async (db) => {
+  const feed = defineTable("it_feed", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_feed cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [feed] }),
+    ).statements[0],
+  );
+  await db.insert(feed).values([
+    { id: 1, score: 10 },
+    { id: 2, score: 20 },
+    { id: 3, score: 20 }, // tie with id 2 on score; id is the tiebreaker
+    { id: 4, score: 5 },
+    { id: 5, score: 15 },
+  ]).execute();
+
+  const pageAll = async (form: "expanded" | "row-value"): Promise<number[]> => {
+    const ids: number[] = [];
+    let after: { score: number; id: number } | undefined;
+    for (let i = 0; i < 10; i += 1) {
+      const pageRows = await db.select().from(feed).keyset({
+        orderBy: [desc(feed.columns.score), desc(feed.columns.id)],
+        after,
+        form,
+      }).limit(2).execute();
+      ids.push(...pageRows.rows.map((r) => Number(r.id)));
+      if (pageRows.nextCursor === null) break;
+      after = {
+        score: Number(pageRows.nextCursor.score),
+        id: Number(pageRows.nextCursor.id),
+      };
+    }
+    return ids;
+  };
+
+  assertEquals(await pageAll("expanded"), [3, 2, 5, 1, 4]);
+  assertEquals(await pageAll("row-value"), [3, 2, 5, 1, 4]);
+});
+
+neonTest(
+  "neon: typed function caller (RETURNS TABLE + scalar + casts)",
+  async (db) => {
+    await db.execute(raw(
+      "create or replace function it_add(a integer, b integer) returns integer" +
+        " language sql immutable as $$ select a + b $$",
+    ));
+    await db.execute(raw(
+      "create or replace function it_pair(n integer)" +
+        " returns table(lo integer, hi integer)" +
+        " language sql immutable as $$ select n, n * 10 $$",
+    ));
+    await db.execute(raw(
+      "create or replace function it_echo_uuid(u uuid) returns uuid" +
+        " language sql immutable as $$ select u $$",
+    ));
+    await db.execute(raw(
+      "create or replace function it_nums() returns table(v integer)" +
+        " language sql immutable as $$ select v from (values (1),(2)) t(v) $$",
+    ));
+
+    // Scalar return: rendered `select it_add($1::integer, $2::integer) as result`.
+    const add = defineFunction("it_add", {
+      args: { a: columns.integer(), b: columns.integer() },
+      returns: columns.integer(),
+    });
+    assertEquals(Number(await db.call(add, { a: 2, b: 3 }).one()), 5);
+
+    // RETURNS TABLE: rendered `select * from it_pair($1::integer)`.
+    const pair = defineFunction("it_pair", {
+      args: { n: columns.integer() },
+      returns: { lo: columns.integer(), hi: columns.integer() },
+    });
+    const [row] = await db.call(pair, { n: 4 }).execute();
+    assertEquals(Number(row.lo), 4);
+    assertEquals(Number(row.hi), 40);
+
+    // The `::uuid` cast comes from the declared arg column type, not a string.
+    const echo = defineFunction("it_echo_uuid", {
+      args: { u: columns.uuid() },
+      returns: columns.uuid(),
+    });
+    const uuid = crypto.randomUUID();
+    assertEquals(await db.call(echo, { u: uuid }).one(), uuid);
+
+    // No-arg, set-returning: execute() yields all rows; one() rejects 2 rows.
+    const nums = defineFunction("it_nums", {
+      returns: { v: columns.integer() },
+    });
+    assertEquals(
+      (await db.call(nums, {}).execute()).map((r) => Number(r.v)),
+      [1, 2],
+    );
+    await assertRejects(() => db.call(nums, {}).one());
+  },
+);
+
+neonTest("neon: prepared statement binds placeholders", async (db) => {
+  const byId = db.select().from(users)
+    .where(eq(users.columns.id, placeholder("id"))).prepare();
+  assertEquals((await byId.execute({ id: 1 })).length, 1);
+  assertEquals((await byId.execute({ id: 999 })).length, 0);
+});
+
+neonTest("neon: sql expressions in SET / VALUES / onConflict", async (db) => {
+  const expr = defineTable("it_expr", {
+    id: columns.integer().primaryKey(),
+    label: columns.text().notNull(),
+    score: columns.integer().notNull(),
+    upvotes: columns.integer().notNull(),
+    downvotes: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_expr cascade"));
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [expr] }),
+    ).statements
+  ) {
+    await db.execute(stmt);
+  }
+  const get = async () =>
+    (await db.select().from(expr).where(eq(expr.columns.id, 1)).execute())[0];
+
+  // INSERT: a `sql` expression renders inline and is evaluated by the server
+  // (abs(-5) -> 5); the literal values still bind as parameters.
+  await db.insert(expr).values({
+    id: 1,
+    label: "hi",
+    score: sql`abs(-5)`,
+    upvotes: 3,
+    downvotes: 1,
+  }).execute();
+  const row = await get();
+  assertEquals(Number(row.score), 5);
+  assertEquals(row.label, "hi");
+
+  // UPDATE SET computed from other columns: score = upvotes - downvotes.
+  await db.update(expr).set({
+    score: sql`${expr.columns.upvotes} - ${expr.columns.downvotes}`,
+  }).where(eq(expr.columns.id, 1)).execute();
+  assertEquals(Number((await get()).score), 2);
+
+  // UPDATE SET calling a SQL function on a column: label = upper(label).
+  await db.update(expr).set({ label: sql`upper(${expr.columns.label})` })
+    .where(eq(expr.columns.id, 1)).execute();
+  assertEquals((await get()).label, "HI");
+
+  // ON CONFLICT DO UPDATE with a `sql` expression: score = score + 10.
+  await db.insert(expr).values({
+    id: 1,
+    label: "x",
+    score: 0,
+    upvotes: 0,
+    downvotes: 0,
+  }).onConflictDoUpdate({
+    target: expr.columns.id,
+    set: { score: sql`${expr.columns.score} + 10` },
+  }).execute();
+  assertEquals(Number((await get()).score), 12);
+});
+
+neonTest(
+  "neon: batch runs statements atomically (commit + rollback)",
+  async (db) => {
+    const batchT = defineTable("it_batch", {
+      id: columns.integer().primaryKey(),
+      score: columns.integer().notNull(),
+    });
+    await db.execute(raw("drop table if exists it_batch cascade"));
+    for (
+      const stmt of generatePostgresUpStatements(
+        createSchemaSnapshot({ dialect: "postgres", tables: [batchT] }),
+      ).statements
+    ) {
+      await db.execute(stmt);
+    }
+    const all = async () => (await db.select().from(batchT).orderBy(
+      asc(batchT.columns.id),
+    ).execute());
+
+    // A batch of independent writes commits together; one result per statement.
+    const results = await db.batch([
+      db.insert(batchT).values({ id: 1, score: 10 }),
+      db.insert(batchT).values({ id: 2, score: 20 }),
+      db.update(batchT).set({ score: sql`${batchT.columns.score} + 5` })
+        .where(eq(batchT.columns.id, 1)),
+    ]);
+    assertEquals(results.length, 3);
+    assertEquals((await all()).map((r) => [Number(r.id), Number(r.score)]), [
+      [1, 15],
+      [2, 20],
+    ]);
+
+    // A failing statement (duplicate PK) rolls the whole batch back: the row that
+    // would have been inserted before it is not persisted.
+    await assertRejects(() =>
+      db.batch([
+        db.insert(batchT).values({ id: 3, score: 30 }),
+        db.insert(batchT).values({ id: 1, score: 99 }), // PK collision
+      ])
+    );
+    assertEquals((await all()).map((r) => Number(r.id)), [1, 2]);
+  },
+);
+
+neonTest(
+  "neon: rich indexes (DESC / partial / expression) apply",
+  async (db) => {
+    await db.execute(raw("drop table if exists it_rich_idx cascade"));
+    const richIdx = defineTable("it_rich_idx", {
+      id: columns.integer().primaryKey(),
+      status: columns.text(),
+      hotScore: columns.integer(),
+      createdAt: columns.timestamp(),
+      email: columns.text(),
+    }, (t) => [
+      index("it_rich_hot")
+        .where(sql`${t.status} = 'published'`)
+        .on(desc(t.hotScore), desc(t.createdAt), desc(t.id)),
+      uniqueIndex("it_rich_lower_email").on(sql`lower(${t.email})`),
+    ]);
+    const { statements } = generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [richIdx] }),
+    );
+    // The engine must accept the DESC / partial-WHERE / expression-index SQL.
+    for (const statement of statements) await db.execute(statement);
+
+    const defs = await db.query<{ indexdef: string }>(
+      sql`select indexdef from pg_indexes where tablename = ${"it_rich_idx"}
+        order by indexname`,
+    );
+    const all = defs.rows.map((row) => row.indexdef).join("\n");
+    assert(/DESC/.test(all), all);
+    assert(/WHERE.*status/i.test(all), all);
+    assert(/lower/i.test(all), all);
+  },
+);
+
+neonTest("neon: mutation joins (UPDATE FROM + INSERT SELECT)", async (db) => {
+  await db.execute(
+    raw("drop table if exists it_mj, it_mj_arch, it_srt cascade"),
+  );
+  const mj = defineTable("it_mj", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  const arch = defineTable("it_mj_arch", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [mj, arch] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(mj).values([
+    { id: 1, n: 10 },
+    { id: 2, n: 20 },
+    { id: 3, n: 30 },
+  ]).execute();
+
+  const big = db.$with("big").as(
+    db.select({ id: mj.columns.id }).from(mj).where(gte(mj.columns.n, 20)),
+  );
+  const updated = await db.with(big).update(mj).set({ n: 0 })
+    .from(big).where(eq(mj.columns.id, big.id))
+    .returning({ id: mj.columns.id }).execute();
+  assertEquals(updated.rows.length, 2);
+
+  const zeroed = await db.select().from(mj).where(eq(mj.columns.n, 0))
+    .execute();
+  assertEquals(zeroed.map((r) => r.id).sort(), [2, 3]);
+
+  await db.insert(arch).select(
+    db.select({ id: mj.columns.id, n: mj.columns.n }).from(mj)
+      .where(eq(mj.columns.n, 0)),
+  ).execute();
+  assertEquals((await db.select().from(arch).execute()).length, 2);
+});
+
+neonTest("neon: data-modifying CTE (WITH INSERT … RETURNING)", async (db) => {
+  const dmcte = defineTable("it_dmcte", {
+    id: columns.integer().primaryKey(),
+    msg: columns.text().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_dmcte cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [dmcte] }),
+    ).statements[0],
+  );
+
+  const inserted = db.$with("inserted").as(
+    db.insert(dmcte).values({ id: 1, msg: "hello" }).returning(),
+  );
+  const rows = await db.with(inserted)
+    .select({ id: inserted.id, msg: inserted.msg }).from(inserted).execute();
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].msg, "hello");
+  assertEquals((await db.select().from(dmcte).execute()).length, 1);
+});
+
+neonTest("neon: atomic op single-round-trip dispatch", async (db) => {
+  await db.execute(raw("drop table if exists it_srt cascade"));
+  const t = defineTable("it_srt", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+  await db.insert(t).values({ id: 1, n: 0 }).execute();
+
+  const bump = defineAtomicOperation<{ id: number }, number>("bump_srt", {
+    body: async (tx, { id }) => {
+      const [row] = await tx.select({ n: t.columns.n }).from(t)
+        .where(eq(t.columns.id, id)).execute();
+      const next = Number(row.n) + 1;
+      await tx.update(t).set({ n: next }).where(eq(t.columns.id, id)).execute();
+      return next;
+    },
+    singleStatement: async (database, { id }) => {
+      const u = database.$with("u").as(
+        database.update(t).set({ n: sql`${t.columns.n} + 1` })
+          .where(eq(t.columns.id, id)).returning({ n: t.columns.n }),
+      );
+      const [row] = await database.with(u).select({ n: u.n }).from(u).execute();
+      return Number(row.n);
+    },
+  });
+
+  // On Neon this is one round trip (the CTE); the result is identical.
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+  const [final] = await db.select().from(t).where(eq(t.columns.id, 1))
+    .execute();
+  assertEquals(Number(final.n), 2);
+});
+
+neonTest("neon: atomic operation (transaction script)", async (db) => {
+  const counters = defineTable("it_counters", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_counters cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [counters] }),
+    ).statements[0],
+  );
+
+  // A dependent read-modify-write authored once; runs as one transaction.
+  const bump = defineAtomicOperation<{ id: number }, number>(
+    "bump",
+    async (tx, { id }) => {
+      const existing = await tx.select().from(counters)
+        .where(eq(counters.columns.id, id)).execute();
+      if (existing.length === 0) {
+        await tx.insert(counters).values({ id, n: 1 }).execute();
+        return 1;
+      }
+      const next = Number(existing[0].n) + 1;
+      await tx.update(counters).set({ n: next })
+        .where(eq(counters.columns.id, id)).execute();
+      return next;
+    },
+  );
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+
+  // A throwing operation rolls its whole step back.
+  const bumpThenFail = defineAtomicOperation<{ id: number }, never>(
+    "bump_then_fail",
+    async (tx, { id }) => {
+      await tx.update(counters).set({ n: sql`${counters.columns.n} + 100` })
+        .where(eq(counters.columns.id, id)).execute();
+      throw new Error("boom");
+    },
+  );
+  await assertRejects(() => bumpThenFail.run(db, { id: 1 }));
+  const [row] = await db.select().from(counters)
+    .where(eq(counters.columns.id, 1)).execute();
+  assertEquals(Number(row.n), 2);
+});
+
 neonTest("neon: migrator applies, plans, and is idempotent", async () => {
   const migrator = await createNeonMigrator({
     url: URL!,
@@ -740,12 +1224,196 @@ neonTest("neon: migrator applies, plans, and is idempotent", async () => {
   }
 });
 
+neonTest("neon: typed raw-query mapping (.as)", async (db) => {
+  await db.execute(raw("drop table if exists it_rawmap cascade"));
+  const t = defineTable("it_rawmap", {
+    id: columns.integer().primaryKey(),
+    hotScore: columns.integer(),
+    createdAt: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(t).values({
+    id: 1,
+    hotScore: 42,
+    createdAt: "2026-01-01 09:00:00",
+  }).execute();
+
+  // The raw row is keyed by physical column names...
+  const rawResult = await db.query(raw("select * from it_rawmap"));
+  assert("hot_score" in (rawResult.rows[0] as Record<string, unknown>));
+
+  // ...and `.as(model)` maps it to the table's JS property keys + row type.
+  const rows = await db.query(raw("select * from it_rawmap")).as(t);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].id, 1);
+  assertEquals(rows[0].hotScore, 42);
+
+  // The same row mapped via a free-form column map (no defineTable needed).
+  const viaMap = await db.query(raw("select * from it_rawmap"))
+    .as<{ id: number; hot: number }>({ id: {}, hot: { name: "hot_score" } });
+  assertEquals(viaMap[0].hot, 42);
+});
+
+neonTest("neon: date math window (now / dateSub / dateBin)", async (db) => {
+  await db.execute(raw("drop table if exists it_dm, it_dmbin cascade"));
+  const win = defineTable("it_dm", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ withTimezone: true, mode: "string" }),
+  });
+  const bin = defineTable("it_dmbin", {
+    id: columns.integer().primaryKey(),
+    at: columns.timestamp({ withTimezone: true, mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [win, bin] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(win).values([
+    { id: 1, score: 10, at: dateSub(now(), { minutes: 2 }) },
+    { id: 2, score: 5, at: dateSub(now(), { minutes: 30 }) },
+    { id: 3, score: 3, at: dateSub(now(), { minutes: 90 }) },
+  ]).execute();
+
+  // The rising-score moving window, builder-native (filter + dateSub + now).
+  const [w] = await db.select({
+    last15: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 15 })),
+    ),
+    last60: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 60 })),
+    ),
+    last120: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 120 })),
+    ),
+  }).from(win).execute();
+  assertEquals(Number(w.last15), 10);
+  assertEquals(Number(w.last60), 15);
+  assertEquals(Number(w.last120), 18);
+
+  await db.insert(bin).values([
+    { id: 1, at: "2026-01-01 10:01:00" },
+    { id: 2, at: "2026-01-01 10:04:00" },
+    { id: 3, at: "2026-01-01 10:06:00" },
+  ]).execute();
+  const bucket = dateBin({ minutes: 5 }, bin.columns.at);
+  const groups = await db.select({ n: count() })
+    .from(bin).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(groups.map((g) => Number(g.n)), [2, 1]);
+});
+
+neonTest("neon: filter aggregate + dateTrunc bucketing", async (db) => {
+  await db.execute(raw("drop table if exists it_agg cascade"));
+  const agg = defineTable("it_agg", {
+    id: columns.integer().primaryKey(),
+    kind: columns.text().notNull(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [agg] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(agg).values([
+    { id: 1, kind: "a", score: 10, at: "2026-01-01 10:15:00" },
+    { id: 2, kind: "a", score: 20, at: "2026-01-01 10:45:00" },
+    { id: 3, kind: "b", score: 5, at: "2026-01-01 11:30:00" },
+    { id: 4, kind: "b", score: 7, at: "2026-01-01 11:45:00" },
+  ]).execute();
+
+  // FILTER aggregate: a conditional sum next to the unconditional total.
+  const [totals] = await db.select({
+    aSum: filter(sum(agg.columns.score), eq(agg.columns.kind, "a")),
+    total: sum(agg.columns.score),
+  }).from(agg).execute();
+  assertEquals(Number(totals.aSum), 30);
+  assertEquals(Number(totals.total), 42);
+
+  // dateTrunc bucketing: two hour buckets, each summing its own rows.
+  const bucket = dateTrunc("hour", agg.columns.at);
+  const rows = await db.select({ n: count(), s: sum(agg.columns.score) })
+    .from(agg).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(rows.map((r) => Number(r.n)), [2, 2]);
+  assertEquals(rows.map((r) => Number(r.s)), [30, 12]);
+});
+
+neonTest("neon: schema objects (functions/triggers/views)", async (db) => {
+  await db.execute(raw("drop view if exists it_so_view cascade"));
+  await db.execute(raw("drop table if exists it_so cascade"));
+  await db.execute(raw("drop function if exists it_so_stamp() cascade"));
+
+  const it_so = defineTable("it_so", {
+    id: columns.integer().primaryKey(),
+    label: columns.text().notNull(),
+    stamped: columns.text(),
+  });
+
+  const snapshot = createSchemaSnapshot({
+    dialect: "postgres",
+    tables: [it_so],
+    schemaObjects: [
+      {
+        name: "it_so_stamp",
+        kind: "function",
+        dialect: "postgres",
+        up: "CREATE FUNCTION it_so_stamp() RETURNS trigger AS $$ BEGIN " +
+          "NEW.stamped := 'auto'; RETURN NEW; END; $$ LANGUAGE plpgsql;",
+        down: "DROP FUNCTION it_so_stamp() CASCADE;",
+      },
+      {
+        name: "it_so_trg",
+        kind: "trigger",
+        dialect: "postgres",
+        up: "CREATE TRIGGER it_so_trg BEFORE INSERT ON it_so " +
+          "FOR EACH ROW EXECUTE FUNCTION it_so_stamp();",
+        down: "DROP TRIGGER it_so_trg ON it_so;",
+      },
+      // Dialect-agnostic: emitted for Postgres and the SQLite family alike.
+      {
+        name: "it_so_view",
+        kind: "view",
+        up: "CREATE VIEW it_so_view AS SELECT id, label FROM it_so;",
+        down: "DROP VIEW it_so_view;",
+      },
+    ],
+  });
+
+  const { statements, destructive } = generatePostgresUpStatements(snapshot);
+  assertEquals(destructive.length, 0);
+  assert(statements[0].startsWith('CREATE TABLE "it_so"'));
+  for (const statement of statements) await db.execute(statement);
+
+  // The BEFORE INSERT trigger ran: the function overwrote `stamped`.
+  await db.insert(it_so).values({ id: 1, label: "x", stamped: null }).execute();
+  const [row] = await db.select().from(it_so).execute();
+  assertEquals(row.stamped, "auto");
+
+  const view = await db.query<{ count: number }>(
+    sql`select count(*)::int as count from it_so_view`,
+  );
+  assertEquals(Number(view.rows[0].count), 1);
+});
+
 neonTest("neon: teardown", async (db) => {
+  await db.execute(raw("drop view if exists it_so_view cascade"));
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_temporal_values cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg, it_rawmap, it_dm, it_dmbin, it_mj, it_mj_arch cascade",
     ),
   );
+  await db.execute(raw("drop function if exists it_so_stamp() cascade"));
   await temporalDbHandle?.close();
   temporalDbHandle = undefined;
   await db.close();

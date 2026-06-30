@@ -304,6 +304,12 @@
           "jsr:@std/assert@1"
         ]
       },
+      "examples/neon-activity-vectors": {
+        "dependencies": [
+          "jsr:@neon/serverless@1",
+          "jsr:@std/assert@1"
+        ]
+      },
       "examples/neon-hot-feed": {
         "dependencies": [
           "jsr:@neon/serverless@1",

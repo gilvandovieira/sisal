@@ -8,8 +8,9 @@
  * @module
  */
 
-import { assertAlmostEquals, assertEquals } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
 import { createDatabase } from "@sisal/orm";
+import { initStatements } from "./src/migrate.ts";
 
 import {
   calculateHotScore,
@@ -108,4 +109,21 @@ Deno.test("feeds build and render without a database (postgres noop)", async () 
     id: "00000000-0000-0000-0000-000000000000",
   });
   assertEquals(hotFeed.posts, []);
+});
+
+Deno.test("init DDL regenerates from the schema (tables + functions)", () => {
+  // The whole database shape comes from src/schema.ts — there are no
+  // hand-written .sql migration files (v0.5.0 roadmap item 7).
+  const sql = initStatements().join("\n");
+  assert(sql.includes('CREATE TABLE "posts"'));
+  assert(sql.includes('CREATE TABLE "post_votes"'));
+  // SQL-expression server defaults (`.default(sql`…`)`).
+  assert(sql.includes("DEFAULT gen_random_uuid()"));
+  assert(sql.includes("DEFAULT now()"));
+  // DESC keyset index + the value CHECK.
+  assert(sql.includes('"hot_score" DESC'));
+  assert(sql.includes("value in (-1, 1)"));
+  // Both PostgreSQL functions, carried as schemaObjects.
+  assert(sql.includes("function app.calculate_hot_score"));
+  assert(sql.includes("function app.vote_post"));
 });

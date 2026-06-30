@@ -31,10 +31,15 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  dateBin,
+  dateSub,
+  dateTrunc,
+  defineAtomicOperation,
   defineTable,
   desc,
   eq,
   exists,
+  filter,
   gt,
   gte,
   ilike,
@@ -53,6 +58,7 @@ import {
   notExists,
   notInArray,
   notLike,
+  now,
   or,
   placeholder,
   raw,
@@ -487,6 +493,24 @@ sqliteTest("sqlite: bytea/BLOB binary round-trip", async (db) => {
   const rows = await db.select({ data: bin.columns.data }).from(bin)
     .where(eq(bin.columns.id, 1)).execute();
   assertEquals(Array.from(rows[0].data as Uint8Array), [0, 1, 2, 250, 255]);
+});
+
+sqliteTest("sqlite: float (real/double) reads back as number", async (db) => {
+  const floats = defineTable("it_floats", {
+    id: columns.integer().primaryKey(),
+    f8: columns.doublePrecision(),
+  });
+  await db.execute(raw("drop table if exists it_floats"));
+  await db.execute(
+    generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [floats] }),
+    ).statements[0],
+  );
+  await db.insert(floats).values({ id: 1, f8: 306.25 }).execute();
+  const [row] = await db.select().from(floats)
+    .where(eq(floats.columns.id, 1)).execute();
+  assertEquals(typeof row.f8, "number");
+  assertEquals(Number(row.f8), 306.25);
 });
 
 sqliteTest("sqlite: orderBy asc/desc + limit + offset", async (db) => {
@@ -941,6 +965,92 @@ sqliteTest(
   },
 );
 
+sqliteTest("sqlite: atomic op single-round-trip dispatch", async (db) => {
+  await db.execute(raw("drop table if exists it_srt"));
+  const t = defineTable("it_srt", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+  await db.insert(t).values({ id: 1, n: 0 }).execute();
+
+  // The same op definition; on the SQLite family the interactive body runs (the
+  // PostgreSQL-only `singleStatement` is provided but never dispatched here).
+  const bump = defineAtomicOperation<{ id: number }, number>("bump_srt", {
+    body: async (tx, { id }) => {
+      const [row] = await tx.select({ n: t.columns.n }).from(t)
+        .where(eq(t.columns.id, id)).execute();
+      const next = Number(row.n) + 1;
+      await tx.update(t).set({ n: next }).where(eq(t.columns.id, id)).execute();
+      return next;
+    },
+    singleStatement: async (database, { id }) => {
+      const u = database.$with("u").as(
+        database.update(t).set({ n: sql`${t.columns.n} + 1` })
+          .where(eq(t.columns.id, id)).returning({ n: t.columns.n }),
+      );
+      const [row] = await database.with(u).select({ n: u.n }).from(u).execute();
+      return Number(row.n);
+    },
+  });
+
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+  const [final] = await db.select().from(t).where(eq(t.columns.id, 1))
+    .execute();
+  assertEquals(Number(final.n), 2);
+});
+
+sqliteTest("sqlite: atomic operation (transaction script)", async (db) => {
+  const counters = defineTable("it_counters", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_counters"));
+  await db.execute(
+    generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [counters] }),
+    ).statements[0],
+  );
+
+  // A dependent read-modify-write authored once; runs as one transaction.
+  const bump = defineAtomicOperation<{ id: number }, number>(
+    "bump",
+    async (tx, { id }) => {
+      const existing = await tx.select().from(counters)
+        .where(eq(counters.columns.id, id)).execute();
+      if (existing.length === 0) {
+        await tx.insert(counters).values({ id, n: 1 }).execute();
+        return 1;
+      }
+      const next = Number(existing[0].n) + 1;
+      await tx.update(counters).set({ n: next })
+        .where(eq(counters.columns.id, id)).execute();
+      return next;
+    },
+  );
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+
+  // A throwing operation rolls its whole step back.
+  const bumpThenFail = defineAtomicOperation<{ id: number }, never>(
+    "bump_then_fail",
+    async (tx, { id }) => {
+      await tx.update(counters).set({ n: sql`${counters.columns.n} + 100` })
+        .where(eq(counters.columns.id, id)).execute();
+      throw new Error("boom");
+    },
+  );
+  await assertRejects(() => bumpThenFail.run(db, { id: 1 }));
+  const [row] = await db.select().from(counters)
+    .where(eq(counters.columns.id, 1)).execute();
+  assertEquals(Number(row.n), 2);
+});
+
 sqliteTest("sqlite: migrator applies, plans, and is idempotent", async () => {
   const migrator = await createSqliteMigrator({
     path: dbPath!,
@@ -962,6 +1072,246 @@ sqliteTest("sqlite: migrator applies, plans, and is idempotent", async () => {
   } finally {
     await migrator.close();
   }
+});
+
+sqliteTest("sqlite: typed raw-query mapping (.as)", async (db) => {
+  await db.execute(raw("drop table if exists it_rawmap"));
+  const t = defineTable("it_rawmap", {
+    id: columns.integer().primaryKey(),
+    hotScore: columns.integer(),
+    createdAt: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(t).values({
+    id: 1,
+    hotScore: 42,
+    createdAt: "2026-01-01 09:00:00",
+  }).execute();
+
+  // The raw row is keyed by physical column names...
+  const rawResult = await db.query(raw("select * from it_rawmap"));
+  assert("hot_score" in (rawResult.rows[0] as Record<string, unknown>));
+
+  // ...and `.as(model)` maps it to the table's JS property keys + row type.
+  const rows = await db.query(raw("select * from it_rawmap")).as(t);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].id, 1);
+  assertEquals(rows[0].hotScore, 42);
+
+  // The same row mapped via a free-form column map (no defineTable needed).
+  const viaMap = await db.query(raw("select * from it_rawmap"))
+    .as<{ id: number; hot: number }>({ id: {}, hot: { name: "hot_score" } });
+  assertEquals(viaMap[0].hot, 42);
+});
+
+sqliteTest("sqlite: date math window (now / dateSub / dateBin)", async (db) => {
+  await db.execute(raw("drop table if exists it_dm"));
+  await db.execute(raw("drop table if exists it_dmbin"));
+  const win = defineTable("it_dm", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  const bin = defineTable("it_dmbin", {
+    id: columns.integer().primaryKey(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [win, bin] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  // Bucket timestamps come from the DB clock too, so they share `datetime`'s
+  // exact text format — the SQLite-family comparison is then lexicographic and
+  // chronological.
+  await db.insert(win).values([
+    { id: 1, score: 10, at: dateSub(now(), { minutes: 2 }) },
+    { id: 2, score: 5, at: dateSub(now(), { minutes: 30 }) },
+    { id: 3, score: 3, at: dateSub(now(), { minutes: 90 }) },
+  ]).execute();
+
+  // The rising-score moving window, builder-native (filter + dateSub + now).
+  const [w] = await db.select({
+    last15: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 15 })),
+    ),
+    last60: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 60 })),
+    ),
+    last120: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 120 })),
+    ),
+  }).from(win).execute();
+  assertEquals(Number(w.last15), 10);
+  assertEquals(Number(w.last60), 15);
+  assertEquals(Number(w.last120), 18);
+
+  await db.insert(bin).values([
+    { id: 1, at: "2026-01-01 10:01:00" },
+    { id: 2, at: "2026-01-01 10:04:00" },
+    { id: 3, at: "2026-01-01 10:06:00" },
+  ]).execute();
+  const bucket = dateBin({ minutes: 5 }, bin.columns.at);
+  const groups = await db.select({ n: count() })
+    .from(bin).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(groups.map((g) => Number(g.n)), [2, 1]);
+});
+
+sqliteTest(
+  "sqlite: mutation joins (UPDATE FROM + INSERT SELECT)",
+  async (db) => {
+    await db.execute(raw("drop table if exists it_mj"));
+    await db.execute(raw("drop table if exists it_mj_arch"));
+    const mj = defineTable("it_mj", {
+      id: columns.integer().primaryKey(),
+      n: columns.integer().notNull(),
+    });
+    const arch = defineTable("it_mj_arch", {
+      id: columns.integer().primaryKey(),
+      n: columns.integer().notNull(),
+    });
+    for (
+      const stmt of generateSqliteUpStatements(
+        createSchemaSnapshot({ dialect: "sqlite", tables: [mj, arch] }),
+      ).statements
+    ) await db.execute(stmt);
+
+    await db.insert(mj).values([
+      { id: 1, n: 10 },
+      { id: 2, n: 20 },
+      { id: 3, n: 30 },
+    ]).execute();
+
+    // UPDATE … FROM is supported by modern SQLite (3.33+) and libSQL.
+    const big = db.$with("big").as(
+      db.select({ id: mj.columns.id }).from(mj).where(gte(mj.columns.n, 20)),
+    );
+    await db.with(big).update(mj).set({ n: 0 })
+      .from(big).where(eq(mj.columns.id, big.id)).execute();
+
+    const zeroed = await db.select().from(mj).where(eq(mj.columns.n, 0))
+      .execute();
+    assertEquals(zeroed.map((r) => r.id).sort(), [2, 3]);
+
+    await db.insert(arch).select(
+      db.select({ id: mj.columns.id, n: mj.columns.n }).from(mj)
+        .where(eq(mj.columns.n, 0)),
+    ).execute();
+    assertEquals((await db.select().from(arch).execute()).length, 2);
+  },
+);
+
+sqliteTest("sqlite: filter aggregate + dateTrunc bucketing", async (db) => {
+  await db.execute(raw("drop table if exists it_agg"));
+  const agg = defineTable("it_agg", {
+    id: columns.integer().primaryKey(),
+    kind: columns.text().notNull(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generateSqliteUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [agg] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(agg).values([
+    { id: 1, kind: "a", score: 10, at: "2026-01-01 10:15:00" },
+    { id: 2, kind: "a", score: 20, at: "2026-01-01 10:45:00" },
+    { id: 3, kind: "b", score: 5, at: "2026-01-01 11:30:00" },
+    { id: 4, kind: "b", score: 7, at: "2026-01-01 11:45:00" },
+  ]).execute();
+
+  // FILTER aggregate: modern SQLite supports it natively, like Postgres.
+  const [totals] = await db.select({
+    aSum: filter(sum(agg.columns.score), eq(agg.columns.kind, "a")),
+    total: sum(agg.columns.score),
+  }).from(agg).execute();
+  assertEquals(Number(totals.aSum), 30);
+  assertEquals(Number(totals.total), 42);
+
+  // dateTrunc bucketing via strftime: two hour buckets, each summing its rows.
+  const bucket = dateTrunc("hour", agg.columns.at);
+  const rows = await db.select({ n: count(), s: sum(agg.columns.score) })
+    .from(agg).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(rows.map((r) => Number(r.n)), [2, 2]);
+  assertEquals(rows.map((r) => Number(r.s)), [30, 12]);
+});
+
+sqliteTest("sqlite: schema objects (triggers/views)", async (db) => {
+  await db.execute(raw("drop view if exists it_so_view"));
+  await db.execute(raw("drop trigger if exists it_so_trg"));
+  await db.execute(raw("drop table if exists it_so"));
+  await db.execute(raw("drop table if exists it_so_count"));
+
+  const it_so = defineTable("it_so", {
+    id: columns.integer().primaryKey(),
+    label: columns.text().notNull(),
+  });
+  const it_so_count = defineTable("it_so_count", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+
+  const snapshot = createSchemaSnapshot({
+    dialect: "sqlite",
+    tables: [it_so, it_so_count],
+    schemaObjects: [
+      // Postgres-only — the SQLite generator must skip this entirely.
+      {
+        name: "it_so_stamp",
+        kind: "function",
+        dialect: "postgres",
+        up: "CREATE FUNCTION it_so_stamp() RETURNS trigger AS $$ $$ " +
+          "LANGUAGE plpgsql;",
+      },
+      {
+        name: "it_so_trg",
+        kind: "trigger",
+        dialect: "sqlite",
+        up: "CREATE TRIGGER it_so_trg AFTER INSERT ON it_so BEGIN " +
+          "UPDATE it_so_count SET n = n + 1 WHERE id = 1; END;",
+        down: "DROP TRIGGER it_so_trg;",
+      },
+      // Dialect-agnostic view.
+      {
+        name: "it_so_view",
+        kind: "view",
+        up: "CREATE VIEW it_so_view AS SELECT id, label FROM it_so;",
+        down: "DROP VIEW it_so_view;",
+      },
+    ],
+  });
+
+  const { statements, destructive } = generateSqliteUpStatements(snapshot);
+  assertEquals(destructive.length, 0);
+  // The Postgres-only function is gated out; the trigger + view remain.
+  assertEquals(statements.some((s) => s.includes("CREATE FUNCTION")), false);
+  assert(statements[0].startsWith('CREATE TABLE "it_so"'));
+  for (const statement of statements) await db.execute(statement);
+
+  await db.insert(it_so_count).values({ id: 1, n: 0 }).execute();
+  await db.insert(it_so).values([{ id: 1, label: "a" }, { id: 2, label: "b" }])
+    .execute();
+
+  // The AFTER INSERT trigger fired once per row.
+  const [counter] = await db.select().from(it_so_count).execute();
+  assertEquals(Number(counter.n), 2);
+
+  // The view resolves against the table.
+  const view = await db.query<{ count: number }>(
+    sql`select count(*) as count from it_so_view`,
+  );
+  assertEquals(Number(view.rows[0].count), 2);
 });
 
 sqliteTest("sqlite: teardown", async (db) => {

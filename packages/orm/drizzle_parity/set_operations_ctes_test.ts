@@ -1,5 +1,13 @@
-import { assertEquals } from "@std/assert";
-import { asc, eq, gt, renderSql } from "../mod.ts";
+import { assertEquals, assertThrows } from "@std/assert";
+import {
+  asc,
+  columns,
+  defineTable,
+  eq,
+  gt,
+  OrmError,
+  renderSql,
+} from "../mod.ts";
 import { db, users } from "./_fixtures.ts";
 
 Deno.test("parity: set operations (union/unionAll/intersect/except)", () => {
@@ -69,5 +77,43 @@ Deno.test("parity: common table expressions (db.$with / db.with)", () => {
     'with "adults" as (select "users"."id" as "id", "users"."age" as "age" ' +
       'from "users" where "users"."age" > $1) select "adults"."id" as "id" ' +
       'from "adults" order by "adults"."id" asc',
+  );
+});
+
+Deno.test("parity: data-modifying CTE (INSERT … RETURNING in WITH)", () => {
+  // Roadmap item 12: an INSERT/UPDATE/DELETE … RETURNING can be a CTE body,
+  // and the WITH chain terminates in a SELECT that reads its RETURNING columns.
+  const logs = defineTable("logs", {
+    id: columns.integer().primaryKey(),
+    msg: columns.text().notNull(),
+  }, { naming: "preserve" });
+
+  const inserted = db.$with("inserted").as(
+    db.insert(logs).values({ id: 1, msg: "hi" }).returning({
+      id: logs.columns.id,
+    }),
+  );
+  const query = db.with(inserted).select({ id: inserted.id }).from(inserted);
+
+  assertEquals(
+    renderSql(query.toSql(), { dialect: "postgres" }).text,
+    'with "inserted" as (insert into "logs" ("id", "msg") values ($1, $2) ' +
+      'returning "logs"."id" as "id") select "inserted"."id" as "id" ' +
+      'from "inserted"',
+  );
+
+  // Data-modifying CTEs are PostgreSQL-only: the SQLite family rejects
+  // INSERT/UPDATE/DELETE inside WITH, so rendering throws a typed error.
+  assertThrows(
+    () => renderSql(query.toSql(), { dialect: "sqlite" }),
+    OrmError,
+    "data-modifying CTE",
+  );
+
+  // A data-modifying CTE body must expose columns via `.returning()`.
+  assertThrows(
+    () => db.$with("x").as(db.insert(logs).values({ id: 2, msg: "no" })),
+    OrmError,
+    "requires .returning()",
   );
 });

@@ -1386,22 +1386,22 @@
           <div class="compat">
             <div class="compat__versions" aria-label="Tested database engines">
               <div class="pg-badge">
-                <b>PostgreSQL&nbsp;16</b><small>16.14 · 31/31</small>
+                <b>PostgreSQL&nbsp;16</b><small>16.14 · 40/40</small>
               </div>
               <div class="pg-badge">
-                <b>PostgreSQL&nbsp;17</b><small>17.10 · 31/31</small>
+                <b>PostgreSQL&nbsp;17</b><small>17.10 · 40/40</small>
               </div>
               <div class="pg-badge">
-                <b>PostgreSQL&nbsp;18</b><small>18.4 · 31/31</small>
+                <b>PostgreSQL&nbsp;18</b><small>18.4 · 40/40</small>
               </div>
               <div class="pg-badge pg-badge--sqlite">
-                <b>SQLite&nbsp;3.46</b><small>31/31 green</small>
+                <b>SQLite&nbsp;3.46</b><small>39/39 green</small>
               </div>
               <div class="pg-badge pg-badge--libsql">
-                <b>libSQL / Turso</b><small>3.45 · 28/28 green</small>
+                <b>libSQL / Turso</b><small>3.45 · 39/39 green</small>
               </div>
               <div class="pg-badge pg-badge--neon">
-                <b>Neon</b><small>serverless · 17/17 green</small>
+                <b>Neon</b><small>serverless · 40/40 green</small>
               </div>
             </div>
 
@@ -1433,12 +1433,17 @@
             </ul>
 
             <p class="compat__note">
+              Every feature × adapter — each ✅ backed by a passing integration
+              test — lives in the unified
+              <a href="feature-matrix.html">cross-driver feature matrix</a>.
               Most features behave identically across engines; the few
               per-engine differences (e.g. SQLite/libSQL return JSON &amp;
-              arrays as text) are noted in each matrix.
+              arrays as text) are noted on each engine page.
             </p>
 
             <div class="compat__links">
+              <a class="compat__more" href="feature-matrix.html"
+              >Cross-driver feature matrix&nbsp;→</a>
               <a class="compat__more" href="pg-compatibility.html"
               >PostgreSQL matrix&nbsp;→</a>
               <a class="compat__more" href="sqlite-compatibility.html"
@@ -1474,6 +1479,7 @@
             <div class="footer__col">
               <h4>Docs</h4>
               <a href="api.html">API reference</a>
+              <a href="editor-lsp.html">Editor LSP setup</a>
               <a href="pg-compatibility.html">Postgres compatibility</a>
               <a href="sqlite-compatibility.html">SQLite compatibility</a>
               <a href="libsql-compatibility.html"

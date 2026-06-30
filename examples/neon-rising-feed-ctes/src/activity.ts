@@ -27,24 +27,21 @@
  */
 
 import { sql } from "@sisal/orm";
+import type { InferSelect } from "@sisal/orm";
 import type { NeonDatabase } from "./db.ts";
+import { postActivityBuckets } from "./schema.ts";
 import type { ActivityKind } from "./rising.ts";
 
 export type { ActivityKind };
 
-/** The bucket row returned by the recording CTE (mirror of the table row). */
-export interface RecordedBucket {
-  readonly post_id: string;
-  readonly bucket_start: Date;
-  readonly upvotes: number;
-  readonly downvotes: number;
-  readonly comments: number;
-  readonly reports: number;
-  readonly unique_actors: number;
-  readonly activity_score: number;
-  readonly created_at: Date;
-  readonly updated_at: Date;
-}
+/**
+ * The bucket row returned by the recording CTE: the full
+ * `post_activity_buckets` row, **typed from the table model** (v0.5.0 roadmap
+ * item 13) instead of a hand-restated mirror — so the shape can't drift from the
+ * schema. The raw CTE result is decoded onto this shape with
+ * `db.query(...).as(postActivityBuckets)`.
+ */
+export type RecordedBucket = InferSelect<typeof postActivityBuckets>;
 
 /**
  * Records one activity event and returns the updated bucket.
@@ -62,7 +59,7 @@ export async function recordPostActivity(
     readonly at: Date;
   },
 ): Promise<RecordedBucket> {
-  const result = await db.query<RecordedBucket>(sql`
+  const rows = await db.query(sql`
     with input_data as (
       select
         ${input.postId}::uuid as post_id,
@@ -143,9 +140,9 @@ export async function recordPostActivity(
         unique_actors, activity_score, created_at, updated_at
     )
     select * from bucket_upsert;
-  `);
+  `).as(postActivityBuckets);
 
-  const row = result.rows[0];
+  const row = rows[0];
   if (row === undefined) {
     throw new Error(
       `recordPostActivity: no bucket returned (invalid kind "${input.kind}"?)`,

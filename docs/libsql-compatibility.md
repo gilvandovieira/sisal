@@ -2,7 +2,7 @@
 title: libSQL / Turso compatibility
 ---
 
-# libSQL / Turso compatibility matrix
+# libSQL / Turso compatibility
 
 Sisal's libSQL adapter (`@sisal/libsql`) is verified end-to-end against a real
 libSQL database. libSQL is a SQLite fork, so the SQL surface matches SQLite;
@@ -14,49 +14,25 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (28 tests)       |
-| Last run      | 2026-06-28 — **28 / 28 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (33 tests)       |
+| Last run      | 2026-06-30 — **33 / 33 passed**                        |
 
-✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
-unsupported (SQLite-family).
+## Feature coverage
 
-## Matrix
-
-| Feature                                                                 | libSQL |
-| ----------------------------------------------------------------------- | :----: |
-| **Connection** — `connect({ url, authToken? })`                         |   ✅   |
-| **Generated DDL applies** — affinity mapping of all types               |   ✅   |
-| **Temporal date/time modes** — parse opt-in, strings, legacy Date modes |   ✅   |
-| **Insert** — `values`, multi-row, `returning`                           |   ✅   |
-| **Comparison** — `eq` `ne` `gt` `gte` `lt` `lte`                        |   ✅   |
-| **Pattern** — `like` / `notLike`                                        |   ✅   |
-| **Pattern** — `ilike` / `notIlike` (degrades to `LIKE`)                 |   ✅   |
-| **Range** — `between` / `notBetween`                                    |   ✅   |
-| **Set** — `inArray` / `notInArray`                                      |   ✅   |
-| **Null** — `isNull` / `isNotNull`                                       |   ✅   |
-| **Logical** — `and` `or` `not`                                          |   ✅   |
-| **Ordering** — `asc`/`desc`, multi-key, `limit`, `offset`               |   ✅   |
-| **Distinct**                                                            |   ✅   |
-| **Joins** — `inner` / `left` / `right` / `full`                         |   ✅   |
-| **Aggregates** — `count` `sum` `avg` `min` `max`                        |   ✅   |
-| **Aggregate** — `countDistinct`; `db.$count(table, where?)`             |   ✅   |
-| **Subquery** — `exists` / `notExists` (correlated)                      |   ✅   |
-| **Subquery** — derived `.as()`, scalar, `inArray(subquery)`             |   ✅   |
-| **Group / filter** — `groupBy`, `having`                                |   ✅   |
-| **Update** — `set`, `where`, `returning`, `$onUpdate`                   |   ✅   |
-| **Delete** — `where`, `returning`                                       |   ✅   |
-| **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |   ✅   |
-| **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |   ✅   |
-| **Transactions** — commit + rollback on error                           |   ✅   |
-| **Batch** — `db.batch([...])` non-interactive, atomic                   |   ✅   |
-| **Boolean** — round-trip                                                |   ⚠️   |
-| **JSON / JSONB** — object round-trip                                    |   ⚠️   |
-| **Arrays** — `text[]` round-trip                                        |   ⚠️   |
-| **Binary** — `bytea`/`BLOB` round-trip                                  |   ⚠️   |
-| **Indexes** — `asc`/`desc`, partial `WHERE`, expression keys            |   ✅   |
-| **Migrator** — apply, plan, history table, idempotent re-run            |   ✅   |
+Every feature across all four adapters — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. libSQL is a SQLite fork that renders identical
+SQL (`LIBSQL_DIALECT = "sqlite"`), so its column-naming, keyset, prepared,
+`db.batch`, and `sql`-in-`SET`/`VALUES` rows match SQLite; the libSQL-specific
+round-trip differences and connection notes are below.
 
 ## Behavior notes
+
+> The cross-driver round-trip differences and PostgreSQL-only limits are
+> documented once in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below add libSQL-specific detail.
 
 libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
 
@@ -76,9 +52,17 @@ libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
   affinity and return as numbers.
 - **`serial`/`bigserial`** map to `INTEGER` under a table-level `PRIMARY KEY`
   (not the rowid auto-increment).
-- **Postgres-only operators are unavailable** — `.distinctOn(...)`,
+- **Column naming, keyset pagination, and prepared statements behave identically
+  to PostgreSQL.** camelCase keys map to snake_case columns (or
+  `.named()`/`preserve`), `.keyset(...)` returns `{ rows, nextCursor }` for both
+  the `"expanded"` and `"row-value"` predicate forms, and `placeholder()` +
+  `.prepare()` bind by name — all rendered through the shared SQLite SQL path.
+- **Postgres-only constructs throw a typed error** — `.distinctOn(...)`,
   `.for("update" | "share")` locking, and the array operators
-  (`arrayContains`/`arrayContained`/`arrayOverlaps`).
+  (`arrayContains`/`arrayContained`/`arrayOverlaps`) are PostgreSQL-only; using
+  one against libSQL throws an `OrmError` at render time (v0.5.0 item 4). See
+  the [PostgreSQL-only limits](feature-matrix.md#postgresql-only-limits)
+  reference.
 
 What is **specific to libSQL/Turso**:
 

@@ -7,6 +7,7 @@
 export { OrmError } from "./errors.ts";
 export type { OrmErrorCode, OrmErrorOptions } from "./errors.ts";
 export {
+  dialectSql,
   emptySql,
   identifier,
   isColumn,
@@ -54,9 +55,14 @@ export {
   between,
   count,
   countDistinct,
+  dateAdd,
+  dateBin,
+  dateSub,
+  dateTrunc,
   desc,
   eq,
   exists,
+  filter,
   gt,
   gte,
   ilike,
@@ -75,9 +81,11 @@ export {
   notIlike,
   notInArray,
   notLike,
+  now,
   or,
   sum,
 } from "./operators.ts";
+export type { DateDuration, DateTruncField } from "./operators.ts";
 export { columns, createColumn } from "./columns.ts";
 export type {
   ColumnArray,
@@ -130,6 +138,7 @@ export type {
   CompoundSelectBuilder,
   Cte,
   CteBuilder,
+  CteOperand,
   DeleteBuilder,
   ForLockOptions,
   InsertBuilder,
@@ -171,13 +180,24 @@ export type {
   RelationsList,
   TableRelations,
 } from "./relations.ts";
-export { createDatabase, memoryOrmDriver, noopOrmDriver } from "./database.ts";
+export {
+  createDatabase,
+  defineAtomicOperation,
+  memoryOrmDriver,
+  noopOrmDriver,
+} from "./database.ts";
 export type {
+  AtomicOperation,
+  AtomicOperationBody,
+  AtomicOperationConfig,
   BatchStatement,
+  ColumnMap,
+  ColumnMapping,
   Database,
   DatabaseOptions,
   DatabaseQuery,
   DatabaseSchema,
+  MappableQueryResult,
   MemoryOrmDriverOptions,
   OrmDriver,
   OrmQueryResult,

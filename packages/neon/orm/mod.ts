@@ -13,6 +13,7 @@ import type { Logger, TemporalParsingOptions } from "@sisal/orm";
 import {
   createDatabase,
   type Database,
+  type MappableQueryResult,
   type OrmQueryResult,
   type SqlInput,
   type SqlParameter,
@@ -65,7 +66,7 @@ export interface NeonDatabase extends Database {
   query<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
-  ): Promise<OrmQueryResult<T>>;
+  ): MappableQueryResult<T>;
 }
 
 /** Options for opening a Neon-backed database facade. */

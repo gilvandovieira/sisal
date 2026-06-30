@@ -5,6 +5,7 @@ import {
   type PgClient,
   type PgConnectionOptions,
   type PgConnectionSource,
+  type PgResultColumn,
   resolvePgConnectionSource,
 } from "./pool.ts";
 
@@ -141,6 +142,8 @@ class SisalPgExecutor implements PgSqlExecutor {
         normalizeParams(params),
       );
 
+      coerceFloatColumns(result.rows, result.rowDescription);
+
       return {
         rows: result.rows,
         rowCount: result.rowCount ?? result.rows.length,
@@ -173,4 +176,33 @@ class SisalPgExecutor implements PgSqlExecutor {
 
 function normalizeParams(params: readonly unknown[]): unknown[] {
   return params.map(normalizeTemporalSqlValue);
+}
+
+// `float4` (700) and `float8` (701) are decoded to strings by `@db/postgres`;
+// coerce them back to `number` so a `columns.doublePrecision()` column reads as
+// the `number` it infers — matching `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql`.
+// `numeric` (1700) and `bigint` deliberately stay strings to preserve precision.
+const PG_FLOAT_OIDS = new Set([700, 701]);
+
+function coerceFloatColumns(
+  rows: readonly unknown[],
+  rowDescription:
+    | { readonly columns: ReadonlyArray<PgResultColumn> }
+    | null
+    | undefined,
+): void {
+  if (rowDescription == null || rows.length === 0) return;
+  const floatColumns = rowDescription.columns
+    .filter((column) => PG_FLOAT_OIDS.has(column.typeOid))
+    .map((column) => column.name);
+  if (floatColumns.length === 0) return;
+
+  for (const row of rows as Record<string, unknown>[]) {
+    for (const name of floatColumns) {
+      const value = row[name];
+      if (typeof value === "string" && value.length > 0) {
+        row[name] = Number(value);
+      }
+    }
+  }
 }

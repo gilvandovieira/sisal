@@ -3,10 +3,25 @@ import { Pool } from "jsr:@db/postgres@^0.19.5";
 
 import { OrmError } from "@sisal/orm";
 
+/** A column descriptor from the driver's row description. */
+export interface PgResultColumn {
+  readonly name: string;
+  /** PostgreSQL type OID (e.g. 701 = `float8`, 700 = `float4`). */
+  readonly typeOid: number;
+}
+
 /** Result shape returned by the underlying PostgreSQL client. */
 export interface PgDriverResult<Row = Record<string, unknown>> {
   readonly rows: Row[];
   readonly rowCount?: number;
+  /**
+   * Column type metadata, when the driver provides it (real `@db/postgres`
+   * does; injected fakes may not). Used to coerce `float4`/`float8` reads — which
+   * `@db/postgres` decodes to strings — back to `number`.
+   */
+  readonly rowDescription?: {
+    readonly columns: ReadonlyArray<PgResultColumn>;
+  } | null;
 }
 
 /** Minimal PostgreSQL client surface used by the ORM adapter. */

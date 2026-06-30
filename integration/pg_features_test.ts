@@ -28,11 +28,16 @@ import {
   count,
   countDistinct,
   createSchemaSnapshot,
+  dateBin,
+  dateSub,
+  dateTrunc,
+  defineAtomicOperation,
   defineFunction,
   defineTable,
   desc,
   eq,
   exists,
+  filter,
   gt,
   gte,
   ilike,
@@ -52,9 +57,11 @@ import {
   notIlike,
   notInArray,
   notLike,
+  now,
   or,
   placeholder,
   raw,
+  schemaObjectDropStatements,
   sql,
   sum,
   uniqueIndex,
@@ -775,6 +782,43 @@ pgTest("pg: bytea binary round-trip", async (db) => {
   assertEquals(Array.from(out), [0, 1, 2, 250, 255]);
 });
 
+pgTest("pg: float4 / float8 read back as number", async (db) => {
+  const floats = defineTable("it_floats", {
+    id: columns.integer().primaryKey(),
+    f4: columns.real(),
+    f8: columns.doublePrecision(),
+  });
+  await db.execute(raw("drop table if exists it_floats cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [floats] }),
+    ).statements[0],
+  );
+  await db.insert(floats).values({ id: 1, f4: 1.5, f8: 306.25 }).execute();
+
+  // `@db/postgres` decodes float4/float8 to strings; the adapter coerces them
+  // back to `number` so the inferred type matches the runtime value.
+  const [row] = await db.select().from(floats)
+    .where(eq(floats.columns.id, 1)).execute();
+  assertEquals(typeof row.f4, "number");
+  assertEquals(typeof row.f8, "number");
+  assertEquals(row.f4, 1.5);
+  assertEquals(row.f8, 306.25);
+
+  // Raw-query reads coerce too.
+  const rawRead = await db.query<{ v: number }>(
+    sql`select 180.5::double precision as v`,
+  );
+  assertEquals(typeof rawRead.rows[0].v, "number");
+  assertEquals(rawRead.rows[0].v, 180.5);
+
+  // `numeric` stays a precision-preserving string (not a float).
+  const numeric = await db.query<{ n: string }>(
+    sql`select 306.25::numeric as n`,
+  );
+  assertEquals(typeof numeric.rows[0].n, "string");
+});
+
 // ---- v0.4.0 features ------------------------------------------------------
 
 pgTest(
@@ -1076,6 +1120,166 @@ pgTest("pg: rich indexes (DESC / partial / expression) apply", async (db) => {
   assert(/lower/i.test(all), all);
 });
 
+pgTest("pg: mutation joins (UPDATE FROM + INSERT SELECT)", async (db) => {
+  await db.execute(
+    raw("drop table if exists it_mj, it_mj_arch, it_srt cascade"),
+  );
+  const mj = defineTable("it_mj", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  const arch = defineTable("it_mj_arch", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [mj, arch] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(mj).values([
+    { id: 1, n: 10 },
+    { id: 2, n: 20 },
+    { id: 3, n: 30 },
+  ]).execute();
+
+  // UPDATE … FROM a CTE, via the mutating terminal of db.with(...): zero the
+  // rows a CTE selects.
+  const big = db.$with("big").as(
+    db.select({ id: mj.columns.id }).from(mj).where(gte(mj.columns.n, 20)),
+  );
+  // Explicit RETURNING (not `*`): with a FROM join, `RETURNING *` would expose
+  // both relations' `id` columns and the driver rejects the duplicate.
+  const updated = await db.with(big).update(mj).set({ n: 0 })
+    .from(big).where(eq(mj.columns.id, big.id))
+    .returning({ id: mj.columns.id }).execute();
+  assertEquals(updated.rows.length, 2); // ids 2, 3
+
+  const zeroed = await db.select().from(mj).where(eq(mj.columns.n, 0))
+    .execute();
+  assertEquals(zeroed.map((r) => r.id).sort(), [2, 3]);
+
+  // INSERT … SELECT: archive the zeroed rows from a query, not literal values.
+  await db.insert(arch).select(
+    db.select({ id: mj.columns.id, n: mj.columns.n }).from(mj)
+      .where(eq(mj.columns.n, 0)),
+  ).execute();
+  assertEquals((await db.select().from(arch).execute()).length, 2);
+});
+
+pgTest("pg: data-modifying CTE (WITH INSERT … RETURNING)", async (db) => {
+  const dmcte = defineTable("it_dmcte", {
+    id: columns.integer().primaryKey(),
+    msg: columns.text().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_dmcte cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [dmcte] }),
+    ).statements[0],
+  );
+
+  // One statement: an INSERT inside a WITH, exposing its RETURNING to the
+  // terminal SELECT — Postgres-only, single round trip.
+  const inserted = db.$with("inserted").as(
+    db.insert(dmcte).values({ id: 1, msg: "hello" }).returning(),
+  );
+  const rows = await db.with(inserted)
+    .select({ id: inserted.id, msg: inserted.msg }).from(inserted).execute();
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].msg, "hello");
+
+  // The CTE actually persisted the row.
+  assertEquals((await db.select().from(dmcte).execute()).length, 1);
+});
+
+pgTest("pg: atomic op single-round-trip dispatch", async (db) => {
+  await db.execute(raw("drop table if exists it_srt cascade"));
+  const t = defineTable("it_srt", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+  await db.insert(t).values({ id: 1, n: 0 }).execute();
+
+  // One definition, two strategies: Postgres runs the data-modifying CTE as a
+  // single statement; the SQLite family would run the interactive body.
+  const bump = defineAtomicOperation<{ id: number }, number>("bump_srt", {
+    body: async (tx, { id }) => {
+      const [row] = await tx.select({ n: t.columns.n }).from(t)
+        .where(eq(t.columns.id, id)).execute();
+      const next = Number(row.n) + 1;
+      await tx.update(t).set({ n: next }).where(eq(t.columns.id, id)).execute();
+      return next;
+    },
+    singleStatement: async (database, { id }) => {
+      const u = database.$with("u").as(
+        database.update(t).set({ n: sql`${t.columns.n} + 1` })
+          .where(eq(t.columns.id, id)).returning({ n: t.columns.n }),
+      );
+      const [row] = await database.with(u).select({ n: u.n }).from(u).execute();
+      return Number(row.n);
+    },
+  });
+
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+  const [final] = await db.select().from(t).where(eq(t.columns.id, 1))
+    .execute();
+  assertEquals(Number(final.n), 2);
+});
+
+pgTest("pg: atomic operation (transaction script)", async (db) => {
+  const counters = defineTable("it_counters", {
+    id: columns.integer().primaryKey(),
+    n: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_counters cascade"));
+  await db.execute(
+    generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [counters] }),
+    ).statements[0],
+  );
+
+  // A dependent read-modify-write authored once; runs as one transaction.
+  const bump = defineAtomicOperation<{ id: number }, number>(
+    "bump",
+    async (tx, { id }) => {
+      const existing = await tx.select().from(counters)
+        .where(eq(counters.columns.id, id)).execute();
+      if (existing.length === 0) {
+        await tx.insert(counters).values({ id, n: 1 }).execute();
+        return 1;
+      }
+      const next = Number(existing[0].n) + 1;
+      await tx.update(counters).set({ n: next })
+        .where(eq(counters.columns.id, id)).execute();
+      return next;
+    },
+  );
+  assertEquals(await bump.run(db, { id: 1 }), 1);
+  assertEquals(await bump.run(db, { id: 1 }), 2);
+
+  // A throwing operation rolls its whole step back.
+  const bumpThenFail = defineAtomicOperation<{ id: number }, never>(
+    "bump_then_fail",
+    async (tx, { id }) => {
+      await tx.update(counters).set({ n: sql`${counters.columns.n} + 100` })
+        .where(eq(counters.columns.id, id)).execute();
+      throw new Error("boom");
+    },
+  );
+  await assertRejects(() => bumpThenFail.run(db, { id: 1 }));
+  const [row] = await db.select().from(counters)
+    .where(eq(counters.columns.id, 1)).execute();
+  assertEquals(Number(row.n), 2);
+});
+
 pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   void db;
   const migrator = await createPgMigrator({
@@ -1104,15 +1308,221 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   }
 });
 
+pgTest("pg: typed raw-query mapping (.as)", async (db) => {
+  await db.execute(raw("drop table if exists it_rawmap cascade"));
+  const t = defineTable("it_rawmap", {
+    id: columns.integer().primaryKey(),
+    hotScore: columns.integer(),
+    createdAt: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(t).values({
+    id: 1,
+    hotScore: 42,
+    createdAt: "2026-01-01 09:00:00",
+  }).execute();
+
+  // The raw row is keyed by physical column names...
+  const rawResult = await db.query(raw("select * from it_rawmap"));
+  assert("hot_score" in (rawResult.rows[0] as Record<string, unknown>));
+
+  // ...and `.as(model)` maps it to the table's JS property keys + row type.
+  const rows = await db.query(raw("select * from it_rawmap")).as(t);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].id, 1);
+  assertEquals(rows[0].hotScore, 42);
+
+  // The same row mapped via a free-form column map (no defineTable needed).
+  const viaMap = await db.query(raw("select * from it_rawmap"))
+    .as<{ id: number; hot: number }>({ id: {}, hot: { name: "hot_score" } });
+  assertEquals(viaMap[0].hot, 42);
+});
+
+pgTest("pg: date math window (now / dateSub / dateBin)", async (db) => {
+  await db.execute(raw("drop table if exists it_dm, it_dmbin cascade"));
+  const win = defineTable("it_dm", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ withTimezone: true, mode: "string" }),
+  });
+  const bin = defineTable("it_dmbin", {
+    id: columns.integer().primaryKey(),
+    at: columns.timestamp({ withTimezone: true, mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [win, bin] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  // Buckets pinned to the DB's own clock, so the moving window below is
+  // deterministic regardless of wall-clock or timezone.
+  await db.insert(win).values([
+    { id: 1, score: 10, at: dateSub(now(), { minutes: 2 }) },
+    { id: 2, score: 5, at: dateSub(now(), { minutes: 30 }) },
+    { id: 3, score: 3, at: dateSub(now(), { minutes: 90 }) },
+  ]).execute();
+
+  // The rising-score moving window, builder-native: conditional sums over
+  // now()-relative cutoffs (filter + dateSub + now together).
+  const [w] = await db.select({
+    last15: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 15 })),
+    ),
+    last60: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 60 })),
+    ),
+    last120: filter(
+      sum(win.columns.score),
+      gte(win.columns.at, dateSub(now(), { minutes: 120 })),
+    ),
+  }).from(win).execute();
+  assertEquals(Number(w.last15), 10); // only the 2-minute bucket
+  assertEquals(Number(w.last60), 15); // 2m + 30m
+  assertEquals(Number(w.last120), 18); // all three
+
+  // dateBin flooring: two rows share a 5-minute bucket, one lands in the next.
+  await db.insert(bin).values([
+    { id: 1, at: "2026-01-01 10:01:00" },
+    { id: 2, at: "2026-01-01 10:04:00" },
+    { id: 3, at: "2026-01-01 10:06:00" },
+  ]).execute();
+  const bucket = dateBin({ minutes: 5 }, bin.columns.at);
+  const groups = await db.select({ n: count() })
+    .from(bin).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(groups.map((g) => Number(g.n)), [2, 1]);
+});
+
+pgTest("pg: filter aggregate + dateTrunc bucketing", async (db) => {
+  await db.execute(raw("drop table if exists it_agg cascade"));
+  const agg = defineTable("it_agg", {
+    id: columns.integer().primaryKey(),
+    kind: columns.text().notNull(),
+    score: columns.integer().notNull(),
+    at: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [agg] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(agg).values([
+    { id: 1, kind: "a", score: 10, at: "2026-01-01 10:15:00" },
+    { id: 2, kind: "a", score: 20, at: "2026-01-01 10:45:00" },
+    { id: 3, kind: "b", score: 5, at: "2026-01-01 11:30:00" },
+    { id: 4, kind: "b", score: 7, at: "2026-01-01 11:45:00" },
+  ]).execute();
+
+  // FILTER aggregate: a conditional sum next to the unconditional total.
+  const [totals] = await db.select({
+    aSum: filter(sum(agg.columns.score), eq(agg.columns.kind, "a")),
+    total: sum(agg.columns.score),
+  }).from(agg).execute();
+  assertEquals(Number(totals.aSum), 30);
+  assertEquals(Number(totals.total), 42);
+
+  // dateTrunc bucketing: two hour buckets, each summing its own rows.
+  const bucket = dateTrunc("hour", agg.columns.at);
+  const rows = await db.select({ n: count(), s: sum(agg.columns.score) })
+    .from(agg).groupBy(bucket).orderBy(asc(bucket)).execute();
+  assertEquals(rows.map((r) => Number(r.n)), [2, 2]);
+  assertEquals(rows.map((r) => Number(r.s)), [30, 12]);
+});
+
+pgTest("pg: schema objects (functions/triggers/views)", async (db) => {
+  await db.execute(raw("drop view if exists it_so_view cascade"));
+  await db.execute(raw("drop table if exists it_so cascade"));
+  await db.execute(raw("drop function if exists it_so_stamp() cascade"));
+
+  const it_so = defineTable("it_so", {
+    id: columns.integer().primaryKey(),
+    label: columns.text().notNull(),
+    stamped: columns.text(),
+  });
+
+  const snapshot = createSchemaSnapshot({
+    dialect: "postgres",
+    tables: [it_so],
+    schemaObjects: [
+      {
+        name: "it_so_stamp",
+        kind: "function",
+        dialect: "postgres",
+        up: "CREATE FUNCTION it_so_stamp() RETURNS trigger AS $$ BEGIN " +
+          "NEW.stamped := 'auto'; RETURN NEW; END; $$ LANGUAGE plpgsql;",
+        down: "DROP FUNCTION it_so_stamp() CASCADE;",
+      },
+      {
+        name: "it_so_trg",
+        kind: "trigger",
+        dialect: "postgres",
+        up: "CREATE TRIGGER it_so_trg BEFORE INSERT ON it_so " +
+          "FOR EACH ROW EXECUTE FUNCTION it_so_stamp();",
+        down: "DROP TRIGGER it_so_trg ON it_so;",
+      },
+      // Dialect-agnostic: emitted for Postgres and the SQLite family alike.
+      {
+        name: "it_so_view",
+        kind: "view",
+        up: "CREATE VIEW it_so_view AS SELECT id, label FROM it_so;",
+        down: "DROP VIEW it_so_view;",
+      },
+    ],
+  });
+
+  const { statements, destructive } = generatePostgresUpStatements(snapshot);
+  assertEquals(destructive.length, 0);
+  // CREATE TABLE renders first; the stored objects trail it in declared order.
+  assert(statements[0].startsWith('CREATE TABLE "it_so"'));
+  for (const statement of statements) await db.execute(statement);
+
+  // The BEFORE INSERT trigger ran: the function overwrote `stamped`.
+  await db.insert(it_so).values({ id: 1, label: "x", stamped: null }).execute();
+  const [row] = await db.select().from(it_so).execute();
+  assertEquals(row.stamped, "auto");
+
+  // The dialect-agnostic view resolves against the table.
+  const view = await db.query<{ count: number }>(
+    sql`select count(*)::int as count from it_so_view`,
+  );
+  assertEquals(Number(view.rows[0].count), 1);
+
+  // Down: the matching drop statements (reverse declared order) remove the
+  // stored objects — dependents (view, trigger) before the function.
+  const downs = schemaObjectDropStatements(snapshot, "postgres");
+  assertEquals(downs.length, 3);
+  for (const statement of downs) await db.execute(statement);
+  const left = await db.query<{ fn: number; vw: number }>(
+    sql`select
+          (select count(*)::int from pg_proc where proname = ${"it_so_stamp"}) as fn,
+          (select count(*)::int from pg_views where viewname = ${"it_so_view"}) as vw`,
+  );
+  assertEquals(Number(left.rows[0].fn), 0);
+  assertEquals(Number(left.rows[0].vw), 0);
+});
+
 pgTest("pg: teardown", async (db) => {
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx cascade",
+      "drop view if exists it_so_view cascade",
     ),
   );
   await db.execute(
     raw(
-      "drop function if exists it_add(integer, integer), it_pair(integer), it_echo_uuid(uuid), it_nums() cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg, it_rawmap, it_dm, it_dmbin, it_mj, it_mj_arch cascade",
+    ),
+  );
+  await db.execute(
+    raw(
+      "drop function if exists it_add(integer, integer), it_pair(integer), it_echo_uuid(uuid), it_nums(), it_so_stamp() cascade",
     ),
   );
   await temporalDbHandle?.close();
