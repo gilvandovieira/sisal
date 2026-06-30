@@ -39,6 +39,7 @@ genuine dialect limit · — not applicable.
 | Rich indexes (DESC / partial / expression)                      |    ✅     |  ✅   |    ✅    |       ✅        |
 | Migrator (apply / plan / idempotent)                            |    ✅     |  ✅   |    ✅    |       ✅        |
 | Stored schema objects (functions / triggers / views)            |    ✅     |  ✅   |    ✅    |       ✅        |
+| Typed raw-query mapping (`db.query(...).as(table)`)             |    ✅     |  ✅   |    ✅    |       ✅        |
 | Temporal date/time modes                                        |    ✅     |  ✅   |    ✅    |       ✅        |
 | `ilike` / `notIlike`                                            |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
 | `json` / array round-trip                                       |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |

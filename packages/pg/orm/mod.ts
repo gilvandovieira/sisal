@@ -12,6 +12,7 @@ import type { Logger, TemporalParsingOptions } from "@sisal/orm";
 import {
   createDatabase,
   type Database,
+  type MappableQueryResult,
   type OrmQueryResult,
   type SqlInput,
   type SqlParameter,
@@ -38,7 +39,7 @@ export interface PgDatabase extends Database {
   query<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
-  ): Promise<OrmQueryResult<T>>;
+  ): MappableQueryResult<T>;
 }
 
 /** Options for opening a PostgreSQL-backed database facade. */

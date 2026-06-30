@@ -1216,6 +1216,36 @@ pgTest("pg: migrator applies, plans, and is idempotent", async (db) => {
   }
 });
 
+pgTest("pg: typed raw-query mapping (.as)", async (db) => {
+  await db.execute(raw("drop table if exists it_rawmap cascade"));
+  const t = defineTable("it_rawmap", {
+    id: columns.integer().primaryKey(),
+    hotScore: columns.integer(),
+    createdAt: columns.timestamp({ mode: "string" }),
+  });
+  for (
+    const stmt of generatePostgresUpStatements(
+      createSchemaSnapshot({ dialect: "postgres", tables: [t] }),
+    ).statements
+  ) await db.execute(stmt);
+
+  await db.insert(t).values({
+    id: 1,
+    hotScore: 42,
+    createdAt: "2026-01-01 09:00:00",
+  }).execute();
+
+  // The raw row is keyed by physical column names...
+  const rawResult = await db.query(raw("select * from it_rawmap"));
+  assert("hot_score" in (rawResult.rows[0] as Record<string, unknown>));
+
+  // ...and `.as(model)` maps it to the table's JS property keys + row type.
+  const rows = await db.query(raw("select * from it_rawmap")).as(t);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].id, 1);
+  assertEquals(rows[0].hotScore, 42);
+});
+
 pgTest("pg: filter aggregate + dateTrunc bucketing", async (db) => {
   await db.execute(raw("drop table if exists it_agg cascade"));
   const agg = defineTable("it_agg", {
@@ -1320,7 +1350,7 @@ pgTest("pg: teardown", async (db) => {
   );
   await db.execute(
     raw(
-      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg cascade",
+      "drop table if exists it_all_types, it_posts, it_users, it_orgs, it_bin, it_widget, it_history, it_accounts, it_legacy, it_feed, it_temporal_values, it_expr, it_batch, it_rich_idx, it_floats, it_counters, it_dmcte, it_so, it_agg, it_rawmap cascade",
     ),
   );
   await db.execute(

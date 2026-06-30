@@ -142,6 +142,10 @@ export const FEATURE_MATRIX: FeatureRow[] = [
     "Stored schema objects (functions / triggers / views)",
     "schema objects",
   ),
+  allTested(
+    "Typed raw-query mapping (`db.query(...).as(table)`)",
+    "typed raw-query mapping",
+  ),
   allTested("Temporal date/time modes", "Temporal date/time modes"),
   {
     feature: "`ilike` / `notIlike`",

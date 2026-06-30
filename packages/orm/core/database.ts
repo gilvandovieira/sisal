@@ -54,9 +54,14 @@ import {
 import {
   type AnyTableDefinition,
   assertTable,
+  type InferSelect,
   type TableDefinition,
 } from "./table.ts";
-import { decodeTemporalRow, type TemporalParsingOptions } from "./temporal.ts";
+import {
+  decodeTemporalRow,
+  type ResultColumnMetadata,
+  type TemporalParsingOptions,
+} from "./temporal.ts";
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
@@ -103,12 +108,28 @@ export type BatchStatement = { toSql(): Sql } | Sql | SqlQuery;
 /** Schema map used to expose `db.query.<table>` relational helpers. */
 export type DatabaseSchema = Record<string, AnyTableDefinition>;
 
+/**
+ * The awaitable result of a raw `db.query(...)` call: a normal query-result
+ * promise that also exposes `.as(table)`, which decodes the raw driver rows
+ * against a table model — physical→JS column naming plus the same opt-in
+ * Temporal decoding the query builder applies — yielding typed
+ * `InferSelect<table>` rows. Lets a hand-written `sql` query (e.g. a
+ * data-modifying CTE) reuse a `defineTable` model instead of a restated row
+ * type.
+ */
+export interface MappableQueryResult<T = unknown>
+  extends Promise<OrmQueryResult<T>> {
+  as<TTable extends TableDefinition>(
+    table: TTable,
+  ): Promise<InferSelect<TTable>[]>;
+}
+
 /** A raw SQL query executor. */
 export interface RawQueryExecutor {
   <T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
-  ): Promise<OrmQueryResult<T>>;
+  ): MappableQueryResult<T>;
 }
 
 /** Callable raw-query function plus schema keyed relational query helpers. */
@@ -321,11 +342,52 @@ class SisalDatabase<
     this.#temporal = options.temporal ?? {};
     this.#relationRegistry = createRelationRegistry(options.relations ?? []);
     this.query = createDatabaseQuery<TSchema, TRelations>(
-      (query, params) => this.#query(query, params),
+      (query, params) => this.#mappableQuery(query, params),
       this,
       this.#schema,
       this.#relationRegistry,
     );
+  }
+
+  // Wraps a raw query promise with `.as(table)` so its rows can be decoded
+  // against a table model (physical→JS naming + opt-in Temporal parsing).
+  #mappableQuery<T>(
+    query: SqlInput,
+    params?: readonly SqlParameter[],
+  ): MappableQueryResult<T> {
+    const promise = this.#query<T>(query, params) as MappableQueryResult<T>;
+    promise.as = <TTable extends TableDefinition>(table: TTable) => {
+      assertTable(table);
+      return promise.then((result) =>
+        this.#mapRows(result.rows as Record<string, unknown>[], table)
+      );
+    };
+    return promise;
+  }
+
+  // Maps raw driver rows onto a table model: renames physical column names to
+  // their JS property keys, then applies the same opt-in Temporal decoding the
+  // builder uses. Unknown keys pass through untouched.
+  #mapRows<TTable extends TableDefinition>(
+    rows: readonly Record<string, unknown>[],
+    table: TTable,
+  ): InferSelect<TTable>[] {
+    const rename: Record<string, string> = {};
+    const metadata: Record<string, ResultColumnMetadata> = {};
+    for (const [property, column] of Object.entries(table.columns)) {
+      rename[column.name] = property;
+      metadata[property] = column;
+    }
+    const parse = this.#temporal.parse === true;
+    return rows.map((row) => {
+      const mapped: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(row)) {
+        mapped[rename[key] ?? key] = value;
+      }
+      return (parse
+        ? decodeTemporalRow(mapped, metadata)
+        : mapped) as InferSelect<TTable>;
+    });
   }
 
   async execute<T = unknown>(

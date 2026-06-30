@@ -189,6 +189,7 @@ export type {
   DatabaseOptions,
   DatabaseQuery,
   DatabaseSchema,
+  MappableQueryResult,
   MemoryOrmDriverOptions,
   OrmDriver,
   OrmQueryResult,
