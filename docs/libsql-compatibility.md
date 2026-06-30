@@ -14,8 +14,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (28 tests)       |
-| Last run      | 2026-06-28 — **28 / 28 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (31 tests)       |
+| Last run      | 2026-06-30 — **31 / 31 passed**                        |
 
 ✅ = verified · ⚠️ = works with a documented behavior difference · ❌ =
 unsupported (SQLite-family).
@@ -47,6 +47,9 @@ unsupported (SQLite-family).
 | **Delete** — `where`, `returning`                                       |   ✅   |
 | **Upsert** — `onConflictDoNothing` / `onConflictDoUpdate`               |   ✅   |
 | **`sql` in `.set()` / `.values()` / `onConflict`** (inline expressions) |   ✅   |
+| **Column naming** — snake_case default, `.named()`, `preserve`          |   ✅   |
+| **Keyset pagination** — `.keyset({ orderBy, after })`, both forms       |   ✅   |
+| **Prepared statements** — `placeholder()` + `.prepare()`                |   ✅   |
 | **Transactions** — commit + rollback on error                           |   ✅   |
 | **Batch** — `db.batch([...])` non-interactive, atomic                   |   ✅   |
 | **Boolean** — round-trip                                                |   ⚠️   |
@@ -76,6 +79,11 @@ libSQL shares SQLite's type system, so the SQLite notes apply verbatim:
   affinity and return as numbers.
 - **`serial`/`bigserial`** map to `INTEGER` under a table-level `PRIMARY KEY`
   (not the rowid auto-increment).
+- **Column naming, keyset pagination, and prepared statements behave identically
+  to PostgreSQL.** camelCase keys map to snake_case columns (or
+  `.named()`/`preserve`), `.keyset(...)` returns `{ rows, nextCursor }` for both
+  the `"expanded"` and `"row-value"` predicate forms, and `placeholder()` +
+  `.prepare()` bind by name — all rendered through the shared SQLite SQL path.
 - **Postgres-only operators are unavailable** — `.distinctOn(...)`,
   `.for("update" | "share")` locking, and the array operators
   (`arrayContains`/`arrayContained`/`arrayOverlaps`).

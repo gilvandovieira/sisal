@@ -51,6 +51,7 @@ import {
   notInArray,
   notLike,
   or,
+  placeholder,
   raw,
   sql,
   sum,
@@ -696,6 +697,125 @@ libsqlTest("libsql: text[] array round-trips as JSON text", async (db) => {
     sql`select tags from it_docs where id = ${2}`,
   );
   assertEquals(JSON.parse(rows.rows[0].tags), ["a", "b"]);
+});
+
+// ---- SQLite-family parity (column naming / keyset / prepared) -------------
+// libSQL renders identical SQL to SQLite (LIBSQL_DIALECT = "sqlite"), so these
+// mirror the matching `sqlite:` tests verbatim apart from connect/teardown.
+
+libsqlTest(
+  "libsql: column naming (snake_case default, .named, preserve)",
+  async (db) => {
+    // camelCase JS keys map to snake_case physical columns by default; `.named`
+    // pins an explicit name and `naming: "preserve"` keeps the key verbatim.
+    const accounts = defineTable("it_accounts", {
+      id: columns.integer().primaryKey(),
+      fullName: columns.text(),
+      hotScore: columns.doublePrecision(),
+      legacyTag: columns.text().named("legacy"),
+    });
+    const legacyTable = defineTable("it_legacy", {
+      id: columns.integer().primaryKey(),
+      keepThis: columns.text(),
+    }, { naming: "preserve" });
+
+    await db.execute(raw("drop table if exists it_accounts"));
+    await db.execute(raw("drop table if exists it_legacy"));
+    for (
+      const stmt of generateLibsqlUpStatements(
+        createSchemaSnapshot({
+          dialect: "sqlite",
+          tables: [accounts, legacyTable],
+        }),
+      ).statements
+    ) {
+      await db.execute(stmt);
+    }
+
+    const names = async (table: string) =>
+      (await db.query<{ name: string }>(
+        sql`select name from pragma_table_info(${table})`,
+      )).rows.map((r) => r.name);
+
+    assertEquals(await names("it_accounts"), [
+      "id",
+      "full_name",
+      "hot_score",
+      "legacy",
+    ]);
+    assertEquals(await names("it_legacy"), ["id", "keepThis"]);
+
+    // Write through camelCase keys; read back keyed by camelCase property names.
+    await db.insert(accounts).values({
+      id: 1,
+      fullName: "Ada",
+      hotScore: 1.5,
+      legacyTag: "L",
+    }).execute();
+    const [row] = await db.select().from(accounts)
+      .where(eq(accounts.columns.id, 1)).execute();
+    assertEquals(row.fullName, "Ada");
+    assertEquals(Number(row.hotScore), 1.5);
+    assertEquals(row.legacyTag, "L");
+
+    // Updating through a camelCase key writes the snake_case column.
+    await db.update(accounts).set({ hotScore: 2.5 })
+      .where(eq(accounts.columns.id, 1)).execute();
+    const [updated] = await db.select().from(accounts)
+      .where(eq(accounts.columns.id, 1)).execute();
+    assertEquals(Number(updated.hotScore), 2.5);
+  },
+);
+
+libsqlTest("libsql: keyset pagination (expanded + row-value)", async (db) => {
+  const feed = defineTable("it_feed", {
+    id: columns.integer().primaryKey(),
+    score: columns.integer().notNull(),
+  });
+  await db.execute(raw("drop table if exists it_feed"));
+  await db.execute(
+    generateLibsqlUpStatements(
+      createSchemaSnapshot({ dialect: "sqlite", tables: [feed] }),
+    ).statements[0],
+  );
+  await db.insert(feed).values([
+    { id: 1, score: 10 },
+    { id: 2, score: 20 },
+    { id: 3, score: 20 }, // tie with id 2 on score; id is the tiebreaker
+    { id: 4, score: 5 },
+    { id: 5, score: 15 },
+  ]).execute();
+
+  // Page through the whole feed (page size 2) and collect ids in order.
+  const pageAll = async (form: "expanded" | "row-value"): Promise<number[]> => {
+    const ids: number[] = [];
+    let after: { score: number; id: number } | undefined;
+    for (let i = 0; i < 10; i += 1) {
+      const pageRows = await db.select().from(feed).keyset({
+        orderBy: [desc(feed.columns.score), desc(feed.columns.id)],
+        after,
+        form,
+      }).limit(2).execute();
+      ids.push(...pageRows.rows.map((r) => Number(r.id)));
+      if (pageRows.nextCursor === null) break;
+      after = {
+        score: Number(pageRows.nextCursor.score),
+        id: Number(pageRows.nextCursor.id),
+      };
+    }
+    return ids;
+  };
+
+  // score desc, id desc -> 3, 2 (score 20), 5 (15), 1 (10), 4 (5).
+  assertEquals(await pageAll("expanded"), [3, 2, 5, 1, 4]);
+  assertEquals(await pageAll("row-value"), [3, 2, 5, 1, 4]);
+});
+
+libsqlTest("libsql: prepared statement binds placeholders", async (db) => {
+  const byId = db.select().from(users)
+    .where(eq(users.columns.id, placeholder("id"))).prepare();
+  assertEquals((await byId.execute({ id: 1 })).length, 1);
+  assertEquals((await byId.execute({ id: 999 })).length, 0);
 });
 
 libsqlTest(
