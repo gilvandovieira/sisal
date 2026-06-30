@@ -9,8 +9,6 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
-## 0.4.0 - 2026-06-30
-
 ### Added
 
 - Added the `examples/neon-rising-feed-ctes` example: the same `/rising`
@@ -103,6 +101,11 @@ Sisal-specific history after that baseline through `1f05448`.
   where **`@sisal/pg` returns `double precision` as a string** while
   `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql` all return a `number` (verified
   against real databases).
+
+## 0.4.0 - 2026-06-30
+
+### Added
+
 - Added richer index DDL generation (roadmap item 5). Table-level `index()` /
   `uniqueIndex()` now accept per-column sort direction via `asc()`/`desc()`
   terms, raw `` sql`...` `` **expression** keys (an expression index), and a
