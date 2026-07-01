@@ -10,8 +10,8 @@ runner that resumes from the last committed window). v0.6 **designs** this; it
 does not ship a runner.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (its
-rollups + event pruning are the load step a checkpoint protects) and
+[`postgres-family-activity-vectors`](../postgres-family-activity-vectors/README.md)
+(its rollups + event pruning are the load step a checkpoint protects) and
 [01-etl-rollup](01-etl-rollup.md) (the rollup this watermarks).
 
 ## Product use case
@@ -23,11 +23,94 @@ a crash (start from the last committed window, not the beginning) and to
 records the last `window_end` committed per job, and an **idempotent load** so
 replaying a window overwrites rather than appends.
 
+## v0.6 decision
+
+The checkpoint table is owned by the future `@sisal/etl` package by default, not
+by `@sisal/migrate`. That keeps the package graph simple (`etl` does not gain a
+migrate dependency) unless v0.9 reverses the decision with an explicit
+architecture update.
+
+The logical checkpoint table contract is:
+
+```sql
+sisal_etl_checkpoints (
+  job primary key,
+  window_end not null,
+  pruned_before null,
+  updated_at not null
+)
+```
+
+Adapters may choose the physical timestamp type that matches their engine
+(`timestamptz`, `text`, `datetime`, etc.), but the logical columns and meanings
+are fixed:
+
+- `job` — stable user-visible job id and the checkpoint primary key.
+- `window_end` — exclusive end of the last committed live window.
+- `pruned_before` — exclusive upper bound of **source rows removed by
+  retention** for this job's source relation; `NULL` until the first prune. This
+  is the job's **replay horizon** (see below).
+- `updated_at` — when the checkpoint row was last advanced.
+
+Runner semantics:
+
+- `run()` acquires the job lock from
+  [08-job-queue-locking](08-job-queue-locking.md), reads the checkpoint,
+  computes the next half-open window `[from, until)`, performs the idempotent
+  load, and advances `window_end` atomically with that load.
+- `replay(window)` re-runs one explicit window with the same idempotent load and
+  does **not** advance the live checkpoint by default.
+- `backfill(range)` iterates explicit half-open windows across the range and
+  does **not** disturb the live checkpoint by default.
+- `replay`/`backfill` **refuse any window that begins before the replay
+  horizon** (`from < pruned_before`) with a typed "window not replayable: source
+  pruned" error — see the replay-vs-retention invariant below.
+
+Idempotency invariants:
+
+- Windows are half-open: `occurred_at >= from AND occurred_at < until`.
+- The target table has a unique grain key such as `(post_id, bucket)`.
+- Loads replace/upsert metric values for that grain; they do not add deltas to
+  existing metrics.
+- The load and checkpoint advance commit together in one transaction. A crash
+  may leave the checkpoint behind already-loaded data, but never ahead of it.
+
+## The replay-vs-retention invariant
+
+Replace-semantics idempotence has a failure mode the ingredients above create
+**together**: retention prunes raw source rows after consolidation (the
+activity-vectors example deletes `post_events` once folded), and a later
+`replay(window)` recomputes that window **from the now-missing rows** — then
+_overwrites_ good rollups with zeros or undercounts. Nothing errors; the data is
+silently destroyed by the very mechanism that was supposed to make re-runs safe.
+
+The contract therefore binds replay to retention:
+
+- **A window is replayable only while its source rows are fully retained**:
+  `replay`/`backfill` require `from >= pruned_before`. Live `run()` is
+  unaffected — its window always starts at `window_end`, which retention must
+  never outrun (prune only what has been consolidated).
+- **The prune advances `pruned_before` atomically with the delete** (one
+  transaction), and the safe failure direction is the mirror image of the
+  checkpoint's: `pruned_before` may run **ahead** of what was actually deleted
+  (a refused replay that would have worked — annoying, correct), but must never
+  lag it (an allowed replay over missing data — silent corruption).
+- **The horizon is per-source, tracked per-job.** A job's `pruned_before` bounds
+  replays of _that job's source relation_. Downstream jobs reading derived
+  tables (e.g. `rollup_daily` reads hourly buckets, not raw events) carry their
+  own horizon, bounded by _their_ source's retention — pruning raw events does
+  not make daily-rollup replays unsafe.
+- **The override is explicit.** Re-deriving from a different or restored source
+  is legitimate (backfilling from an archive, recomputing a derived source); the
+  runner exposes an `unsafeAllowPrunedReplay`-style opt-out mirroring the
+  `.unsafeAllowAllRows()` safety-rail precedent — refused by default, loud when
+  bypassed.
+
 ## SQL shape to preserve
 
 ```sql
 -- 1. read the watermark (where did we get to?)
-SELECT window_end FROM etl_checkpoint WHERE job = $job;
+SELECT window_end FROM sisal_etl_checkpoints WHERE job = $job;
 
 -- 2. load one window idempotently (upsert keyed on the rollup grain)
 INSERT INTO post_hourly_stats (post_id, bucket, views, votes, comments)
@@ -42,31 +125,40 @@ ON CONFLICT (post_id, bucket) DO UPDATE SET
   views = excluded.views, votes = excluded.votes, comments = excluded.comments;
 
 -- 3. advance the watermark, atomically with the load
-INSERT INTO etl_checkpoint (job, window_end, updated_at)
+INSERT INTO sisal_etl_checkpoints (job, window_end, updated_at)
 VALUES ($job, $until, now())
 ON CONFLICT (job) DO UPDATE SET window_end = excluded.window_end,
                                updated_at = excluded.updated_at;
+
+-- 4. retention (separate run): prune consolidated source rows AND advance the
+--    replay horizon together, so the horizon never lags the delete
+DELETE FROM post_events WHERE occurred_at < $before;
+UPDATE sisal_etl_checkpoints SET pruned_before = $before, updated_at = now()
+WHERE job = $job;
 ```
 
 The load (2) and the watermark advance (3) must commit **together** (one
 transaction / `db.batch`), so a crash never advances the watermark past
-un-loaded data. **Backfill** = run step 2 for an explicit `[from, until)` that
-predates the watermark; idempotence makes it safe.
+un-loaded data. The prune and the horizon advance (4) commit **together** for
+the mirror-image reason (see the replay-vs-retention invariant). **Backfill** =
+run step 2 for an explicit `[from, until)` that predates the watermark **and**
+starts at or after `pruned_before`; idempotence makes it safe.
 
 ## Required future Sisal primitives
 
 - **The idempotent load** — `insert().select() … onConflictDoUpdate` — **shipped
   v0.5**; this is the [01-etl-rollup](01-etl-rollup.md) spine.
 - **A checkpoint/watermark table contract (A3)** — a small typed system table
-  (`job`, `window_end`, `updated_at`) with read/advance helpers. **Absent.**
-  Open question (v0.6): owned by `@sisal/etl` or a `@sisal/migrate`-managed
-  system table?
+  (`job`, `window_end`, `pruned_before`, `updated_at`) with read/advance
+  helpers. **Designed in v0.6 as the `@sisal/etl`-managed
+  `sisal_etl_checkpoints` table; implemented and tested in v0.9/v0.10.**
 - **Atomic load+advance** — `db.batch([...])` exists (non-interactive, atomic);
   it forbids cross-statement reads, which is fine here (the load doesn't read
   the watermark write).
 - **A replay/backfill driver (A4)** — iterate `[from, until)` windows, skip or
-  overwrite already-loaded ones deterministically. **Design only** in v0.6; the
-  loop is the v0.10 runner.
+  overwrite already-loaded ones deterministically, and **refuse windows behind
+  the `pruned_before` replay horizon** (typed error; explicit unsafe override).
+  **Design only** in v0.6; the loop is the v0.10 runner.
 - **A run lock** so two runs don't advance the same watermark — from
   [08-job-queue-locking](08-job-queue-locking.md) (A2).
 
@@ -99,9 +191,15 @@ the readiness design v0.6 owes v0.10.
 
 ## Future acceptance criteria
 
-- A typed checkpoint helper reads/advances the watermark on all four engines.
+- A typed checkpoint helper reads/advances `sisal_etl_checkpoints` on every
+  engine where ETL is supported.
 - A crash between load and advance leaves the watermark **behind** the data
   (never ahead) — proven by an injected-failure test; re-running re-loads the
   window with no duplicates (idempotence).
 - A backfill of an explicit historical range produces the same rollup as a fresh
   full run (replay determinism).
+- **Replaying a window behind `pruned_before` is refused with a typed error** —
+  proven by a test that prunes a consolidated window, attempts `replay`, asserts
+  the refusal, and asserts the rollup row is **unchanged** (the zero-overwrite
+  never happened). The mirror crash test: a failure between prune and horizon
+  advance must leave the horizon **ahead or equal**, never behind the delete.

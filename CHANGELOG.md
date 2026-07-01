@@ -11,6 +11,83 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **MySQL-readiness report + MySQL-vs-MariaDB split decision (v0.6 C5 —
+  workstream C complete)** —
+  [`docs/mysql-readiness.md`](docs/mysql-readiness.md) +
+  [`perf/mysql_variant_probe.ts`](perf/mysql_variant_probe.ts)
+  (`deno task perf:mysql:variant`, gated behind `MYSQL_URL`). The consolidated
+  workstream deliverable, with two recorded decisions: **(1) one `@sisal/mysql`
+  adapter** — MySQL ≥ 8.0.16 baseline, MariaDB ≥ 10.10 on the same adapter
+  through a variant-aware capability descriptor, not a second package; **(2) the
+  `(engine, variant, version)` dialect identity is adopted** — snapshot dialect
+  gains a variant/version axis, `dialectGuard` generalizes to a version-aware
+  capability predicate, implemented in v0.7 before the v0.8 IR freeze. The
+  ~20-row divergence matrix was executed against MySQL 8.4.10 and MariaDB 11.8.8
+  (C2/C3's research claims graduated to executed facts; new findings: `LATERAL`
+  and JSON `->>` are MySQL-only, `CREATE SEQUENCE` and native `UUID` are
+  MariaDB-only). **Two final wrong-SQL renders were found and guarded:**
+  `fullJoin` (no `FULL OUTER JOIN` on either engine) and `filter()` (no `FILTER`
+  clause on either engine — `CASE WHEN` fallback routed to v0.7) now throw typed
+  `ORM_DIALECT_UNSUPPORTED` under `mysql`, pinned in
+  [`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts);
+  Postgres/SQLite rendering unchanged. Includes the draft fifth
+  capability-matrix column and the core-vs-adapter v0.7 build list.
+- **MySQL type/DDL mapping, probe-verified (v0.6 C4)** —
+  [`docs/mysql-ddl-mapping.md`](docs/mysql-ddl-mapping.md) +
+  [`perf/mysql_ddl_probe.ts`](perf/mysql_ddl_probe.ts)
+  (`deno task perf:mysql:ddl`, gated behind `MYSQL_URL`). The complete design
+  the v0.7 `generateMysqlUpStatements` implements, with every claim executed
+  against live MySQL 8.4.10 **and** MariaDB 11.8.8: the full column-kind → MySQL
+  type table (serial → `AUTO_INCREMENT` with generation-time placement
+  validation, `boolean` → `BOOLEAN`/`TINYINT(1)`, `json`/`.array()` → `JSON`,
+  `timestamp` → `DATETIME(6)`, `timestamptz` → `TIMESTAMP(6)` with the
+  probe-confirmed 2038 cliff, `bytea` → `LONGBLOB`, `uuid` → `CHAR(36)`) and the
+  DDL rules with a probe finding behind each: **table-level FKs only** (MySQL
+  silently ignores inline `REFERENCES` — the pg generator's after-CREATE
+  ordering transfers as-is), paren-wrapped expression defaults (the only
+  TEXT/JSON-default form both engines accept), no `CREATE INDEX IF NOT EXISTS`,
+  DESC/functional/partial index quirks, no `ENGINE`/`CHARSET` clause (the
+  cross-engine collation-name trap), and `GET_LOCK` as the migrator's
+  advisory-lock analogue. Version floor: MySQL ≥ 8.0.16 / MariaDB ≥ 10.10; the
+  MariaDB divergence table (inline-FK honored, JSON-as-`LONGTEXT` decoding to
+  text, extended `TIMESTAMP` range) feeds C5.
+- **MySQL driver survey + benchmarks (v0.6 C6)** —
+  [`perf/MYSQL_DRIVER_SURVEY.md`](perf/MYSQL_DRIVER_SURVEY.md) +
+  [`perf/mysql_driver_survey.ts`](perf/mysql_driver_survey.ts)
+  (`deno task perf:mysql`, gated behind `MYSQL_URL`). Benchmarked `npm:mysql2`,
+  `npm:mariadb`, and `jsr:@db/mysql@3.0.0-rc.1` from Deno 2.9 against real MySQL
+  8.4.10 and MariaDB 11.8.8 (sequential parameterized latency — the metric that
+  exposed the `@db/postgres` Nagle stall — plus pooled throughput and a
+  value-shape probe), with a Node 26 dual-runtime check. **Decision for the v0.7
+  `@sisal/mysql` adapter: `mysql2` as the lazily-imported default** (MIT,
+  Deno+Node, prepared statements, ~0.08 ms p50 / ~20k qps, no Nagle-class stall)
+  **with `supportBigNumbers`+`bigNumberStrings` mandatory** — its default
+  `BIGINT` decode is silently lossy past 2⁵³; the options make it a
+  precision-safe string matching `@sisal/neon`'s convention. `mariadb` (fastest:
+  ~0.05 ms p50 / ~24.5k qps, `BigInt`-correct, LGPL-2.1) is the opt-in via the
+  injectable-executor seam; `@db/mysql` (rc-only, Deno-only) is a watch;
+  `@planetscale/database` is the future serverless variant. All drivers are
+  loaded through runtime-computed specifiers, so the workspace takes on no MySQL
+  driver dependency.
+- **Typed `RETURNING` guard + dialect-guard sweep for `"mysql"` (v0.6 C3).**
+  Rendering `returning()` on any insert/update/delete under the (adapterless,
+  v0.7-bound) `"mysql"` dialect now throws a typed `ORM_DIALECT_UNSUPPORTED`
+  instead of emitting `RETURNING` SQL the engine rejects — MySQL 8/9 has no
+  `RETURNING`, and MariaDB's is per-statement and per-version (`DELETE` 10.0.5+,
+  `INSERT`/`REPLACE` 10.5+, `UPDATE` only 13.0+ single-table), so even MariaDB
+  emission waits for the `(engine, version)` dialect key; a fetch-by-key
+  fallback is a v0.7 adapter/executor concern. The same sweep corrected every
+  dialect guard that was wrong for MySQL: `distinctOn`, the array operators,
+  data-modifying CTEs, and `DELETE … USING` now list `mysql` as unsupported, and
+  `UPDATE … FROM` gained a new guard (MySQL's multi-table `UPDATE`/`DELETE`
+  shapes are v0.7 mapping work). Row locking correctly stays allowed. With this,
+  **no known construct renders wrong SQL under `"mysql"`** — everything either
+  renders correctly or throws. The guard error message dropped its hardcoded "it
+  is PostgreSQL-only" suffix (wrong for `RETURNING`, which SQLite also
+  supports). Pinned in
+  [`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts);
+  Postgres/SQLite rendering unchanged (all four integration suites re-run
+  green).
 - **Dialect-mapped MySQL upsert + typed `excluded()` helper (v0.6 C2).** The
   same `onConflictDoUpdate`/`onConflictDoNothing` builder calls now render
   `ON DUPLICATE KEY UPDATE` under the (adapterless, v0.7-bound) `"mysql"`
@@ -48,6 +125,31 @@ Sisal-specific history after that baseline through `1f05448`.
   BY before `ON CONFLICT`) is rejected by the engine's parser — any window WHERE
   or rollup GROUP BY disambiguates; pinned in the sqlite/libsql suites. See
   [v0.6.0 roadmap A1](docs/v0.6.0-roadmap.md).
+- **Workstream A closeout (v0.6 A2-A6).** The ETL readiness investigation now
+  records the correctness substrate the future `@sisal/etl` runner must consume:
+  a coarse run lock keyed by `sisal:etl:<job>` (`pg_try_advisory_lock` /
+  `pg_advisory_unlock` on PostgreSQL/Neon, `BEGIN IMMEDIATE` for supported
+  SQLite/libSQL runs, future MySQL/MariaDB `GET_LOCK` / `RELEASE_LOCK`), an
+  `@sisal/etl`-managed
+  `sisal_etl_checkpoints(job, window_end, pruned_before, updated_at)` table, and
+  atomic idempotent `run` / `replay` / `backfill` semantics (half-open windows,
+  upsert/replace metrics keyed by the rollup grain, load + checkpoint advance in
+  one transaction). The contract also carries the **replay-vs-retention
+  invariant**: replaying a window whose raw source rows were already pruned
+  would silently overwrite good rollups with zeros, so the per-job
+  `pruned_before` replay horizon advances atomically with the prune (never
+  lagging the delete) and `replay`/`backfill` refuse windows behind it with a
+  typed error (explicit unsafe override, mirroring `.unsafeAllowAllRows()`);
+  v0.9 tests both the refusal and the crash direction. A5 closes around the
+  existing `postgres-family-activity-vectors` runnable PoC (`@sisal/pg` on
+  `@db/postgres` or postgres.js, plus `@sisal/neon`); the SQLite/libSQL sibling
+  remains a future contract because stored functions, `ARRAY[...]`, and `unnest`
+  do not port cleanly. A6 closes by routing window functions, `ARRAY[...]`,
+  `unnest`, and the SQLite-family `json_array` / `json_each` alternative to the
+  advanced-SQL contracts and v0.7/v0.8. This is docs/design only: no ETL
+  package, scheduler, runtime, public export, or feature-matrix lock/checkpoint
+  claim was added; v0.9 owns the test-backed implementation before v0.10
+  consumes it.
 - **Latent `"mysql"` render path pinned (v0.6 C1)**
   ([`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts)).
   Render-ready today: backtick quoting, `?` placeholders, `ilike`→`LIKE`, plain
@@ -111,6 +213,11 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **Root README refreshed for the 0.5.1 workspace state.** Install snippets now
+  pin `0.5.1`; adapter dependency notes mention the optional `@sisal/pg`
+  postgres.js path; development checks include the feature-matrix gate; and the
+  opt-in integration commands now include Neon, PostgreSQL migration apply, and
+  cross-adapter decode parity.
 - **`examples/postgres-family-activity-vectors`: the fold, both retention
   rollups, and the event prune are now typed builder statements** (v0.6 A1
   verification). `app.fold_events_to_buckets`, `app.rollup_daily`,

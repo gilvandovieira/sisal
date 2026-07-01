@@ -170,6 +170,15 @@ builder statements since v0.6), then shows a post's vector is unchanged after
 pruning. (Triggered manually here; in production an external cron/scheduler
 calls them.)
 
+> **Replay caution.** Pruning is one-way for the fold: re-running
+> `foldEventsToBuckets` over a window whose events were already pruned would
+> recompute from missing rows and _overwrite_ good bucket counters with zeros
+> (replace-semantics idempotence cuts both ways). This example never re-folds
+> behind the prune cutoff; the future ETL runner makes that mechanical — a
+> per-job `pruned_before` replay horizon that refuses such windows with a typed
+> error. See the replay-vs-retention invariant in
+> [09-idempotent-backfill](../advanced-sql-contracts/09-idempotent-backfill.md).
+
 ## How to run
 
 ```sh
