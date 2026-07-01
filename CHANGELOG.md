@@ -9,6 +9,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.6.0 - 2026-07-01
+
 ### Added
 
 - **MySQL-readiness report + MySQL-vs-MariaDB split decision (v0.6 C5 —
@@ -213,8 +215,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
-- **Root README refreshed for the 0.5.1 workspace state.** Install snippets now
-  pin `0.5.1`; adapter dependency notes mention the optional `@sisal/pg`
+- **Root README refreshed for the 0.6.0 release state.** Install snippets now
+  pin `0.6.0`; adapter dependency notes mention the optional `@sisal/pg`
   postgres.js path; development checks include the feature-matrix gate; and the
   opt-in integration commands now include Neon, PostgreSQL migration apply, and
   cross-adapter decode parity.

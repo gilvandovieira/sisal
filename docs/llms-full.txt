@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.5.1. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
+Workspace package version: 0.6.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -61,7 +61,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Package Manifests
 
-### @sisal/orm 0.5.1
+### @sisal/orm 0.6.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -74,7 +74,7 @@ Exports:
 - `./logger` -> `./logger.ts`
 - `./schema` -> `./schema.ts`
 
-### @sisal/migrate 0.5.1
+### @sisal/migrate 0.6.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -86,7 +86,7 @@ Exports:
 - `./core` -> `./core/mod.ts`
 - `./workflow` -> `./core/workflow.ts`
 
-### @sisal/pg 0.5.1
+### @sisal/pg 0.6.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -98,7 +98,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/sqlite 0.5.1
+### @sisal/sqlite 0.6.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -110,7 +110,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/libsql 0.5.1
+### @sisal/libsql 0.6.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -122,7 +122,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/neon 0.5.1
+### @sisal/neon 0.6.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -1327,9 +1327,9 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.5.1 \
-  jsr:@sisal/migrate@0.5.1 \
-  jsr:@sisal/pg@0.5.1
+deno add jsr:@sisal/orm@0.6.0 \
+  jsr:@sisal/migrate@0.6.0 \
+  jsr:@sisal/pg@0.6.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -1337,10 +1337,10 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target       | Install                                                                          |
 | ------------ | -------------------------------------------------------------------------------- |
-| PostgreSQL   | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/pg@0.5.1`     |
-| Neon         | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/neon@0.5.1`   |
-| SQLite       | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/sqlite@0.5.1` |
-| libSQL/Turso | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/libsql@0.5.1` |
+| PostgreSQL   | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/pg@0.6.0`     |
+| Neon         | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/neon@0.6.0`   |
+| SQLite       | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/sqlite@0.6.0` |
+| libSQL/Turso | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/libsql@0.6.0` |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -1474,7 +1474,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.5.1/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.6.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -1643,6 +1643,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.6.0 - 2026-07-01
+
 ### Added
 
 - **MySQL-readiness report + MySQL-vs-MariaDB split decision (v0.6 C5 —
@@ -1765,22 +1767,21 @@ Sisal-specific history after that baseline through `1f05448`.
   `pg_advisory_unlock` on PostgreSQL/Neon, `BEGIN IMMEDIATE` for supported
   SQLite/libSQL runs, future MySQL/MariaDB `GET_LOCK` / `RELEASE_LOCK`), an
   `@sisal/etl`-managed
-  `sisal_etl_checkpoints(job, window_end, pruned_before, updated_at)` table,
-  and atomic idempotent `run` / `replay` / `backfill` semantics (half-open
-  windows, upsert/replace metrics keyed by the rollup grain, load + checkpoint
-  advance in one transaction). The contract also carries the
-  **replay-vs-retention invariant**: replaying a window whose raw source rows
-  were already pruned would silently overwrite good rollups with zeros, so the
-  per-job `pruned_before` replay horizon advances atomically with the prune
-  (never lagging the delete) and `replay`/`backfill` refuse windows behind it
-  with a typed error (explicit unsafe override, mirroring
-  `.unsafeAllowAllRows()`); v0.9 tests both the refusal and the crash
-  direction. A5 closes around the existing
-  `postgres-family-activity-vectors` runnable PoC (`@sisal/pg` on `@db/postgres`
-  or postgres.js, plus `@sisal/neon`); the SQLite/libSQL sibling remains a
-  future contract because stored functions, `ARRAY[...]`, and `unnest` do not
-  port cleanly. A6 closes by routing window functions, `ARRAY[...]`, `unnest`,
-  and the SQLite-family `json_array` / `json_each` alternative to the
+  `sisal_etl_checkpoints(job, window_end, pruned_before, updated_at)` table, and
+  atomic idempotent `run` / `replay` / `backfill` semantics (half-open windows,
+  upsert/replace metrics keyed by the rollup grain, load + checkpoint advance in
+  one transaction). The contract also carries the **replay-vs-retention
+  invariant**: replaying a window whose raw source rows were already pruned
+  would silently overwrite good rollups with zeros, so the per-job
+  `pruned_before` replay horizon advances atomically with the prune (never
+  lagging the delete) and `replay`/`backfill` refuse windows behind it with a
+  typed error (explicit unsafe override, mirroring `.unsafeAllowAllRows()`);
+  v0.9 tests both the refusal and the crash direction. A5 closes around the
+  existing `postgres-family-activity-vectors` runnable PoC (`@sisal/pg` on
+  `@db/postgres` or postgres.js, plus `@sisal/neon`); the SQLite/libSQL sibling
+  remains a future contract because stored functions, `ARRAY[...]`, and `unnest`
+  do not port cleanly. A6 closes by routing window functions, `ARRAY[...]`,
+  `unnest`, and the SQLite-family `json_array` / `json_each` alternative to the
   advanced-SQL contracts and v0.7/v0.8. This is docs/design only: no ETL
   package, scheduler, runtime, public export, or feature-matrix lock/checkpoint
   claim was added; v0.9 owns the test-backed implementation before v0.10
@@ -1848,8 +1849,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
-- **Root README refreshed for the 0.5.1 workspace state.** Install snippets now
-  pin `0.5.1`; adapter dependency notes mention the optional `@sisal/pg`
+- **Root README refreshed for the 0.6.0 release state.** Install snippets now
+  pin `0.6.0`; adapter dependency notes mention the optional `@sisal/pg`
   postgres.js path; development checks include the feature-matrix gate; and the
   opt-in integration commands now include Neon, PostgreSQL migration apply, and
   cross-adapter decode parity.
@@ -2793,7 +2794,7 @@ The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
 [`drizzle-parity`](./drizzle-parity.html) for how this surface maps to Drizzle
 ORM 0.45.2 and where it diverges on purpose.
 
-> **Stability:** all packages are `0.5.0` (pre-1.0). The surface below is
+> **Stability:** all packages are `0.6.0` (pre-1.0). The surface below is
 > current but may change before 1.0.
 
 ---
@@ -6711,10 +6712,14 @@ extract→group→ aggregate→upsert as generated SQL, with a checkpoint and a 
 - `rollup()` — the grouped extract→aggregate→upsert shape (the v0.6 PoC, now
   typed via the v0.8 IR: insert-from-select + date bucket + filtered
   aggregates + upsert-from-select).
-- **checkpoint table** — a watermark store (`job`, `window_end`, `updated_at`).
+- **checkpoint table** — a watermark store (`job`, `window_end`,
+  `pruned_before`, `updated_at`).
 - `run(job)` — execute the next window once.
 - `backfill(job, range)` — run an explicit historical range deterministically.
-- `replay(job, window)` — re-run a specific window idempotently.
+- `replay(job, window)` — re-run a specific window idempotently. Both refuse
+  windows behind the job's `pruned_before` replay horizon with a typed error
+  (the v0.6 A4 replay-vs-retention invariant, test-backed by v0.9); an explicit
+  unsafe override acknowledges re-derivation from a restored source.
 - `status(job)` — report checkpoint + last-run state.
 - **dry-run / explain** — print the generated SQL without executing.
 - **SQL-pushdown execution** — the runner sends one (or few) generated
