@@ -32,8 +32,8 @@ similarity, and retention.
 
 ```
 raw post_events
-   │  app.fold_events_to_buckets(from, until)      INSERT…SELECT + FILTER
-   ▼
+   │  foldEventsToBuckets(from, until)     BUILDER: insert().select() + FILTER
+   ▼                                       + dateTrunc + onConflictDoUpdate
 post_activity_buckets (hourly)
    │  app.compute_post_activity_stats(p_now)        WINDOW moving averages, batch
    ▼
@@ -42,13 +42,17 @@ post_activity_stats (one row/post, named columns)
    ▼
 activity vector  ──►  cosine similarity ("similar posts")
 
-post_activity_buckets ─ app.rollup_daily ─► post_activity_daily
-post_activity_daily   ─ app.rollup_monthly ─► post_activity_monthly
-post_events           ─ app.prune_events(before) ─► (deleted after consolidation)
+post_activity_buckets ─ rollupDaily (builder) ─► post_activity_daily
+post_activity_daily   ─ rollupMonthly (builder) ─► post_activity_monthly
+post_events           ─ pruneEvents(before) (builder) ─► (deleted after consolidation)
 ```
 
 Every arrow is **one set-based SQL statement over many rows** — batch
-computation, not a row-by-row application loop. That is the thesis.
+computation, not a row-by-row application loop. That is the thesis. Since v0.6
+the fold, both rollups, and the prune are **typed builder statements**
+(`src/events.ts`, `src/retention.ts` — the A1 rollup verification in
+`docs/v0.6.0-roadmap.md`); only the window-function stats and the array/unnest
+similarity remain SQL functions.
 
 ## What this example proves
 
@@ -161,9 +165,10 @@ exists precisely so that change is safe.
 Raw events are kept short-term. Once folded into hourly buckets they roll up
 into daily, then monthly, summaries — and the consolidated raw events are
 pruned. Long-term statistics survive in the rollups even after the events are
-gone. The demo runs `rollup_daily` → `rollup_monthly` → `prune_events`, then
-shows a post's vector is unchanged after pruning. (Triggered manually here; in
-production an external cron/scheduler calls them.)
+gone. The demo runs `rollupDaily` → `rollupMonthly` → `pruneEvents` (all typed
+builder statements since v0.6), then shows a post's vector is unchanged after
+pruning. (Triggered manually here; in production an external cron/scheduler
+calls them.)
 
 ## How to run
 
@@ -201,44 +206,54 @@ const activityVector = featureVector("activity_vector", [
 // →  ARRAY[ votes_1h::double precision, …, age_minutes ] AS activity_vector
 ```
 
-That, plus a window-function builder and an insert-from-select builder, are the
-analytics primitives the roadmap tracks (v0.6 ETL-readiness, v0.7 analytics).
+That, plus a window-function builder, are the analytics primitives the roadmap
+tracks (v0.6 ETL-readiness, v0.7 analytics). The insert-from-select rollup spine
+this example needed is **builder-native since v0.6**.
 
 ## What's Sisal-native vs raw SQL
 
 **Sisal-native:** typed `defineTable` models (`src/schema.ts`); the batch event
-insert (`recordEvents`); reading stats and listing posts (builder `select`); the
-similarity candidate loading; the migration runner (`splitSqlStatements`).
+insert (`recordEvents`); **the events→buckets fold** (`foldEventsToBuckets` —
+`insert().select()` + `FILTER` + `dateTrunc` + `onConflictDoUpdate`, one
+statement); **the daily/monthly rollups and the event prune**
+(`src/retention.ts`, same shape + a bulk `delete()`); reading stats and listing
+posts (builder `select`); the similarity candidate loading; the migration runner
+(`splitSqlStatements`).
 
-**Raw SQL (the advanced-analytics core):** every `app.*` function in
-`migrations/0002_functions.sql`, called from `src/{events,stats,retention}.ts`.
+**Raw SQL (the genuinely-unbuilt analytics core):** the three `app.*` functions
+left in `migrations/0002_functions.sql` — window-function moving averages, the
+`ARRAY[...]` vector projection, `unnest WITH ORDINALITY` cosine similarity —
+called from `src/{stats,queries}.ts`.
 
 ## Sisal API pressure points
 
 Honest gaps this example surfaced (candidates for `docs/v0.6.0-roadmap.md` /
 `docs/v0.7.0-roadmap.md`). It is built to find the ORM's limits.
 
-1. **`CREATE FUNCTION` has no builder.** The whole computation engine is
+1. **`CREATE FUNCTION` has no builder.** The remaining computation engine is
    hand-written SQL functions.
-2. **Insert-from-select has no builder.** `fold_events_to_buckets`,
-   `rollup_daily`, `rollup_monthly` are
-   `INSERT … SELECT … GROUP BY … ON
-   CONFLICT` — the single biggest ETL gap
-   (v0.6 keystone).
-3. **No window-function builder.** `vote_ma_6h` / `comment_ma_6h` use
+2. **No window-function builder.** `vote_ma_6h` / `comment_ma_6h` use
    `avg(...) OVER (… ROWS BETWEEN 5 PRECEDING AND CURRENT ROW)`; there is no
    `over(...)` surface (v0.7 analytics-readiness — Sisal has no window functions
    at all today).
-4. **No array/vector projection builder.** The `ARRAY[...] AS activity_vector`
+3. **No array/vector projection builder.** The `ARRAY[...] AS activity_vector`
    projection and `app.post_activity_vector` are raw (the `featureVector(...)`
    sketch above is the wished-for API).
-5. **`double precision[]` similarity in SQL is raw.** `app.cosine_similarity`
+4. **`double precision[]` similarity in SQL is raw.** `app.cosine_similarity`
    uses `unnest … WITH ORDINALITY`.
-6. **No typed caller for a `RETURNS TABLE` / scalar SQL function.** The
+5. **No typed caller for a `RETURNS TABLE` / scalar SQL function.** The
    functions are invoked through the raw `sql` tag.
-7. **Schema mirror is informational for the computed tables.** `src/schema.ts`
+6. **Schema mirror is informational for the computed tables.** `src/schema.ts`
    types the builder-native paths; the SQL functions bypass it (the `.sql`
    migrations are the source of truth).
+
+**Resolved in v0.6 (was pressure point #2):** insert-from-select. The fold and
+both rollups (`INSERT … SELECT … GROUP BY … ON CONFLICT`) now compose through
+the typed builder — converted here as the roadmap's A1 verification, pinned by
+`packages/orm/etl_rollup_test.ts` and the per-adapter `ETL rollup` integration
+tests. The upsert's proposed-row references use the typed `excluded()` helper
+(C2 — dialect-mapped, MySQL-ready); the one residual raw seam inside those
+statements is `coalesce(...)` (via the `sql` tag).
 
 Notably **NOT** pressure points: the batch event insert and the stats/posts
 reads are clean builder code; bigint ids round-trip as strings as documented.

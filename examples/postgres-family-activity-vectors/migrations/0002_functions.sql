@@ -1,52 +1,24 @@
 -- Activity-vectors example: the SQL computation engine (raw-SQL part).
 --
--- Sisal has no builder for CREATE FUNCTION, insert-from-select, window
--- functions, or array projection, so the whole computation chain is hand-written
--- SQL (see the README "Sisal API pressure points"). Every function is one
--- set-based statement over many rows — the point of the example is that this is
--- batch computation, not a row-by-row application loop. The TypeScript side just
--- calls these by name and passes an explicit p_now.
+-- Only the shapes Sisal genuinely has no builder for remain SQL functions:
+-- window-function moving averages (compute_post_activity_stats), the ARRAY[...]
+-- vector projection, and unnest WITH ORDINALITY cosine similarity (see the
+-- README "Sisal API pressure points" — owned by the v0.7 analytics roadmap).
+-- The events→buckets fold, the daily/monthly rollups, and the event pruning
+-- were converted to builder statements in v0.6 (src/events.ts,
+-- src/retention.ts): insert-from-select + FILTER + dateTrunc + upsert compose
+-- through the typed builder now. Each remaining function is one set-based
+-- statement over many rows — batch computation, not a row-by-row application
+-- loop. The TypeScript side calls these by name and passes an explicit p_now.
 
 create schema if not exists app;
 
--- 1. Fold raw events in [p_from, p_until) into hourly buckets.
---    INSERT … SELECT … GROUP BY … ON CONFLICT (insert-from-select + FILTER).
-create or replace function app.fold_events_to_buckets(
-  p_from timestamptz,
-  p_until timestamptz
-)
-returns integer
-language sql
-as $$
-  with folded as (
-    insert into post_activity_buckets (
-      post_id, bucket_start, votes, comments, reports, unique_actors
-    )
-    select
-      e.post_id,
-      date_trunc('hour', e.created_at) as bucket_start,
-      coalesce(sum(e.value) filter (where e.event_type = 'vote'), 0)::integer,
-      coalesce(sum(e.value) filter (where e.event_type = 'comment'), 0)::integer,
-      coalesce(sum(e.value) filter (where e.event_type = 'report'), 0)::integer,
-      count(distinct e.actor_id)::integer as unique_actors
-    from post_events e
-    where e.created_at >= p_from
-      and e.created_at < p_until
-    group by e.post_id, date_trunc('hour', e.created_at)
-    on conflict (post_id, bucket_start) do update set
-      votes = excluded.votes,
-      comments = excluded.comments,
-      reports = excluded.reports,
-      unique_actors = excluded.unique_actors
-    returning post_id
-  )
-  select count(*)::integer from folded;
-$$;
-
--- 2. Compute the consolidated stats for every published post at p_now, in ONE
+-- 1. Compute the consolidated stats for every published post at p_now, in ONE
 --    statement. Moving averages use a WINDOW (last 6 hourly buckets, rows-based
 --    — exactly `rows between 5 preceding and current row`). votes_1h etc. come
 --    from the current-hour bucket. Batch computation over the whole set.
+--    WINDOW functions have no Sisal builder (the one hard wall the v0.6
+--    readiness investigation confirmed — owned by v0.7).
 create or replace function app.compute_post_activity_stats(p_now timestamptz)
 returns integer
 language sql
@@ -113,8 +85,9 @@ as $$
   select count(*)::integer from upserted;
 $$;
 
--- 3. The activity vector: an ordered double precision[] projection of the named
+-- 2. The activity vector: an ordered double precision[] projection of the named
 --    columns. NOT a pgvector column — just an array for export/scoring/debug.
+--    ARRAY[...] projection has no Sisal builder.
 --    DIMENSION ORDER (activity-v1) — keep in lockstep with src/vector.ts:
 --    [votes_1h, comments_1h, reports_1h, unique_actors_1h,
 --     vote_ma_6h, comment_ma_6h, hot_score, rising_score, age_minutes]
@@ -138,87 +111,7 @@ as $$
   where post_id = p_post_id;
 $$;
 
--- 4a. Retention tier 2: roll hourly buckets in [p_from, p_until) up to daily.
-create or replace function app.rollup_daily(
-  p_from timestamptz,
-  p_until timestamptz
-)
-returns integer
-language sql
-as $$
-  with rolled as (
-    insert into post_activity_daily (
-      post_id, day_start, votes, comments, reports, unique_actors, active_hours
-    )
-    select
-      post_id,
-      date_trunc('day', bucket_start) as day_start,
-      sum(votes)::integer,
-      sum(comments)::integer,
-      sum(reports)::integer,
-      sum(unique_actors)::integer,
-      count(*)::integer as active_hours
-    from post_activity_buckets
-    where bucket_start >= p_from and bucket_start < p_until
-    group by post_id, date_trunc('day', bucket_start)
-    on conflict (post_id, day_start) do update set
-      votes = excluded.votes,
-      comments = excluded.comments,
-      reports = excluded.reports,
-      unique_actors = excluded.unique_actors,
-      active_hours = excluded.active_hours
-    returning post_id
-  )
-  select count(*)::integer from rolled;
-$$;
-
--- 4b. Retention tier 3: roll daily rollups up to monthly.
-create or replace function app.rollup_monthly(
-  p_from timestamptz,
-  p_until timestamptz
-)
-returns integer
-language sql
-as $$
-  with rolled as (
-    insert into post_activity_monthly (
-      post_id, month_start, votes, comments, reports, unique_actors, active_days
-    )
-    select
-      post_id,
-      date_trunc('month', day_start) as month_start,
-      sum(votes)::integer,
-      sum(comments)::integer,
-      sum(reports)::integer,
-      sum(unique_actors)::integer,
-      count(*)::integer as active_days
-    from post_activity_daily
-    where day_start >= p_from and day_start < p_until
-    group by post_id, date_trunc('month', day_start)
-    on conflict (post_id, month_start) do update set
-      votes = excluded.votes,
-      comments = excluded.comments,
-      reports = excluded.reports,
-      unique_actors = excluded.unique_actors,
-      active_days = excluded.active_days
-    returning post_id
-  )
-  select count(*)::integer from rolled;
-$$;
-
--- 5. Retention: delete raw events older than p_before (after they've been
---    consolidated into buckets/rollups). Returns the number pruned.
-create or replace function app.prune_events(p_before timestamptz)
-returns integer
-language sql
-as $$
-  with pruned as (
-    delete from post_events where created_at < p_before returning id
-  )
-  select count(*)::integer from pruned;
-$$;
-
--- 6. Cosine similarity over two equal-length vectors (the secondary similarity
+-- 3. Cosine similarity over two equal-length vectors (the secondary similarity
 --    payoff). unnest WITH ORDINALITY pairs dimensions by index; returns 0 for
 --    zero-vector / mismatched cases. Documented as a raw-SQL pressure point.
 create or replace function app.cosine_similarity(

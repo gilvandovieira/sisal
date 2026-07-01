@@ -39,11 +39,12 @@ export async function getSimilarPosts(
   const titles = await db
     .select({ id: posts.columns.id, title: posts.columns.title })
     .from(posts).execute();
-  const titleOf = new Map(titles.map((t) => [t.id, t.title]));
 
   // `post_id` is a `bigint` column: `@sisal/pg` decodes it to `BigInt`,
-  // `@sisal/neon` to a `string`. Compare as strings so the id lookup works on
-  // every driver (see the cross-adapter `bigint` divergence).
+  // `@sisal/neon` to a `string`. Normalize every id to a string at this
+  // boundary so lookups and the returned rows work on every driver (see the
+  // cross-adapter `bigint` divergence).
+  const titleOf = new Map(titles.map((t) => [String(t.id), t.title]));
   const source = stats.find((s) => String(s.post_id) === postId);
   if (source === undefined) {
     throw new Error(`getSimilarPosts: no stats for post ${postId}`);
@@ -53,8 +54,8 @@ export async function getSimilarPosts(
   return stats
     .filter((s) => String(s.post_id) !== postId)
     .map((s) => ({
-      id: s.post_id,
-      title: titleOf.get(s.post_id) ?? "?",
+      id: String(s.post_id),
+      title: titleOf.get(String(s.post_id)) ?? "?",
       similarity: cosineSimilarity(sourceVector, statsToVector(s)),
     }))
     .sort((a, b) => b.similarity - a.similarity)

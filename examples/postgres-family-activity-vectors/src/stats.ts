@@ -5,8 +5,11 @@
  * computes every published post's stats at p_now, including the
  * window-function moving averages, and upserts them. That is the centerpiece:
  * SQL as a batch computation engine over the whole set, not a row-by-row loop.
- * Sisal has no builder for window functions or this insert-from-select, so it is
- * a SQL function (a documented pressure point).
+ * It stays a SQL function because of the WINDOW moving averages — Sisal has no
+ * window-function builder (the one hard wall the v0.6 readiness investigation
+ * confirmed, owned by v0.7). The fold/rollup steps around it, which needed
+ * only insert-from-select + FILTER + dateTrunc + upsert, are builder-native
+ * since v0.6 (src/events.ts, src/retention.ts).
  *
  * The "vector" is an ordered projection of the named stats columns —
  * `statsToVector` in TypeScript, or `app.post_activity_vector` in SQL. Both are
