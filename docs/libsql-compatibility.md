@@ -14,8 +14,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (33 tests)       |
-| Last run      | 2026-06-30 — **33 / 33 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (40 tests)       |
+| Last run      | 2026-07-01 — **40 / 40 passed**                        |
 
 ## Feature coverage
 

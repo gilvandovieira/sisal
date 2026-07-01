@@ -202,6 +202,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
 - `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
+- `excluded` (function): The upsert "proposed row" reference for onConflictDoUpdate set values, rendered per dialect: excluded."col" on PostgreSQL and the SQLite family, values( ` col ) on MySQL — the one spelling every MySQL 5.7→9.x and...
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
@@ -422,6 +423,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
+- `excluded` (function): The upsert "proposed row" reference for onConflictDoUpdate set values, rendered per dialect: excluded."col" on PostgreSQL and the SQLite family, values( ` col ) on MySQL — the one spelling every MySQL 5.7→9.x and...
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
@@ -1627,6 +1629,54 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **Dialect-mapped MySQL upsert + typed `excluded()` helper (v0.6 C2).** The
+  same `onConflictDoUpdate`/`onConflictDoNothing` builder calls now render
+  `ON DUPLICATE KEY UPDATE` under the (adapterless, v0.7-bound) `"mysql"`
+  dialect instead of invalid PostgreSQL syntax — no separate Drizzle-style
+  `onDuplicateKeyUpdate` surface. Recorded semantics (pinned in
+  [`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts)):
+  the conflict target is validated but not rendered (ODKU fires on any
+  unique-key violation); a conflict `where` throws a typed
+  `ORM_DIALECT_UNSUPPORTED`; `onConflictDoNothing` renders a no-op
+  self-assignment (`INSERT IGNORE` rejected — it swallows unrelated errors). The
+  new `excluded(column)` operator is the portable proposed-row reference:
+  `excluded."col"` on Postgres/SQLite, `values(col)` on MySQL (the one spelling
+  MySQL 5.7→9.x and MariaDB share; the MySQL-only 8.0.19+ row alias is deferred
+  to the `(engine, version)` dialect work) — and it resolves the physical column
+  name, fixing the naming-strategy footgun where a raw
+  `` sql`excluded.hotScore` `` silently misses the `hot_score` mapping.
+  Postgres/SQLite upsert rendering is unchanged. The activity-vectors example
+  and the ETL rollup render tests now use the helper.
+- **ETL rollup verified + pinned across all four adapters (v0.6 A1).** The v0.5
+  pieces — `insert().select()`, `filter()` FILTER aggregates, `dateTrunc`,
+  `groupBy`, `onConflictDoUpdate` — are proven to compose into the canonical
+  `post_events → post_hourly_stats` upsert-from-select as **one builder
+  statement**, and pinned three ways:
+  [`packages/orm/etl_rollup_test.ts`](packages/orm/etl_rollup_test.ts) (exact
+  rendered SQL + cross-clause parameter order, `postgres` and `sqlite`
+  dialects); a new `<adapter>: ETL rollup` integration test in each feature
+  suite (fold → idempotent re-run → late-event upsert; verified on PostgreSQL
+  16/17/18, Neon via wsproxy, SQLite, and libSQL) with a matching all-✅ row in
+  [`docs/feature-matrix.md`](docs/feature-matrix.md); and the activity-vectors
+  example conversion (below). **Findings:** the only raw seam is `coalesce(...)`
+  (via the `sql` tag; proposed-row references use the exported `excluded()`
+  helper), and on the SQLite family a _bare_ upsert-from-select (no WHERE/GROUP
+  BY before `ON CONFLICT`) is rejected by the engine's parser — any window WHERE
+  or rollup GROUP BY disambiguates; pinned in the sqlite/libsql suites. See
+  [v0.6.0 roadmap A1](docs/v0.6.0-roadmap.md).
+- **Latent `"mysql"` render path pinned (v0.6 C1)**
+  ([`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts)).
+  Render-ready today: backtick quoting, `?` placeholders, `ilike`→`LIKE`, plain
+  `SELECT`/`INSERT`, `FOR UPDATE`, `onConflictDoUpdate` / `onConflictDoNothing`
+  → `ON DUPLICATE KEY UPDATE`, and the new portable `excluded(column)` helper
+  (`excluded."col"` on PostgreSQL/SQLite, `values(col)` on MySQL). Pinned
+  caveats, drizzle-parity style: MySQL upsert targets are validation-only and
+  conflict `where` throws `ORM_DIALECT_UNSUPPORTED` (C2 semantics work),
+  `returning *` renders though MySQL 8 has no `RETURNING` (C3 gap), `distinctOn`
+  renders unguarded (guard lists only `sqlite`), and `dateTrunc`/`now`/`dateBin`
+  throw `ORM_DIALECT_UNSUPPORTED` (no `mysql` variants) — the last two are new
+  findings beyond the roadmap's probe.
+
 - **Cross-adapter decode-parity test**
   ([`integration/cross_adapter_parity_test.ts`](integration/cross_adapter_parity_test.ts)),
   gated behind `DATABASE_URL` (plus `NEON_DATABASE_URL`/`NEON_WS_PROXY` for the
@@ -1677,6 +1727,29 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **`examples/postgres-family-activity-vectors`: the fold, both retention
+  rollups, and the event prune are now typed builder statements** (v0.6 A1
+  verification). `app.fold_events_to_buckets`, `app.rollup_daily`,
+  `app.rollup_monthly`, and `app.prune_events` were removed from
+  `migrations/0002_functions.sql` and rewritten as `insert().select()` +
+  `FILTER` + `dateTrunc` + `onConflictDoUpdate` (and a bulk `delete()`) in
+  `src/events.ts` / `src/retention.ts`; only the window-function stats, the
+  `ARRAY[...]` projection, and `unnest` cosine similarity remain SQL functions
+  (the v0.7 walls). The gated `feature_db_test.ts` now connects through the
+  example's `openDb()`, so `SISAL_ADAPTER=pg | pg-postgres-js | neon` runs the
+  whole chain on any PostgreSQL-family driver (verified on all three);
+  `getSimilarPosts` normalizes `bigint` ids to strings at the query boundary
+  (the documented cross-adapter `bigint` divergence surfaced as a real bug when
+  the suite first ran on `@sisal/pg`).
+- **Compatibility docs refreshed** — suite counts and last-run dates in
+  `docs/{pg,neon,sqlite,libsql}-compatibility.md` (41/41 on pg16/17/18 and
+  neon-proxy; 40/40 on sqlite and libsql, 2026-07-01).
+- **Adapter feature integration suites now share scenario registries** under
+  `integration/_shared/` + thin `integration/_targets/` entrypoints. The public
+  `integration/{pg,neon,sqlite,libsql}_features_test.ts` files still register
+  the same `<adapter>:` Deno test names, while
+  `tools/generate_feature_matrix.ts --check` now validates feature-matrix cells
+  against the registered scenarios instead of scraping test files.
 - **Examples: consolidated the four rising-feed apps into two dialect-family
   examples** (pilot for a family-based example taxonomy). The three
   PostgreSQL-family feeds — `postgres-rising-feed`, `neon-rising-feed`, and
@@ -3823,9 +3896,13 @@ the friction.
 
 ⁴ Upserts emit Postgres/SQLite
 `ON CONFLICT (target) DO NOTHING / DO UPDATE SET
-… [WHERE …]`. MySQL's
-`ON DUPLICATE KEY UPDATE` is out of scope until a MySQL adapter exists. `target`
-accepts a column, a column name, or an array of either.
+… [WHERE …]`. Under the
+(adapterless, v0.7-bound) `mysql` dialect the same `onConflict*` calls render
+`ON DUPLICATE KEY UPDATE` instead of a separate Drizzle-style
+`onDuplicateKeyUpdate` surface, with the typed `excluded(column)` helper
+rendering `excluded."col"` there and `values(col)` on MySQL (see the v0.6.0
+roadmap C2 for the target/`where` semantics). `target` accepts a column, a
+column name, or an array of either.
 
 `.orderBy` accepts both the legacy `(column, "asc" | "desc")` form and one or
 more `asc()`/`desc()` terms (or bare columns), e.g.
@@ -4134,16 +4211,16 @@ adapter feature through the public API.
 | --------------- | ----------------------------------------------------------- |
 | Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
 | Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (34 tests)                |
+| Suite           | `integration/pg_features_test.ts` (41 tests)                |
 | Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-06-30 — **34 / 34 passed** (pg18)                      |
+| Last run        | 2026-07-01 — **41 / 41 passed** (pg16, pg17, pg18)          |
 
 ## Feature coverage
 
 Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
-`deno task docs:matrix:check`. All 34 `pg:` tests pass on **pg18**;
+`deno task docs:matrix:check`. All 41 `pg:` tests pass on **pg16/17/18**;
 `scripts/pg-matrix.sh` runs the suite across pg16/17/18. Below are the
 PostgreSQL-specific column-type coverage and driver-level behavior notes.
 
@@ -4236,8 +4313,8 @@ feature surface matches `@sisal/pg` exactly — including native `ILIKE` and
 | ------------- | -------------------------------------------------------- |
 | Engine tested | **PostgreSQL 17** behind Neon's `wsproxy` image + driver |
 | Driver        | `jsr:@neon/serverless@1.0.1` (WebSocket `Pool`)          |
-| Suite         | `integration/neon_features_test.ts` (34 tests)           |
-| Last run      | 2026-06-30 — **34 / 34 passed** (neon-proxy + live Neon) |
+| Suite         | `integration/neon_features_test.ts` (41 tests)           |
+| Last run      | 2026-07-01 — **41 / 41 passed** (neon-proxy)             |
 
 ## Feature coverage
 
@@ -4245,7 +4322,7 @@ Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
-every Postgres-family ✅ applies. The 34-test suite is verified through the
+every Postgres-family ✅ applies. The 41-test suite is verified through the
 Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
 additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
 secure WebSocket, no proxy) — all green.
@@ -4327,8 +4404,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (33 tests)     |
-| Last run      | 2026-06-30 — **33 / 33 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (40 tests)     |
+| Last run      | 2026-07-01 — **40 / 40 passed**                      |
 
 ## Feature coverage
 
@@ -4427,8 +4504,8 @@ a remote **Turso** URL with an auth token (and embedded replicas).
 | Engine tested | **libSQL** (SQLite-compat **3.45.1**)                  |
 | Driver        | `npm:@libsql/client@0.17.4`                            |
 | Transport run | Local `file:` (set `TURSO_DATABASE_URL` to test Turso) |
-| Suite         | `integration/libsql_features_test.ts` (33 tests)       |
-| Last run      | 2026-06-30 — **33 / 33 passed**                        |
+| Suite         | `integration/libsql_features_test.ts` (40 tests)       |
+| Last run      | 2026-07-01 — **40 / 40 passed**                        |
 
 ## Feature coverage
 
@@ -5359,9 +5436,11 @@ title: Feature matrix
 
 One row per feature, one column per adapter, across `@sisal/pg`,
 `@sisal/neon`, `@sisal/sqlite`, and `@sisal/libsql`. Every ✅ and ⚠️ is
-backed by a named integration test in
-`integration/<adapter>_features_test.ts` — `deno task docs:matrix:check`
-fails if a claimed test is missing, so this table cannot drift from the suites.
+backed by a registered shared integration scenario. The adapter entrypoints
+still render those scenarios as target-prefixed Deno tests in
+`integration/<adapter>_features_test.ts`; `deno task docs:matrix:check`
+fails if a claimed scenario is missing, so this table cannot drift from the
+suites.
 
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
@@ -5403,6 +5482,7 @@ genuine dialect limit · — not applicable.
 | Typed function caller (`db.call`)                                        |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -8162,20 +8242,22 @@ All v0.6 tasks, consolidated. **Stream:** A = ETL readiness · C = MySQL
 investigation. (The former Node.js/npm "Workstream B" is now the deferred
 [npm-release readiness report](npm-release-readiness.md) and no longer tracked
 as build tasks here.) Each ID has a detail section in the matching workstream
-below. `🟡` rows reflect a first-hand probe (June 2026): the ETL rollup renders
-correctly on Postgres today, and the `"mysql"` dialect was render-tested (see
-C).
+below. The June 2026 probe findings graduated on 2026-07-01: **A1, C1, and C2
+are 🟢** (the ETL rollup is composed + pinned per dialect and on real engines;
+the `"mysql"` render path is pinned, ready and gaps alike; the upsert is
+dialect-mapped with recorded semantics — see the workstream details). Remaining
+`🟡` rows are partial (A5's siblings, A6's handoff doc).
 
 | ID | Task                                                                                  | Stream    | Priority | Effort | Status |
 | -- | ------------------------------------------------------------------------------------- | --------- | -------- | ------ | ------ |
-| A1 | Verify + pin the builder rollup (renders on PG — convert example + per-dialect tests) | A · ETL   | P1       | M      | 🟡     |
+| A1 | Verify + pin the builder rollup (renders on PG — convert example + per-dialect tests) | A · ETL   | P1       | M      | 🟢     |
 | A5 | Runnable PoC `neon-activity-vectors` (done) + `postgres`/`libsql` siblings            | A · ETL   | P1       | M      | 🟡     |
 | A6 | Document unbuilt analytics shapes (window fns, `ARRAY[]`/`unnest`) → v0.7/v0.8        | A · ETL   | P1       | S      | 🟡     |
 | A2 | Advisory-lock / locking strategy per dialect                                          | A · ETL   | P2       | S      | 🔴     |
 | A3 | Checkpoint / watermark table design                                                   | A · ETL   | P2       | S      | 🔴     |
 | A4 | Idempotent load + backfill/replay design                                              | A · ETL   | P2       | S      | 🔴     |
-| C1 | Pin the latent `"mysql"` render path as tests (render-ready)                          | C · MySQL | P1       | S      | 🟡     |
-| C2 | Upsert gap → `ON DUPLICATE KEY UPDATE` (renders PG `on conflict` today)               | C · MySQL | P1       | M      | 🔴     |
+| C1 | Pin the latent `"mysql"` render path as tests (render-ready)                          | C · MySQL | P1       | S      | 🟢     |
+| C2 | Upsert → dialect-mapped `ON DUPLICATE KEY UPDATE` + `excluded()` (semantics recorded) | C · MySQL | P1       | M      | 🟢     |
 | C3 | `RETURNING` gap → MySQL 8 none / MariaDB only (renders `returning *` today)           | C · MySQL | P1       | M      | 🔴     |
 | C6 | MySQL driver survey (Deno + Node)                                                     | C · MySQL | P1       | S      | 🔴     |
 | C4 | Type/DDL mapping for the future `generateMysqlUpStatements`                           | C · MySQL | P2       | M      | 🔴     |
@@ -8267,24 +8349,24 @@ the `neon-activity-vectors` PoC** (built June 2026 — see below); several cells
 that were "no builder" in the original audit moved to "builder" once v0.5
 shipped:
 
-| Capability                        | pg                                                 | neon                                     | sqlite                            | libsql                                  |
-| --------------------------------- | -------------------------------------------------- | ---------------------------------------- | --------------------------------- | --------------------------------------- |
-| insert-from-select                | ✅ builder (v0.5 item 12)                          | ✅ builder (v0.5 item 12)                | ✅ builder (v0.5 item 12)         | ✅ builder (v0.5 item 12)               |
-| upsert (ON CONFLICT)              | ✅ builder                                         | ✅ builder                               | ✅ builder                        | ✅ builder                              |
-| upsert-from-select                | builder — verify `select`+`onConflict` compose+pin | (verify)                                 | (verify)                          | (verify)                                |
-| returning                         | ✅                                                 | ✅                                       | ✅                                | ✅                                      |
-| filtered aggregates               | ✅ `filter()` (v0.5 item 9)                        | ✅ `filter()` (v0.5)                     | ✅ `filter()` native (v0.5)       | ✅ `filter()` native (v0.5)             |
-| date bucketing                    | ✅ `dateTrunc`/`dateBin` (v0.5)                    | ✅ (v0.5)                                | ✅ (v0.5, `strftime`/`unixepoch`) | ✅ (v0.5)                               |
-| CTEs (`WITH`)                     | ✅ builder                                         | ✅ builder                               | ✅ builder (v0.5)                 | ✅ builder (v0.5)                       |
-| data-modifying CTEs               | ✅ builder (v0.5 item 12)                          | ✅ builder (v0.5 item 12)                | ❌ engine (typed guard)           | ❌ engine (typed guard)                 |
-| **window functions**              | engine ✅ / **no builder → v0.7**                  | engine ✅ / **no builder → v0.7**        | engine ✅ / **no builder → v0.7** | engine ✅ / **no builder → v0.7**       |
-| **array construction `ARRAY[…]`** | engine ✅ / **no builder**                         | engine ✅ / **no builder**               | ❌ no array type (`json_array`)   | ❌ no array type (`json_array`)         |
-| **set-returning (`unnest`)**      | engine ✅ `unnest` / no builder                    | engine ✅ / no builder                   | `json_each` / no builder          | `json_each` / no builder                |
-| `CREATE FUNCTION`                 | engine ✅ / **no builder** (raw DDL)               | engine ✅ / no builder                   | ❌ none                           | ❌ none                                 |
-| materialized views                | engine ✅ / no DDL                                 | engine ✅ / no DDL                       | ❌ none                           | ❌ none                                 |
-| advisory locks                    | ✅ (pg_advisory_lock)                              | ✅                                       | ❌ (use lock row)                 | ❌ (use lock row)                       |
-| transactions                      | interactive ✅                                     | interactive ✅ (WS Pool)                 | interactive ✅                    | interactive ✅                          |
-| serverless caveats                | —                                                  | WS Pool; single-statement; float8→number | embedded/FFI                      | Turso remote (hrana); ArrayBuffer BLOBs |
+| Capability                        | pg                                   | neon                                     | sqlite                            | libsql                                  |
+| --------------------------------- | ------------------------------------ | ---------------------------------------- | --------------------------------- | --------------------------------------- |
+| insert-from-select                | ✅ builder (v0.5 item 12)            | ✅ builder (v0.5 item 12)                | ✅ builder (v0.5 item 12)         | ✅ builder (v0.5 item 12)               |
+| upsert (ON CONFLICT)              | ✅ builder                           | ✅ builder                               | ✅ builder                        | ✅ builder                              |
+| upsert-from-select                | ✅ builder (A1: composed + pinned)   | ✅ (A1)                                  | ✅ (A1; WHERE/GROUP BY required)  | ✅ (A1; WHERE/GROUP BY required)        |
+| returning                         | ✅                                   | ✅                                       | ✅                                | ✅                                      |
+| filtered aggregates               | ✅ `filter()` (v0.5 item 9)          | ✅ `filter()` (v0.5)                     | ✅ `filter()` native (v0.5)       | ✅ `filter()` native (v0.5)             |
+| date bucketing                    | ✅ `dateTrunc`/`dateBin` (v0.5)      | ✅ (v0.5)                                | ✅ (v0.5, `strftime`/`unixepoch`) | ✅ (v0.5)                               |
+| CTEs (`WITH`)                     | ✅ builder                           | ✅ builder                               | ✅ builder (v0.5)                 | ✅ builder (v0.5)                       |
+| data-modifying CTEs               | ✅ builder (v0.5 item 12)            | ✅ builder (v0.5 item 12)                | ❌ engine (typed guard)           | ❌ engine (typed guard)                 |
+| **window functions**              | engine ✅ / **no builder → v0.7**    | engine ✅ / **no builder → v0.7**        | engine ✅ / **no builder → v0.7** | engine ✅ / **no builder → v0.7**       |
+| **array construction `ARRAY[…]`** | engine ✅ / **no builder**           | engine ✅ / **no builder**               | ❌ no array type (`json_array`)   | ❌ no array type (`json_array`)         |
+| **set-returning (`unnest`)**      | engine ✅ `unnest` / no builder      | engine ✅ / no builder                   | `json_each` / no builder          | `json_each` / no builder                |
+| `CREATE FUNCTION`                 | engine ✅ / **no builder** (raw DDL) | engine ✅ / no builder                   | ❌ none                           | ❌ none                                 |
+| materialized views                | engine ✅ / no DDL                   | engine ✅ / no DDL                       | ❌ none                           | ❌ none                                 |
+| advisory locks                    | ✅ (pg_advisory_lock)                | ✅                                       | ❌ (use lock row)                 | ❌ (use lock row)                       |
+| transactions                      | interactive ✅                       | interactive ✅ (WS Pool)                 | interactive ✅                    | interactive ✅                          |
+| serverless caveats                | —                                    | WS Pool; single-statement; float8→number | embedded/FFI                      | Turso remote (hrana); ArrayBuffer BLOBs |
 
 (Cells marked "no builder" work via the `sql` escape hatch today; the readiness
 question is which deserve a typed builder in v0.8 vs stay raw. **Window
@@ -8382,13 +8464,30 @@ recorded here and handed to [v0.7](v0.7.0-roadmap.md)/[v0.8](v0.8.0-roadmap.md).
 
 (Priority/effort/status are in the top tracker; this is the per-task body.)
 
-- **A1 — Verify + pin the builder rollup.** `insert().select()` + `filter` +
-  `dateTrunc` + `groupBy` + `onConflictDoUpdate` **renders correct Postgres
-  today** (probed:
-  `insert … select … sum(…) filter (where …) … count(distinct
-  …) … group by … on conflict … do update`).
-  Convert the example's raw `fold`/rollups to the builder and add per-dialect
-  render tests — this is verification, not new design.
+- **A1 — Verify + pin the builder rollup. ✅ Done (2026-07-01).** The full
+  statement — `insert().select()` + `filter` + `dateTrunc` + `groupBy` +
+  `onConflictDoUpdate` — composes and is pinned three ways:
+  - **Render tests** (`packages/orm/etl_rollup_test.ts`): the canonical
+    `post_events → post_hourly_stats` statement, exact text + cross-clause
+    parameter order, for the `postgres` and `sqlite` dialects.
+  - **Real-engine tests**: an `ETL rollup` integration test in each of the four
+    feature suites (fold → idempotent re-run → late-event upsert), a new all-✅
+    row in [the feature matrix](feature-matrix.md). Verified on pg16/17/18, Neon
+    (wsproxy), SQLite, and libSQL.
+  - **Example conversion**: the activity-vectors example's
+    `fold_events_to_buckets` / `rollup_daily` / `rollup_monthly` /
+    `prune_events` SQL functions are now builder statements (`src/events.ts`,
+    `src/retention.ts`); only the window-function stats and array/`unnest`
+    similarity remain raw (the A6 walls).
+  - **Findings.** (1) The residual raw seam inside the composed statement is
+    `coalesce(...)` (via the `sql` tag); proposed-row references use Sisal's
+    exported `excluded()` helper. A typed `coalesce` surface is a v0.8
+    candidate, not a blocker. (2) **SQLite-family parse quirk (pinned):** a
+    _bare_ upsert-from-select (`INSERT … SELECT … FROM t ON CONFLICT …` with
+    nothing after the FROM) is rejected — the engine can't tell the upsert's
+    `ON` from a join constraint. Any window `WHERE` or rollup `GROUP BY`
+    disambiguates, so real ETL shapes always parse; pinned in the sqlite/libsql
+    suites.
 - **A5 — Runnable PoC + siblings.**
   [`neon-activity-vectors`](../examples/postgres-family-activity-vectors/README.md)
   is done; the `postgres`/`libsql` siblings are pending (separate example per
@@ -8504,10 +8603,11 @@ exists:
   charset/collation, `AUTO_INCREMENT`, index/`CHECK` support quirks).
 - **MySQL vs MariaDB** — decide whether "MySQL" means MySQL 8+, MariaDB, or
   both, and where they diverge (`RETURNING`, sequences, JSON functions).
-- **Upsert semantics** — the biggest builder gap: MySQL's
-  `INSERT … ON DUPLICATE
-  KEY UPDATE` (with `VALUES()`/`new.col`) does not map
-  1:1 onto the existing `onConflict*` builder. Document the abstraction.
+- **Upsert semantics** — was the biggest builder gap: MySQL's
+  `INSERT … ON DUPLICATE KEY UPDATE` (with `VALUES()`/`new.col`) does not map
+  1:1 onto the existing `onConflict*` builder. **Abstraction decided +
+  implemented in C2** (dialect-mapped `onConflict*` + `excluded()`; see the task
+  detail).
 
 ## Deliverable
 
@@ -8524,13 +8624,54 @@ Status reflects a first-hand probe (June 2026) that rendered real builder
 queries under the `"mysql"` dialect — so the **render-ready** vs **gap** calls
 are verified, not assumed.
 
-- **C1 — Pin the `"mysql"` render path.** **Probed render-ready:** backtick
-  quoting ✅ (`` `posts`.`id` ``), `?` placeholders ✅, `ilike`→`like` ✅, plain
-  `SELECT`/`INSERT` ✅. Capture these as render tests so they don't regress.
-- **C2 — Upsert divergence (gap confirmed).** `onConflictDoUpdate` renders
-  Postgres `on conflict (…) do update` under `mysql`; MySQL needs
-  `ON DUPLICATE KEY UPDATE col = VALUES(col)` (or 8.0.20+ `AS new … new.col`).
-  Design the abstraction in the core render path.
+- **C1 — Pin the `"mysql"` render path. ✅ Done (2026-07-01)** —
+  `packages/orm/mysql_dialect_test.ts`. **Pinned render-ready:** backtick
+  quoting (`` `posts`.`id` ``), `?` placeholders, `ilike`→`like`, plain
+  `SELECT`/`INSERT`, `FOR UPDATE` row locking,
+  `onConflictDoUpdate`/`onConflictDoNothing` rendering
+  `ON DUPLICATE KEY UPDATE`, and `excluded()` rendering MySQL's portable
+  `values(col)` proposed-row reference. **Pinned caveats**, drizzle-parity style
+  — fixing any fails the pin and must move this doc: MySQL upsert conflict
+  targets validate but do not render, conflict `where` throws
+  `ORM_DIALECT_UNSUPPORTED`, the C3 `returning *` gap, **`distinctOn`
+  unguarded** (the guard lists only `sqlite`, so `mysql` renders invalid
+  `DISTINCT ON`), and the portable date helpers (`dateTrunc`/`now`/`dateBin`)
+  throwing `ORM_DIALECT_UNSUPPORTED` (only `postgres`+`sqlite` variants exist).
+  The last two are new findings the probe missed — both are C2/C3-adjacent
+  dialect work for v0.7's adapter.
+- **C2 — Upsert divergence. ✅ Done (2026-07-01) — dialect-mapped, semantics
+  recorded.** The decision (answering the open question below): **one
+  dialect-mapped `onConflict*` surface, not a separate Drizzle-style
+  `onDuplicateKeyUpdate`** — the ETL load step (v0.10) needs the same builder
+  statement to render on every dialect, and forking the callsite per dialect is
+  the leak the risk section warns about. Under `mysql`,
+  `onConflictDoUpdate`/`onConflictDoNothing` render `ON DUPLICATE KEY UPDATE` in
+  the core render path, pinned by `packages/orm/mysql_dialect_test.ts`, with
+  these recorded semantics:
+  - **Conflict target: validated, not rendered.** ODKU fires on ANY unique-key
+    violation; the API still requires and validates the target, and the
+    semantics coincide with `ON CONFLICT` exactly when the target is the table's
+    only unique constraint — the normal upsert grain. This is the one documented
+    semantic widening.
+  - **Conflict `where`: no MySQL equivalent.** Rendering one under `mysql`
+    throws a typed `ORM_DIALECT_UNSUPPORTED` (pinned).
+  - **`excluded(column)` → `values(col)`** — the one proposed-row spelling valid
+    across MySQL 5.7→9.x (deprecated since 8.0.20 but present through the
+    current manuals) **and** MariaDB, which never adopted the alias form.
+    MySQL's 8.0.19+ `AS new` row alias is MySQL-only, so switching to it is
+    version/variant-aware work owned by the `(engine, version)` dialect-key
+    thread — not the version-less v0.6 dialect. The typed helper also fixes a
+    latent naming-strategy footgun: a raw `` sql`excluded.hotScore` `` misses
+    the `hot_score` physical mapping; `excluded()` resolves and quotes it
+    (pinned in `set_values_expr_test.ts`).
+  - **`onConflictDoNothing` → a no-op self-assignment** (`col = col`; the first
+    resolvable target column, else the first primary-key column, else the first
+    declared column). `INSERT IGNORE` was rejected — it swallows unrelated
+    errors (data truncation, FK violations), which is not "do nothing on
+    conflict".
+
+  v0.7's adapter consumes this as-is; the row-alias upgrade and the MariaDB
+  variant split are C5 / dialect-identity inputs.
 - **C3 — `RETURNING` divergence (gap confirmed).** The renderer emits
   `returning *` under `mysql`; MySQL 8 has **no** `RETURNING` (MariaDB 10.5+
   does). Design dialect/version handling — emit on MariaDB, else a fetch-by-key
@@ -8545,10 +8686,10 @@ are verified, not assumed.
 - **C5 — MySQL-vs-MariaDB capability split** (`RETURNING`, sequences, JSON fns)
   — decide one adapter with feature flags vs documented divergences.
 
-**Handoff to v0.7:** C1/C6 are the readiness baseline; **C2 and C3 are the two
-render-path gaps that must be designed in v0.6** (they produce wrong SQL today),
-so v0.7 can build `@sisal/mysql` against a correct dialect instead of patching
-it. C4/C5 are adapter-build inputs v0.7 consumes.
+**Handoff to v0.7:** C1/C6 are the readiness baseline. **C2 is settled** — the
+upsert renders correct MySQL with its target/`where`/`VALUES()` semantics
+recorded and pinned; **C3 is the remaining render-path gap** (it still produces
+wrong SQL for MySQL 8). C4/C5 are adapter-build inputs v0.7 consumes.
 
 ## Workstream C non-goals
 
@@ -8584,8 +8725,11 @@ tests; no DDL generator implementation. Those are [v0.7](v0.7.0-roadmap.md).
   [npm-release readiness report](npm-release-readiness.md).
 - **(C) MySQL upsert is not Postgres upsert** — `ON DUPLICATE KEY UPDATE`
   differs materially from `ON CONFLICT`; a forced-fit abstraction would leak
-  into v0.7 and the ETL load step. And the latent `"mysql"` render path is
-  **untested** — it may be subtly wrong.
+  into v0.7 and the ETL load step. The latent `"mysql"` render path is now
+  **pinned by tests** (C1, `packages/orm/mysql_dialect_test.ts`) — including the
+  mapped upsert form plus its target/`where` caveats, `returning`, unguarded
+  `distinctOn`, and throwing date helpers, so C2/C3 design lands against pinned
+  facts.
 
 ## Open questions
 
@@ -8598,8 +8742,11 @@ tests; no DDL generator implementation. Those are [v0.7](v0.7.0-roadmap.md).
 - Is a portable advisory-lock abstraction worth it, or is locking Postgres-first
   with documented degradation on SQLite/libSQL?
 - **(C)** Does "MySQL" mean MySQL 8+, MariaDB, or both — and how is
-  `RETURNING`'s uneven support handled? Should upsert get a MySQL-aware
-  `onDuplicateKeyUpdate` surface, or a dialect-mapped `onConflict`?
+  `RETURNING`'s uneven support handled? ~~Should upsert get a MySQL-aware
+  `onDuplicateKeyUpdate` surface, or a dialect-mapped `onConflict`?~~ **Answered
+  by C2 (2026-07-01): dialect-mapped `onConflict*` + the typed `excluded()`
+  helper** — see the C2 task detail for the recorded target/`where`/`VALUES()`
+  semantics.
 - **Dialect identity (decide, don't defer):** is the dialect key
   `(engine,
   version)` with MySQL/MariaDB as distinct variants, and is
@@ -8649,14 +8796,14 @@ built in [v0.7](v0.7.0-roadmap.md)** — no new package is created in v0.6.
   against real Postgres. Postgres + SQLite/libSQL siblings are planned (separate
   examples per dialect, since the SQLite family has no stored functions / array
   type).
-- **Rollup verification (the key v0.6 task):** prove the builder expresses the
-  fold/rollups (`insert().select()` + `filter` + `dateTrunc` +
-  `onConflictDoUpdate`) end-to-end and pin per-dialect render tests — i.e.
-  convert the example's raw `app.*` functions to the builder where it reaches,
-  documenting the exact wall.
+- **Rollup verification (the key v0.6 task): ✅ done** — see A1. Pinned by
+  `packages/orm/etl_rollup_test.ts` (render, both dialects), the four
+  `<adapter>: ETL rollup` integration tests + feature-matrix row, and the
+  example conversion (`src/events.ts`, `src/retention.ts`); the exact walls
+  (window functions, `ARRAY[…]`, `unnest`) stay raw and belong to A6/v0.7.
 - Render tests pinning any new additive primitive per dialect (if implemented).
-- **(C)** render tests exercising the latent `"mysql"` dialect (backtick
-  quoting, `?` placeholders, `ilike`→`LIKE`) to confirm/correct it before v0.7.
+- **(C)** render tests exercising the latent `"mysql"` dialect: ✅ done — see C1
+  (`packages/orm/mysql_dialect_test.ts`).
 
 ## Dialect compatibility notes
 
@@ -8667,10 +8814,10 @@ transactions, but serverless favors one round trip). SQLite/libSQL: insert-from-
 select and ON CONFLICT exist at the engine level (verify in-suite), `FILTER`
 degrades to `CASE WHEN`, no materialized views, no advisory locks (use a lock
 row / `BEGIN IMMEDIATE`); libSQL adds remote/Turso caveats. **MySQL (prospective
-fifth dialect, Workstream C):** backtick quoting + `?` placeholders are
-render-ready; the divergences to map are upsert (`ON DUPLICATE KEY UPDATE`),
-uneven `RETURNING`, `BOOLEAN`=`TINYINT(1)`, and MySQL-vs-MariaDB — all
-implemented in v0.7, not here.
+fifth dialect, Workstream C):** backtick quoting, `?` placeholders, and simple
+`ON DUPLICATE KEY UPDATE` upserts are render-ready; the divergences to map are
+upsert semantics, uneven `RETURNING`, `BOOLEAN`=`TINYINT(1)`, and
+MySQL-vs-MariaDB — all implemented in v0.7, not here.
 
 ## Tracking
 

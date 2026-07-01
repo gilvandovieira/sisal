@@ -11,6 +11,54 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **Dialect-mapped MySQL upsert + typed `excluded()` helper (v0.6 C2).** The
+  same `onConflictDoUpdate`/`onConflictDoNothing` builder calls now render
+  `ON DUPLICATE KEY UPDATE` under the (adapterless, v0.7-bound) `"mysql"`
+  dialect instead of invalid PostgreSQL syntax — no separate Drizzle-style
+  `onDuplicateKeyUpdate` surface. Recorded semantics (pinned in
+  [`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts)):
+  the conflict target is validated but not rendered (ODKU fires on any
+  unique-key violation); a conflict `where` throws a typed
+  `ORM_DIALECT_UNSUPPORTED`; `onConflictDoNothing` renders a no-op
+  self-assignment (`INSERT IGNORE` rejected — it swallows unrelated errors). The
+  new `excluded(column)` operator is the portable proposed-row reference:
+  `excluded."col"` on Postgres/SQLite, `values(col)` on MySQL (the one spelling
+  MySQL 5.7→9.x and MariaDB share; the MySQL-only 8.0.19+ row alias is deferred
+  to the `(engine, version)` dialect work) — and it resolves the physical column
+  name, fixing the naming-strategy footgun where a raw
+  `` sql`excluded.hotScore` `` silently misses the `hot_score` mapping.
+  Postgres/SQLite upsert rendering is unchanged. The activity-vectors example
+  and the ETL rollup render tests now use the helper.
+- **ETL rollup verified + pinned across all four adapters (v0.6 A1).** The v0.5
+  pieces — `insert().select()`, `filter()` FILTER aggregates, `dateTrunc`,
+  `groupBy`, `onConflictDoUpdate` — are proven to compose into the canonical
+  `post_events → post_hourly_stats` upsert-from-select as **one builder
+  statement**, and pinned three ways:
+  [`packages/orm/etl_rollup_test.ts`](packages/orm/etl_rollup_test.ts) (exact
+  rendered SQL + cross-clause parameter order, `postgres` and `sqlite`
+  dialects); a new `<adapter>: ETL rollup` integration test in each feature
+  suite (fold → idempotent re-run → late-event upsert; verified on PostgreSQL
+  16/17/18, Neon via wsproxy, SQLite, and libSQL) with a matching all-✅ row in
+  [`docs/feature-matrix.md`](docs/feature-matrix.md); and the activity-vectors
+  example conversion (below). **Findings:** the only raw seam is `coalesce(...)`
+  (via the `sql` tag; proposed-row references use the exported `excluded()`
+  helper), and on the SQLite family a _bare_ upsert-from-select (no WHERE/GROUP
+  BY before `ON CONFLICT`) is rejected by the engine's parser — any window WHERE
+  or rollup GROUP BY disambiguates; pinned in the sqlite/libsql suites. See
+  [v0.6.0 roadmap A1](docs/v0.6.0-roadmap.md).
+- **Latent `"mysql"` render path pinned (v0.6 C1)**
+  ([`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts)).
+  Render-ready today: backtick quoting, `?` placeholders, `ilike`→`LIKE`, plain
+  `SELECT`/`INSERT`, `FOR UPDATE`, `onConflictDoUpdate` / `onConflictDoNothing`
+  → `ON DUPLICATE KEY UPDATE`, and the new portable `excluded(column)` helper
+  (`excluded."col"` on PostgreSQL/SQLite, `values(col)` on MySQL). Pinned
+  caveats, drizzle-parity style: MySQL upsert targets are validation-only and
+  conflict `where` throws `ORM_DIALECT_UNSUPPORTED` (C2 semantics work),
+  `returning *` renders though MySQL 8 has no `RETURNING` (C3 gap), `distinctOn`
+  renders unguarded (guard lists only `sqlite`), and `dateTrunc`/`now`/`dateBin`
+  throw `ORM_DIALECT_UNSUPPORTED` (no `mysql` variants) — the last two are new
+  findings beyond the roadmap's probe.
+
 - **Cross-adapter decode-parity test**
   ([`integration/cross_adapter_parity_test.ts`](integration/cross_adapter_parity_test.ts)),
   gated behind `DATABASE_URL` (plus `NEON_DATABASE_URL`/`NEON_WS_PROXY` for the
@@ -61,6 +109,29 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **`examples/postgres-family-activity-vectors`: the fold, both retention
+  rollups, and the event prune are now typed builder statements** (v0.6 A1
+  verification). `app.fold_events_to_buckets`, `app.rollup_daily`,
+  `app.rollup_monthly`, and `app.prune_events` were removed from
+  `migrations/0002_functions.sql` and rewritten as `insert().select()` +
+  `FILTER` + `dateTrunc` + `onConflictDoUpdate` (and a bulk `delete()`) in
+  `src/events.ts` / `src/retention.ts`; only the window-function stats, the
+  `ARRAY[...]` projection, and `unnest` cosine similarity remain SQL functions
+  (the v0.7 walls). The gated `feature_db_test.ts` now connects through the
+  example's `openDb()`, so `SISAL_ADAPTER=pg | pg-postgres-js | neon` runs the
+  whole chain on any PostgreSQL-family driver (verified on all three);
+  `getSimilarPosts` normalizes `bigint` ids to strings at the query boundary
+  (the documented cross-adapter `bigint` divergence surfaced as a real bug when
+  the suite first ran on `@sisal/pg`).
+- **Compatibility docs refreshed** — suite counts and last-run dates in
+  `docs/{pg,neon,sqlite,libsql}-compatibility.md` (41/41 on pg16/17/18 and
+  neon-proxy; 40/40 on sqlite and libsql, 2026-07-01).
+- **Adapter feature integration suites now share scenario registries** under
+  `integration/_shared/` + thin `integration/_targets/` entrypoints. The public
+  `integration/{pg,neon,sqlite,libsql}_features_test.ts` files still register
+  the same `<adapter>:` Deno test names, while
+  `tools/generate_feature_matrix.ts --check` now validates feature-matrix cells
+  against the registered scenarios instead of scraping test files.
 - **Examples: consolidated the four rising-feed apps into two dialect-family
   examples** (pilot for a family-based example taxonomy). The three
   PostgreSQL-family feeds — `postgres-rising-feed`, `neon-rising-feed`, and

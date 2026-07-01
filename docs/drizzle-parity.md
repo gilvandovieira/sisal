@@ -286,9 +286,13 @@ the friction.
 
 ⁴ Upserts emit Postgres/SQLite
 `ON CONFLICT (target) DO NOTHING / DO UPDATE SET
-… [WHERE …]`. MySQL's
-`ON DUPLICATE KEY UPDATE` is out of scope until a MySQL adapter exists. `target`
-accepts a column, a column name, or an array of either.
+… [WHERE …]`. Under the
+(adapterless, v0.7-bound) `mysql` dialect the same `onConflict*` calls render
+`ON DUPLICATE KEY UPDATE` instead of a separate Drizzle-style
+`onDuplicateKeyUpdate` surface, with the typed `excluded(column)` helper
+rendering `excluded."col"` there and `values(col)` on MySQL (see the v0.6.0
+roadmap C2 for the target/`where` semantics). `target` accepts a column, a
+column name, or an array of either.
 
 `.orderBy` accepts both the legacy `(column, "asc" | "desc")` form and one or
 more `asc()`/`desc()` terms (or bare columns), e.g.
