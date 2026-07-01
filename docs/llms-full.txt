@@ -27,6 +27,8 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL, analytics,...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
+- [npm Release Readiness](https://gilvandovieira.github.io/sisal/npm-release-readiness.html): This is a **standing readiness report**, not a scheduled deliverable. It records what must change for Sisal to publish to **npm** alongside JSR and run on **Node.js 24+**, so the work can be picked up cheaply **if...
+- [Roadmap Sequencing Audit (v0.6 → v0.14)](https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html): This is a **second-pass sequencing audit** of the forward plan (docs/roadmap.md, docs/architecture.md, docs/v0.6.0-roadmap.md → docs/v0.14.0-roadmap.md, and the twelve examples/advanced-sql-contracts/). It...
 - [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, and libSQL. It will not become an object-first ORM. This page is the index and...
 - [v0.10.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.10.0-roadmap.html): The investigations (v0.6) and substrate (v0.8, v0.9) are done; v0.10 ships the **first preview of Sisal ETL** as a separate package. The model is deliberately small: a **job definition + a single-run runner** that...
 - [v0.11.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.11.0-roadmap.html): With the analytical IR designed (v0.7) and the core IR stabilized (v0.8), v0.11 ships the first **Postgres-first analytical query layer** — a typed OLAP API that queries rollups and analytical tables using Sisal...
@@ -1640,9 +1642,33 @@ Sisal-specific history after that baseline through `1f05448`.
   examples from the **documentation-only** future contracts, making explicit
   that `examples/advanced-sql-contracts/` is not runnable and not in the
   workspace.
+- **Roadmap sequencing audit**
+  ([`docs/roadmap-sequencing-audit.md`](docs/roadmap-sequencing-audit.md)) — a
+  gate-level audit of the v0.6→v0.14 plan: re-derives the cross-cutting gates
+  and finds where a gate can be crossed without its real prerequisite (the
+  dialect identity has no version/variant axis; the ETL-runner lock/checkpoint
+  substrate is design-only; the transformable-AST mitigation isn't
+  acceptance-gated), with fixes tied to the v0.9 capability descriptor. Includes
+  an appendix validating the dialect-axis finding against live MySQL 8 / MySQL
+  5.7 / MariaDB.
+- **npm-release readiness report**
+  ([`docs/npm-release-readiness.md`](docs/npm-release-readiness.md)) — the
+  standing spec for what must change to publish Sisal on npm (manifests + the
+  six `jsr:`/`npm:` import sites, the `.ts`→`.js` build, dual-runtime tests,
+  CI), plus the npm-name blocker (`@sisal` is taken on npm). Replaces v0.6's
+  Node/npm build workstream.
 
 ### Changed
 
+- **Roadmap (v0.6 → v0.13):** demoted Node.js/npm from a v0.6 build workstream
+  to the deferred [npm-release readiness report](docs/npm-release-readiness.md)
+  (build + dual publish moved to v0.13+, on demand, gated on a chosen npm name);
+  v0.6 is now two investigation workstreams + that report. Threaded the
+  sequencing-audit fixes through the line: an `(engine, version)` dialect-key
+  decision in v0.6, a variant/version-tagged `@sisal/mysql` in v0.7, an
+  `(engine, version)` capability descriptor + a shipped transformable-AST
+  extension point in v0.8, the ETL lock/checkpoint substrate promoted into v0.9
+  acceptance, and checkpoint-ownership + tested-lock requirements in v0.10.
 - **Docs (examples):** corrected two stale example READMEs.
   `neon-activity-vectors` now calls its `libsql-activity-vectors` counterpart a
   **planned/future** sibling (it does not exist yet) and links the relevant
@@ -5323,6 +5349,525 @@ Per-engine behavior notes live on the
 [SQLite](sqlite-compatibility.md), and [libSQL](libsql-compatibility.md) pages.
 ```
 
+### docs/npm-release-readiness.md
+
+URL: https://gilvandovieira.github.io/sisal/npm-release-readiness.html
+
+```md
+---
+title: npm Release Readiness
+---
+
+# Sisal on npm — what it would take (readiness report, not a release)
+
+This is a **standing readiness report**, not a scheduled deliverable. It records
+what must change for Sisal to publish to **npm** alongside JSR and run on
+**Node.js 24+**, so the work can be picked up cheaply **if and when** there is
+real Node-user demand. It deliberately ships **no npm package**.
+
+> **Status: deferred (v0.13+, on demand).** Node/npm is on **zero** roadmap
+> gates — nothing in v0.7–v0.12 (MySQL, `@sisal/core`, ETL, analytics) depends
+> on it. The feature line runs entirely on Deno/JSR. So this is the safest item
+> to defer. It is **enabled** by the v0.8 `@sisal/core` extraction (the one
+> clean `.ts`→`.js` build boundary) and **gated** on the naming decision below.
+
+## The honest baseline — the repo is already close
+
+A June 2026 Node feasibility audit ran the codebase against real **Node v26.4.0
+/ npm 11.16.0** in a throwaway worktree. The finding: the library cores carry
+**zero Deno-runtime coupling**, all adapters **inject** their driver, and the
+`Deno` global is read defensively via `globalThis`. The blockers are
+concentrated in **packaging metadata, module-specifier syntax, one static
+import, and the dev toolchain** — not in the library logic.
+
+Probes run under real Node:
+
+| Probe                                                                    | Result                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------- |
+| Load + run the pure `@sisal/orm` core (relative `.ts`, type-stripped)    | ✅ instantiates and runs real logic         |
+| `@sisal/pg` → `@sisal/orm` after adding minimal `package.json` `exports` | ✅ cross-package run                        |
+| Load `pg/orm/pool.ts` (static `jsr:@db/postgres` import)                 | ❌ `ERR_UNSUPPORTED_ESM_URL_SCHEME`         |
+| Import bare `@sisal/orm` with no `package.json`                          | ❌ `ERR_MODULE_NOT_FOUND` (pure resolution) |
+| `import.meta.main`, `node:sqlite` (`DatabaseSync`), `node:test`          | ✅ all present                              |
+
+## The blocker that makes this a "decide first" item — the npm name
+
+The `@sisal` scope is owned on **JSR** but is **unavailable on npm**.
+
+> Publishing `@<name>/orm` to npm is a **one-way door**: once consumers `npm i`
+> it, the scope/name is a public contract — renaming later breaks every
+> installer. So **the chosen npm name is a prerequisite, not a footnote.**
+
+Until the name is decided, _no npm publish should happen_. Shipping under a
+placeholder would be exactly the failure pattern the
+[sequencing audit](roadmap-sequencing-audit.md) warns about: committing an
+undecided structural choice to a public surface. Candidate shapes: an alternate
+scope (`@sisal-db/*`), unscoped packages (`sisal-*`), or a private scope. Pick
+one **before** any publish; until then this report uses `@<scope>/*` purely as a
+stand-in.
+
+## What would have to change (the work, when it happens)
+
+Concentrated and additive — the Deno workflow stays exactly as it is.
+
+1. **Package manifests & workspace resolution.** Add a `package.json` beside
+   each `deno.json` (six library packages + a root workspace manifest) with
+   `"type": "module"`, `"engines": { "node": ">=24" }`, and an `"exports"` map
+   mirroring the `deno.json` subpath exports, pointing at built artifacts. Deno
+   keeps reading `deno.json`; Node reads `package.json`. Generate `package.json`
+   from `deno.json` with a CI freshness check (same pattern as
+   `docs:matrix:check`) so they never drift.
+2. **Driver indirection — the six `jsr:`/`npm:` import sites.** Node rejects
+   `jsr:`/`npm:` URL schemes. Centralize each adapter's _default_ driver load
+   behind a lazy resolver branching on `globalThis.Deno` (injected drivers
+   always win). The one behavioral change: `@sisal/pg` imports its driver
+   **statically** today (`pg/orm/pool.ts`, `pg/migrate/pool.ts`) — make it lazy,
+   defaulting to node-postgres (`pg`) on Node. SQLite → built-in `node:sqlite`;
+   libSQL → `@libsql/client`; Neon → `@neondatabase/serverless`.
+3. **A build step (`.ts` → `.js`).** All ~271 internal imports carry explicit
+   `.ts` extensions (Deno-mandatory); published JS/`.d.ts` must rewrite them, so
+   a build is required for npm even though Deno needs none. Recommended: Deno's
+   official [`dnt`](https://github.com/denoland/dnt) (rewrites specifiers, emits
+   dual ESM/CJS + `.d.ts`, keeps Deno as source of truth, and **remaps the
+   `@sisal/*` scope to the chosen npm name** per package). **This is cleanest to
+   set up at the v0.8 `@sisal/core` extraction** — one stable boundary to build.
+4. **Dual-runtime tests.** The unit suites are ~200 `Deno.test` calls + a
+   handful of `@std/assert` symbols. A shared `harness.ts` (`Deno.test` under
+   Deno, `node:test` under Node) + a mechanical codemod makes the _same_ files
+   run under both. Zero logic change.
+5. **CI + publish.** Add a Node 24 leg to CI; extend the release to
+   `npm publish` the built artifact behind the same version gate as the JSR
+   publish (paired versions never diverge); add `npm audit`/osv over the npm
+   lockfile.
+6. **CLI + examples (smaller).** A `node:fs` filesystem impl beside the Deno
+   one, a `bin/sisal` entry, one Node-native example per engine, and a "Use from
+   Node" docs page.
+
+## Keep-the-door-open constraints (cheap, do them anyway)
+
+So deferring costs nothing later:
+
+- **Drivers:** when the MySQL driver is chosen (v0.6/v0.7), pick one that works
+  on **Deno _and_ Node**. Free now; avoids a re-pick.
+- **No npm-hostile patterns:** keep reading `Deno` via `globalThis`, keep
+  drivers injectable, keep the lower-tier modules runtime-agnostic — all already
+  true; just don't regress them.
+
+## Trigger / definition of done (if pursued)
+
+- **Trigger:** real Node-user demand **and** a chosen npm name.
+- **Enabler:** the v0.8 `@sisal/core` extraction is in place.
+- **Done:** `npm i @<chosen-name>/*` runs on Node 24+; the unit suite is green
+  under Deno **and** Node; a release publishes paired JSR + npm artifacts at
+  identical versions in one gated run; one Node example per engine runs
+  end-to-end.
+```
+
+### docs/roadmap-sequencing-audit.md
+
+URL: https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html
+
+```md
+---
+title: Roadmap Sequencing Audit (v0.6 → v0.14)
+---
+
+# Sisal roadmap sequencing audit — gates, not items
+
+This is a **second-pass sequencing audit** of the forward plan
+(`docs/roadmap.md`, `docs/architecture.md`, `docs/v0.6.0-roadmap.md` →
+`docs/v0.14.0-roadmap.md`, and the twelve `examples/advanced-sql-contracts/`).
+It deliberately ignores the per-task trackers (A1–A6, B1–B8, C1–C6, …) — those
+are explicitly disposable. It audits the thinner layer of **gates**:
+cross-cutting invariants that must hold regardless of which line items survive
+to do the work.
+
+The question this doc answers: **does dropping items the way they are designed
+to be dropped ever let a gate get crossed without its real, capability-level
+prerequisite landing?** For three gates the answer is **yes**.
+
+Every claim below is verified against source (`packages/orm/core/*.ts`,
+`packages/orm/schema.ts`, `tools/feature_matrix.ts`) — the project's own
+"verified, not assumed" standard, not roadmap prose.
+
+## Status legend
+
+| Symbol | Meaning                                                                      |
+| ------ | ---------------------------------------------------------------------------- |
+| 🟥     | Gate can be crossed without its real prerequisite — sequencing defect        |
+| 🟧     | Prerequisite scoped only as investigation/decision, not as a usable artifact |
+| 🟩     | Gate is self-protecting / adequately sequenced                               |
+
+Prerequisite scoping is classified, per the audit brief, as: **(a)** real
+implementation work scoped somewhere; **(b)** scoped only as an
+investigation/decision deliverable that may not yield a usable artifact; **(c)**
+not scoped anywhere.
+
+---
+
+## The gate list (re-derived)
+
+Eight gates are stated, plus three that are **implicit** in the per-version docs
+without ever being named as cleanly as the rest — and it is the implicit ones
+that fail.
+
+| #        | Gate                                                                                                                                                                          | Source                                                         |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| G1       | ORM/core never depends on ETL/analytics/dashboard; adapters never import each other; dashboard never renders                                                                  | `architecture.md:64-72`; restated in each of v0.10/v0.11/v0.12 |
+| G2       | Substrate before dependents — `@sisal/core` (public, **versioned** IR) stabilizes before ETL/analytics/dashboard compile into it                                              | `roadmap.md:35`; `architecture.md:88-99`; v0.8                 |
+| G3       | Investigate before build — readiness (v0.6/v0.7) precedes public packages (v0.10+)                                                                                            | `roadmap.md:24-26,43-48`                                       |
+| G4       | MySQL investigated v0.6 → implemented v0.7; pg stays the reference                                                                                                            | `roadmap.md:58-59`                                             |
+| G5       | Pushdown-first ETL: job-definition + single-run runner + **external** scheduler                                                                                               | `roadmap.md:53-57`; v0.10                                      |
+| G6       | Explicit capability surface — adapters declare capabilities explicitly, from **one tested source of truth**                                                                   | `architecture.md:68-69`; v0.8:128-129; v0.9                    |
+| G7       | DuckDB only **after** the analytics IR exists, as an execution target                                                                                                         | `roadmap.md:49-50`; v0.13                                      |
+| G8       | Native/Rust only **after** benchmark evidence                                                                                                                                 | `roadmap.md:51-52`; v0.14                                      |
+| **GI-1** | _(implicit)_ The dialect/capability **identity primitive** must be expressive enough for the matrix it promises                                                               | nowhere — the gap behind G2+G4+G6                              |
+| **GI-2** | _(implicit)_ The ETL-runner correctness substrate (lock + checkpoint + idempotency + atomic advance) must be **built and tested**, not just designed, before the runner ships | nowhere — the gap behind G3+G5                                 |
+| **GI-3** | _(implicit)_ The transformable-AST question must be **decided or made additively reservable** before the IR is frozen public                                                  | partially — the gap behind G2+G7                               |
+
+---
+
+## The audit matrix
+
+| Gate               | Gate-crossing item (first deliverable that crosses it)                                                                                | True (capability-level) prerequisite                                                                                                                                                                                      | Scoping status                                                                                                                                                                                                                         | Risk if dropped/reordered                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GI-1 / G6** 🟥   | v0.9 "capability descriptor — authoritative & machine-checked" (built on the v0.8 descriptor extracted into the frozen `@sisal/core`) | A descriptor **key space** that (i) distinguishes the adapters — 4 today, 5 once MySQL lands (neon≠pg, libsql≠sqlite) — and (ii) carries a **version axis** (MySQL 8.0.21, MariaDB 10.5/11.7, SQLite 3.31, Postgres 14 …) | **(c)** not scoped — every doc says "per-dialect descriptor" and the primitive it is "generalized from" (`dialectGuard` over `SqlDialect`) is whole-dialect, 4-value, no version                                                       | The authoritative matrix structurally cannot express the very distinctions v0.9's own scope hardens (neon-vs-pg serverless caveats, libsql-vs-sqlite, MySQL-vs-MariaDB). It freezes into the public `@sisal/core` at v0.8 → adding the axis later breaks the exported `dialectGuard` signature and render contract (the snapshot is versioned via `SCHEMA_SNAPSHOT_VERSION` and can migrate; the guard/IR surface cannot) |
+| **G4** 🟥          | v0.7 ships `@sisal/mysql` as a real published package                                                                                 | A variant/version primitive to express the MySQL 8 / 5.7 / MariaDB 10.2 / 10.5 splits the adapter's own contract tabulates (`RETURNING`, `WITH RECURSIVE`, `JSON_TABLE`, partial indexes)                                 | **(b)** v0.6 C3/C5 + v0.7 open questions scope only "design dialect/version handling" and "decide one adapter with feature flags vs documented divergences"; the primitive itself is **(c)**                                           | v0.7 publishes a `"mysql"` dialect that cannot carry the split `12-mysql-compatibility.md:91-99` requires. The split lands ad-hoc in the executor or is dropped; the later correct fix breaks both the published adapter **and** the frozen `@sisal/core` dialect type. v0.7 closes **before** v0.8 — the fix window shuts at the wrong time                                                                              |
+| **GI-3 / G7** 🟧   | v0.13 DuckDB investigation (DuckDB as a **compiler target** for the IR)                                                               | An introspectable/transformable IR seam for predicate pushdown / plan rewriting                                                                                                                                           | **(b)** v0.8 defers it behind a "documented extension point," but the v0.8 acceptance criterion only requires documenting the **decision** (build/defer/reject) — **not delivering the extension point**                               | If DuckDB pushdown needs the AST (v0.13's own open question, `v0.13:66-67`) and only the decision-to-defer was delivered, v0.13 forces a breaking change to the frozen public IR. Conditional, but the load-bearing mitigation is not acceptance-gated                                                                                                                                                                    |
+| **GI-2 / G5** 🟧   | v0.10 ships `@sisal/etl` with `run`/`backfill`/`replay` + checkpoint + lock                                                           | (a) portable lock abstraction; (b) checkpoint-table contract **and** its ownership decision; (c) idempotency + atomic load+advance                                                                                        | **(b)** v0.6 A2/A3/A4 are all P2/🔴 "design/document only"; v0.9 "formalize the lock strategy" is in _hardening items_, **not** v0.9 acceptance criteria; checkpoint ownership is an **open question in v0.6, contract 09, and v0.10** | v0.10's acceptance **hard-requires** "concurrent runs are serialized by the lock strategy" and idempotent/resumable runs. If A2/A3/A4 stay design-only or drop, the runner ships on a correctness substrate that was never built or tested → "concurrent runs corrupt rollups" (v0.10's own risk wording, `v0.10:78-79`)                                                                                                  |
+| **G1** 🟧          | v0.10/v0.11 (first packages that compile into core)                                                                                   | `@sisal/core` exposes enough (statement-assembler decision) that ETL/analytics need not reach into `@sisal/orm`; checkpoint ownership must not silently add an `etl → migrate` edge                                       | **(b)** v0.8 open question "expose the statement assembler, or compile fragments + a thin helper?" is unresolved; the checkpoint "managed system table" branch implies an edge absent from `architecture.md`'s graph                   | If the assembler stays private and ETL needs SELECT/CTE assembly, v0.10 is pushed to depend on `@sisal/orm` (G1 violation) or reimplement it. The checkpoint "migrate system table" resolution adds an `etl → migrate` dependency the architecture diagram does not show                                                                                                                                                  |
+| **G2** 🟩 (mostly) | v0.8 extract `@sisal/core` + versioned IR                                                                                             | Clean lower-tier DAG with no upward edges                                                                                                                                                                                 | **(a)** real and **already true** in source (`errors ← sql ← {operators,columns} ← table ← {builders,relations} ← database`; the one cross-cut is inverted behind `QUERY_BUILDER_BRAND`)                                               | Extraction itself is low-risk (file-moves). The risk is **what gets frozen** at extraction — see GI-1 and GI-3, which ride on this same release                                                                                                                                                                                                                                                                           |
+| **G3** 🟩/🟧       | v0.10/v0.11 packages                                                                                                                  | v0.6/v0.7 investigations produce **usable artifacts**, not just reports                                                                                                                                                   | Mixed — the ETL _rollup_ spine is real and probed (v0.5 builder); the _runner_ substrate (GI-2) is design-only                                                                                                                         | The investigation-vs-artifact gap is concentrated in GI-2; the rest of G3 is sound                                                                                                                                                                                                                                                                                                                                        |
+| **G8** 🟩          | v0.14 native investigation                                                                                                            | A reproducible benchmark harness that localizes a hot path                                                                                                                                                                | **(a)** self-protecting: "the first deliverable of this milestone is the benchmark, not the binary" (`v0.14:29`), and acceptance requires the benchmark report                                                                         | Well-sequenced. The only nuance: the candidate hot paths (Parquet/Arrow/ingestion) belong to ETL/analytics, which don't exist until v0.10/v0.11 — so the harness _cannot_ predate them, which the gate already assumes                                                                                                                                                                                                    |
+
+---
+
+## The three real defects, in prose
+
+### Defect 1 — the dialect identity primitive cannot express the matrix it promises (GI-1, generalizes seed #1)
+
+This is the central finding and it subsumes the first seed.
+
+**Source-verified facts:**
+
+- `SqlDialect = "postgres" | "sqlite" | "mysql" | "generic"` — a closed 4-value
+  union, no version axis (`core/sql.ts:25`).
+- The schema-snapshot dialect is a _second_ closed 4-value union,
+  `SisalDialectName = "generic" | "postgres" | "sqlite" | "mysql"`
+  (`schema.ts:13-17`).
+- **Both collapse the five real adapters into four render dialects:**
+  `LIBSQL_DIALECT = "sqlite"` (`libsql/orm/dialect.ts:4`); Neon renders as
+  `"postgres"`. There is no `"neon"` or `"libsql"` value anywhere.
+- The capability mechanisms operate at **whole-dialect** granularity only:
+  `dialectGuard(construct, unsupported: readonly SqlDialect[])` (`sql.ts:625`),
+  the `guard` chunk's `unsupported: readonly SqlDialect[]` (`sql.ts:64-68`), and
+  `dialectSql`'s `variants: { [D in SqlDialect]?: Sql }` (`sql.ts:69-74`). Real
+  call sites only ever pass `["sqlite"]` / `ARRAY_OP_UNSUPPORTED = ["sqlite"]`
+  (`operators.ts:150`, `builders.ts:982,1038`). The guard even hardcodes the
+  string `"it is PostgreSQL-only"` (`sql.ts:564`).
+- **The two key spaces already diverge in the repo today.** The feature matrix
+  keys on `ADAPTERS = ["pg", "neon", "sqlite", "libsql"]`
+  (`tools/feature_matrix.ts:15`) — it _does_ distinguish neon-from-pg and
+  libsql-from-sqlite. The IR `dialectGuard` does not. They are reconciled today
+  only by `docs:matrix:check` (every ✅/⚠️ backed by a named test), **not** by a
+  shared descriptor.
+
+**Why this is a sequencing defect, not just a missing feature.** v0.8's
+deliverable is "capability gates become declarative — a per-dialect capability
+descriptor… **the single source the v0.9 matrix and the `dialectGuard` both
+read**" (`v0.8:128-129`), and v0.9 makes that descriptor "authoritative and
+machine-checked." But:
+
+1. The matrix is 5-way (soon 6 with MariaDB); `dialectGuard` is 4-way. "One
+   source both read" requires reconciling key spaces that **do not match**, and
+   no doc names that reconciliation as work.
+2. The contracts require a **version axis** that neither key space has — and not
+   just for MySQL. Verified across the corpus:
+   - `12-mysql-compatibility.md:91-99`: `RETURNING` MySQL 8 ❌ vs MariaDB ✅
+     (10.5+); `WITH RECURSIVE` MySQL 8+ ✅ / 5.7 ❌; window functions 8+ vs
+     MariaDB 10.2+.
+   - `07-recursive-comments.md`: cycle/depth guard needs **Postgres 14+**
+     `CYCLE`.
+   - `11-generated-columns-indexes.md`: SQLite **3.31+** (stored/virtual),
+     **3.9+** (expression indexes); MySQL **8.0.13+** (functional); MySQL has
+     **no** partial indexes.
+   - `10-json-table-extraction.md`: MySQL **5.7 lacks `JSON_TABLE`**; "very old
+     SQLite without JSON1."
+   - `02/04`: "older SQLite frame mode" must throw a typed guard.
+3. The contracts demand these be **typed guards** ("verified, not assumed,"
+   "fail guarded → feature-matrix"). A typed guard that can only say
+   `unsupported: ["sqlite"]` _cannot_ say "needs SQLite ≥ 3.31" — so the user
+   gets a raw engine error, which is exactly the failure mode the guard exists
+   to prevent.
+4. **The freeze happens at the wrong time.** `@sisal/mysql` ships at v0.7;
+   `@sisal/core`'s IR is frozen public at v0.8; the matrix becomes authoritative
+   at v0.9 — all **before** the dependents that need the finer granularity
+   (v0.10 ETL, v0.11 analytics) are built. By the time a concrete consumer
+   proves the version axis is needed, the primitive is a public contract and the
+   axis is a breaking change.
+
+The `12-mysql-compatibility.md` framing makes the erasure visible: it calls for
+"a **fifth column**" while its own table (`:91-99`) shows **six** distinct
+profiles (pg/neon, sqlite/libsql, MySQL 8, MariaDB). The single-`"mysql"`-token
+framing erases the variant split at the level of the document, before any code
+is written.
+
+### Defect 2 — the ETL-runner correctness substrate is "design-only," but the runner's acceptance criteria hard-require it (GI-2)
+
+The cleanest "drop lets the gate cross without its prerequisite" case.
+
+- v0.10 acceptance (`v0.10:92-100`) **hard-requires**: "A run is idempotent… and
+  resumable," "`backfill(range)` reproduces a historical range
+  deterministically," and "**Concurrent runs are serialized by the lock
+  strategy**."
+- Its prerequisites are all design-only and disposable: v0.6 **A2** (locking),
+  **A3** (checkpoint), **A4** (idempotent load + replay) are P2 / 🔴 /
+  "document"/"design, don't ship."
+- v0.9 picks up "Advisory-lock equivalence — formalize the SQLite/libSQL lock
+  strategy the ETL runner will use" — but only in _specific hardening items_,
+  **not** in v0.9's acceptance criteria. And a v0.9 open question invites
+  resolving SQLite-family ETL as "Postgres-first, documented gap," which quietly
+  deletes the SQLite/libSQL lock strategy entirely.
+- `08-job-queue-locking.md:67-72` names the load-bearing artifact: "**A portable
+  'claim next' abstraction** … **this is the missing piece (A2)** … It must
+  encode the locking _capability_, not assume Postgres … **design in v0.6, used
+  by the v0.10 runner**." `09-idempotent-backfill.md:50-55` adds the atomicity
+  invariant: the load and the watermark advance "must commit **together** (one
+  transaction / `db.batch`)."
+
+So the chain is: a P2/🔴 design item (A2) → a non-acceptance-gated v0.9
+"formalize" → a v0.10 **hard acceptance criterion**. Drop A2 (it is designed to
+be droppable) and nothing downstream forces it back in until v0.10 fails its own
+acceptance — at which point the runner's public API (`run`/`backfill`/`replay`,
+the checkpoint table, the lock contract) is already shipped around a model that
+was never built. v0.10's own risk register agrees: "concurrent runs corrupt
+rollups."
+
+A second structural decision rides along: **checkpoint-table ownership** is an
+open question in v0.6, again in `09-idempotent-backfill.md:60-62`, and again in
+`v0.10:85-90` — "`@sisal/etl`-managed vs a `@sisal/migrate` system table?" —
+while v0.10 _ships_ the checkpoint table. Resolving it toward "migrate system
+table" adds an `etl → migrate` edge that `architecture.md`'s dependency graph
+does not contain (it shows `etl → core (+ adapter)`). That makes it a G1
+concern, not just an ETL detail.
+
+### Defect 3 — the transformable-AST mitigation is named but not acceptance-gated (GI-3, refines seed #2)
+
+- Verified the IR is compose-only: expressions are stored already-lowered
+  (`eq()` flattens immediately into chunks; `core/sql.ts`), there is no
+  introspectable relational AST (`architecture.md:93-99`; `v0.8:40-44`).
+- v0.8 recommends "keep the fragment IR as the compile target; add a
+  transformable AST **only** if a concrete consumer needs it — defer the
+  decision with a **documented extension point**" (`v0.8:92-95`).
+- v0.13's open question names this exact deferral as a potential blocker: "Does
+  compiling to DuckDB need the **transformable AST** deferred in v0.8, or can it
+  compile from the same fragment IR with a DuckDB dialect?" (`v0.13:66-67`).
+
+The defect is narrower than "the IR can't be transformed." It is that v0.8's
+acceptance criterion only requires "the transformable-AST **decision** is
+documented (build / defer / reject)" — it does **not** require shipping the
+"documented extension point" that is the actual mitigation. A decision to defer
+is satisfiable by a paragraph; the additive seam that lets the AST be added
+later without a version bump is what protects v0.13, and it is not a deliverable
+anyone is accountable for. Once `@sisal/core`'s IR is public and versioned
+(v0.8), retrofitting introspectability without the reserved seam is a breaking
+change.
+
+---
+
+## Where the seed findings land
+
+**Seed #1 (`SqlDialect` closed union, no version axis; MySQL version splits at
+v0.7): AGREE, verified, and generalize.** The source is exactly as described
+(`sql.ts:25,625,64-74,564`). Two amendments: (1) there are **two** such unions
+(`SqlDialect` _and_ `SisalDialectName`), and both also collapse neon/libsql, so
+the primitive can't even express the **4 adapters the matrix already uses** (5
+once MySQL lands) — the version axis is the second missing axis, not the only
+one; (2) the version-gating requirement is **pervasive, not MySQL-specific** —
+Postgres 14 `CYCLE`, SQLite 3.9/3.31, MySQL 8.0.13/8.0.20/8.0.21, MariaDB
+10.2/10.5 all appear across contracts 07/10/11/12. The right framing is GI-1
+(the capability descriptor's granularity), with seed #1 as its sharpest
+instance.
+
+**Seed #2 (compose-only fragment IR shipped public at v0.8 while
+introspection/rewriting is deferred; v0.13 anticipates needing it): AGREE on the
+premise, with one refinement.** v0.13 frames the need as _conditional_ ("does it
+**need** the AST, or can it compile from fragments with a DuckDB dialect?") — so
+it is not a certain block. The precise defect is GI-3: the deferral's
+load-bearing mitigation (the "documented extension point") is recommended in
+prose but is **not** an acceptance-gated deliverable, while the _decision_ to
+defer is. Close that gap and the deferral becomes safe.
+
+---
+
+## Concrete fixes (tied to mechanisms already in the docs)
+
+Written as acceptance-criteria edits so they can be folded into the existing
+roadmap docs. Each attaches to a mechanism the plan already names.
+
+### Fix 1 — give the v0.9 capability descriptor a variant + version axis, and pin its shape in v0.8 (addresses GI-1, G4, G6)
+
+Add to **v0.8 acceptance criteria** (the IR-freeze release — this is the last
+non-breaking opportunity):
+
+- The capability descriptor's key is **`(adapter, optional version-range)`**,
+  not `SqlDialect`. It distinguishes `pg`/`neon`/`sqlite`/`libsql` (the current
+  `tools/feature_matrix.ts` `ADAPTERS`, four today) plus `mysql`/`mariadb` once
+  they land, and admits a version predicate per capability.
+- `dialectGuard(construct, unsupported: SqlDialect[])` is generalized to a
+  **capability predicate** the descriptor evaluates, so a guard can express
+  "requires MySQL ≥ 8.0.21," "Postgres ≥ 14 for `CYCLE`," "SQLite ≥ 3.31" — and
+  fail **typed** when unmet, not as a raw engine error.
+- The descriptor is the literal single source `dialectGuard`, the feature
+  matrix, and ETL/analytics read (closing the key-space divergence that exists
+  today between `feature_matrix.ts:15` and `sql.ts:25`).
+
+Add to **v0.7**: `@sisal/mysql`'s published dialect identity carries the variant
+from day one (snapshot dialect `"mysql"` + a
+`{ variant: "mysql" | "mariadb",
+version }` field), so adding MariaDB or
+older-MySQL handling later is **additive, not breaking**. If the team genuinely
+wants to defer MariaDB, this is the cheap insurance that keeps the deferral
+reversible.
+
+### Fix 2 — make the ETL-runner substrate acceptance-gated before v0.10 (addresses GI-2, G5, G1)
+
+- Promote the v0.6 A2/A3/A4 _outputs_ into **v0.9 acceptance criteria**: the
+  portable claim/lock abstraction (`08`), the checkpoint contract (`09`), and
+  the atomic load+advance invariant (`09:50-55`) each get a per-engine test —
+  matching how v0.9 already acceptance-gates insert-from-select and the float8
+  fix. (Today they live in v0.9's _hardening items_, which are droppable.)
+- **Resolve checkpoint-table ownership in v0.8/v0.9**, before v0.10 ships the
+  table. If the answer is "migrate-managed," add the `etl → migrate` edge to
+  `architecture.md`'s graph explicitly so G1 stays honest.
+- If the substrate genuinely slips, scope v0.10 as **Postgres-only at the API
+  level** (the lock/checkpoint surface is capability-gated and SQLite/libsql
+  return a typed "unsupported job shape" rather than a silently-degraded runner)
+  — consistent with v0.10's own "document any unsupported job shapes rather than
+  silently degrading."
+
+### Fix 3 — ship the extension point, not just the decision (addresses GI-3, G7)
+
+- Change the **v0.8 acceptance criterion** from "the transformable-AST decision
+  is documented" to "the versioned IR **reserves an additive seam** for later
+  introspection (e.g. an opaque origin/`meta` field on `SqlChunk`, or an
+  optional un-lowered expression capture behind a flag) such that adding a
+  transformable AST is a minor, non-breaking version bump — proven by a fixture
+  that round-trips a fragment through the seam."
+- Then v0.13's open question (`v0.13:66-67`) can be answered either way without
+  endangering the frozen public IR.
+
+### Fix 4 — close the v0.8 statement-assembler question before v0.10 (addresses G1)
+
+The v0.8 open question "expose the statement assembler, or have downstream
+compile fragments + a thin helper?" determines whether `@sisal/etl`/
+`@sisal/analytics` can avoid depending on `@sisal/orm`. Make it a **v0.8
+deliverable with a decision**, since v0.10/v0.11 are the first packages that
+would otherwise be tempted across the G1 boundary.
+
+---
+
+## Where the sequencing is sound (for calibration)
+
+- **G2 extraction itself is low-risk.** The lower-tier DAG already has no upward
+  edges and the one cross-cut is inverted behind `QUERY_BUILDER_BRAND` (verified
+  in `sql.ts:699-726`). The risk is _what freezes at extraction_ (GI-1/GI-3),
+  not the move.
+- **G7 DuckDB-after-IR and G8 native-after-benchmark are well-protected.** Both
+  are gated on prerequisites that are their own first deliverables (the IR; the
+  benchmark report), and both explicitly state no earlier milestone may depend
+  on them.
+- **The dependency-direction gate (G1) is enforced redundantly** — every
+  downstream roadmap restates "`@sisal/orm` must not depend on …" and v0.12 even
+  mandates a dependency-direction test. The only soft spots are the two _latent_
+  edges noted above (assembler exposure, checkpoint ownership).
+
+---
+
+## Appendix — empirical validation of GI-1 / seed #1 against live engines
+
+The headline finding (a single version/variant-blind `"mysql"` token is
+insufficient) is not left as documentary claim. It was executed against three
+live engines — **MySQL 8.0.46, MySQL 5.7.44, MariaDB 11.8.8** (Docker) — using
+the **exact SQL the Sisal core renders today under the `"mysql"` dialect**.
+
+The rendered output was produced by the real `@sisal/orm` core
+(`createDatabase({ dialect: "mysql" })` → builder →
+`renderSql(…, { dialect:
+"mysql" })`), not hand-written:
+
+```
+insert into `kv` (`k`, `v`) values (?, ?) returning *
+insert into `kv` (`k`, `v`) values (?, ?) on conflict (`k`) do update set `v` = excluded.v
+```
+
+Note the renderer emits **identical** SQL regardless of which MySQL-family
+target is meant — it has no axis on which to differ. Executing it (and the
+correct per-target SQL the contracts cite) gives:
+
+| Construct                                      | Sisal emits under `"mysql"` | MySQL 8.0.46 | MySQL 5.7.44 | MariaDB 11.8 | Axis exposed                                   |
+| ---------------------------------------------- | --------------------------- | :----------: | :----------: | :----------: | ---------------------------------------------- |
+| `INSERT … RETURNING *`                         | yes (identical)             |  ❌ `1064`   |  ❌ `1064`   |      ✅      | **variant** (MariaDB ≠ MySQL)                  |
+| `INSERT … ON CONFLICT DO UPDATE`               | yes (identical)             |  ❌ `1064`   |  ❌ `1064`   |  ❌ `1064`   | latent path wrong for whole family (C2)        |
+| `INSERT … ON DUPLICATE KEY UPDATE`             | _(not emitted)_             |      ✅      |      ✅      |      ✅      | the correct upsert C2 must switch to           |
+| `WITH RECURSIVE …` (contract 07)               | _(no builder)_              |      ✅      |  ❌ `1064`   |      ✅      | **version** (5.7 ≠ 8)                          |
+| `JSON_TABLE(…)` (contract 10)                  | _(no builder)_              |      ✅      |  ❌ `1064`   |  ✅ (11.7+)  | **version** (5.7 ≠ 8; MariaDB < 11.7 ≠ ≥ 11.7) |
+| functional index `((length(v)))` (contract 11) | _(no builder)_              |      ✅      |  ❌ `1064`   |  ❌ `1064`   | **variant** (MariaDB ≠ MySQL 8)                |
+
+(`1064` = `ER_PARSE_ERROR` — the engine rejects the statement as a syntax error,
+the exact "raw engine error" a typed `dialectGuard` is supposed to pre-empt.)
+
+**Why this is the kill-shot for a 4-value, version-less `SqlDialect`.** Look at
+the directions:
+
+- `RETURNING` is supported on **MariaDB** but **not** MySQL 8 → the capability
+  must distinguish _variant_.
+- the functional index is supported on **MySQL 8** but **not** MariaDB → the
+  variant distinction runs the **opposite** way for a different feature.
+- `WITH RECURSIVE` / `JSON_TABLE` are supported on **8** but not **5.7** → the
+  capability must also distinguish _version within MySQL_. (`JSON_TABLE` is
+  version-gated inside MariaDB too — added in **11.7** — so the version axis
+  isn't even MySQL-specific.)
+
+No single `"mysql"` enum member, and no whole-dialect
+`dialectGuard(construct, ["mysql"])`, can simultaneously encode "yes-on-MariaDB
+/ no-on-MySQL" **and** "yes-on-MySQL-8 / no-on-MariaDB" **and** "yes-on-8 /
+no-on-5.7." The variant axis and the version axis are **both required and
+independent** — which is exactly **Fix 1**: the capability descriptor's key must
+be `(adapter/variant, version-range)`, decided at v0.8 before the IR (and the
+published `@sisal/mysql` from v0.7) freeze. This is the empirical form of GI-1
+and confirms seed #1 against real engines, not prose.
+
+**Reproduce (any engine, ~1 min).** Point-in-time run on 2026-06-30 against
+images `mysql:8.0` (8.0.46), `mysql:5.7` (5.7.44), `mariadb:11` (11.8.8). The
+probes are self-contained — paste each into any server's `mysql`/`mariadb`
+client and observe accept vs `1064`:
+
+```sql
+CREATE TABLE kv (k INT PRIMARY KEY, v TEXT NOT NULL); INSERT INTO kv VALUES (9, 'x');
+-- Sisal's current "mysql" render output (both wrong on MySQL; RETURNING ok on MariaDB):
+INSERT INTO `kv` (`k`, `v`) VALUES (1, 'a') RETURNING *;
+INSERT INTO `kv` (`k`, `v`) VALUES (9, 'a') ON CONFLICT (`k`) DO UPDATE SET `v` = excluded.v;
+-- correct/target per engine/version:
+INSERT INTO `kv` (`k`, `v`) VALUES (9, 'b') ON DUPLICATE KEY UPDATE `v` = VALUES(`v`);
+WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM c WHERE n < 3) SELECT SUM(n) FROM c;
+SELECT * FROM JSON_TABLE('[{"a":1}]', '$[*]' COLUMNS(a INT PATH '$.a')) jt;  -- MariaDB needs 11.7+
+CREATE INDEX ix_fn ON kv ((LENGTH(v)));
+```
+
+## One-line summary
+
+The disposable per-task trackers are fine. The danger is concentrated in three
+**structural decisions that get committed to a public surface before the
+consumer that proves them out exists**: the dialect/capability granularity
+(frozen at v0.8, needed at v0.10+), the ETL-runner correctness substrate
+(shipped at v0.10, scoped only as v0.6 "design"), and the IR's transformability
+seam (frozen at v0.8, possibly needed at v0.13). All three are fixable now,
+cheaply, by attaching one acceptance criterion each to a mechanism the roadmap
+already names — most of all the **v0.9 capability descriptor**, which should be
+given its key space and version axis at v0.8, before the IR is frozen.
+```
+
 ### docs/roadmap.md
 
 URL: https://gilvandovieira.github.io/sisal/roadmap.html
@@ -5357,18 +5902,18 @@ can carry them without hacks. The public packages don't arrive until v0.10+.
 
 ## Release line
 
-| Release    | Title                                                                            | Theme                                                                                                          | Ships a package?   |
-| ---------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------ |
-| **v0.5**   | [Multi-Dialect OLTP Compatibility](v0.5.0-roadmap.md)                            | Make the OLTP builder boringly correct across pg/neon/sqlite/libsql                                            | hardening          |
-| **v0.6**   | [Foundations & Readiness — ETL + Node/npm + MySQL groundwork](v0.6.0-roadmap.md) | Minimum core changes for `@sisal/etl`; Node.js/npm dual-registry readiness; **investigate MySQL support**      | no                 |
-| **v0.7**   | [Analytics Readiness & MySQL Support](v0.7.0-roadmap.md)                         | Design the analytical IR; **and** build the `@sisal/mysql` adapter (from v0.6)                                 | `@sisal/mysql`     |
-| **v0.8**   | [Advanced SQL IR & Expression Stabilization](v0.8.0-roadmap.md)                  | Stabilize the IR + extract `@sisal/core` so ETL/analytics can compile in safely                                | `@sisal/core`      |
-| **v0.9**   | [Adapter Hardening & Capability Matrix](v0.9.0-roadmap.md)                       | Harden all five adapters (pg/neon/sqlite/libsql/**mysql**) per v0.6–v0.7 findings; explicit capability surface | hardening          |
-| **v0.10**  | [`@sisal/etl` Preview](v0.10.0-roadmap.md)                                       | First ETL package: job + runner + checkpoint, SQL-pushdown, Postgres-first                                     | `@sisal/etl`       |
-| **v0.11**  | [`@sisal/analytics` Preview](v0.11.0-roadmap.md)                                 | First analytics package: metrics/dimensions/windows, Postgres-first                                            | `@sisal/analytics` |
-| **v0.12**  | [`@sisal/dashboard` Preview](v0.12.0-roadmap.md)                                 | Semantic presentation models; **no rendering**                                                                 | `@sisal/dashboard` |
-| **v0.13+** | [DuckDB / External OLAP Engine Investigation](v0.13.0-roadmap.md)                | DuckDB as a later compiler/execution target for the analytics IR                                               | no                 |
-| **v0.14+** | [Optional Native/Rust Acceleration Investigation](v0.14.0-roadmap.md)            | Native acceleration **only** if benchmarks prove a bottleneck                                                  | no                 |
+| Release    | Title                                                                 | Theme                                                                                                                                              | Ships a package?   |
+| ---------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| **v0.5**   | [Multi-Dialect OLTP Compatibility](v0.5.0-roadmap.md)                 | Make the OLTP builder boringly correct across pg/neon/sqlite/libsql                                                                                | hardening          |
+| **v0.6**   | [Foundations & Readiness — ETL + MySQL groundwork](v0.6.0-roadmap.md) | Minimum core changes for `@sisal/etl`; **investigate MySQL support**; an [npm-release readiness report](npm-release-readiness.md) (build deferred) | no                 |
+| **v0.7**   | [Analytics Readiness & MySQL Support](v0.7.0-roadmap.md)              | Design the analytical IR; **and** build the `@sisal/mysql` adapter (from v0.6)                                                                     | `@sisal/mysql`     |
+| **v0.8**   | [Advanced SQL IR & Expression Stabilization](v0.8.0-roadmap.md)       | Stabilize the IR + extract `@sisal/core` so ETL/analytics can compile in safely                                                                    | `@sisal/core`      |
+| **v0.9**   | [Adapter Hardening & Capability Matrix](v0.9.0-roadmap.md)            | Harden all five adapters (pg/neon/sqlite/libsql/**mysql**) per v0.6–v0.7 findings; explicit capability surface                                     | hardening          |
+| **v0.10**  | [`@sisal/etl` Preview](v0.10.0-roadmap.md)                            | First ETL package: job + runner + checkpoint, SQL-pushdown, Postgres-first                                                                         | `@sisal/etl`       |
+| **v0.11**  | [`@sisal/analytics` Preview](v0.11.0-roadmap.md)                      | First analytics package: metrics/dimensions/windows, Postgres-first                                                                                | `@sisal/analytics` |
+| **v0.12**  | [`@sisal/dashboard` Preview](v0.12.0-roadmap.md)                      | Semantic presentation models; **no rendering**                                                                                                     | `@sisal/dashboard` |
+| **v0.13+** | [DuckDB / External OLAP Engine Investigation](v0.13.0-roadmap.md)     | DuckDB as a later compiler/execution target for the analytics IR; **npm publishing if demand + a chosen name**                                     | no                 |
+| **v0.14+** | [Optional Native/Rust Acceleration Investigation](v0.14.0-roadmap.md) | Native acceleration **only** if benchmarks prove a bottleneck                                                                                      | no                 |
 
 ## Release discipline (non-negotiable)
 
@@ -5387,6 +5932,16 @@ can carry them without hacks. The public packages don't arrive until v0.10+.
   insert-from-select, upsert). PostgreSQL is the strongest pushdown target.
 - **MySQL is investigated in v0.6, implemented in v0.7.** It joins as a fifth
   dialect/adapter; PostgreSQL remains the ETL/analytics reference.
+- **Node.js/npm is a deferred, demand-driven concern (v0.13+), not a release
+  workstream.** v0.6 produces an
+  [npm-release readiness report](npm-release-readiness.md) and ships no npm
+  package; the build + dual publish is enabled by the v0.8 `@sisal/core`
+  extraction and gated on a chosen npm name.
+- **Structural decisions are committed before the IR/adapters freeze, not
+  after.** The dialect/capability identity (engine **and version**, e.g. MySQL ≠
+  MariaDB ≠ MySQL 5.7), the transformable-AST seam, and the ETL lock/checkpoint
+  contract are decided at v0.6–v0.8 so v0.9+ can't cross a gate without its
+  prerequisite. See the [sequencing audit](roadmap-sequencing-audit.md).
 
 ## What grounds this (June 2026 code audit)
 
@@ -5417,9 +5972,12 @@ A capability audit of the current builder/IR informs every milestone:
 Some work is orthogonal to the OLTP→OLAP feature axis and is folded into the
 nearest readiness milestone rather than owning a version:
 
-- **Runtime & packaging (Node.js + npm, dual-registry JSR+npm)** — incorporated
-  into **[v0.6](v0.6.0-roadmap.md)** as a second workstream alongside ETL
-  readiness. Both are "prepare the foundation, ship no new feature package."
+- **Runtime & packaging (Node.js + npm)** — **investigated, not built, in
+  [v0.6](v0.6.0-roadmap.md)**: it produces an
+  [npm-release readiness report](npm-release-readiness.md) and ships no npm
+  package. The actual build + dual publish is **deferred to v0.13+, on demand**
+  — it sits on no gate, is enabled by the v0.8 `@sisal/core` extraction, and is
+  blocked until a real npm name is chosen (the `@sisal` scope is taken on npm).
 ```
 
 ### docs/v0.10.0-roadmap.md
@@ -5514,7 +6072,10 @@ Rust/native engine; **no DuckDB dependency required** for v0.10.
 ## Open questions
 
 - Checkpoint table ownership: `@sisal/etl`-managed vs a `@sisal/migrate` system
-  table?
+  table? **Decide before shipping** (in v0.8/v0.9, not here) — it sets a public
+  surface, and the "migrate system table" answer adds an `etl → migrate` edge
+  the [architecture](architecture.md) graph must then show. See the
+  [sequencing audit](roadmap-sequencing-audit.md).
 - Does `run()` own transaction boundaries, or compose with the caller's?
 - Multi-statement jobs: a typed `db.batch`-style sequence, or one CTE statement?
 
@@ -5525,7 +6086,13 @@ Rust/native engine; **no DuckDB dependency required** for v0.10.
 - A run is **idempotent** (replay a window → identical target state) and
   **resumable** (checkpoint advances; a second run does the next window).
 - `backfill(range)` reproduces a historical range deterministically.
-- Concurrent runs are serialized by the lock strategy.
+- Concurrent runs are serialized by the lock strategy — using the
+  **v0.9-tested** portable lock abstraction, not a model first built here. Where
+  an engine's ETL lock/checkpoint isn't supported, the API is **capability-gated
+  to Postgres-first** and returns a typed "unsupported job shape," never a
+  silently-degraded runner.
+- Checkpoint-table ownership is **already decided** (v0.8/v0.9); v0.10 only
+  consumes it.
 - `@sisal/orm` has **no** dependency on `@sisal/etl`.
 
 ## Affected packages
@@ -5841,6 +6408,18 @@ engine. Building DuckDB-first would couple analytics to one engine and bypass
 the Postgres-first model most apps need. The IR (v0.8) must be the source of
 truth; DuckDB is one of its backends.
 
+## Also parked here — npm publishing (separate, demand-driven)
+
+v0.13+ is also the parking slot for **npm publishing** — unrelated to DuckDB,
+but sharing the "later, only if it earns its place" character. It is **deferred
+from [v0.6](v0.6.0-roadmap.md)**, sits on **no gate**, is **enabled** by the
+v0.8 `@sisal/core` extraction (the cleanest point to set up the `.ts`→`.js`
+build, though it still covers all packages), and is **blocked** until a real npm
+name is chosen (the `@sisal` scope is taken on npm). The standing spec is the
+[npm-release readiness report](npm-release-readiness.md). Trigger: real
+Node-user demand **and** a chosen name. This milestone ships no npm package
+unless both are met.
+
 ## Non-goals
 
 DuckDB is **not** required for v0.10 (ETL) or v0.11 (analytics). No DuckDB
@@ -5862,7 +6441,9 @@ DuckDB backend — this milestone may conclude "not yet / not worth it."
 - Is DuckDB an **embedded** backend, an **attached** analytical store, or an
   **ELT scratch** engine? (Could be all three; pick the first use case.)
 - Does compiling to DuckDB need the **transformable AST** deferred in v0.8, or
-  can it compile from the same fragment IR with a DuckDB dialect?
+  can it compile from the same fragment IR with a DuckDB dialect? Either answer
+  is safe: v0.8 ships the **additive extension point**, so adding the AST here
+  is a non-breaking version bump, not a breaking change to the frozen IR.
 - Parquet/Arrow: in scope here, or a separate ingestion concern (v0.14+)?
 - Serverless/Deploy viability of a native engine.
 
@@ -7351,22 +7932,28 @@ title: v0.6.0 Roadmap
 Where [v0.5.0](v0.5.0-roadmap.md) makes the OLTP builder boringly correct across
 the four dialects, v0.6.0 is the **readiness** milestone: it earns the right to
 build later packages (and reach a fifth dialect) by proving the foundation can
-carry them. It is deliberately **three parallel workstreams**, all of which
-_prepare the ground and ship no new public feature package_:
+carry them. It is deliberately **two parallel investigation workstreams plus one
+readiness report**, all of which _prepare the ground and ship no new public
+feature package_:
 
 - **Workstream A — ETL Readiness Investigation.** The minimum ORM/core changes
   so a future `@sisal/etl` (v0.10) can be built without hacks.
-- **Workstream B — Node.js + npm Runtime Readiness.** Make the packages
-  installable/runnable on Node 24+ and publishable to npm alongside JSR, without
-  giving up the Deno workflow. (This is the runtime/packaging track folded into
-  v0.6; see [roadmap overview](roadmap.md).)
 - **Workstream C — MySQL Support Investigation.** Map what a `@sisal/mysql`
   adapter ([v0.7](v0.7.0-roadmap.md) builds it) needs, given that the renderer
   already carries a latent `"mysql"` dialect. Investigation only — no adapter.
+- **npm-release readiness report (was "Workstream B").** Node.js + npm is **no
+  longer a build workstream**. It sits on **no roadmap gate**, so it is
+  investigated — not built — here: v0.6 produces the
+  [npm-release readiness report](npm-release-readiness.md) (what must change to
+  publish on npm) and ships **no npm package**. The build + dual publish is
+  **deferred to [v0.13+](v0.13.0-roadmap.md), on demand**, enabled by the v0.8
+  `@sisal/core` extraction and **blocked on a chosen npm name** (the `@sisal`
+  scope is taken on npm). Publishing under an undecided name is the foot-gun the
+  [sequencing audit](roadmap-sequencing-audit.md) warns about.
 
 **This release builds nothing it investigates.** v0.6 answers "can Sisal express
 ETL-shaped SQL cleanly?" and "what does MySQL support require?" — it ships
-neither the ETL package nor the MySQL adapter. See
+neither the ETL package nor the MySQL adapter, and no npm package. See
 [release discipline](roadmap.md#release-discipline-non-negotiable).
 
 ## Status legend
@@ -7379,11 +7966,13 @@ neither the ETL package nor the MySQL adapter. See
 
 ## Priority summary — everything to track
 
-All v0.6 tasks across the three workstreams, consolidated. **Stream:** A = ETL
-readiness · B = Node.js/npm runtime · C = MySQL investigation. Each ID has a
-detail section in the matching workstream below. `🟡` rows reflect a first-hand
-probe (June 2026): the ETL rollup renders correctly on Postgres today, and the
-`"mysql"` dialect was render-tested (see C).
+All v0.6 tasks, consolidated. **Stream:** A = ETL readiness · C = MySQL
+investigation. (The former Node.js/npm "Workstream B" is now the deferred
+[npm-release readiness report](npm-release-readiness.md) and no longer tracked
+as build tasks here.) Each ID has a detail section in the matching workstream
+below. `🟡` rows reflect a first-hand probe (June 2026): the ETL rollup renders
+correctly on Postgres today, and the `"mysql"` dialect was render-tested (see
+C).
 
 | ID | Task                                                                                  | Stream    | Priority | Effort | Status |
 | -- | ------------------------------------------------------------------------------------- | --------- | -------- | ------ | ------ |
@@ -7393,14 +7982,6 @@ probe (June 2026): the ETL rollup renders correctly on Postgres today, and the
 | A2 | Advisory-lock / locking strategy per dialect                                          | A · ETL   | P2       | S      | 🔴     |
 | A3 | Checkpoint / watermark table design                                                   | A · ETL   | P2       | S      | 🔴     |
 | A4 | Idempotent load + backfill/replay design                                              | A · ETL   | P2       | S      | 🔴     |
-| B1 | Shared package manifests & workspace resolution                                       | B · Node  | P1       | M      | 🔴     |
-| B2 | Driver indirection & the six `jsr:`/`npm:` import sites                               | B · Node  | P1       | M      | 🔴     |
-| B3 | npm build pipeline — dual ESM/CJS + types                                             | B · Node  | P1       | M      | 🔴     |
-| B4 | Dual-runtime test harness (`deno test` + `node --test`)                               | B · Node  | P1       | M      | 🔴     |
-| B6 | CI Node matrix + dual JSR/npm publish                                                 | B · Node  | P1       | M      | 🔴     |
-| B5 | CLI under Node — `node:fs` filesystem + `bin`                                         | B · Node  | P2       | S      | 🔴     |
-| B8 | Node-native examples & "Use from Node" docs                                           | B · Node  | P2       | S      | 🔴     |
-| B7 | Lint & format parity for Node-only contributors                                       | B · Node  | P3       | S      | 🔴     |
 | C1 | Pin the latent `"mysql"` render path as tests (render-ready)                          | C · MySQL | P1       | S      | 🟡     |
 | C2 | Upsert gap → `ON DUPLICATE KEY UPDATE` (renders PG `on conflict` today)               | C · MySQL | P1       | M      | 🔴     |
 | C3 | `RETURNING` gap → MySQL 8 none / MariaDB only (renders `returning *` today)           | C · MySQL | P1       | M      | 🔴     |
@@ -7409,9 +7990,10 @@ probe (June 2026): the ETL rollup renders correctly on Postgres today, and the
 | C5 | MySQL-vs-MariaDB capability split                                                     | C · MySQL | P2       | S      | 🔴     |
 
 **P1 spine.** A1/A5/A6 (prove the ETL rollup + hand the analytics gaps to v0.7)
-· B1→B2→B4 (the Node de-risking spine) · C1/C2/C3/C6 (correct the `mysql`
-dialect so v0.7 can build `@sisal/mysql`). Details, sequencing, and evidence per
-workstream below.
+· C1/C2/C3/C6 (correct the `mysql` dialect so v0.7 can build `@sisal/mysql`).
+Details, sequencing, and evidence per workstream below. The former Node "B
+spine" (B1→B2→B4) now lives in the
+[npm-release readiness report](npm-release-readiness.md).
 
 ---
 
@@ -7645,361 +8227,37 @@ engine; no DuckDB adapter; no dashboard API; no full analytics module.
 
 ---
 
-# Workstream B — Node.js + npm Runtime Readiness
-
-Make every package install and run on **Node.js 24+** from **npm** and
-dual-publish JSR + npm, while the Deno workflow stays exactly as it is today.
-The library cores already run under Node's type-stripping; the blockers are
-packaging metadata, the six `jsr:`/`npm:` import sites, and the `.ts` import
-extensions — not the library logic. B1–B8 below carry the full detail.
-
-**Package naming (JSR `@sisal` vs npm `@scope`).** The `@sisal` scope is
-published and owned on **JSR**, but is **unavailable on npm**. So the Deno
-workspace, every source import, and the JSR packages keep the `@sisal/*` names
-unchanged, while the npm artifacts publish under a **placeholder scope written
-`@scope/*`** throughout this workstream. The final npm name is an open branding
-decision (an alternate scope like `@sisal-db/*`, unscoped `sisal-*` packages,
-your own scope, …); `@scope` is a deliberate stand-in so the work is not tied to
-a name — swap it in one find-replace once chosen. Mechanically, the npm **build
-remaps** the source `@sisal/*` scope to `@scope/*` (package `name`, dependency
-names, and the internal import specifiers), so dev, test, and JSR publishing are
-unaffected and keep using `@sisal/*`; only the published npm artifact carries
-`@scope/*`.
-
-## Where this came from
-
-A Node/npm feasibility audit (June 2026) ran the actual codebase against real
-**Node v26.4.0 / npm 11.16.0** in a throwaway git worktree, and built on the
-signal already recorded in [editor-lsp.md](editor-lsp.md) (a plain TypeScript
-language server reports the `@sisal/*` workspace imports as unresolved — "a
-future npm packaging signal"). The audit's finding: **the repo is unusually
-close to dual-runtime already.** The library cores carry zero Deno-runtime
-coupling, all four adapters already _inject_ their driver, and the code reads
-the `Deno` global defensively through `globalThis`. The blockers are
-concentrated in **packaging metadata, module-specifier syntax, one static
-import, and the dev toolchain** — not in the library logic.
-
-Probes run under real Node:
-
-| Probe                                                                    | Result                                                       |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Load + run the pure `@sisal/orm` core (relative `.ts`, type-stripped)    | ✅ module graph instantiates and executes real logic         |
-| `@sisal/pg` → `@sisal/orm` after adding minimal `package.json` `exports` | ✅ `createSchemaSnapshot` + DDL generation run cross-package |
-| Load `pg/orm/pool.ts` (static `jsr:@db/postgres` import)                 | ❌ `ERR_UNSUPPORTED_ESM_URL_SCHEME: protocol 'jsr:'`         |
-| Import bare `@sisal/orm` with no `package.json`                          | ❌ `ERR_MODULE_NOT_FOUND` (pure resolution, not a code bug)  |
-| `import.meta.main`, `node:sqlite` (`DatabaseSync`), `node:test`          | ✅ all present                                               |
-
-Three concrete blockers, none of which touch business logic:
-
-1. **Bare cross-package specifiers** (`@sisal/orm`, `@sisal/migrate`, …) — Deno
-   resolves these from the workspace; Node needs `package.json` `exports`.
-   Proven resolvable by synthesizing minimal manifests in the worktree.
-2. **`jsr:` / `npm:` URL-scheme imports** — Node's loader hard-rejects them.
-   Only **six sites** (B2).
-3. **`.ts` import extensions** on all 271 internal imports — Deno-mandatory, but
-   they must become `.js` in published output, so a build step is required (item
-   3).
-
-The coupling inventory the audit produced:
-
-- **Library source is essentially clean.** The only `Deno.*` in non-test source
-  is `Deno.env` in `cli.ts`, already read via `globalThis.Deno?.env?.get` with a
-  try/catch. The migration filesystem is abstracted behind
-  `MigrationFileSystem`; `denoMigrationFileSystem()` throws cleanly when `Deno`
-  is absent, leaving room for a `node:fs` sibling.
-- **Drivers are injectable.** Every adapter accepts a caller-supplied
-  pool/client/database; only the _default_ import is Deno-specific.
-- **The dev toolchain is the largest surface** — 200 `Deno.test` calls in the
-  unit suites, the custom `Deno.lint` plugin, and five `denoland/setup-deno` CI
-  workflows.
-
-## Sequencing & build tooling (Workstream B)
-
-(Priority/effort/status are in the top tracker; B1–B8 detail sections follow.)
-
-**Sequencing.** B1 → B2 → B4 are the de-risking spine and need no build tooling:
-once manifests resolve `@sisal/*` (B1) and adapters stop importing `jsr:`/`npm:`
-eagerly (B2), the dual-runtime test harness (B4) can turn `node --test` green
-for the whole workspace — proving Node compatibility before any packaging
-exists. B3 (build) then produces installable artifacts, B6 ships them, and
-B5/B7/B8 round out the CLI, contributor tooling, and docs. A suggested milestone
-order: **M1** = B1 + B4 (pure packages dual-run); **M2** = B2 (adapters
-dual-run); **M3** = B3 (installable npm tarballs); **M4** = B5 + B8 (CLI +
-integration + examples on Node); **M5** = B6 + B7 (CI + dual publish + lint
-parity).
-
-**Build-tool decision (open).** B3 can use Deno's official
-[`dnt`](https://github.com/denoland/dnt) (Deno→Node transform — rewrites
-specifiers and `.ts`→`.js`, emits dual ESM/CJS + `.d.ts` + `package.json`, keeps
-Deno as source of truth) or a Node-native build (`tsdown`/`unbuild` +
-`tsc rewriteRelativeImportExtensions`). The roadmap recommends **dnt** for the
-first cut and revisiting only if a fully Node-native build becomes worthwhile.
-
----
-
-## B1. Shared package manifests & workspace resolution — P1
-
-**Problem.** Node cannot resolve the bare `@sisal/*` cross-package specifiers
-(45 `@sisal/orm`, 20 `@sisal/migrate`, plus subpath imports) — Deno resolves
-them from the `deno.json` workspace, but Node needs `package.json` `exports`.
-The worktree audit confirmed this is _pure packaging metadata_: synthesizing
-minimal manifests made `@sisal/pg` → `@sisal/orm` resolve and execute under Node
-with no code change.
-
-**Proposed work.** Add a `package.json` beside each `deno.json` (six library
-packages + a root workspace manifest). Deno keeps reading `deno.json`; Node
-reads `package.json`. Each package manifest declares `"type": "module"`,
-`"engines": { "node": ">=24" }`, an `"exports"` map mirroring the `deno.json`
-subpath exports (`.`, `./core`, `./orm`, `./migrate`, `./ddl`, `./schema`, and
-migrate's `./cli`/`./workflow`) but pointing at built artifacts with
-`import`/`require`/`types` conditions, cross-package deps via the `workspace:*`
-protocol, and the real npm driver deps (B2). The root manifest declares
-`"workspaces"` mirroring the `deno.json` workspace array. Each package's local
-`"name"` stays `@sisal/*` so source imports resolve in the workspace during
-dev/test; the npm **build** (B3) renames the published artifact to `@scope/*` —
-the dev/JSR identity and the npm identity diverge only in published output
-(`@sisal` is unavailable on npm; see _Package naming_). To prevent the two
-manifests drifting, generate `package.json` from `deno.json` via a new
-`deno task` plus a CI freshness check (the same pattern as `docs:matrix:check`).
-
-**Affected.** A new `package.json` per package + root; a generator under
-`tools/`; `.github/workflows` (freshness check); CLAUDE.md commands list.
-
-**Acceptance criteria.**
-
-- Each `deno.json` export has a matching `package.json` `exports` entry; a CI
-  check fails when they diverge.
-- Under Node, importing a package resolves its `@sisal/*` cross-package deps
-  transitively through the local workspace (the published-artifact equivalent,
-  under the `@scope/*` npm names, is covered by B3).
-- `deno test` / `deno check` / `deno publish --dry-run` are unchanged.
-
----
-
-## B2. Driver indirection & the six `jsr:`/`npm:` import sites — P1
-
-**Problem.** Six import sites use Deno-only specifier schemes Node rejects
-(`ERR_UNSUPPORTED_ESM_URL_SCHEME`). Critically, `@sisal/pg` imports its driver
-**statically** (`pg/orm/pool.ts:2`, `pg/migrate/pool.ts:2`), so merely importing
-the adapter fails on Node even though the executor is injectable — unlike
-`@sisal/sqlite`/`@sisal/libsql`/`@sisal/neon`, which import their driver lazily.
-
-**Proposed work.** Centralize each adapter's _default_ driver load behind a lazy
-resolver that branches on `globalThis.Deno`, keeping the existing injection
-seams (a caller-supplied pool/client/database always wins). Per site:
-
-| Site                                                   | Change                                                                                                                                                                                                   |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pg/orm/pool.ts`, `pg/migrate/pool.ts`                 | static `jsr:@db/postgres` → **lazy**; default to `pg` (node-postgres) on Node, wrapped to the existing `PgPool`/`PgClient` shape (`client.query` → `queryObject`, both return `{rows, rowCount}`).       |
-| `sqlite/orm/database.ts`, `sqlite/migrate/database.ts` | `jsr:@db/sqlite` → resolve to the built-in **`node:sqlite`** `DatabaseSync` on Node (no dependency) / `@db/sqlite` on Deno, wrapped to `SqliteLikeDatabase` (`prepare → { all, run: number }`, `close`). |
-| `libsql/client.ts`                                     | drop the `npm:` prefix → `@libsql/client`; declare it a dependency. Works on Node unchanged.                                                                                                             |
-| `neon/client.ts`                                       | already a **bare** `@neon/serverless`; map it to npm **`@neondatabase/serverless`** (identical `Pool`/`Client`/`*Config` API) — no code change beyond the dependency alias.                              |
-| `cli.ts` adapter strings (`jsr:@sisal/<adapter>/…`)    | emit a Node-resolvable bare specifier when running under Node (`@sisal/pg/ddl` in source/dev, remapped to `@scope/pg/ddl` by the npm build, B3); keep `jsr:@sisal/…` under Deno.                         |
-
-**Affected.** `@sisal/pg` (the one behavioral change — lazy default import),
-`@sisal/sqlite`, `@sisal/libsql`, `@sisal/neon`, `packages/migrate/cli.ts`;
-driver deps `pg` (+ `@types/pg`), `@libsql/client`, `@neondatabase/serverless`.
-
-**Acceptance criteria.**
-
-- Importing any adapter under Node succeeds with no driver installed until a
-  real connection is opened (parity with the lazy adapters today).
-- A Node consumer can open a real connection per engine: `pg` for Postgres,
-  `node:sqlite` (or `better-sqlite3`) for SQLite, `@libsql/client` for libSQL,
-  `@neondatabase/serverless` for Neon.
-- The injected-driver path is unchanged on both runtimes; render output is
-  identical.
-
----
-
-## B3. npm build pipeline — dual ESM/CJS + types — P1
-
-**Problem.** All 271 internal imports carry explicit `.ts` extensions (Deno
-requires them), so published JavaScript and `.d.ts` must rewrite `.ts` → `.js`;
-npm consumers via `tsc`/bundlers cannot import `.ts` specifiers. A build step is
-therefore mandatory for npm even though Deno needs none.
-
-**Proposed work.** A per-package build, ordered by the dependency DAG (`orm` →
-`migrate` → adapters), that rewrites specifiers, rewrites `.ts` → `.js`, and
-emits **ESM + CJS + `.d.ts`** into `dist/`, wired to the `package.json`
-`exports` from B1. Recommended: Deno's `dnt`, configured to skip its own test
-pass (B4 runs tests natively) and to omit the `Deno` global shim (runtime code
-already guards `globalThis.Deno`). As part of the build, **remap the source
-`@sisal/*` scope to the npm `@scope/*` scope** — the published package `name`,
-its `@sisal/*` dependencies, and the internal `@sisal/*` import specifiers all
-become `@scope/*` (`@sisal` is unavailable on npm; the JSR/dev identity stays
-`@sisal/*` — see _Package naming_). `dnt` does this rename per package.
-
-**Affected.** A build script per package; root build orchestration in `tools/`;
-`package.json` `exports`/`files`/`dist`.
-
-**Acceptance criteria.**
-
-- `npm pack` of each package contains ESM + CJS entrypoints and `.d.ts` for
-  every subpath export.
-- A clean `npm install` of the packed tarballs, imported from both an ESM and a
-  CJS Node 24 project, type-checks and runs.
-- Build output for the pure packages contains no `jsr:`/`npm:` specifiers and no
-  `.ts` import paths.
-- The published npm output references only `@scope/*` names (no `@sisal/*`
-  remains in the emitted `name`, deps, or import specifiers); JSR/dev output
-  still uses `@sisal/*`.
-
----
-
-## B4. Dual-runtime test harness (`deno test` + `node --test`) — P1
-
-**Problem.** The unit suites are Deno-native: **200** `Deno.test("name", fn)`
-calls and **7** `@std/assert` symbols (`assertEquals`, `assert`, `assertThrows`,
-`assertStringIncludes`, `assertRejects`, `assertInstanceOf`, `assertExists`).
-They run only under Deno today. The surface is uniform, though — all the simple
-name+fn form, no `t.step`, no `permissions`/sanitizer options — which makes a
-single dual-runtime harness viable.
-
-**Proposed work.** One shared `packages/_testing/harness.ts` exporting
-`test(name,
-fn)` (→ `Deno.test` under Deno, `node:test`'s `test()` under Node,
-branching on `globalThis.Deno`) and the seven assertions (re-export
-`@std/assert` under Deno; back them with `node:assert/strict` under Node — each
-a 1–3 line adapter). A codemod replaces `Deno.test(` → `test(` and the
-`@std/assert` import → the harness import across every `*_test.ts` (~200
-mechanical edits, zero logic change). The two project-defined assertions
-(`assertMigrationChecksum`, `assertValidSchemaSnapshot`) are already pure source
-exports and need no change. Apply the same treatment to the env-gated
-`integration/` suites so they run under both runtimes against the same
-databases.
-
-**Affected.** A new `packages/_testing/harness.ts`; every `*_test.ts` in
-`packages/**` and `integration/**`; the `test` task definitions.
-
-**Acceptance criteria.**
-
-- `deno test` (as today) and `node --test 'packages/**/*_test.ts'` run the
-  **same** files and are both green for the unit suites on Node 24.
-- No test body changes semantics; only the `test`/assert imports differ.
-- The env-gated integration suites run under both runtimes against the Docker
-  services.
-
----
-
-## B5. CLI under Node — `node:fs` filesystem + `bin` — P2
-
-**Problem.** The `sisal` CLI reads/writes via the injectable
-`MigrationFileSystem`, but only a `denoMigrationFileSystem()` exists, and the
-executable entry (`if (import.meta.main)`) reads `Deno.args`/`Deno.exit`. There
-is no Node entrypoint.
-
-**Proposed work.** Add a `nodeMigrationFileSystem()` beside the Deno one in
-`workflow.ts`, backed by `node:fs/promises`
-(`readdir`/`readFile`/`writeFile`/`mkdir`) and matching the `NotFound` → `[]` /
-`undefined` semantics. Add a `bin/sisal.mjs` (wired through `package.json#bin`)
-that calls `runSisalCli(process.argv.slice(2))` and `process.exit`; keep the
-existing `import.meta.main` block for Deno. Pick the FS impl and env reader by
-`globalThis.Deno` presence.
-
-**Affected.** `packages/migrate/core/workflow.ts`, `packages/migrate/cli.ts`, a
-`bin/` entry, `@sisal/migrate` `package.json` (`bin`).
-
-**Acceptance criteria.**
-
-- `npx sisal init|generate|migrate|status|drift` works on Node 24 with the same
-  output as `deno task sisal`.
-- The CLI's filesystem behavior (missing dir → empty, idempotent `mkdir`)
-  matches across runtimes, pinned by a test that runs the runner against both FS
-  impls.
-
----
-
-## B6. CI Node matrix + dual JSR/npm publish — P1
-
-**Problem.** All five workflows are `denoland/setup-deno` +
-`deno
-fmt|lint|check|test|publish`. Nothing builds, tests, or publishes for
-Node, and a release targets JSR only.
-
-**Proposed work.** Add a **Node 24** leg (and optionally Node "current") to
-`ci.yml` (`npm ci` → build → `node --test`) and to `integration.yml` (Node legs
-for the env-gated DB suites, reusing the Docker services), keeping every
-existing Deno step. Extend `publish.yml`: after `deno publish` (JSR `@sisal/*`),
-add `npm publish` of the `@scope/*` artifact (B3) per package, behind the same
-version gate (`tools/check_release_version.ts`) so the paired JSR `@sisal/*` and
-npm `@scope/*` packages never diverge in version; use npm provenance/OIDC. Add
-`npm audit` (or osv-scanner over the npm lockfile) alongside the existing
-`deno task audit`.
-
-**Affected.** `.github/workflows/{ci,integration,publish,advisories}.yml`;
-`tools/check_release_version.ts` (assert the paired JSR `@sisal/*` and npm
-`@scope/*` versions match per package).
-
-**Acceptance criteria.**
-
-- CI runs the unit suite under Deno **and** Node 24 on every PR; both must pass.
-- A release publishes the paired packages — `@sisal/*` to JSR and `@scope/*` to
-  npm — at identical versions in one gated run; a version mismatch fails the
-  gate.
-- The advisory job covers both the Deno and npm dependency trees.
-
----
-
-## B7. Lint & format parity for Node-only contributors — P3
-
-**Problem.** Formatting/linting is Deno-only (`deno fmt`, `deno lint`, plus the
-custom `Deno.lint` `no-raw-interpolation` plugin in `tools/lint/`). A Node-only
-contributor has no local formatter, and the custom safety rule has no Node
-equivalent.
-
-**Proposed work.** Keep `deno fmt`/`deno lint` as the **canonical** gate (style
-stays single-source). Add a Biome (or Prettier) config mirroring `deno fmt`
-(lineWidth 80, semicolons) so Node editors don't fight formatting, while CI
-formatting enforcement stays `deno fmt --check`. Optionally reimplement
-`no-raw-interpolation` as a Biome/ESLint rule if Node-only contribution becomes
-common — flagged, not committed.
-
-**Affected.** A mirrored formatter config; CLAUDE.md (document that `deno fmt`
-remains canonical); optionally a ported lint rule.
-
-**Acceptance criteria.**
-
-- A Node-only contributor can auto-format to the same result `deno fmt`
-  produces.
-- CI still enforces formatting via `deno fmt --check` (no double source of
-  truth).
-- If ported, the `no-raw-interpolation` rule fires on the same cases the Deno
-  plugin does, pinned by a test.
-
----
-
-## B8. Node-native examples & "Use from Node" docs — P2
-
-**Problem.** Every example is Deno-shaped (`Deno.test`/`Deno.env`/`Deno.args` +
-`import.meta.main`), and there is no documentation for consuming Sisal from Node
-or choosing a Node driver. The npm story is unproven from a user's seat until at
-least one example runs on Node.
-
-**Proposed work.** Provide at least one **Node-native** example per engine
-(`package.json` + a `node` entry) that installs the published packages and runs,
-demonstrating the driver choices (incl. zero-dependency `node:sqlite`). Add a
-"Use Sisal from Node / npm" docs page (install, ESM vs CJS, per-engine driver
-selection, the Node 24 baseline) and update the homepage `docs/index.html`
-accordingly. Convert the remaining examples opportunistically.
-
-**Affected.** New Node example(s); a new docs page; `docs/index.html`; the
-generated `docs/llms*.txt` (regenerate via `deno task docs:llms`).
-
-**Acceptance criteria.**
-
-- A documented Node example per engine installs the published `@scope/*`
-  packages from the built artifacts and runs end-to-end on Node 24.
-- The docs explain Node consumption and driver selection, including the
-  built-in-`node:sqlite` path.
-- `deno task docs:llms:check` passes after regeneration.
-
----
-
-## Workstream B non-goals
-
-No change to the Deno developer workflow; no toolchain migration off Deno; no
-new runtime features beyond Node 24 LTS reach.
+# npm-release readiness (formerly "Workstream B")
+
+Node.js + npm is **no longer a build workstream in v0.6**. It is on **no roadmap
+gate** — nothing in v0.7–v0.12 (MySQL, `@sisal/core`, ETL, analytics) depends on
+npm; the feature line runs entirely on Deno/JSR. So v0.6 **investigates** it and
+ships **no npm package**.
+
+**The deliverable is a document:** the
+[npm-release readiness report](npm-release-readiness.md). It records, from the
+June 2026 Node feasibility audit, exactly what must change to publish on npm —
+package manifests + `exports`, the six `jsr:`/`npm:` import sites, the
+`.ts`→`.js` build (`dnt`), the dual-runtime test harness, and CI/publish — plus
+the **one blocker that makes this a decide-first item: the npm name.** The
+`@sisal` scope is taken on npm, and publishing under an undecided placeholder
+name is a one-way door — the exact premature-public-commitment foot-gun the
+[sequencing audit](roadmap-sequencing-audit.md) flags.
+
+**Deferral.** The build + dual publish is **deferred to
+[v0.13+](v0.13.0-roadmap.md), on demand**:
+
+- **Trigger:** real Node-user demand **and** a chosen npm name.
+- **Enabler:** the v0.8 `@sisal/core` extraction (the one clean `.ts`→`.js`
+  build boundary).
+- **Keep-the-door-open (cheap, do now):** pick a MySQL driver that works on
+  **Deno _and_ Node** (see C6), and don't regress the runtime-agnostic patterns
+  the audit found (drivers injectable, `Deno` read via `globalThis`).
+
+## v0.6 npm deliverable
+
+The committed [npm-release readiness report](npm-release-readiness.md) — no
+manifests, no build, no npm publish in v0.6.
 
 ---
 
@@ -8035,10 +8293,11 @@ exists:
 ## Scope — investigate & document
 
 - **Driver choice & runtime** — survey MySQL drivers usable from Deno (and Node,
-  per Workstream B): `jsr`/`npm` options, connection/pool API,
-  prepared-statement and parameter-binding model, TLS, and any serverless
-  variants (e.g. PlanetScale-style HTTP). Note the injectable-executor seam
-  every adapter uses.
+  per the [npm-release readiness report](npm-release-readiness.md) — pick one
+  that works on both so npm stays cheap later): `jsr`/`npm` options,
+  connection/pool API, prepared-statement and parameter-binding model, TLS, and
+  any serverless variants (e.g. PlanetScale-style HTTP). Note the
+  injectable-executor seam every adapter uses.
 - **Dialect completeness** — verify/extend the latent `"mysql"` render path:
   identifier quoting (backtick + escaping), `?` placeholders, `LIMIT/OFFSET`,
   `ON DUPLICATE KEY UPDATE` vs `ON CONFLICT` (MySQL upsert differs
@@ -8119,8 +8378,18 @@ tests; no DDL generator implementation. Those are [v0.7](v0.7.0-roadmap.md).
   by the explicit non-goals.
 - **Locking portability** — `pg_advisory_lock` has no SQLite equivalent; a wrong
   abstraction here leaks into v0.10.
-- **(B) `.ts`→`.js` + scope remap** at build is mandatory for npm; getting the
-  dual JSR `@sisal/*` ↔ npm `@scope/*` identity wrong breaks consumers.
+- **Version/variant-blind dialect identity** — `SqlDialect`/`SisalDialectName`
+  are version-less 4-value unions (they even collapse neon→postgres,
+  libsql→sqlite); MySQL-vs-MariaDB and 5.7-vs-8 need a finer key. Decide the
+  `(engine, version)` shape **now**, before v0.7 ships `@sisal/mysql` and v0.8
+  freezes the IR — a late axis breaks the exported `dialectGuard`/IR surface
+  (the snapshot is versioned via `SCHEMA_SNAPSHOT_VERSION` and can migrate; the
+  guard signature can't). See the
+  [sequencing audit](roadmap-sequencing-audit.md).
+- **(npm) deferred, not dropped** — the build + dual publish moves to v0.13+;
+  the only risk is forgetting the cheap door-open constraints (Node-capable
+  driver, runtime-agnostic code), captured in the
+  [npm-release readiness report](npm-release-readiness.md).
 - **(C) MySQL upsert is not Postgres upsert** — `ON DUPLICATE KEY UPDATE`
   differs materially from `ON CONFLICT`; a forced-fit abstraction would leak
   into v0.7 and the ETL load step. And the latent `"mysql"` render path is
@@ -8139,6 +8408,14 @@ tests; no DDL generator implementation. Those are [v0.7](v0.7.0-roadmap.md).
 - **(C)** Does "MySQL" mean MySQL 8+, MariaDB, or both — and how is
   `RETURNING`'s uneven support handled? Should upsert get a MySQL-aware
   `onDuplicateKeyUpdate` surface, or a dialect-mapped `onConflict`?
+- **Dialect identity (decide, don't defer):** is the dialect key
+  `(engine,
+  version)` with MySQL/MariaDB as distinct variants, and is
+  `dialectGuard` generalized to a version-aware capability predicate?
+  Recommendation: **yes** — add a variant/version field to the snapshot dialect
+  now, so v0.7/v0.8 build on it. (Empirically forced: the same `"mysql"` SQL is
+  valid on MariaDB but not MySQL, and on MySQL 8 but not 5.7 — see the
+  sequencing-audit appendix.)
 
 ## Acceptance criteria
 
@@ -8149,8 +8426,13 @@ tests; no DDL generator implementation. Those are [v0.7](v0.7.0-roadmap.md).
   builder / stays raw**, per dialect.
 - Any **minimum** core changes identified as truly prerequisite (not the ETL
   package itself) are itemized with effort, or explicitly deferred to v0.8.
-- **(B)** `npm install @scope/*` runs on Node 24+; unit suite green under both
-  runtimes; dual JSR+npm publish gated to matching versions.
+- **(npm)** a committed [npm-release readiness report](npm-release-readiness.md)
+  (what must change to publish, plus the name blocker); **no** npm package,
+  build, or publish in v0.6.
+- **(dialect identity)** the `(engine, version)` dialect-key decision is
+  recorded (variant/version field on the snapshot dialect; `dialectGuard` →
+  version-aware capability predicate), so v0.7/v0.8 build on it instead of
+  around it.
 - **(C)** A committed **MySQL-readiness report**, a draft capability-matrix
   column, and a chosen driver, with every required item classified
   core-vs-adapter and the upsert/`RETURNING`/type-mapping divergences documented
@@ -8162,9 +8444,9 @@ tests; no DDL generator implementation. Those are [v0.7](v0.7.0-roadmap.md).
 
 `@sisal/orm` (core IR + latent `"mysql"` dialect investigation; possibly minimal
 additive primitives), `@sisal/migrate` (checkpoint/lock + MySQL DDL design
-questions), the four existing adapters (capability matrix + Node driver
-indirection). **`@sisal/mysql` is scoped here but built in
-[v0.7](v0.7.0-roadmap.md)** — no new package is created in v0.6.
+questions), the four existing adapters (capability matrix; driver choice kept
+Node-capable for the deferred npm work). **`@sisal/mysql` is scoped here but
+built in [v0.7](v0.7.0-roadmap.md)** — no new package is created in v0.6.
 
 ## Required examples / tests
 
@@ -8181,7 +8463,6 @@ indirection). **`@sisal/mysql` is scoped here but built in
   convert the example's raw `app.*` functions to the builder where it reaches,
   documenting the exact wall.
 - Render tests pinning any new additive primitive per dialect (if implemented).
-- **(B)** the dual-runtime harness and a Node-native smoke test.
 - **(C)** render tests exercising the latent `"mysql"` dialect (backtick
   quoting, `?` placeholders, `ilike`→`LIKE`) to confirm/correct it before v0.7.
 
@@ -8204,9 +8485,10 @@ implemented in v0.7, not here.
 When an item lands: implement the minimum additive change, pin it with
 per-dialect render tests, update the capability matrix, flip status to 🟢, and
 record under `Unreleased` in [CHANGELOG.md](../CHANGELOG.md). v0.6 is complete
-when the ETL-readiness report, the MySQL-readiness report, and the capability
-matrix exist, the Node/npm workstream ships installable npm packages, and **no
-ETL package or MySQL adapter has been built**.
+when the ETL-readiness report, the MySQL-readiness report, the
+[npm-release readiness report](npm-release-readiness.md), and the capability
+matrix exist, the `(engine, version)` dialect-key decision is recorded, and **no
+ETL package, MySQL adapter, or npm package has been built**.
 ```
 
 ### docs/v0.7.0-roadmap.md
@@ -8431,7 +8713,8 @@ unit tests stay network-free), and the CLI's `sisal init` targets are a single
 
 ## Deliverables
 
-`@sisal/mysql` published (JSR + npm per v0.6 packaging), wired into the
+`@sisal/mysql` published to **JSR** (npm deferred — see the
+[npm-release readiness report](npm-release-readiness.md)), wired into the
 workspace, `check` task, CLI, CI matrix, and the feature matrix.
 
 ## Non-goals
@@ -8454,6 +8737,11 @@ MariaDB parity only if the v0.6 investigation scoped it in.
 ## Open questions
 
 - MySQL 8 only, or MySQL + MariaDB (affects `RETURNING`, sequences, JSON funcs)?
+  **Resolved by the v0.6 dialect-key decision:** the dialect is
+  `(engine,
+  version)` with `mysql` and `mariadb` as distinct variants, so the
+  adapter ships MySQL-8-first while keeping MariaDB / older-MySQL handling
+  **additive**.
 - Is `onDuplicateKeyUpdate` a MySQL-only builder method, or does `onConflict*`
   dialect-map onto it?
 - Does the latent `"mysql"` row-value/keyset path actually work, or need fixes?
@@ -8463,9 +8751,16 @@ MariaDB parity only if the v0.6 investigation scoped it in.
 - `@sisal/mysql` passes the shared OLTP feature suite (CRUD, joins, tx,
   prepared, CTEs, window functions, upsert, migrations) against `mysql:8`, gated
   by `SISAL_MYSQL_IT=1`.
-- The feature matrix gains a **test-backed MySQL column**; divergences are `⚠️`
-  with documented round-trip notes, genuine limits are `❌`.
+- The feature matrix gains **test-backed MySQL (and, where they diverge,
+  MariaDB) columns**; divergences are `⚠️` with documented round-trip notes,
+  genuine limits are `❌`. (MariaDB is a distinct capability profile, not a
+  footnote on one "fifth column" — `RETURNING` alone proves it.)
 - Upsert and `RETURNING` behave correctly or fail/emulate as documented.
+- The published dialect identity carries a **variant/version tag** (`mysql` vs
+  `mariadb`, server version); any capability that differs by variant/version
+  (`RETURNING`, `WITH RECURSIVE`, `JSON_TABLE`) is gated on it and fails
+  **typed**, not as a raw engine error. This is the adapter-level seed of the
+  v0.8 capability descriptor.
 - `@sisal/orm`/core render output for the other four dialects is unchanged.
 
 ## Affected packages
@@ -8576,7 +8871,10 @@ rewritable relational AST**.
 - `@sisal/core` package with a documented public IR/compile-target surface.
 - A statement-assembly seam: decide whether to **expose** a minimal builder-
   assembly API (so ETL/analytics reuse SELECT/CTE assembly) or keep it private
-  and have downstream packages compile fragments directly. (See open questions.)
+  and have downstream packages compile fragments directly. This decides whether
+  ETL/analytics can stay off `@sisal/orm` (the dependency-direction gate), so it
+  must be settled in v0.8, before v0.10/v0.11 consume core. (See open
+  questions.)
 - Golden-SQL snapshot tests per dialect for every IR construct.
 - Migration notes for the `@sisal/orm` → `@sisal/core` import changes.
 
@@ -8601,22 +8899,34 @@ no breaking change to the public ORM builder API beyond import paths.
 - **Compose-only fragment IR, or add an introspectable expression AST?**
   Recommendation: keep the fragment IR as the compile target; add a
   transformable AST **only** if a concrete consumer (DuckDB pushdown,
-  optimization) needs it — defer the decision with a documented extension point.
+  optimization) needs it — but **ship the additive extension point now** (an
+  opaque origin/`meta` slot on `SqlChunk`, or a flag-gated un-lowered capture)
+  so the AST can be added later as a **non-breaking** version bump. v0.13 DuckDB
+  pushdown is the consumer this protects (see its open questions).
 - Expose the statement assembler publicly, or require downstream packages to
   compile fragments + a thin assembly helper?
 - Does `@sisal/migrate` depend on `@sisal/core` only, or still on `@sisal/orm`?
 
 ## Acceptance criteria
 
-- `@sisal/core` exists, is published (JSR + npm per v0.6 packaging), and
+- `@sisal/core` exists, is published to **JSR** (npm deferred — see the
+  [npm-release readiness report](npm-release-readiness.md)), and
   `@sisal/orm`/adapters import from it; the public ORM API is unchanged for
   users.
 - Every IR construct (select/CTE/insert-from-select/aggregate/window where
   supported) has golden per-dialect SQL tests and correct parameter binding.
 - A downstream package can construct and render a grouped insert-from-select +
   filtered aggregate using only `@sisal/core` exports (proven by a fixture).
-- The transformable-AST decision is documented (build / defer / reject) with
-  rationale.
+- The transformable-AST decision is documented (build / defer / reject) **and,
+  if deferred, the additive extension point is shipped and proven** by a fixture
+  that round-trips a fragment through the seam — so v0.13 cannot be blocked by a
+  frozen IR.
+- The capability descriptor's key is **`(engine, version-range)`** — it
+  distinguishes the five adapters (neon ≠ pg, libsql ≠ sqlite) and admits a
+  version predicate, and `dialectGuard` is generalized to a version-aware
+  capability check (e.g. MySQL ≥ 8.0.21 for `RETURNING`, Postgres ≥ 14 for
+  `CYCLE`, SQLite ≥ 3.31). It is the single source the matrix, `dialectGuard`,
+  and ETL/analytics read.
 
 ## Affected packages
 
@@ -8632,10 +8942,12 @@ New `@sisal/core`; `@sisal/orm`, `@sisal/migrate`, `@sisal/pg`, `@sisal/neon`,
 
 ## Dialect compatibility notes
 
-Capability gates become **declarative** (a per-dialect capability descriptor)
-rather than scattered render branches — the single source the v0.9 matrix and
-the `dialectGuard` both read. Window/data-modifying-CTE/insert-from-select
-rendering is Postgres-first with explicit gates for the SQLite family.
+Capability gates become **declarative** (an `(engine, version)` capability
+descriptor — keyed to the five adapters plus a version axis, **not** the 4-value
+render dialect, which collapses neon→postgres and libsql→sqlite) rather than
+scattered render branches. It is the single source the v0.9 matrix and the
+`dialectGuard` both read. Window/data-modifying-CTE/insert-from-select rendering
+is Postgres-first with explicit gates for the SQLite family.
 ```
 
 ### docs/v0.9.0-roadmap.md
@@ -8692,9 +9004,12 @@ an engine can't match Postgres.
 
 ## Specific hardening items (from the audit)
 
-- **Declarative capability descriptors** per dialect (the v0.8 surface): one
-  source of truth the feature matrix, the `dialectGuard`, and ETL/analytics
-  read.
+- **Declarative `(engine, version)` capability descriptor** (the v0.8 surface):
+  one source of truth the feature matrix, the `dialectGuard`, and ETL/analytics
+  read. It must distinguish **neon ≠ pg, libsql ≠ sqlite, and mysql ≠ mariadb ≠
+  by-version** — the 4-value render dialect cannot (it collapses neon→pg,
+  libsql→sqlite), so the matrix's existing 5-adapter key plus a version axis is
+  authoritative.
 - **CTE per-engine execution tests** — CTEs render dialect-agnostically today
   but have **no per-engine integration test**; add them for
   pg/neon/sqlite/libsql.
@@ -8707,6 +9022,11 @@ an engine can't match Postgres.
   (Postgres yes; SQLite "less fully" — pin the exact supported subset).
 - **Advisory-lock equivalence** — formalize the SQLite/libSQL lock strategy the
   ETL runner will use.
+- **Checkpoint-table ownership decision** — `@sisal/etl`-managed vs a
+  `@sisal/migrate`-managed system table. Settle it here (a package-boundary
+  decision the v0.10 runner consumes, not a v0.10 open question); if
+  `@sisal/migrate`-owned, record the resulting `etl → migrate` edge in
+  [architecture](architecture.md).
 
 ## Deliverables
 
@@ -8741,10 +9061,22 @@ no DuckDB.
 
 - Every dialect-divergent behavior relevant to ETL/analytics is a declared
   capability with a backing per-engine test (matrix `✅`/`⚠️`/`❌` all
-  test-backed).
+  test-backed). The descriptor is keyed `(engine, version)` and distinguishes
+  neon/pg and libsql/sqlite.
 - `@sisal/pg` returns `double precision` as a JS `number`.
 - Insert-from-select, upsert-from-select, data-modifying CTEs, filtered
   aggregates, and date buckets each have a per-engine pass/fallback test.
+- **The ETL runner's substrate is real, not just designed:** the portable
+  claim/advisory-lock abstraction (`pg_advisory_lock` / `GET_LOCK` / lock-row)
+  and the checkpoint-table contract each have a per-engine test on every engine
+  where ETL is supported (and a documented gap where it is not), so v0.10 does
+  not ship a runner on an unbuilt lock/checkpoint model. (Promoted from a
+  "hardening item" — it is a v0.10 prerequisite; see the
+  [sequencing audit](roadmap-sequencing-audit.md).)
+- **Checkpoint-table ownership is decided and recorded** (`@sisal/etl`-managed
+  vs a `@sisal/migrate` system table), with any resulting dependency edge
+  reflected in `architecture.md`, so v0.10 consumes a settled boundary — not an
+  open question restated at ship time.
 - The four compatibility docs and the unified matrix reflect the hardened
   reality.
 

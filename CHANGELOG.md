@@ -32,9 +32,33 @@ Sisal-specific history after that baseline through `1f05448`.
   examples from the **documentation-only** future contracts, making explicit
   that `examples/advanced-sql-contracts/` is not runnable and not in the
   workspace.
+- **Roadmap sequencing audit**
+  ([`docs/roadmap-sequencing-audit.md`](docs/roadmap-sequencing-audit.md)) — a
+  gate-level audit of the v0.6→v0.14 plan: re-derives the cross-cutting gates
+  and finds where a gate can be crossed without its real prerequisite (the
+  dialect identity has no version/variant axis; the ETL-runner lock/checkpoint
+  substrate is design-only; the transformable-AST mitigation isn't
+  acceptance-gated), with fixes tied to the v0.9 capability descriptor. Includes
+  an appendix validating the dialect-axis finding against live MySQL 8 / MySQL
+  5.7 / MariaDB.
+- **npm-release readiness report**
+  ([`docs/npm-release-readiness.md`](docs/npm-release-readiness.md)) — the
+  standing spec for what must change to publish Sisal on npm (manifests + the
+  six `jsr:`/`npm:` import sites, the `.ts`→`.js` build, dual-runtime tests,
+  CI), plus the npm-name blocker (`@sisal` is taken on npm). Replaces v0.6's
+  Node/npm build workstream.
 
 ### Changed
 
+- **Roadmap (v0.6 → v0.13):** demoted Node.js/npm from a v0.6 build workstream
+  to the deferred [npm-release readiness report](docs/npm-release-readiness.md)
+  (build + dual publish moved to v0.13+, on demand, gated on a chosen npm name);
+  v0.6 is now two investigation workstreams + that report. Threaded the
+  sequencing-audit fixes through the line: an `(engine, version)` dialect-key
+  decision in v0.6, a variant/version-tagged `@sisal/mysql` in v0.7, an
+  `(engine, version)` capability descriptor + a shipped transformable-AST
+  extension point in v0.8, the ETL lock/checkpoint substrate promoted into v0.9
+  acceptance, and checkpoint-ownership + tested-lock requirements in v0.10.
 - **Docs (examples):** corrected two stale example READMEs.
   `neon-activity-vectors` now calls its `libsql-activity-vectors` counterpart a
   **planned/future** sibling (it does not exist yet) and links the relevant
