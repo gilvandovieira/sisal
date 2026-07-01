@@ -261,3 +261,30 @@ memory + the lowest startup peak of any stack tested.** Recommendation ① (ship
 postgres.js driver) is validated end-to-end. Remaining upstream option ②
 (`TCP_NODELAY` in deno-postgres) would additionally rescue the pure-JSR
 `@db/postgres` path.
+
+---
+
+## Update — shipped in `@sisal/pg` v0.5.1 (2026-07-01)
+
+Recommendation ① shipped: **`@sisal/pg` v0.5.1** carries a built-in postgres.js
+driver, selected via `connect({ url, driver: "postgres-js" })` (postgres.js
+lazily imported — `@db/postgres` stays the pure-JSR default; the release adds
+bigint/date/timestamp decoders so rows are byte-identical across drivers). The
+full 5-stack suite was re-run against the **published** `jsr:@sisal/pg@0.5.1`
+via the official option (not the injected prototype); one run was discarded for
+contention with concurrent Sisal-repo benchmarks, and this is the clean re-run:
+
+| Stack (Deno 2.9.0, v0.5.1)              | warm RSS | startup peak | post-load | `/feed` rps |         p50 | `--watch` +MB/reload |
+| --------------------------------------- | -------: | -----------: | --------: | ----------: | ----------: | -------------------: |
+| npm — Drizzle (postgres.js)             |      136 |        ~1603 |       247 |       5,638 |      2.0 ms |                  +18 |
+| jsr — raw `@db/postgres` (literals)     |      163 |         ~976 |       223 |       2,971 |      3.8 ms |                  +65 |
+| Kysely (`@db/postgres`, parameterized)  |      129 |        ~1550 |       140 |          25 |      505 ms |                  +10 |
+| Sisal → `@db/postgres` (v0.5.1 default) |      169 |         ~951 |       187 |         120 |       91 ms |                  +63 |
+| **Sisal → postgres.js (v0.5.1)**        |      157 |         ~957 |       264 |   **6,655** | **1.65 ms** |                  +64 |
+
+**The released driver reproduces the prototype: 6,655 rps @ 1.65 ms** (prototype
+6,774 @ 1.6 ms) — top of the table, ahead of Drizzle (5,638 @ 2.0 ms), **~55×
+over the default `@db/postgres` path** (120 @ 91 ms). Memory competitive (warm
+157 MB, lowest startup peak ~957 MB). **Recommendation ① is shipped and
+validated on the published package.** Option ② (`TCP_NODELAY` upstream in
+deno-postgres) remains the way to also rescue the default pure-JSR path.
