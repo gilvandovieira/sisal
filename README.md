@@ -20,10 +20,10 @@ adapter-neutral. PostgreSQL, Neon, SQLite, and libSQL/Turso behavior lives in
 adapter packages, where database drivers and runtime-specific dependency edges
 belong.
 
-Every Sisal package is published to JSR. The core packages are pure JSR; adapter
-packages may cross runtime dependency boundaries when the database driver
-requires it. The libSQL/Turso adapter imports `npm:@libsql/client`, and Neon
-uses `@neon/serverless` with its transitive dependency shape.
+Every Sisal package is published to JSR. The core packages stay pure JSR.
+Adapter packages own runtime-specific driver edges: `@sisal/pg` defaults to
+`jsr:@db/postgres` and can opt into `npm:postgres` with `driver: "postgres-js"`;
+libSQL/Turso uses `npm:@libsql/client`; Neon uses `@neon/serverless`.
 
 Sisal is inspired by useful vocabulary from the TypeScript database ecosystem,
 including Drizzle's fluent SQL-builder style, but it is not a compatibility
@@ -34,9 +34,9 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.5.0 \
-  jsr:@sisal/migrate@0.5.0 \
-  jsr:@sisal/pg@0.5.0
+deno add jsr:@sisal/orm@0.5.1 \
+  jsr:@sisal/migrate@0.5.1 \
+  jsr:@sisal/pg@0.5.1
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -44,10 +44,10 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target       | Install                                                                          |
 | ------------ | -------------------------------------------------------------------------------- |
-| PostgreSQL   | `deno add jsr:@sisal/orm@0.5.0 jsr:@sisal/migrate@0.5.0 jsr:@sisal/pg@0.5.0`     |
-| Neon         | `deno add jsr:@sisal/orm@0.5.0 jsr:@sisal/migrate@0.5.0 jsr:@sisal/neon@0.5.0`   |
-| SQLite       | `deno add jsr:@sisal/orm@0.5.0 jsr:@sisal/migrate@0.5.0 jsr:@sisal/sqlite@0.5.0` |
-| libSQL/Turso | `deno add jsr:@sisal/orm@0.5.0 jsr:@sisal/migrate@0.5.0 jsr:@sisal/libsql@0.5.0` |
+| PostgreSQL   | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/pg@0.5.1`     |
+| Neon         | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/neon@0.5.1`   |
+| SQLite       | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/sqlite@0.5.1` |
+| libSQL/Turso | `deno add jsr:@sisal/orm@0.5.1 jsr:@sisal/migrate@0.5.1 jsr:@sisal/libsql@0.5.1` |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -181,7 +181,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.5.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.5.1/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -236,11 +236,14 @@ database plan do not match.
   raw string modes when requested.
 - Typed SQL fragments with safe parameter rendering and explicit trusted escapes
   for identifiers or raw SQL.
-- `select`, `insert`, `update`, and `delete` builders with guarded update/delete
-  execution.
-- Joins, aggregates, ordering helpers, CTEs, set operations, `returning`, and
-  upserts.
-- `sql` expressions in `values`, `set`, and upsert sets.
+- `select`, `insert`, `insert().select()`, `update`, and `delete` builders with
+  guarded update/delete execution.
+- Joins, aggregates, conditional aggregate `filter(...)`, ordering helpers,
+  CTEs, set operations, `returning`, and upserts.
+- Portable date helpers such as `dateTrunc`, `dateAdd`, `dateSub`, `dateBin`,
+  and `now`.
+- `sql` expressions in `values`, `set`, and upsert sets, plus `excluded(column)`
+  for portable upsert set clauses.
 - `db.batch([...])` for atomic non-interactive batches.
 - Keyset pagination with inferred cursor shapes.
 - `relations()` metadata and `db.query.<table>` helpers for schema-aware
@@ -251,6 +254,7 @@ database plan do not match.
 - Migration planning, checksums, rollback, history stores, drift checks, and a
   CLI workflow.
 - Adapter packages for PostgreSQL, Neon, SQLite, and libSQL/Turso.
+- Early MySQL render-path groundwork, without a published MySQL adapter yet.
 - Structured `SisalError`, `OrmError`, and `MigrationError` classes plus small
   logger contracts.
 
@@ -278,7 +282,9 @@ database drivers and runtime-specific dependencies belong.
 ## Adapter Notes
 
 - PostgreSQL uses the PostgreSQL dialect, placeholders, schema support, and DDL
-  helpers through `@sisal/pg`.
+  helpers through `@sisal/pg`. It defaults to `jsr:@db/postgres`; opt into the
+  faster postgres.js path with `connect({ url, driver: "postgres-js" })`, and
+  use `prepare: false` for PgBouncer or pooled endpoints when needed.
 - Neon uses serverless PostgreSQL over `@neon/serverless` through `@sisal/neon`.
 - SQLite runs local SQLite through `jsr:@db/sqlite`; Deno execution needs
   `--allow-ffi`.
@@ -296,6 +302,7 @@ deno task check
 deno task test
 deno task docs:check
 deno task docs:llms:check
+deno task docs:matrix:check
 ```
 
 Integration suites are opt-in because they use real database drivers or
@@ -303,9 +310,16 @@ services:
 
 ```sh
 DATABASE_URL=postgres://... deno test -A integration/pg_features_test.ts
+SISAL_PG_DRIVER=postgres-js DATABASE_URL=postgres://... \
+  deno test -A integration/pg_features_test.ts
+NEON_DATABASE_URL=postgres://... deno test -A integration/neon_features_test.ts
 SISAL_SQLITE_IT=1 deno test --allow-ffi --allow-read --allow-write \
   --allow-env --allow-net integration/sqlite_features_test.ts
 SISAL_LIBSQL_IT=1 deno test -A integration/libsql_features_test.ts
+DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
+  integration/pg_migrate_apply_test.ts
+DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
+  --allow-ffi integration/cross_adapter_parity_test.ts
 ```
 
 The scheduled integration workflow covers PostgreSQL 16/17/18 through Docker,
