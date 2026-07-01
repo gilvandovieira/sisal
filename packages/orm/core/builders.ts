@@ -15,6 +15,7 @@ import {
   type Condition,
   createCondition,
   dialectGuard,
+  dialectSql,
   emptySql,
   fillPreparedPlan,
   getResultMetadata,
@@ -1565,6 +1566,30 @@ function conflictTargetSql(target: unknown, table: TableDefinition): Sql {
   });
 }
 
+// The column a MySQL `onConflictDoNothing` no-op self-assignment uses: the
+// first resolvable conflict-target column, else the first primary-key column,
+// else the first declared column (a table always has at least one).
+function noopAssignmentColumn(
+  targets: readonly unknown[],
+  table: TableDefinition,
+): string {
+  for (const target of targets) {
+    if (isColumn(target)) {
+      return target.name;
+    }
+    if (typeof target === "string") {
+      return Object.hasOwn(table.columns, target)
+        ? physicalColumnName(table, target)
+        : target;
+    }
+    // A raw-Sql expression target cannot become an assignment; keep looking.
+  }
+  const columns = Object.values(table.columns) as Array<
+    { readonly name: string; readonly primaryKey?: boolean }
+  >;
+  return (columns.find((column) => column.primaryKey) ?? columns[0]).name;
+}
+
 function conflictSql(
   conflict: InsertConflict | undefined,
   table: TableDefinition,
@@ -1579,11 +1604,23 @@ function conflictSql(
     raw(", "),
   );
 
+  // MySQL's `ON DUPLICATE KEY UPDATE` fires on ANY unique-key violation: the
+  // conflict target is validated (types + membership, above) but cannot be
+  // rendered. Semantics coincide with Postgres/SQLite exactly when the target
+  // is the table's only unique constraint (the usual upsert grain).
   if (conflict.kind === "nothing") {
-    return targetList === undefined ? raw(" on conflict do nothing") : joinSql(
-      [raw(" on conflict ("), targetList, raw(") do nothing")],
-      emptySql(),
-    );
+    const conflictForm = targetList === undefined
+      ? raw(" on conflict do nothing")
+      : joinSql(
+        [raw(" on conflict ("), targetList, raw(") do nothing")],
+        emptySql(),
+      );
+    // MySQL has no DO NOTHING; the standard idiom is a no-op self-assignment
+    // (`INSERT IGNORE` is not it — it swallows unrelated errors too).
+    const noop = identifier(noopAssignmentColumn(targets, table));
+    return dialectSql("onConflictDoNothing", {
+      mysql: sql` on duplicate key update ${noop} = ${noop}`,
+    }, conflictForm);
   }
 
   const entries = Object.entries(conflict.set)
@@ -1615,7 +1652,16 @@ function conflictSql(
     parts.push(raw(" where "), conflict.where.sql);
   }
 
-  return joinSql(parts, emptySql());
+  const conflictForm = joinSql(parts, emptySql());
+  // The conflict `where` has no MySQL equivalent — rendering one under the
+  // mysql dialect throws a typed ORM_DIALECT_UNSUPPORTED (an empty dialect
+  // chunk with no mysql variant and no fallback).
+  const duplicateKeyForm = conflict.where !== undefined
+    ? dialectSql('onConflictDoUpdate "where" (conflict condition)', {})
+    : sql` on duplicate key update ${setSql}`;
+  return dialectSql("upsert", {
+    mysql: duplicateKeyForm,
+  }, conflictForm);
 }
 
 type InsertConflict =

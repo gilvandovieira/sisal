@@ -14,6 +14,7 @@ import {
   createCondition,
   dialectGuard,
   dialectSql,
+  identifier,
   isColumn,
   isQueryBuilder,
   joinSql,
@@ -278,6 +279,28 @@ export function filter<T>(
 ): SqlExpression<T> {
   assertCondition(condition);
   return sql`${aggregate} filter (where ${condition.sql})` as SqlExpression<T>;
+}
+
+/**
+ * The upsert "proposed row" reference for `onConflictDoUpdate` `set` values,
+ * rendered per dialect: `excluded."col"` on PostgreSQL and the SQLite family,
+ * `values(` `` `col` `` `)` on MySQL — the one spelling every MySQL 5.7→9.x
+ * and MariaDB accept (MySQL's 8.0.19+ row-alias form is a future
+ * version-aware upgrade). Prefer this over a raw `` sql`excluded.col` ``: it
+ * is the only portable spelling, and it maps the JS property key to the
+ * physical column name under a naming strategy (`hotScore` → `hot_score`),
+ * which the raw form silently gets wrong.
+ */
+export function excluded<T = unknown>(column: unknown): SqlExpression<T> {
+  if (!isColumn(column)) {
+    throw new OrmError("excluded() expects a table column", {
+      code: "ORM_INVALID_COLUMN",
+    });
+  }
+  const name = identifier(column.name);
+  return dialectSql("excluded", {
+    mysql: sql`values(${name})`,
+  }, sql`excluded.${name}`) as SqlExpression<T>;
 }
 
 /** Calendar field a {@link dateTrunc} truncates a timestamp down to. */
