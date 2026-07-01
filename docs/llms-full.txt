@@ -1645,8 +1645,10 @@ Sisal-specific history after that baseline through `1f05448`.
   to the `(engine, version)` dialect work) — and it resolves the physical column
   name, fixing the naming-strategy footgun where a raw
   `` sql`excluded.hotScore` `` silently misses the `hot_score` mapping.
-  Postgres/SQLite upsert rendering is unchanged. The activity-vectors example
-  and the ETL rollup render tests now use the helper.
+  Postgres/SQLite upsert rendering is unchanged. The activity-vectors example,
+  the ETL rollup render tests, and the shared integration scenarios (the
+  `upsert` and `ETL rollup` scenario bodies in `integration/_shared/`) now use
+  the helper, so it executes against all four real engines.
 - **ETL rollup verified + pinned across all four adapters (v0.6 A1).** The v0.5
   pieces — `insert().select()`, `filter()` FILTER aggregates, `dateTrunc`,
   `groupBy`, `onConflictDoUpdate` — are proven to compose into the canonical

@@ -21,6 +21,7 @@ import {
   defineTable,
   desc,
   eq,
+  excluded,
   exists,
   filter,
   gt,
@@ -672,6 +673,23 @@ export function sqliteFamilyScenarios(): IntegrationScenario[] {
         ]
           .name,
         "Acme v2",
+      );
+
+      // The typed excluded() proposed-row reference (C2): the update takes the
+      // conflicting INSERT's value. The same builder renders MySQL
+      // `values(col)` under the future mysql target.
+      await db.insert(orgs).values({ id: 1, name: "Acme v3" })
+        .onConflictDoUpdate({
+          target: orgs.columns.id,
+          set: { name: excluded(orgs.columns.name) },
+        })
+        .execute();
+      assertEquals(
+        (await db.select().from(orgs).where(eq(orgs.columns.id, 1)).execute())[
+          0
+        ]
+          .name,
+        "Acme v3",
       );
     },
   );
@@ -1329,10 +1347,10 @@ export function sqliteFamilyScenarios(): IntegrationScenario[] {
         ).onConflictDoUpdate({
           target: [hourly.columns.post_id, hourly.columns.bucket],
           set: {
-            views: sql`excluded.views`,
-            votes: sql`excluded.votes`,
-            comments: sql`excluded.comments`,
-            engagement: sql`excluded.engagement`,
+            views: excluded(hourly.columns.views),
+            votes: excluded(hourly.columns.votes),
+            comments: excluded(hourly.columns.comments),
+            engagement: excluded(hourly.columns.engagement),
           },
         }).returning({ post_id: hourly.columns.post_id });
 
@@ -1389,7 +1407,7 @@ export function sqliteFamilyScenarios(): IntegrationScenario[] {
           }).from(ev),
         ).onConflictDoUpdate({
           target: [hourly.columns.post_id, hourly.columns.bucket],
-          set: { views: sql`excluded.views` },
+          set: { views: excluded(hourly.columns.views) },
         }).execute()
       );
     },
