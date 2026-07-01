@@ -41,14 +41,17 @@ export async function getSimilarPosts(
     .from(posts).execute();
   const titleOf = new Map(titles.map((t) => [t.id, t.title]));
 
-  const source = stats.find((s) => s.post_id === postId);
+  // `post_id` is a `bigint` column: `@sisal/pg` decodes it to `BigInt`,
+  // `@sisal/neon` to a `string`. Compare as strings so the id lookup works on
+  // every driver (see the cross-adapter `bigint` divergence).
+  const source = stats.find((s) => String(s.post_id) === postId);
   if (source === undefined) {
     throw new Error(`getSimilarPosts: no stats for post ${postId}`);
   }
   const sourceVector = statsToVector(source);
 
   return stats
-    .filter((s) => s.post_id !== postId)
+    .filter((s) => String(s.post_id) !== postId)
     .map((s) => ({
       id: s.post_id,
       title: titleOf.get(s.post_id) ?? "?",

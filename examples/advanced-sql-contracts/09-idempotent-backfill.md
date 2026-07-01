@@ -10,8 +10,8 @@ runner that resumes from the last committed window). v0.6 **designs** this; it
 does not ship a runner.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (its rollups +
-event pruning are the load step a checkpoint protects) and
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (its
+rollups + event pruning are the load step a checkpoint protects) and
 [01-etl-rollup](01-etl-rollup.md) (the rollup this watermarks).
 
 ## Product use case

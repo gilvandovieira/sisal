@@ -11,8 +11,8 @@ dialect-specific contract** — every engine spells JSON-to-rows differently, so
 there is no single portable shape.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (it already
-round-trips `json`/`jsonb` columns and documents the SQLite-family TEXT
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (it
+already round-trips `json`/`jsonb` columns and documents the SQLite-family TEXT
 serialization divergence) and the `showcase-*` examples.
 
 ## Product use case

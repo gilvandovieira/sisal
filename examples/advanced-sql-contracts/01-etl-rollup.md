@@ -10,8 +10,8 @@ for the runner. This is the **most-built** contract in the directory: v0.5
 shipped almost every piece; what remains is _verification_, not new primitives.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (the runnable PoC:
-`post_events` → hourly buckets → stats → rollups + pruning),
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (the
+runnable PoC: `post_events` → hourly buckets → stats → rollups + pruning),
 [`postgres-family-feed`](../postgres-family-feed/README.md) (builder-native
 `UPDATE … FROM` over chained CTEs), and the `*-rising-feed` siblings that
 already bucket activity.

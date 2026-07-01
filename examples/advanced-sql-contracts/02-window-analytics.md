@@ -11,8 +11,8 @@ today** — this is the single biggest analytics gap, recorded by
 [v0.6 A6](../../docs/v0.6.0-roadmap.md) as the PoC's hard wall.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (its `vote_ma_6h`
-/ `comment_ma_6h` moving averages are raw
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (its
+`vote_ma_6h` / `comment_ma_6h` moving averages are raw
 `avg(…) OVER (… ROWS BETWEEN 5 PRECEDING AND CURRENT ROW)` — exactly the wall
 this contract names), and the `*-rising-feed` examples whose moving-window score
 is hand-written in SQL/TS.

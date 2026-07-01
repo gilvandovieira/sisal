@@ -13,7 +13,7 @@ shares the wall in [02-window-analytics](02-window-analytics.md).
 **Related runnable examples:**
 [`postgres-family-feed`](../postgres-family-feed/README.md) (ranked feeds — "top
 posts" is "top-1 per ranking window"),
-[`neon-activity-vectors`](../neon-activity-vectors/README.md).
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md).
 
 ## Product use case
 

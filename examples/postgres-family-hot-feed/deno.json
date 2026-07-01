@@ -1,6 +1,6 @@
 {
-  "name": "@sisal/example-neon-activity-vectors",
-  "version": "0.5.0",
+  "name": "@sisal/example-postgres-family-hot-feed",
+  "version": "0.5.1",
   "exports": "./mod.ts",
   "publish": false,
   "imports": {
@@ -11,7 +11,6 @@
     "migrate": "deno run --env-file=.env --allow-env --allow-net --allow-read src/migrate.ts",
     "reset": "deno run --env-file=.env --allow-env --allow-net --allow-read src/migrate.ts --reset",
     "seed": "deno run --env-file=.env --allow-env --allow-net --allow-read src/seed.ts",
-    "generate": "deno run --env-file=.env --allow-env --allow-net --allow-read src/features.ts",
     "demo": "deno run --env-file=.env --allow-env --allow-net --allow-read src/main.ts",
     "test": "deno test --allow-read"
   }

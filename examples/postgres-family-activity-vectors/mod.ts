@@ -1,17 +1,18 @@
 /**
- * Neon activity-vectors example for Sisal.
+ * PostgreSQL-**family** activity-vectors example for Sisal.
  *
- * Proves Sisal can drive an advanced **SQL analytics** pipeline on Neon/Postgres
- * — raw events → hourly buckets → window-function moving averages →
- * consolidated stats → an ordered `double precision[]` **activity vector** →
- * similarity, plus daily/monthly **rollups** and event **pruning**. This is
- * deterministic SQL feature vectorization (set-based batch computation), NOT
- * pgvector / AI embeddings. Same line of thought as the `neon-*-feed` examples.
+ * Proves Sisal can drive an advanced **SQL analytics** pipeline on the
+ * PostgreSQL family — raw events → hourly buckets → window-function moving
+ * averages → consolidated stats → an ordered `double precision[]` **activity
+ * vector** → similarity, plus daily/monthly **rollups** and event **pruning**.
+ * This is deterministic SQL feature vectorization (set-based batch computation),
+ * NOT pgvector / AI embeddings. Runs over any PostgreSQL-family driver via
+ * `SISAL_ADAPTER` (`pg` default | `pg-postgres-js` | `neon`); see `src/db.ts`.
  *
  * Run the demo:
  *
- *   deno run --env-file=.env --allow-env --allow-net --allow-read \
- *     examples/neon-activity-vectors/mod.ts
+ *   SISAL_ADAPTER=pg deno run --env-file=.env --allow-env --allow-net \
+ *     --allow-read examples/postgres-family-activity-vectors/mod.ts
  *
  * See README.md for the full chain, the feature-vectors-vs-embeddings
  * distinction, the vector dimensions, and the Sisal API pressure points it

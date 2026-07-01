@@ -11,8 +11,8 @@ over it). It is **ETL + analytics**: ETL materializes the cohort grid, analytics
 reads it.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (daily/monthly
-rollups + retention framing already live here) and
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md)
+(daily/monthly rollups + retention framing already live here) and
 [`postgres-family-feed`](../postgres-family-feed/README.md) (chained CTEs).
 
 ## Product use case

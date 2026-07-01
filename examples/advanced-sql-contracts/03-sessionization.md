@@ -10,9 +10,9 @@ readiness) → [v0.11 `@sisal/analytics`](../../docs/v0.11.0-roadmap.md). This i
 trick, so it is blocked on the same missing `over()` surface.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (raw `post_events`
-with `occurred_at` — the same event stream a session is cut from) and the
-`*-rising-feed` examples.
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (raw
+`post_events` with `occurred_at` — the same event stream a session is cut from)
+and the `*-rising-feed` examples.
 
 ## Product use case
 

@@ -10,11 +10,12 @@ exactly this so two runs don't process the same window twice). **Partly built
 already:** the `SELECT … FOR UPDATE SKIP LOCKED` builder _exists_ — the gap is
 the **SQLite/libSQL alternative strategy** and a **portable lock abstraction**.
 
-**Related runnable examples:** [`neon-hot-feed`](../neon-hot-feed/README.md)
-(its atomic vote + "four ways to make a multi-step change atomic" table is the
-same concurrency discipline) and
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (the rollup chain
-a worker would drive).
+**Related runnable examples:**
+[`neon-hot-feed`](../postgres-family-hot-feed/README.md) (its atomic vote +
+"four ways to make a multi-step change atomic" table is the same concurrency
+discipline) and
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (the
+rollup chain a worker would drive).
 
 ## Product use case
 

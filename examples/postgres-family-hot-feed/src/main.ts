@@ -147,7 +147,7 @@ async function main(): Promise<void> {
         `(expected 0).`,
     );
 
-    console.log("\n✓ Neon hot-feed demo complete.");
+    console.log("\n✓ PostgreSQL-family hot-feed demo complete.");
   } finally {
     await db.close();
   }

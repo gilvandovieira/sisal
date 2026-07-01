@@ -11,8 +11,9 @@ ordering** and the **period-over-period comparison** are the analytics
 primitives that push it to v0.7/v0.11.
 
 **Related runnable examples:**
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (the `post_events`
-stream a funnel is computed from) and the `*-rising-feed` examples.
+[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) (the
+`post_events` stream a funnel is computed from) and the `*-rising-feed`
+examples.
 
 ## Product use case
 

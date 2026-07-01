@@ -9,11 +9,11 @@ that makes a generated-column/expression-index expression first-class) and
 where the DDL divergences land). This is a **schema/DDL contract** — it extends
 the snapshot → DDL pipeline; do **not** implement it as part of this scaffold.
 
-**Related runnable examples:** [`neon-hot-feed`](../neon-hot-feed/README.md)
-(stores + indexes a computed `hot_score`; its README already flags richer-DDL as
-a pressure point) and
-[`neon-activity-vectors`](../neon-activity-vectors/README.md) (named, indexable
-feature columns).
+**Related runnable examples:**
+[`neon-hot-feed`](../postgres-family-hot-feed/README.md) (stores + indexes a
+computed `hot_score`; its README already flags richer-DDL as a pressure point)
+and [`neon-activity-vectors`](../postgres-family-activity-vectors/README.md)
+(named, indexable feature columns).
 
 ## Product use case
 

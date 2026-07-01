@@ -94,6 +94,23 @@ Sisal-specific history after that baseline through `1f05448`.
   `db.transaction` wraps a callback-thrown error in an `OrmError`, so the
   `Rollback` sentinel is now found by walking the cause chain (the live path was
   never runnable before).
+- **Examples: the last two neon examples join the dialect-family taxonomy.**
+  `neon-hot-feed` becomes
+  [`postgres-family-hot-feed`](examples/postgres-family-hot-feed/) and
+  `neon-activity-vectors` becomes
+  [`postgres-family-activity-vectors`](examples/postgres-family-activity-vectors/),
+  each now runnable over `@sisal/pg` (`@db/postgres` or postgres.js) or
+  `@sisal/neon` via `SISAL_ADAPTER` (previously neon-only). The Neon serverless
+  single-statement shape still holds under `SISAL_ADAPTER=neon`. The
+  activity-vectors move also fixed a real `bigint` portability bug it surfaced:
+  `getSimilarPosts` matched a source post by its `bigint` `post_id` with strict
+  `===` against a string id, which quietly works on `@sisal/neon` (bigint →
+  `string`) but throws `no stats for post` on `@sisal/pg` (bigint → `BigInt`) —
+  now compared via `String(post_id)`. See the `bigint` cross-adapter caveat in
+  the [v0.6.0 roadmap](docs/v0.6.0-roadmap.md). **Every `examples/` runnable is
+  now dialect-family-organized** (postgres-family:
+  basic/showcase/feed/hot-feed/activity-vectors; sqlite-family:
+  basic/showcase/feed).
 - **Roadmap (v0.6 → v0.13):** demoted Node.js/npm from a v0.6 build workstream
   to the deferred [npm-release readiness report](docs/npm-release-readiness.md)
   (build + dual publish moved to v0.13+, on demand, gated on a chosen npm name);

@@ -306,13 +306,7 @@
           "npm:drizzle-orm@0.45.2"
         ]
       },
-      "examples/neon-activity-vectors": {
-        "dependencies": [
-          "jsr:@neon/serverless@1",
-          "jsr:@std/assert@1"
-        ]
-      },
-      "examples/neon-hot-feed": {
+      "examples/postgres-family-activity-vectors": {
         "dependencies": [
           "jsr:@neon/serverless@1",
           "jsr:@std/assert@1"
@@ -320,6 +314,12 @@
       },
       "examples/postgres-family-feed": {
         "dependencies": [
+          "jsr:@std/assert@1"
+        ]
+      },
+      "examples/postgres-family-hot-feed": {
+        "dependencies": [
+          "jsr:@neon/serverless@1",
           "jsr:@std/assert@1"
         ]
       },
