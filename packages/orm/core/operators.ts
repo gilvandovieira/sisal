@@ -146,9 +146,9 @@ export function notExists(subquery: SubquerySource): Condition {
 }
 
 // The Postgres array operators render literally (`@>`/`<@`/`&&`); a dialect
-// guard makes rendering throw a typed `OrmError` on SQLite-family engines (which
-// have no array operators) instead of emitting SQL they reject.
-const ARRAY_OP_UNSUPPORTED: readonly SqlDialect[] = ["sqlite"];
+// guard makes rendering throw a typed `OrmError` on the SQLite family and
+// MySQL (no array type/operators) instead of emitting SQL they reject.
+const ARRAY_OP_UNSUPPORTED: readonly SqlDialect[] = ["sqlite", "mysql"];
 
 function arrayCondition(
   column: unknown,
@@ -271,14 +271,22 @@ export function max<T = unknown>(column: unknown): SqlExpression<T | null> {
  * `filter(sum(score), gte(bucket, cutoff))` renders
  * `sum("score") filter (where "bucket" >= $1)`. Supported natively by
  * PostgreSQL and by modern SQLite/libSQL, so it renders identically on every
- * Sisal adapter.
+ * shipped Sisal adapter. Neither MySQL nor MariaDB has `FILTER`, so rendering
+ * for the (adapterless) `mysql` dialect throws a typed
+ * `ORM_DIALECT_UNSUPPORTED` until the `CASE WHEN` fallback rendering lands
+ * with the v0.7 adapter.
  */
 export function filter<T>(
   aggregate: SqlExpression<T>,
   condition: Condition,
 ): SqlExpression<T> {
   assertCondition(condition);
-  return sql`${aggregate} filter (where ${condition.sql})` as SqlExpression<T>;
+  const native = sql`${aggregate} filter (where ${condition.sql})`;
+  return dialectSql("filter (conditional aggregate)", {
+    postgres: native,
+    sqlite: native,
+    generic: native,
+  }) as SqlExpression<T>;
 }
 
 /**

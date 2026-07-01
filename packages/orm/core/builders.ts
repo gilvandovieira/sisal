@@ -666,6 +666,7 @@ export function cteBodySql(query: CteOperand<unknown>): Sql {
     return sql`${
       dialectGuard("a data-modifying CTE (INSERT/UPDATE/DELETE in WITH)", [
         "sqlite",
+        "mysql",
       ])
     }${query.toSql()}`;
   }
@@ -980,7 +981,7 @@ export class SisalSelectBuilder<TTable, TResult>
     }
     if (distinctOn !== undefined && distinctOn.length > 0) {
       parts.push(
-        dialectGuard("distinctOn", ["sqlite"]),
+        dialectGuard("distinctOn", ["sqlite", "mysql"]),
         raw("select distinct on ("),
         joinSql([...distinctOn], raw(", ")),
         raw(") "),
@@ -1000,6 +1001,11 @@ export class SisalSelectBuilder<TTable, TResult>
     for (const join of joins) {
       assertTable(join.table);
       assertCondition(join.on);
+      // Neither MySQL nor MariaDB has FULL OUTER JOIN (C5 probe) — guard it
+      // instead of rendering SQL both engines reject. Right joins are fine.
+      if (join.kind === "full") {
+        parts.push(dialectGuard("FULL JOIN", ["mysql"]));
+      }
       parts.push(
         // join.kind is a fixed SelectJoinKind enum, never user input.
         // deno-lint-ignore sisal/no-raw-interpolation
@@ -1491,6 +1497,14 @@ function tableResultMetadata(table: TableDefinition): ResultRowMetadata {
   return metadata;
 }
 
+// MySQL has no RETURNING on any mutation; MariaDB's is per-statement AND
+// per-version (DELETE 10.0.5+, INSERT/REPLACE 10.5+, UPDATE only 13.0+), so
+// even emitting it for MariaDB needs the (engine, version) dialect key. Until
+// then the version-less "mysql" dialect throws a typed error instead of
+// rendering SQL the engine rejects; a fetch-by-key fallback is an
+// adapter/executor concern (a second round trip, not a render rewrite).
+const RETURNING_GUARD = "INSERT/UPDATE/DELETE … RETURNING";
+
 function returningSql(
   returning: SelectProjection | boolean,
   table: TableDefinition,
@@ -1498,10 +1512,17 @@ function returningSql(
   if (returning === false) {
     return undefined;
   }
+  const guard = dialectGuard(RETURNING_GUARD, ["mysql"]);
   if (returning === true) {
-    return joinSql([raw(" returning "), tableSelectionSql(table)], emptySql());
+    return joinSql(
+      [guard, raw(" returning "), tableSelectionSql(table)],
+      emptySql(),
+    );
   }
-  return joinSql([raw(" returning "), projectionSql(returning)], emptySql());
+  return joinSql(
+    [guard, raw(" returning "), projectionSql(returning)],
+    emptySql(),
+  );
 }
 
 function returningResultMetadata(
@@ -1981,9 +2002,12 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
       setSql,
     );
 
-    // `UPDATE … FROM <source>` precedes the WHERE so the predicate can join it.
+    // `UPDATE … FROM <source>` precedes the WHERE so the predicate can join
+    // it. MySQL's equivalent is the multi-table `UPDATE t, s SET …` — a
+    // different statement shape, so the mysql dialect guards instead of
+    // rendering Postgres/SQLite syntax it rejects (mapping it is v0.7 work).
     if (from !== undefined) {
-      parts.push(raw(" from "), from);
+      parts.push(dialectGuard("UPDATE … FROM", ["mysql"]), raw(" from "), from);
     }
 
     if (condition === undefined) {
@@ -2049,7 +2073,9 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
     // `DELETE … USING` is PostgreSQL-only; the SQLite family has no USING clause
     // on DELETE, so rendering for it throws a typed guard.
     return this.#with({
-      using: sql`${dialectGuard("DELETE … USING", ["sqlite"])}${
+      // MySQL's multi-table DELETE … USING requires the target repeated in
+      // the USING list — a different shape, guarded until v0.7 maps it.
+      using: sql`${dialectGuard("DELETE … USING", ["sqlite", "mysql"])}${
         mutationRelationSql(source)
       }`,
     });

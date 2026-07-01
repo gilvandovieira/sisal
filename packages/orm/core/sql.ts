@@ -561,7 +561,7 @@ function renderSqlInto(query: Sql, state: RenderState): void {
       if (chunk.unsupported.includes(state.dialect)) {
         throw new OrmError(
           `${chunk.construct} is not supported by the "${state.dialect}" ` +
-            `dialect; it is PostgreSQL-only`,
+            `dialect`,
           {
             code: "ORM_DIALECT_UNSUPPORTED",
             details: { construct: chunk.construct, dialect: state.dialect },
@@ -619,8 +619,10 @@ export function operatorSql(name: string): Sql {
 /**
  * A zero-width SQL marker that makes rendering throw an `OrmError` when the
  * query is rendered for any dialect in `unsupported`. Used to fail fast on
- * PostgreSQL-only constructs (`distinctOn`, row locking, array operators) with a
- * clear, typed error before they reach a SQLite-family engine as invalid SQL.
+ * constructs a dialect cannot express (`distinctOn`, row locking, array
+ * operators on the SQLite family; those plus `RETURNING`, `UPDATE … FROM`,
+ * and data-modifying CTEs on MySQL) with a clear, typed error before they
+ * reach the engine as invalid SQL.
  */
 export function dialectGuard(
   construct: string,
