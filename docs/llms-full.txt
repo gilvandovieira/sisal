@@ -1693,6 +1693,12 @@ Sisal-specific history after that baseline through `1f05448`.
   `LibsqlDatabase`), so only the connection differs — the app code is identical.
   A future `mysql-family` (MySQL/MariaDB) slots in the same way. Root
   `deno.json` workspace/`check` and `examples/README.md` updated accordingly.
+- **Examples: consolidated the three basics into the dialect-family taxonomy.**
+  The three basics (`basic-postgres` + `basic-sqlite` + `basic-libsql`) become
+  two — [`postgres-family-basic`](examples/postgres-family-basic/) (schema DDL +
+  connect/CRUD over `@sisal/pg` on `@db/postgres`/postgres.js, or `@sisal/neon`)
+  and [`sqlite-family-basic`](examples/sqlite-family-basic/) (over embedded
+  `@sisal/sqlite` or `@sisal/libsql`), each driver-selected by `SISAL_ADAPTER`.
 - **Roadmap (v0.6 → v0.13):** demoted Node.js/npm from a v0.6 build workstream
   to the deferred [npm-release readiness report](docs/npm-release-readiness.md)
   (build + dual publish moved to v0.13+, on demand, gated on a chosen npm name);
@@ -6655,11 +6661,12 @@ title: v0.4.0 Roadmap
 # Sisal v0.4.0 roadmap
 
 This document captures the API gaps surfaced while building the
-[`examples/neon-hot-feed`](../examples/neon-hot-feed/README.md) example — a
-Reddit-style hot feed on Neon/PostgreSQL that must stay Deno Deploy / Neon-HTTP
-friendly. Each gap forced the example into a raw-SQL escape hatch. None of them
-are bugs; they are missing conveniences that, if added, would let real
-applications stay inside Sisal's typed surface instead of dropping to strings.
+[`examples/neon-hot-feed`](../examples/postgres-family-hot-feed/README.md)
+example — a Reddit-style hot feed on Neon/PostgreSQL that must stay Deno Deploy
+/ Neon-HTTP friendly. Each gap forced the example into a raw-SQL escape hatch.
+None of them are bugs; they are missing conveniences that, if added, would let
+real applications stay inside Sisal's typed surface instead of dropping to
+strings.
 
 Treat this as the working backlog for the `0.4.0` cycle. Every item lists the
 concrete workaround the example uses today (with file references), a proposed
@@ -7093,7 +7100,7 @@ way to express "run these N statements as one atomic, non-interactive
 transaction in a single round trip."
 
 **Where it surfaced.** The README's
-[Important Neon note](../examples/neon-hot-feed/README.md#important-neon-note)
+[Important Neon note](../examples/postgres-family-hot-feed/README.md#important-neon-note)
 contrasts interactive transactions, non-interactive transactions,
 single-statement mutations, and database functions. The example reaches for a
 database function precisely because the middle option does not exist in Sisal.
@@ -8099,6 +8106,20 @@ the "preserve precision" intent noted in `@sisal/pg`'s executor, and what neon
 already does). Until decided, `bigint` is the one documented cross-adapter
 portability caveat.
 
+**Pain point (hit first-hand, 2026-07-01).** This divergence is not theoretical.
+Making `postgres-family-activity-vectors` run over the whole family surfaced a
+silent portability bug from exactly it: `getSimilarPosts` matched a source post
+by its `bigint` `post_id` with a strict `s.post_id === postId` against a string
+id. That quietly works on `@sisal/neon` (bigint → string) and throws
+`no stats for post 2` on `@sisal/pg` (bigint → `BigInt`, so `2n === "2"` is
+`false`). It type-checks, passes on the adapter it was written against, and
+breaks on the sibling **with no warning** — the worst failure mode. Worked
+around in the example by comparing `String(post_id)`, but that is a footgun
+every consumer must remember, and concrete motivation to pick one representation
+and align it. The
+[cross-adapter parity test](../integration/cross_adapter_parity_test.ts) pins
+the divergence so it can't regress silently once decided.
+
 ## Status legend
 
 | Symbol | Meaning                                |
@@ -8281,7 +8302,7 @@ these become typed builders in v0.8.
 
 ## Findings — the `neon-activity-vectors` PoC (built first-hand)
 
-[`examples/neon-activity-vectors`](../examples/neon-activity-vectors/README.md)
+[`examples/neon-activity-vectors`](../examples/postgres-family-activity-vectors/README.md)
 is a **runnable** realization of this PoC on Neon/Postgres, verified against
 real Postgres. It runs the full chain — raw `post_events` → hourly buckets (a
 `fold` insert-from-select) → consolidated stats with **moving averages** → an
@@ -8341,8 +8362,8 @@ recorded here and handed to [v0.7](v0.7.0-roadmap.md)/[v0.8](v0.8.0-roadmap.md).
   Convert the example's raw `fold`/rollups to the builder and add per-dialect
   render tests — this is verification, not new design.
 - **A5 — Runnable PoC + siblings.**
-  [`neon-activity-vectors`](../examples/neon-activity-vectors/README.md) is
-  done; the `postgres`/`libsql` siblings are pending (separate example per
+  [`neon-activity-vectors`](../examples/postgres-family-activity-vectors/README.md)
+  is done; the `postgres`/`libsql` siblings are pending (separate example per
   dialect). The sibling/follow-up example ideas are preserved as product-shaped
   contracts in
   [`examples/advanced-sql-contracts/`](../examples/advanced-sql-contracts/README.md)
@@ -8594,7 +8615,7 @@ built in [v0.7](v0.7.0-roadmap.md)** — no new package is created in v0.6.
 ## Required examples / tests
 
 - **Runnable PoC (done):**
-  [`examples/neon-activity-vectors`](../examples/neon-activity-vectors/README.md)
+  [`examples/neon-activity-vectors`](../examples/postgres-family-activity-vectors/README.md)
   — the `post_events → buckets → stats → vector` chain on Neon/Postgres, with a
   gated `feature_db_test.ts` (`SISAL_NEON_ACTIVITY_VECTORS_IT=1`) verified
   against real Postgres. Postgres + SQLite/libSQL siblings are planned (separate

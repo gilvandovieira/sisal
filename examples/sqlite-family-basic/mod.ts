@@ -1,0 +1,80 @@
+/**
+ * Basic SQLite-**family** example for Sisal.
+ *
+ * Generates the schema DDL, then connects over the selected SQLite-family driver
+ * and runs a tiny CRUD (create table, insert, count). The dialect + builder are
+ * shared and `SqliteDatabase` ≡ `LibsqlDatabase`, so the same code runs over
+ * both; pick one with `SISAL_ADAPTER`:
+ *
+ * - `"sqlite"` (default) — embedded `@sisal/sqlite` over `@db/sqlite`; an
+ *   in-memory database by default (set `SISAL_SQLITE_PATH` for a file).
+ * - `"libsql"` — `@sisal/libsql`; a local `file:` by default (set
+ *   `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` for Turso).
+ *
+ * ```sh
+ * deno run -A examples/sqlite-family-basic/mod.ts                  # embedded sqlite
+ * SISAL_ADAPTER=libsql deno run -A examples/sqlite-family-basic/mod.ts
+ * ```
+ *
+ * @module
+ */
+
+import { columns, createSchemaSnapshot, defineTable, sql } from "@sisal/orm";
+import { connect as connectSqlite, type SqliteDatabase } from "@sisal/sqlite";
+import { connect as connectLibsql } from "@sisal/libsql";
+import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
+
+const notes = defineTable("notes", {
+  id: columns.text().primaryKey(),
+  title: columns.text().notNull(),
+  archived: columns.boolean().default(false),
+});
+
+const snapshot = createSchemaSnapshot({ dialect: "sqlite", tables: [notes] });
+const { statements } = generateSqliteUpStatements(snapshot);
+console.log(statements.join("\n\n"));
+
+const adapter = getAdapter();
+const db = await openDb(adapter);
+try {
+  for (const statement of statements) await db.execute(statement);
+  await db.insert(notes).values({
+    id: crypto.randomUUID(),
+    title: "SQLite-family note",
+  }).execute();
+  const result = await db.query<{ count: number }>(
+    sql`select count(*) as count from notes`,
+  );
+  console.log(`\nnotes: ${Number(result.rows[0].count)} (via ${adapter})`);
+} finally {
+  await db.close();
+}
+
+/** Which SQLite-family driver to connect with, from `SISAL_ADAPTER`. */
+function getAdapter(): "sqlite" | "libsql" {
+  const raw = (readEnv("SISAL_ADAPTER") ?? "sqlite").trim();
+  if (raw === "sqlite" || raw === "libsql") return raw;
+  throw new Error(`Unknown SISAL_ADAPTER "${raw}"; use "sqlite" or "libsql".`);
+}
+
+function openDb(adapter: "sqlite" | "libsql"): Promise<SqliteDatabase> {
+  if (adapter === "libsql") {
+    const url = readEnv("TURSO_DATABASE_URL") ??
+      readEnv("SISAL_LIBSQL_URL") ?? "file:./sisal-basic.db";
+    const authToken = readEnv("TURSO_AUTH_TOKEN");
+    // `LibsqlDatabase` is structurally identical to `SqliteDatabase`.
+    return connectLibsql(
+      authToken === undefined ? { url } : { url, authToken },
+    );
+  }
+  return connectSqlite({ path: readEnv("SISAL_SQLITE_PATH") ?? ":memory:" });
+}
+
+/** Reads an environment variable, tolerating a missing `--allow-env`. */
+function readEnv(name: string): string | undefined {
+  try {
+    return Deno.env.get(name);
+  } catch {
+    return undefined;
+  }
+}

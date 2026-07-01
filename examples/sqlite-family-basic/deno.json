@@ -1,0 +1,9 @@
+{
+  "name": "@sisal/example-sqlite-family-basic",
+  "version": "0.5.1",
+  "exports": "./mod.ts",
+  "publish": false,
+  "tasks": {
+    "run": "deno run -A mod.ts"
+  }
+}
