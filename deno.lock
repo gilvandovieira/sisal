@@ -23,8 +23,9 @@
     "npm:@libsql/client@~0.17.4": "0.17.4",
     "npm:@types/node@^22.15.30": "22.20.0",
     "npm:@types/pg@^8.8.0": "8.20.0",
-    "npm:drizzle-orm@0.45.2": "0.45.2_@libsql+client@0.17.4_@types+pg@8.20.0",
-    "npm:events@^3.3.0": "3.3.0"
+    "npm:drizzle-orm@0.45.2": "0.45.2_@libsql+client@0.17.4_@types+pg@8.20.0_postgres@3.4.9",
+    "npm:events@^3.3.0": "3.3.0",
+    "npm:postgres@^3.4.7": "3.4.9"
   },
   "jsr": {
     "@db/postgres@0.19.5": {
@@ -207,15 +208,17 @@
     "detect-libc@2.0.2": {
       "integrity": "sha512-UX6sGumvvqSaXgdKGUsgZWqcUyIXZ/vZTrlRT/iobiKhGL0zL4d3osHj3uqllWJK+i+sixDS/3COVEOFbupFyw=="
     },
-    "drizzle-orm@0.45.2_@libsql+client@0.17.4_@types+pg@8.20.0": {
+    "drizzle-orm@0.45.2_@libsql+client@0.17.4_@types+pg@8.20.0_postgres@3.4.9": {
       "integrity": "sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==",
       "dependencies": [
         "@libsql/client",
-        "@types/pg"
+        "@types/pg",
+        "postgres"
       ],
       "optionalPeers": [
         "@libsql/client",
-        "@types/pg"
+        "@types/pg",
+        "postgres"
       ]
     },
     "events@3.3.0": {
@@ -275,6 +278,9 @@
         "xtend"
       ]
     },
+    "postgres@3.4.9": {
+      "integrity": "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="
+    },
     "promise-limit@2.7.0": {
       "integrity": "sha512-7nJ6v5lnJsXwGprnGXga4wx6d1POjvi5Qmf1ivTRxTjH4Z/9Czja/UCMLVmB9N93GeWOU93XaFaEt6jbuoagNw=="
     },
@@ -290,6 +296,7 @@
   },
   "workspace": {
     "dependencies": [
+      "jsr:@db/postgres@~0.19.5",
       "jsr:@neon/serverless@1",
       "jsr:@std/assert@1"
     ],

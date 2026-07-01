@@ -73,6 +73,49 @@ Sisal-specific history after that baseline through `1f05448`.
   `examples/advanced-sql-contracts/` as the preserved backlog of future,
   product-shaped examples.
 
+## 0.5.1 - 2026-06-30
+
+> Shipped ahead of the planned v0.6.0; the analysis behind it is documented as a
+> finding in [`docs/v0.6.0-roadmap.md`](docs/v0.6.0-roadmap.md). All workspace
+> packages bump to 0.5.1 in lockstep; only `@sisal/pg` has code changes.
+
+### Added
+
+- **postgres.js driver for `@sisal/pg`** (`@sisal/pg` → 0.5.1). A
+  postgres.js-backed pool — `createPostgresJsPool` (exported), also selectable
+  with `connect({ url, driver: "postgres-js" })` — that avoids
+  `jsr:@db/postgres`'s ~40 ms/query extended-protocol stall (no `TCP_NODELAY` +
+  un-coalesced Parse/Bind/Describe/Execute/Sync writes → Nagle × delayed-ACK).
+  It drops per-query latency ~100× — a real feed server went **120 → 6,774 rps,
+  p50 90 ms → 1.6 ms** — with **no change to `@sisal/orm` or the executor**,
+  which is driver-agnostic (`PgPool`/`PgClient`). Options: `prepare` (default
+  `true`; set `false` for PgBouncer/Neon-pooled endpoints), `poolSize`,
+  `idleTimeout`. Type parity with `@db/postgres` is preserved (int8 → `BigInt`;
+  `date`/`timestamp` decode via `new Date(str)`), validated by the full
+  `integration/pg_features_test.ts` matrix — **40/40 across PostgreSQL
+  16/17/18** — run on the new driver through a `SISAL_PG_DRIVER=postgres-js`
+  harness seam. `npm:postgres` is a new, lazily-imported dependency of
+  `@sisal/pg` (consistent with `@sisal/libsql`'s `npm:@libsql/client`); the
+  **default driver stays the pure-JSR `@db/postgres`**. New public surface:
+  `createPostgresJsPool`, `PostgresJsPoolOptions`, `PgDriverKind`, and
+  `driver`/`prepare`/`idleTimeout` on `PgConnectionOptions`. Full analysis:
+  [`perf/PG_ADAPTER_PERF_REPORT.md`](perf/PG_ADAPTER_PERF_REPORT.md).
+- **Real-Postgres latency benchmark suite** under [`perf/`](perf/README.md),
+  gated behind `DATABASE_URL` like the `integration/` suites (kept out of the
+  network-free `deno task test`). It isolates Sisal's per-query cost from the
+  underlying driver by timing the same query six ways — Sisal render (no DB),
+  Sisal `execute` over `@db/postgres`, raw `@db/postgres` parameterized, raw
+  `@db/postgres` inlined (simple protocol), `postgres.js` as a fast reference,
+  and **`sisal-pgjs`** (Sisal `execute` over a postgres.js pool — the validated
+  fix) — and prints a p50/p90/p99 table plus a plain-language verdict. Adds
+  `deno task perf:pg` (standalone probe) and `deno task perf:pg:guard`
+  (`perf/pg_driver_latency_test.ts`, a guard that asserts the builder is ~free
+  and Sisal's executor adds no measurable overhead over the raw driver call, and
+  loudly characterizes — with `SISAL_PERF_STRICT=1` to hard-fail — the
+  `jsr:@db/postgres` extended-protocol stall). `perf/latency.ts`,
+  `perf/pg_driver_latency.ts`, and `perf/postgres_js_pool.ts` are added to
+  `deno task check`.
+
 ## 0.5.0 - 2026-06-30
 
 ### Added
