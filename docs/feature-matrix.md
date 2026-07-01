@@ -10,9 +10,11 @@ title: Feature matrix
 
 One row per feature, one column per adapter, across `@sisal/pg`,
 `@sisal/neon`, `@sisal/sqlite`, and `@sisal/libsql`. Every ✅ and ⚠️ is
-backed by a named integration test in
-`integration/<adapter>_features_test.ts` — `deno task docs:matrix:check`
-fails if a claimed test is missing, so this table cannot drift from the suites.
+backed by a registered shared integration scenario. The adapter entrypoints
+still render those scenarios as target-prefixed Deno tests in
+`integration/<adapter>_features_test.ts`; `deno task docs:matrix:check`
+fails if a claimed scenario is missing, so this table cannot drift from the
+suites.
 
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
@@ -54,6 +56,7 @@ genuine dialect limit · — not applicable.
 | Typed function caller (`db.call`)                                        |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
 | Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |
+| ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves

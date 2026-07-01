@@ -2,7 +2,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.5.1. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
+Workspace package version: 0.6.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -21,6 +21,8 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL, analytics,...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
+- [MySQL type & DDL mapping](https://gilvandovieira.github.io/sisal/mysql-ddl-mapping.html): **Date:** 2026-07-01 · **Probe:** perf/mysql_ddl_probe.ts (deno task perf:mysql:ddl) · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), decoded through the C6-chosen driver (npm:mysql2 with the...
+- [MySQL readiness](https://gilvandovieira.github.io/sisal/mysql-readiness.html): **Date:** 2026-07-01 · **Status:** all six C tasks 🟢 · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), Deno 2.9.0 (+ Node 26 dual-runtime check)
 - [npm Release Readiness](https://gilvandovieira.github.io/sisal/npm-release-readiness.html): This is a **standing readiness report**, not a scheduled deliverable. It records what must change for Sisal to publish to **npm** alongside JSR and run on **Node.js 24+**, so the work can be picked up cheaply **if...
 - [Roadmap Sequencing Audit (v0.6 → v0.14)](https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html): This is a **second-pass sequencing audit** of the forward plan (docs/roadmap.md, docs/architecture.md, docs/v0.6.0-roadmap.md → docs/v0.14.0-roadmap.md, and the twelve examples/advanced-sql-contracts/). It...
 - [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, and libSQL. It will not become an object-first ORM. This page is the index and...

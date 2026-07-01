@@ -1,6 +1,6 @@
 {
   "name": "@sisal/benchmarks",
-  "version": "0.3.0",
+  "version": "0.6.0",
   "exports": "./mod.ts",
   "imports": {
     "drizzle-orm": "npm:drizzle-orm@0.45.2",

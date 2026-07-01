@@ -12,8 +12,8 @@ feature through the public API.
 | Item          | Value                                                |
 | ------------- | ---------------------------------------------------- |
 | Engine tested | **SQLite 3.46.0** (bundled by `jsr:@db/sqlite@0.12`) |
-| Suite         | `integration/sqlite_features_test.ts` (33 tests)     |
-| Last run      | 2026-06-30 — **33 / 33 passed**                      |
+| Suite         | `integration/sqlite_features_test.ts` (40 tests)     |
+| Last run      | 2026-07-01 — **40 / 40 passed**                      |
 
 ## Feature coverage
 

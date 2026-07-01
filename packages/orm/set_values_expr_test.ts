@@ -3,12 +3,14 @@
  * `onConflictDoUpdate.set` (roadmap item 4): expressions render inline while
  * literal values still bind as parameters.
  */
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import {
   columns,
   createDatabase,
   defineTable,
   eq,
+  excluded,
+  OrmError,
   renderSql,
   type Sql,
   sql,
@@ -79,6 +81,31 @@ Deno.test("set/values: onConflictDoUpdate set accepts a sql expression", () => {
     rendered.text,
     'on conflict ("id") do update set "score" = excluded.score + 1',
   );
+});
+
+Deno.test("set/values: excluded() maps the property key to the physical column", () => {
+  // Under the default snake_case naming strategy `hotScore` → `hot_score`.
+  // A raw sql`excluded.hotScore` would silently name a nonexistent column;
+  // the typed helper resolves the physical name (and quotes it).
+  const feed = defineTable("feed", {
+    id: columns.uuid().primaryKey(),
+    hotScore: columns.integer().notNull(),
+  });
+  const rendered = render(
+    db.insert(feed).values({ id: "p1", hotScore: 1 }).onConflictDoUpdate({
+      target: feed.columns.id,
+      set: { hotScore: excluded(feed.columns.hotScore) },
+    }),
+  );
+  assertStringIncludes(
+    rendered.text,
+    'on conflict ("id") do update set "hot_score" = excluded."hot_score"',
+  );
+});
+
+Deno.test("set/values: excluded() rejects a non-column argument", () => {
+  assertThrows(() => excluded("hot_score"), OrmError, "column");
+  assertThrows(() => excluded(sql`hot_score`), OrmError, "column");
 });
 
 Deno.test("set/values: a pure-expression UPDATE binds no value params", () => {

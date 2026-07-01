@@ -4,22 +4,28 @@
  * Gated: runs only when `SISAL_NEON_ACTIVITY_VECTORS_IT=1` and `DATABASE_URL`
  * are set (mirrors the repo's `integration/` convention). It RESETS and reseeds
  * the target database, so point it at a scratch Neon branch (or local Postgres).
+ * Connects through the example's own `openDb()`, so `SISAL_ADAPTER`
+ * (`pg` default | `pg-postgres-js` | `neon`, plus `NEON_WS_PROXY` for a local
+ * proxy) runs the same chain over any PostgreSQL-family driver:
  *
  *   SISAL_NEON_ACTIVITY_VECTORS_IT=1 \
  *     DATABASE_URL="postgres://user:pw@ep-xxx.neon.tech/db?sslmode=require" \
+ *     SISAL_ADAPTER=neon \
  *     deno test -A feature_db_test.ts
  *
- * Covers the whole chain: migrations + SQL functions, deterministic seed,
- * events→buckets fold, the window-function stats computation (exact values for
- * known data), the SQL ↔ TS vector projection, similarity, retention rollups +
- * event pruning (stats survive), and DEMO_NOW determinism.
+ * Covers the whole chain: migrations + SQL functions, deterministic seed, the
+ * builder-native events→buckets fold (insert-from-select + FILTER + dateTrunc
+ * + upsert, converted from raw SQL in v0.6), the window-function stats
+ * computation (exact values for known data), the SQL ↔ TS vector projection,
+ * similarity, builder-native retention rollups + event pruning (stats
+ * survive), and DEMO_NOW determinism.
  *
  * @module
  */
 
 import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
-import { connect, type NeonDatabase } from "@sisal/neon";
 
+import { type NeonDatabase, openDb } from "./src/db.ts";
 import { runMigrations } from "./src/migrate.ts";
 import { DEMO_NOW, representativePostId, seed } from "./src/seed.ts";
 import { foldEventsToBuckets } from "./src/events.ts";
@@ -55,7 +61,7 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   fn: async () => {
-    const db: NeonDatabase = await connect({ url: URL! });
+    const db: NeonDatabase = await openDb();
     try {
       // ---- 1 + 2. migrations + deterministic seed (posts + raw events) ----
       await runMigrations(db, { reset: true });

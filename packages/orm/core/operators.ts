@@ -14,6 +14,7 @@ import {
   createCondition,
   dialectGuard,
   dialectSql,
+  identifier,
   isColumn,
   isQueryBuilder,
   joinSql,
@@ -145,9 +146,9 @@ export function notExists(subquery: SubquerySource): Condition {
 }
 
 // The Postgres array operators render literally (`@>`/`<@`/`&&`); a dialect
-// guard makes rendering throw a typed `OrmError` on SQLite-family engines (which
-// have no array operators) instead of emitting SQL they reject.
-const ARRAY_OP_UNSUPPORTED: readonly SqlDialect[] = ["sqlite"];
+// guard makes rendering throw a typed `OrmError` on the SQLite family and
+// MySQL (no array type/operators) instead of emitting SQL they reject.
+const ARRAY_OP_UNSUPPORTED: readonly SqlDialect[] = ["sqlite", "mysql"];
 
 function arrayCondition(
   column: unknown,
@@ -270,14 +271,44 @@ export function max<T = unknown>(column: unknown): SqlExpression<T | null> {
  * `filter(sum(score), gte(bucket, cutoff))` renders
  * `sum("score") filter (where "bucket" >= $1)`. Supported natively by
  * PostgreSQL and by modern SQLite/libSQL, so it renders identically on every
- * Sisal adapter.
+ * shipped Sisal adapter. Neither MySQL nor MariaDB has `FILTER`, so rendering
+ * for the (adapterless) `mysql` dialect throws a typed
+ * `ORM_DIALECT_UNSUPPORTED` until the `CASE WHEN` fallback rendering lands
+ * with the v0.7 adapter.
  */
 export function filter<T>(
   aggregate: SqlExpression<T>,
   condition: Condition,
 ): SqlExpression<T> {
   assertCondition(condition);
-  return sql`${aggregate} filter (where ${condition.sql})` as SqlExpression<T>;
+  const native = sql`${aggregate} filter (where ${condition.sql})`;
+  return dialectSql("filter (conditional aggregate)", {
+    postgres: native,
+    sqlite: native,
+    generic: native,
+  }) as SqlExpression<T>;
+}
+
+/**
+ * The upsert "proposed row" reference for `onConflictDoUpdate` `set` values,
+ * rendered per dialect: `excluded."col"` on PostgreSQL and the SQLite family,
+ * `values(` `` `col` `` `)` on MySQL — the one spelling every MySQL 5.7→9.x
+ * and MariaDB accept (MySQL's 8.0.19+ row-alias form is a future
+ * version-aware upgrade). Prefer this over a raw `` sql`excluded.col` ``: it
+ * is the only portable spelling, and it maps the JS property key to the
+ * physical column name under a naming strategy (`hotScore` → `hot_score`),
+ * which the raw form silently gets wrong.
+ */
+export function excluded<T = unknown>(column: unknown): SqlExpression<T> {
+  if (!isColumn(column)) {
+    throw new OrmError("excluded() expects a table column", {
+      code: "ORM_INVALID_COLUMN",
+    });
+  }
+  const name = identifier(column.name);
+  return dialectSql("excluded", {
+    mysql: sql`values(${name})`,
+  }, sql`excluded.${name}`) as SqlExpression<T>;
 }
 
 /** Calendar field a {@link dateTrunc} truncates a timestamp down to. */

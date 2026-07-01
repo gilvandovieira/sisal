@@ -29,12 +29,15 @@ the regression silently coming back (or silently masking a Sisal-side one).
 
 ## Files
 
-| File                        | What it is                                                                                                  |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `latency.ts`                | Pure timing + table utilities (percentiles, `measure`, table formatting). No DB/net/FFI.                    |
-| `postgres_js_pool.ts`       | A postgres.js-backed `PgPool` adapter (the fix), so the probe can measure Sisal-over-postgres.js. Dev-only. |
-| `pg_driver_latency.ts`      | The probe: times the same query six ways against a real Postgres and prints a verdict. Exports the runner.  |
-| `pg_driver_latency_test.ts` | Gated guard test — asserts the Sisal-side invariants and characterizes the driver stall.                    |
+| File                        | What it is                                                                                                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `latency.ts`                | Pure timing + table utilities (percentiles, `measure`, table formatting). No DB/net/FFI.                                                                                                                |
+| `postgres_js_pool.ts`       | A postgres.js-backed `PgPool` adapter (the fix), so the probe can measure Sisal-over-postgres.js. Dev-only.                                                                                             |
+| `pg_driver_latency.ts`      | The probe: times the same query six ways against a real Postgres and prints a verdict. Exports the runner.                                                                                              |
+| `pg_driver_latency_test.ts` | Gated guard test — asserts the Sisal-side invariants and characterizes the driver stall.                                                                                                                |
+| `mysql_driver_survey.ts`    | v0.6 C6: benchmarks the MySQL driver candidates (mysql2 / mariadb / @db/mysql) for the future `@sisal/mysql`. Gated behind `MYSQL_URL`; report in [`MYSQL_DRIVER_SURVEY.md`](./MYSQL_DRIVER_SURVEY.md). |
+| `mysql_ddl_probe.ts`        | v0.6 C4: validates the proposed MySQL type/DDL mapping + quirks against live MySQL/MariaDB. Gated behind `MYSQL_URL`; report in [`docs/mysql-ddl-mapping.md`](../docs/mysql-ddl-mapping.md).            |
+| `mysql_variant_probe.ts`    | v0.6 C5: pins the MySQL-vs-MariaDB capability split (RETURNING, ODKU alias, SEQUENCE, JSON ops, …) live. Gated behind `MYSQL_URL`; report in [`docs/mysql-readiness.md`](../docs/mysql-readiness.md).   |
 
 ## The six paths
 

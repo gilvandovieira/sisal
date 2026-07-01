@@ -61,6 +61,7 @@ export {
   dateTrunc,
   desc,
   eq,
+  excluded,
   exists,
   filter,
   gt,

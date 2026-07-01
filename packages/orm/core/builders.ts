@@ -15,6 +15,7 @@ import {
   type Condition,
   createCondition,
   dialectGuard,
+  dialectSql,
   emptySql,
   fillPreparedPlan,
   getResultMetadata,
@@ -665,6 +666,7 @@ export function cteBodySql(query: CteOperand<unknown>): Sql {
     return sql`${
       dialectGuard("a data-modifying CTE (INSERT/UPDATE/DELETE in WITH)", [
         "sqlite",
+        "mysql",
       ])
     }${query.toSql()}`;
   }
@@ -979,7 +981,7 @@ export class SisalSelectBuilder<TTable, TResult>
     }
     if (distinctOn !== undefined && distinctOn.length > 0) {
       parts.push(
-        dialectGuard("distinctOn", ["sqlite"]),
+        dialectGuard("distinctOn", ["sqlite", "mysql"]),
         raw("select distinct on ("),
         joinSql([...distinctOn], raw(", ")),
         raw(") "),
@@ -999,6 +1001,11 @@ export class SisalSelectBuilder<TTable, TResult>
     for (const join of joins) {
       assertTable(join.table);
       assertCondition(join.on);
+      // Neither MySQL nor MariaDB has FULL OUTER JOIN (C5 probe) — guard it
+      // instead of rendering SQL both engines reject. Right joins are fine.
+      if (join.kind === "full") {
+        parts.push(dialectGuard("FULL JOIN", ["mysql"]));
+      }
       parts.push(
         // join.kind is a fixed SelectJoinKind enum, never user input.
         // deno-lint-ignore sisal/no-raw-interpolation
@@ -1490,6 +1497,14 @@ function tableResultMetadata(table: TableDefinition): ResultRowMetadata {
   return metadata;
 }
 
+// MySQL has no RETURNING on any mutation; MariaDB's is per-statement AND
+// per-version (DELETE 10.0.5+, INSERT/REPLACE 10.5+, UPDATE only 13.0+), so
+// even emitting it for MariaDB needs the (engine, version) dialect key. Until
+// then the version-less "mysql" dialect throws a typed error instead of
+// rendering SQL the engine rejects; a fetch-by-key fallback is an
+// adapter/executor concern (a second round trip, not a render rewrite).
+const RETURNING_GUARD = "INSERT/UPDATE/DELETE … RETURNING";
+
 function returningSql(
   returning: SelectProjection | boolean,
   table: TableDefinition,
@@ -1497,10 +1512,17 @@ function returningSql(
   if (returning === false) {
     return undefined;
   }
+  const guard = dialectGuard(RETURNING_GUARD, ["mysql"]);
   if (returning === true) {
-    return joinSql([raw(" returning "), tableSelectionSql(table)], emptySql());
+    return joinSql(
+      [guard, raw(" returning "), tableSelectionSql(table)],
+      emptySql(),
+    );
   }
-  return joinSql([raw(" returning "), projectionSql(returning)], emptySql());
+  return joinSql(
+    [guard, raw(" returning "), projectionSql(returning)],
+    emptySql(),
+  );
 }
 
 function returningResultMetadata(
@@ -1565,6 +1587,30 @@ function conflictTargetSql(target: unknown, table: TableDefinition): Sql {
   });
 }
 
+// The column a MySQL `onConflictDoNothing` no-op self-assignment uses: the
+// first resolvable conflict-target column, else the first primary-key column,
+// else the first declared column (a table always has at least one).
+function noopAssignmentColumn(
+  targets: readonly unknown[],
+  table: TableDefinition,
+): string {
+  for (const target of targets) {
+    if (isColumn(target)) {
+      return target.name;
+    }
+    if (typeof target === "string") {
+      return Object.hasOwn(table.columns, target)
+        ? physicalColumnName(table, target)
+        : target;
+    }
+    // A raw-Sql expression target cannot become an assignment; keep looking.
+  }
+  const columns = Object.values(table.columns) as Array<
+    { readonly name: string; readonly primaryKey?: boolean }
+  >;
+  return (columns.find((column) => column.primaryKey) ?? columns[0]).name;
+}
+
 function conflictSql(
   conflict: InsertConflict | undefined,
   table: TableDefinition,
@@ -1579,11 +1625,23 @@ function conflictSql(
     raw(", "),
   );
 
+  // MySQL's `ON DUPLICATE KEY UPDATE` fires on ANY unique-key violation: the
+  // conflict target is validated (types + membership, above) but cannot be
+  // rendered. Semantics coincide with Postgres/SQLite exactly when the target
+  // is the table's only unique constraint (the usual upsert grain).
   if (conflict.kind === "nothing") {
-    return targetList === undefined ? raw(" on conflict do nothing") : joinSql(
-      [raw(" on conflict ("), targetList, raw(") do nothing")],
-      emptySql(),
-    );
+    const conflictForm = targetList === undefined
+      ? raw(" on conflict do nothing")
+      : joinSql(
+        [raw(" on conflict ("), targetList, raw(") do nothing")],
+        emptySql(),
+      );
+    // MySQL has no DO NOTHING; the standard idiom is a no-op self-assignment
+    // (`INSERT IGNORE` is not it — it swallows unrelated errors too).
+    const noop = identifier(noopAssignmentColumn(targets, table));
+    return dialectSql("onConflictDoNothing", {
+      mysql: sql` on duplicate key update ${noop} = ${noop}`,
+    }, conflictForm);
   }
 
   const entries = Object.entries(conflict.set)
@@ -1615,7 +1673,16 @@ function conflictSql(
     parts.push(raw(" where "), conflict.where.sql);
   }
 
-  return joinSql(parts, emptySql());
+  const conflictForm = joinSql(parts, emptySql());
+  // The conflict `where` has no MySQL equivalent — rendering one under the
+  // mysql dialect throws a typed ORM_DIALECT_UNSUPPORTED (an empty dialect
+  // chunk with no mysql variant and no fallback).
+  const duplicateKeyForm = conflict.where !== undefined
+    ? dialectSql('onConflictDoUpdate "where" (conflict condition)', {})
+    : sql` on duplicate key update ${setSql}`;
+  return dialectSql("upsert", {
+    mysql: duplicateKeyForm,
+  }, conflictForm);
 }
 
 type InsertConflict =
@@ -1935,9 +2002,12 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
       setSql,
     );
 
-    // `UPDATE … FROM <source>` precedes the WHERE so the predicate can join it.
+    // `UPDATE … FROM <source>` precedes the WHERE so the predicate can join
+    // it. MySQL's equivalent is the multi-table `UPDATE t, s SET …` — a
+    // different statement shape, so the mysql dialect guards instead of
+    // rendering Postgres/SQLite syntax it rejects (mapping it is v0.7 work).
     if (from !== undefined) {
-      parts.push(raw(" from "), from);
+      parts.push(dialectGuard("UPDATE … FROM", ["mysql"]), raw(" from "), from);
     }
 
     if (condition === undefined) {
@@ -2003,7 +2073,9 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
     // `DELETE … USING` is PostgreSQL-only; the SQLite family has no USING clause
     // on DELETE, so rendering for it throws a typed guard.
     return this.#with({
-      using: sql`${dialectGuard("DELETE … USING", ["sqlite"])}${
+      // MySQL's multi-table DELETE … USING requires the target repeated in
+      // the USING list — a different shape, guarded until v0.7 maps it.
+      using: sql`${dialectGuard("DELETE … USING", ["sqlite", "mysql"])}${
         mutationRelationSql(source)
       }`,
     });
