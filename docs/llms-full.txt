@@ -1627,6 +1627,17 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **Cross-adapter decode-parity test**
+  ([`integration/cross_adapter_parity_test.ts`](integration/cross_adapter_parity_test.ts)),
+  gated behind `DATABASE_URL` (plus `NEON_DATABASE_URL`/`NEON_WS_PROXY` for the
+  neon leg). Runs the same schema-free rich row through each PostgreSQL-family
+  adapter and pins how they relate: the two `@sisal/pg` drivers (`@db/postgres`
+  ↔ postgres.js) decode **byte-identically**, and `@sisal/neon` aligns with
+  `@sisal/pg` on every type **except `bigint`** (neon → `string`, pg → `BigInt`;
+  values equal), with the raw-`date` `Date` timezone-convention difference
+  documented rather than failed. A driver behavior change fails the test and
+  forces a doc update. See the [v0.6.0 roadmap](docs/v0.6.0-roadmap.md)
+  "Cross-adapter parity" section.
 - **Documentation-only advanced SQL example contracts** under
   [`examples/advanced-sql-contracts/`](examples/advanced-sql-contracts/README.md).
   Twelve Markdown **future compatibility contracts** — ETL rollup, window
@@ -1666,6 +1677,22 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **Examples: consolidated the four rising-feed apps into two dialect-family
+  examples** (pilot for a family-based example taxonomy). The three
+  PostgreSQL-family feeds — `postgres-rising-feed`, `neon-rising-feed`, and
+  `neon-rising-feed-ctes` — become one
+  [`examples/postgres-family-feed`](examples/postgres-family-feed/) that runs
+  over any PostgreSQL-family driver (`@sisal/pg` on `@db/postgres` or
+  postgres.js, or `@sisal/neon`) selected by `SISAL_ADAPTER`, keeping both
+  recompute strategies (DB functions in `src/recompute.ts` and builder-native
+  chained CTEs in `src/recompute_ctes.ts`). `libsql-rising-feed` becomes
+  [`examples/sqlite-family-feed`](examples/sqlite-family-feed/), which runs over
+  `@sisal/libsql` or embedded `@sisal/sqlite`. This works because within a
+  dialect family the builder + dialect are shared and the facades are
+  structurally identical (`NeonDatabase` ≡ `PgDatabase`; `SqliteDatabase` ≡
+  `LibsqlDatabase`), so only the connection differs — the app code is identical.
+  A future `mysql-family` (MySQL/MariaDB) slots in the same way. Root
+  `deno.json` workspace/`check` and `examples/README.md` updated accordingly.
 - **Roadmap (v0.6 → v0.13):** demoted Node.js/npm from a v0.6 build workstream
   to the deferred [npm-release readiness report](docs/npm-release-readiness.md)
   (build + dual publish moved to v0.13+, on demand, gated on a chosen npm name);
@@ -7290,11 +7317,11 @@ limit:
 
 Items 8–13 were surfaced by the rising-feed example family (June 2026) — a
 `/rising` moving-window feed built across engines and styles:
-[`neon-rising-feed`](../examples/neon-rising-feed/README.md),
-[`libsql-rising-feed`](../examples/libsql-rising-feed/README.md),
-[`postgres-rising-feed`](../examples/postgres-rising-feed/README.md), and the
+[`neon-rising-feed`](../examples/postgres-family-feed/README.md),
+[`libsql-rising-feed`](../examples/sqlite-family-feed/README.md),
+[`postgres-rising-feed`](../examples/postgres-family-feed/README.md), and the
 function-free
-[`neon-rising-feed-ctes`](../examples/neon-rising-feed-ctes/README.md) (items
+[`neon-rising-feed-ctes`](../examples/postgres-family-feed/README.md) (items
 12–13). See [§ 8–13](#8-portable-atomic-transaction-script--p2) below.
 
 P1 items 1–2 are the achievable-parity work and unblock item 3 (the matrix can
@@ -7602,8 +7629,9 @@ is ahead rather than at parity. **Item 7 is complete.**
 
 ## 8. Portable atomic "transaction script" — P2 (procedure parity)
 
-**Context.** The [`neon-rising-feed`](../examples/neon-rising-feed/README.md) ↔
-[`libsql-rising-feed`](../examples/libsql-rising-feed/README.md) pair builds the
+**Context.** The
+[`neon-rising-feed`](../examples/postgres-family-feed/README.md) ↔
+[`libsql-rising-feed`](../examples/sqlite-family-feed/README.md) pair builds the
 identical `/rising` feed on both engines. The activity recorder — dedupe the
 actor, bump a counter, bump `unique_actors` only on the actor's first touch,
 recompute the bucket score — is the same logic, but it reads **completely
@@ -7744,7 +7772,7 @@ pins both; the example can use `.optional()` without widening the feed row.
 ## 11. Coerce numeric reads to `number` (float8 returns as string) — P2
 
 **Context.** Surfaced while validating the
-[`neon-rising-feed`](../examples/neon-rising-feed/README.md) example against
+[`neon-rising-feed`](../examples/postgres-family-feed/README.md) example against
 real databases (June 2026). **`@sisal/pg` is the only adapter that returns
 `double precision` as a string** — a driver-parity gap, which is exactly this
 roadmap's theme. Verified first-hand, all reading the same
@@ -7805,7 +7833,7 @@ mapping.
 ## 12. Data-modifying CTE builder (`WITH … INSERT/UPDATE/DELETE … RETURNING`) — P2
 
 **Context.** Surfaced by
-[`neon-rising-feed-ctes`](../examples/neon-rising-feed-ctes/README.md) (June
+[`neon-rising-feed-ctes`](../examples/postgres-family-feed/README.md) (June
 2026) — a deliberately function-free variant of the rising feed that models
 every multi-step mutation as **one data-modifying CTE statement** (Neon
 HTTP-friendly: one parameterized statement, no interactive transaction
@@ -7882,7 +7910,7 @@ Chained `SELECT` CTEs already worked. `UPDATE … FROM` / `INSERT … SELECT` ru
 **every adapter** (modern SQLite/libSQL included); covered by
 `packages/orm/mutation_cte_test.ts` and a `mutation joins` integration test on
 all four engines. **Item 12c (the example proof) landed:** the
-[`neon-rising-feed-ctes`](../examples/neon-rising-feed-ctes/README.md) recompute
+[`neon-rising-feed-ctes`](../examples/postgres-family-feed/README.md) recompute
 (`recomputePostRisingScore` / `recomputeAllRisingScores`, `src/rising.ts`) is
 now authored builder-native —
 `db.with(scoreWindows, computedScore).update(posts).from(computedScore)
@@ -7899,7 +7927,7 @@ documented, honest pressure point rather than a blocker.
 ## 13. Typed raw-query result mapping — P3
 
 **Context.** Also from
-[`neon-rising-feed-ctes`](../examples/neon-rising-feed-ctes/README.md): because
+[`neon-rising-feed-ctes`](../examples/postgres-family-feed/README.md): because
 the mutations are raw `sql` (item 12), their result rows come back through
 `db.query<T>(sql\`…\`)`, which **trusts the caller's`<T>`generic** and does no
 column-metadata-driven decoding. Each CTE's shape is hand-written
@@ -7943,7 +7971,7 @@ mapper reusing the column descriptors `defineFunction`/select already carry).
   `packages/orm/raw_mapping_test.ts` and a `typed raw-query mapping` integration
   test on all four engines exercising both `.as(table)` and `.as(map)`; a
   unified-matrix row added. **The example proof landed:** in
-  [`neon-rising-feed-ctes`](../examples/neon-rising-feed-ctes/README.md) the raw
+  [`neon-rising-feed-ctes`](../examples/postgres-family-feed/README.md) the raw
   recorder now decodes its result with `db.query(...).as(postActivityBuckets)`,
   and both `RecordedBucket` (`InferSelect<typeof postActivityBuckets>`) and
   `RecomputedPost` (`Pick<Post, …>`) derive from the table models instead of
@@ -8038,6 +8066,38 @@ milestone builds on.
     upstream in deno-postgres to rescue the pure-JSR path.
   - Guarded going forward by `deno task perf:pg` / `perf:pg:guard`; full report:
     [`perf/PG_ADAPTER_PERF_REPORT.md`](../perf/PG_ADAPTER_PERF_REPORT.md).
+
+## Cross-adapter parity (v0.6.0)
+
+The v0.5.1 driver raised a portability question: do the PostgreSQL-family
+adapters return identical row shapes for the same query? Measured and pinned as
+a gated test —
+[`integration/cross_adapter_parity_test.ts`](../integration/cross_adapter_parity_test.ts)
+(runs the same schema-free rich row through each adapter and diffs the decoded
+values):
+
+- **The two `@sisal/pg` drivers (`@db/postgres` ↔ postgres.js) decode
+  byte-identically** across every scalar/array/temporal type — drop-in
+  interchangeable, which is the correctness half of the 0.5.1 driver work.
+- **`@sisal/neon` aligns with `@sisal/pg` on every type except `bigint`.** Neon
+  (via `@neon/serverless`'s node-postgres type parsers) returns `bigint` as a
+  **string**; both `@sisal/pg` drivers return **`BigInt`** (values are equal,
+  only the JS type differs). `int`, `text`, `bool`, `numeric`, `float8`,
+  `text[]`, `jsonb`, `time`, `timestamp`, `timestamptz`, and `null` all match. A
+  raw `date` column is a `Date` at neon's _local_ vs pg's _UTC_ midnight — a
+  process-TZ-dependent representation difference that resolves to the same
+  `Temporal.PlainDate` under `temporal: { parse: true }`, so it is documented,
+  not failed.
+
+The test pins these facts the way [`docs/drizzle-parity.md`](drizzle-parity.md)
+does: a driver behavior change (e.g. neon aligning `bigint`) fails it and forces
+this doc to move in step.
+
+**Open decision — align `bigint` across the pg family + neon.** Either neon →
+`BigInt` (align to the pg drivers' current behavior), or all → `string` (matches
+the "preserve precision" intent noted in `@sisal/pg`'s executor, and what neon
+already does). Until decided, `bigint` is the one documented cross-adapter
+portability caveat.
 
 ## Status legend
 
