@@ -1,0 +1,6 @@
+{
+  "name": "@sisal/example-postgres-family-showcase",
+  "version": "0.5.1",
+  "exports": "./mod.ts",
+  "publish": false
+}

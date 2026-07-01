@@ -1693,12 +1693,23 @@ Sisal-specific history after that baseline through `1f05448`.
   `LibsqlDatabase`), so only the connection differs — the app code is identical.
   A future `mysql-family` (MySQL/MariaDB) slots in the same way. Root
   `deno.json` workspace/`check` and `examples/README.md` updated accordingly.
-- **Examples: consolidated the three basics into the dialect-family taxonomy.**
-  The three basics (`basic-postgres` + `basic-sqlite` + `basic-libsql`) become
-  two — [`postgres-family-basic`](examples/postgres-family-basic/) (schema DDL +
+- **Examples: extended the dialect-family taxonomy to the basics and
+  showcases.** The three basics (`basic-postgres` + `basic-sqlite` +
+  `basic-libsql`) become two —
+  [`postgres-family-basic`](examples/postgres-family-basic/) (schema DDL +
   connect/CRUD over `@sisal/pg` on `@db/postgres`/postgres.js, or `@sisal/neon`)
   and [`sqlite-family-basic`](examples/sqlite-family-basic/) (over embedded
   `@sisal/sqlite` or `@sisal/libsql`), each driver-selected by `SISAL_ADAPTER`.
+  `showcase-postgres`/`showcase-sqlite` become
+  [`postgres-family-showcase`](examples/postgres-family-showcase/) and
+  [`sqlite-family-showcase`](examples/sqlite-family-showcase/): the PostgreSQL
+  tour now runs its live section over `pg` / `pg-postgres-js` / `neon`, and the
+  SQLite tour over embedded `@sisal/sqlite` or `@sisal/libsql` — previously each
+  only exercised one driver despite claiming the sibling worked. This also fixes
+  a latent bug in the PostgreSQL showcase's rolled-back live run:
+  `db.transaction` wraps a callback-thrown error in an `OrmError`, so the
+  `Rollback` sentinel is now found by walking the cause chain (the live path was
+  never runnable before).
 - **Roadmap (v0.6 → v0.13):** demoted Node.js/npm from a v0.6 build workstream
   to the deferred [npm-release readiness report](docs/npm-release-readiness.md)
   (build + dual publish moved to v0.13+, on demand, gated on a chosen npm name);

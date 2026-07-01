@@ -1,24 +1,22 @@
 /**
- * SQLite-class feature showcase for Sisal — runs end-to-end, no server needed.
+ * SQLite-**family** feature showcase for Sisal — runs end-to-end, no server.
  *
- * SQLite is embedded, so this example actually **executes** every feature
- * against an in-memory database (`:memory:`) via `jsr:@db/sqlite`. It is the
- * SQLite-dialect twin of `examples/showcase-postgres` and exercises the whole
- * adapter surface: rich schema + generated DDL, inserts with `returning`, the
- * full operator/join/aggregate set, upserts, `$onUpdate`, transactions
- * (commit + rollback), relational loading via `db.query.<table>.findMany`, and
- * additive/destructive migration diffing.
+ * The SQLite-dialect twin of `examples/postgres-family-showcase`. It
+ * **executes** every feature — rich schema + generated DDL, inserts with
+ * `returning`, the full operator/join/aggregate set, upserts, `$onUpdate`,
+ * transactions (commit + rollback), relational loading via
+ * `db.query.<table>.findMany`, and additive/destructive migration diffing.
  *
- * Run it:
+ * The SQLite dialect + builder are shared and `SqliteDatabase` ≡
+ * `LibsqlDatabase`, so the same code runs over embedded `@sisal/sqlite`
+ * (in-memory `:memory:` via `jsr:@db/sqlite`) or `@sisal/libsql`/Turso — pick
+ * with `SISAL_ADAPTER`:
  *
- *   deno run --allow-ffi --allow-read --allow-write --allow-env --allow-net \
- *     examples/showcase-sqlite/mod.ts
+ *   deno run -A examples/sqlite-family-showcase/mod.ts                    # sqlite
+ *   SISAL_ADAPTER=libsql deno run -A examples/sqlite-family-showcase/mod.ts
  *
- * (`@db/sqlite` loads a native library on first run, hence the read/write/net
- * permissions; subsequent runs only touch the cache.)
- *
- * The same code runs unchanged on libSQL/Turso — `@sisal/libsql` reuses the
- * SQLite dialect; only the `connect(...)` call differs.
+ * (`@db/sqlite` loads a native library on first run, hence `-A`; later runs only
+ * touch the cache.)
  *
  * @module
  */
@@ -45,6 +43,7 @@ import {
   min,
   notLike,
   or,
+  type OrmDriver,
   relations,
   sql,
   sum,
@@ -53,7 +52,13 @@ import {
   createSqliteDb,
   createSqliteOrmDriver,
   openSqliteDatabase,
+  type SqliteDatabase,
 } from "@sisal/sqlite";
+import {
+  createLibsqlClient,
+  createLibsqlDb,
+  createLibsqlOrmDriver,
+} from "@sisal/libsql";
 import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
 
 // ---------------------------------------------------------------------------
@@ -121,16 +126,13 @@ function section(title: string): void {
 }
 
 async function main(): Promise<void> {
-  // One shared in-memory handle, two facades over it: `db` for builders + raw
-  // execution, `rel` (with schema + relations) for relational loading.
-  const handle = await openSqliteDatabase({ path: ":memory:" });
-  const db = await createSqliteDb({ database: handle });
-  const rel = createDatabase({
-    driver: createSqliteOrmDriver({ database: handle }),
-    dialect: "sqlite",
-    schema: { orgs, users, posts },
-    relations: [usersRelations, postsRelations],
-  });
+  // One shared connection, two facades over it: `db` for builders + raw
+  // execution, `rel` (with schema + relations) for relational loading. The
+  // SQLite dialect + builder are shared and `SqliteDatabase` ≡ `LibsqlDatabase`,
+  // so this body runs identically over embedded `@sisal/sqlite` and
+  // `@sisal/libsql` — pick with `SISAL_ADAPTER` (see `openShowcase`).
+  const { db, rel, adapter, close } = await openShowcase();
+  section(`Adapter: ${adapter}`);
 
   try {
     // ---- 1. Generated DDL ------------------------------------------------
@@ -436,10 +438,68 @@ async function main(): Promise<void> {
       }`,
     );
 
-    console.log("\n✓ SQLite showcase complete.");
+    console.log(`\n✓ SQLite-family showcase complete (via ${adapter}).`);
   } finally {
-    handle.close();
+    await close();
   }
+}
+
+/** Reads an environment variable, tolerating a missing `--allow-env`. */
+function readEnv(name: string): string | undefined {
+  try {
+    return (globalThis as {
+      Deno?: { env: { get(key: string): string | undefined } };
+    }).Deno?.env.get(name);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Which SQLite-family driver to run over, from `SISAL_ADAPTER`. */
+function sqliteAdapter(): "sqlite" | "libsql" {
+  const raw = (readEnv("SISAL_ADAPTER") ?? "sqlite").trim();
+  if (raw === "sqlite" || raw === "libsql") return raw;
+  throw new Error(`Unknown SISAL_ADAPTER "${raw}"; use "sqlite" or "libsql".`);
+}
+
+/**
+ * Opens a shared connection and the two facades (`db` builders/raw, `rel`
+ * relations) over it for the selected driver — embedded `@sisal/sqlite`
+ * (in-memory) or `@sisal/libsql` (local `file:` / Turso).
+ */
+/** Builds the relational (`schema` + `relations`) facade over a driver. */
+function buildRel(driver: OrmDriver) {
+  return createDatabase({
+    driver,
+    dialect: "sqlite",
+    schema: { orgs, users, posts },
+    relations: [usersRelations, postsRelations],
+  });
+}
+
+async function openShowcase(): Promise<{
+  readonly db: SqliteDatabase;
+  readonly rel: ReturnType<typeof buildRel>;
+  readonly adapter: "sqlite" | "libsql";
+  close(): Promise<void> | void;
+}> {
+  const adapter = sqliteAdapter();
+  if (adapter === "libsql") {
+    const url = readEnv("TURSO_DATABASE_URL") ??
+      readEnv("SISAL_LIBSQL_URL") ?? "file:./sisal-showcase.db";
+    const authToken = readEnv("TURSO_AUTH_TOKEN");
+    const client = await createLibsqlClient(
+      authToken === undefined ? { url } : { url, authToken },
+    );
+    // `LibsqlDatabase` is structurally identical to `SqliteDatabase`.
+    const db: SqliteDatabase = await createLibsqlDb({ client });
+    const rel = buildRel(createLibsqlOrmDriver({ client }));
+    return { db, rel, adapter, close: () => client.close?.() };
+  }
+  const handle = await openSqliteDatabase({ path: ":memory:" });
+  const db = await createSqliteDb({ database: handle });
+  const rel = buildRel(createSqliteOrmDriver({ database: handle }));
+  return { db, rel, adapter, close: () => handle.close() };
 }
 
 if (import.meta.main) {

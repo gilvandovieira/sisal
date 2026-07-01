@@ -1,24 +1,26 @@
 /**
- * PostgreSQL-class feature showcase for Sisal.
+ * PostgreSQL-**family** feature showcase for Sisal.
  *
- * The PostgreSQL dialect backs both `@sisal/pg` and `@sisal/neon`. A real
- * Postgres server needs a network connection, so this example is
- * **generation-first**: it runs anywhere with no database and prints the
- * artifacts Sisal produces — full-type `CREATE TABLE` DDL, additive/destructive
- * migration diffs, and the entire query-builder surface rendered as real
- * Postgres SQL (with `$1, $2` placeholders and native `ILIKE`).
+ * The PostgreSQL dialect backs both `@sisal/pg` and `@sisal/neon`, so this
+ * example is **generation-first**: it runs anywhere with no database and prints
+ * the artifacts Sisal produces — full-type `CREATE TABLE` DDL,
+ * additive/destructive migration diffs, and the entire query-builder surface
+ * rendered as real Postgres SQL (`$1, $2` placeholders, native `ILIKE`).
  *
  * It also **executes** against a live server when `DATABASE_URL` is set, inside
- * a transaction that is rolled back so your database is left untouched. The
- * builder API is identical to the SQLite showcase — see
- * `examples/showcase-sqlite` for the full execution path.
+ * a transaction that is rolled back so your database is left untouched. The same
+ * live path runs over any PostgreSQL-family driver — pick with `SISAL_ADAPTER`
+ * (`pg` (default) | `pg-postgres-js` | `neon`); `NeonDatabase` ≡ `PgDatabase`,
+ * so the body is identical. See `examples/sqlite-family-showcase` for the
+ * SQLite-family twin.
  *
  *   # generation only (no permissions needed)
- *   deno run examples/showcase-postgres/mod.ts
+ *   deno run examples/postgres-family-showcase/mod.ts
  *
- *   # also execute against a scratch database
+ *   # also execute against a scratch database, over a chosen driver
  *   DATABASE_URL=postgres://postgres:postgres@localhost:5432/scratch \
- *     deno run --allow-env --allow-net examples/showcase-postgres/mod.ts
+ *     SISAL_ADAPTER=neon deno run --allow-env --allow-net \
+ *     examples/postgres-family-showcase/mod.ts
  *
  * @module
  */
@@ -54,7 +56,8 @@ import {
   sum,
 } from "@sisal/orm";
 import { planSchemaChanges } from "@sisal/migrate";
-import { connect } from "@sisal/pg";
+import { connect as connectPg, type PgDatabase } from "@sisal/pg";
+import { connect as connectNeon } from "@sisal/neon";
 import { generatePostgresUpStatements } from "@sisal/pg/ddl";
 
 // ---------------------------------------------------------------------------
@@ -304,9 +307,22 @@ function generation(): void {
 // Sentinel used to roll the live transaction back so nothing persists.
 class Rollback extends Error {}
 
+// `db.transaction(...)` wraps a callback-thrown error in an `OrmError`, so the
+// sentinel arrives wrapped — find it by walking the `cause` chain.
+function isRollback(error: unknown): boolean {
+  for (
+    let cause: unknown = error;
+    cause instanceof Error;
+    cause = cause.cause
+  ) {
+    if (cause instanceof Rollback) return true;
+  }
+  return false;
+}
+
 async function runLive(url: string): Promise<void> {
-  section("Live execution (DATABASE_URL) — rolled back");
-  const db = await connect({ url });
+  section(`Live execution (DATABASE_URL, via ${pgAdapter()}) — rolled back`);
+  const db = await openDb(url);
   const ddl = generatePostgresUpStatements(
     createSchemaSnapshot({ dialect: "postgres", tables: [orgs, users, posts] }),
   );
@@ -351,21 +367,61 @@ async function runLive(url: string): Promise<void> {
       throw new Rollback();
     });
   } catch (error) {
-    if (!(error instanceof Rollback)) throw error;
+    if (!isRollback(error)) throw error;
     console.log("transaction rolled back — database untouched.");
   } finally {
     await db.close();
   }
 }
 
-function databaseUrl(): string | undefined {
+/** Reads an environment variable, tolerating a missing `--allow-env`. */
+function readEnv(name: string): string | undefined {
   try {
     return (globalThis as {
       Deno?: { env: { get(key: string): string | undefined } };
-    }).Deno?.env.get("DATABASE_URL");
+    }).Deno?.env.get(name);
   } catch {
     return undefined;
   }
+}
+
+function databaseUrl(): string | undefined {
+  return readEnv("DATABASE_URL");
+}
+
+/** Which PostgreSQL-family driver the live run uses, from `SISAL_ADAPTER`. */
+function pgAdapter(): "pg" | "pg-postgres-js" | "neon" {
+  const raw = (readEnv("SISAL_ADAPTER") ?? "pg").trim();
+  if (raw === "pg" || raw === "pg-postgres-js" || raw === "neon") return raw;
+  throw new Error(
+    `Unknown SISAL_ADAPTER "${raw}"; use "pg", "pg-postgres-js", or "neon".`,
+  );
+}
+
+/**
+ * Opens the database facade for the selected driver. The PostgreSQL dialect +
+ * builder are shared and `NeonDatabase` ≡ `PgDatabase`, so the live run above is
+ * identical across all three.
+ */
+async function openDb(url: string): Promise<PgDatabase> {
+  const adapter = pgAdapter();
+  if (adapter === "neon") {
+    const wsProxy = readEnv("NEON_WS_PROXY");
+    if (wsProxy !== undefined) {
+      const mod = await import("@neon/serverless");
+      const cfg = (mod as unknown as { neonConfig: Record<string, unknown> })
+        .neonConfig;
+      cfg.wsProxy = () => `${wsProxy}/v1`;
+      cfg.useSecureWebSocket = false;
+      cfg.pipelineTLS = false;
+      cfg.pipelineConnect = false;
+    }
+    return await connectNeon({ url });
+  }
+  if (adapter === "pg-postgres-js") {
+    return await connectPg({ url, driver: "postgres-js" });
+  }
+  return await connectPg({ url });
 }
 
 async function main(): Promise<void> {
@@ -374,12 +430,13 @@ async function main(): Promise<void> {
   const url = databaseUrl();
   if (url === undefined) {
     console.log(
-      "\n(Set DATABASE_URL to also execute this against a scratch Postgres.)",
+      "\n(Set DATABASE_URL to also execute this against a scratch Postgres; " +
+        "SISAL_ADAPTER=pg|pg-postgres-js|neon picks the driver.)",
     );
     return;
   }
   await runLive(url);
-  console.log("\n✓ Postgres showcase complete.");
+  console.log(`\n✓ PostgreSQL-family showcase complete (via ${pgAdapter()}).`);
 }
 
 if (import.meta.main) {

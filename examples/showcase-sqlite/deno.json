@@ -1,6 +1,0 @@
-{
-  "name": "@sisal/example-showcase-sqlite",
-  "version": "0.3.0",
-  "exports": "./mod.ts",
-  "publish": false
-}
