@@ -84,9 +84,25 @@ function databaseUrl(): string | undefined {
 const URL = databaseUrl();
 const SKIP = URL === undefined;
 
+// Run the whole suite on either driver: `SISAL_PG_DRIVER=postgres-js` swaps the
+// default `@db/postgres` for postgres.js. Undefined → the default driver, so
+// this is a no-op for existing runs.
+function pgDriver(): "postgres-js" | undefined {
+  try {
+    const value = (globalThis as {
+      Deno?: { env: { get(k: string): string | undefined } };
+    }).Deno?.env.get("SISAL_PG_DRIVER");
+    return value === "postgres-js" ? "postgres-js" : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+const DRIVER = pgDriver();
+
 let dbHandle: PgDatabase | undefined;
 async function db(): Promise<PgDatabase> {
-  dbHandle ??= await connect({ url: URL! });
+  dbHandle ??= await connect({ url: URL!, driver: DRIVER });
   return dbHandle;
 }
 
@@ -94,6 +110,7 @@ let temporalDbHandle: PgDatabase | undefined;
 async function temporalDb(): Promise<PgDatabase> {
   temporalDbHandle ??= await connect({
     url: URL!,
+    driver: DRIVER,
     temporal: { parse: true },
   });
   return temporalDbHandle;

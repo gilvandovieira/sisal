@@ -14,6 +14,7 @@ export {
   createPgExecutor,
   createPgOrmDriver,
   createPgPool,
+  createPostgresJsPool,
   POSTGRES_DIALECT,
 } from "./orm/mod.ts";
 export type {
@@ -21,10 +22,12 @@ export type {
   PgClient,
   PgConnectionOptions,
   PgDatabase,
+  PgDriverKind,
   PgOrmDriverOptions,
   PgPool,
   PgQueryResult,
   PgSqlExecutor,
+  PostgresJsPoolOptions,
 } from "./orm/mod.ts";
 
 export {

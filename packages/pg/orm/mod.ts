@@ -26,8 +26,15 @@ export { createPgExecutor } from "./executor.ts";
 export { POSTGRES_DIALECT } from "./dialect.ts";
 export { createPgOrmDriver } from "./driver.ts";
 export type { PgOrmDriverOptions } from "./driver.ts";
-export type { PgClient, PgConnectionOptions, PgPool } from "./pool.ts";
+export type {
+  PgClient,
+  PgConnectionOptions,
+  PgDriverKind,
+  PgPool,
+} from "./pool.ts";
 export { createPgPool } from "./pool.ts";
+export { createPostgresJsPool } from "./postgres_js_pool.ts";
+export type { PostgresJsPoolOptions } from "./postgres_js_pool.ts";
 
 /** PostgreSQL-specialized database facade. */
 export interface PgDatabase extends Database {

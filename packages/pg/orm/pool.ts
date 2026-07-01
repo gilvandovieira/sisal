@@ -3,6 +3,18 @@ import { Pool } from "jsr:@db/postgres@^0.19.5";
 
 import { OrmError } from "@sisal/orm";
 
+import { createPostgresJsPool } from "./postgres_js_pool.ts";
+
+/**
+ * Which underlying driver an `@sisal/pg` URL connection uses.
+ *
+ * - `"db-postgres"` (default) — the pure-JSR `jsr:@db/postgres` driver.
+ * - `"postgres-js"` — `npm:postgres` (postgres.js), which avoids the
+ *   `@db/postgres` extended-protocol stall (see
+ *   {@link createPostgresJsPool}).
+ */
+export type PgDriverKind = "db-postgres" | "postgres-js";
+
 /** A column descriptor from the driver's row description. */
 export interface PgResultColumn {
   readonly name: string;
@@ -48,6 +60,19 @@ export interface PgConnectionOptions {
   readonly client?: PgClient;
   readonly poolSize?: number;
   readonly lazy?: boolean;
+  /**
+   * Driver used when connecting by `url`. Defaults to `"db-postgres"`
+   * (pure-JSR `@db/postgres`). Use `"postgres-js"` for postgres.js, which
+   * avoids the `@db/postgres` parameterized-query stall.
+   */
+  readonly driver?: PgDriverKind;
+  /**
+   * postgres.js only: use named prepared statements. Defaults to `true`; set
+   * `false` for PgBouncer/Neon-pooled endpoints. Ignored by `@db/postgres`.
+   */
+  readonly prepare?: boolean;
+  /** postgres.js only: seconds an idle pooled connection is kept. */
+  readonly idleTimeout?: number;
 }
 
 /** Resolved PostgreSQL connection source with ownership metadata. */
@@ -105,11 +130,18 @@ export function resolvePgConnectionSource(
   }
 
   return {
-    pool: createPgPool({
-      url: options.url,
-      poolSize: options.poolSize,
-      lazy: options.lazy,
-    }),
+    pool: options.driver === "postgres-js"
+      ? createPostgresJsPool({
+        url: options.url,
+        poolSize: options.poolSize,
+        prepare: options.prepare,
+        idleTimeout: options.idleTimeout,
+      })
+      : createPgPool({
+        url: options.url,
+        poolSize: options.poolSize,
+        lazy: options.lazy,
+      }),
     ownsPool: true,
     ownsClient: false,
   };
