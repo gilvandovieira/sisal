@@ -39,15 +39,8 @@ import { raw } from "@sisal/orm";
 import { connect as connectPg, type PgDatabase } from "@sisal/pg";
 import { connect as connectNeon, type NeonDatabase } from "@sisal/neon";
 
-function env(key: string): string | undefined {
-  try {
-    return (globalThis as {
-      Deno?: { env: { get(k: string): string | undefined } };
-    }).Deno?.env.get(key) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
+import { env } from "./_shared/env.ts";
+import { configureNeonWebSocketProxy } from "./_shared/neon.ts";
 
 const PG_URL = env("DATABASE_URL");
 const NEON_URL = env("NEON_DATABASE_URL");
@@ -99,16 +92,6 @@ async function readRich(
   return result.rows[0];
 }
 
-async function configureNeon(): Promise<void> {
-  const mod = await import("@neon/serverless");
-  const cfg = (mod as unknown as { neonConfig: Record<string, unknown> })
-    .neonConfig;
-  cfg.wsProxy = () => `${NEON_WS_PROXY}/v1`;
-  cfg.useSecureWebSocket = false;
-  cfg.pipelineTLS = false;
-  cfg.pipelineConnect = false;
-}
-
 function printParity(label: string, a: Row, b: Row): void {
   const line = Object.keys(a).map((k) =>
     `${k}=${cell(a[k]) === cell(b[k]) ? "=" : "≠"}`
@@ -152,7 +135,7 @@ Deno.test({
   sanitizeResources: false,
   sanitizeOps: false,
   fn: async () => {
-    await configureNeon();
+    await configureNeonWebSocketProxy(NEON_WS_PROXY);
     const pg = await connectPg({ url: PG_URL! });
     const neon = await connectNeon({ url: NEON_URL! });
     try {

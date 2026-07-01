@@ -3,10 +3,10 @@
  * (`docs/feature-matrix.md`, v0.5.0 roadmap item 3).
  *
  * One row per feature, one cell per adapter. Each `tested`/`roundtrip` cell
- * carries a `test` substring that must appear in a `"<adapter>: …"` test name in
- * `integration/<adapter>_features_test.ts`; `tools/generate_feature_matrix.ts`
- * renders this to Markdown and, with `--check`, asserts every such test exists —
- * so the matrix cannot claim coverage no integration test backs (roadmap item 6).
+ * carries a `scenario` reference backed by the shared integration scenario
+ * registry. `tools/generate_feature_matrix.ts` renders this to Markdown and,
+ * with `--check`, asserts every such scenario exists — so the matrix cannot
+ * claim coverage no integration scenario backs (roadmap item 6).
  *
  * @module
  */
@@ -37,28 +37,28 @@ export interface Cell {
   /** One-line explanation for ⚠️/❌ cells, rendered in the Notes section. */
   reason?: string;
   /**
-   * Substring of the backing `"<adapter>: …"` integration-test name. Set on
-   * `tested`/`roundtrip` cells; falls back to the row-level `test`.
+   * Scenario reference in the shared integration scenario registry. Set on
+   * `tested`/`roundtrip` cells; falls back to the row-level `scenario`.
    */
-  test?: string;
+  scenario?: string;
 }
 
 export interface FeatureRow {
   feature: string;
-  /** Default `test` substring for cells that omit their own. */
-  test?: string;
+  /** Default scenario reference for cells that omit their own. */
+  scenario?: string;
   cells: Record<Adapter, Cell>;
 }
 
-const ok = (test?: string): Cell => ({
+const ok = (scenario?: string): Cell => ({
   status: "tested",
-  ...(test === undefined ? {} : { test }),
+  ...(scenario === undefined ? {} : { scenario }),
 });
-const warn = (label: string, reason: string, test?: string): Cell => ({
+const warn = (label: string, reason: string, scenario?: string): Cell => ({
   status: "roundtrip",
   label,
   reason,
-  ...(test === undefined ? {} : { test }),
+  ...(scenario === undefined ? {} : { scenario }),
 });
 const no = (reason: string): Cell => ({ status: "unsupported", reason });
 const na: Cell = { status: "na" };
@@ -89,10 +89,10 @@ const DATE_TRUNC =
   "returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL " +
   "returns a `timestamp`). Both order and group identically.";
 
-/** A row where every adapter is `tested` against the same `test` substring. */
-const allTested = (feature: string, test: string): FeatureRow => ({
+/** A row where every adapter is `tested` against the same scenario. */
+const allTested = (feature: string, scenario: string): FeatureRow => ({
   feature,
-  test,
+  scenario,
   cells: { pg: ok(), neon: ok(), sqlite: ok(), libsql: ok() },
 });
 
@@ -107,7 +107,7 @@ export const FEATURE_MATRIX: FeatureRow[] = [
   allTested("Conditional aggregate (`filter`)", "filter aggregate"),
   {
     feature: "Portable `dateTrunc` (time bucketing)",
-    test: "dateTrunc",
+    scenario: "dateTrunc",
     cells: {
       pg: ok(),
       neon: ok(),
@@ -184,7 +184,7 @@ export const FEATURE_MATRIX: FeatureRow[] = [
   },
   {
     feature: "`bytea` / BLOB round-trip",
-    test: "bytea",
+    scenario: "bytea",
     cells: {
       pg: ok(),
       neon: ok(),
@@ -242,14 +242,18 @@ export const FEATURE_MATRIX: FeatureRow[] = [
     "Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)",
     "mutation joins",
   ),
+  allTested(
+    "ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)",
+    "ETL rollup",
+  ),
 ];
 
-/** Resolves the effective backing-test substring for a cell. */
-export function cellTest(
+/** Resolves the effective backing scenario for a cell. */
+export function cellScenario(
   row: FeatureRow,
   adapter: Adapter,
 ): string | undefined {
-  return row.cells[adapter].test ?? row.test;
+  return row.cells[adapter].scenario ?? row.scenario;
 }
 
 void na; // reserved for future not-applicable cells

@@ -4,10 +4,11 @@
  *
  *   deno task docs:matrix         # write docs/feature-matrix.md
  *   deno task docs:matrix:check   # verify it is up to date + every ✅/⚠️ is
- *                                 # backed by a named integration test
+ *                                 # backed by a registered integration scenario
  *
  * The check also fails if the matrix claims a `tested`/`roundtrip` cell whose
- * named integration test does not exist in the matching suite (roadmap item 6).
+ * named integration scenario does not exist in the matching suite (roadmap
+ * item 6).
  *
  * @module
  */
@@ -16,14 +17,13 @@ import {
   ADAPTER_LABELS,
   ADAPTERS,
   type Cell,
+  cellScenario,
   type CellStatus,
-  cellTest,
   FEATURE_MATRIX,
 } from "./feature_matrix.ts";
+import { featureScenariosForAdapter } from "../integration/_shared/scenarios.ts";
 
 const OUT = new URL("../docs/feature-matrix.md", import.meta.url);
-const suiteUrl = (a: Adapter) =>
-  new URL(`../integration/${a}_features_test.ts`, import.meta.url);
 
 // ⚠️/❌ cells link to the reference section below that explains each one.
 const ROUND_TRIP_ANCHOR = "round-trip-differences";
@@ -121,9 +121,11 @@ title: Feature matrix
 
 One row per feature, one column per adapter, across \`@sisal/pg\`,
 \`@sisal/neon\`, \`@sisal/sqlite\`, and \`@sisal/libsql\`. Every ✅ and ⚠️ is
-backed by a named integration test in
-\`integration/<adapter>_features_test.ts\` — \`deno task docs:matrix:check\`
-fails if a claimed test is missing, so this table cannot drift from the suites.
+backed by a registered shared integration scenario. The adapter entrypoints
+still render those scenarios as target-prefixed Deno tests in
+\`integration/<adapter>_features_test.ts\`; \`deno task docs:matrix:check\`
+fails if a claimed scenario is missing, so this table cannot drift from the
+suites.
 
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
@@ -178,33 +180,34 @@ Per-engine behavior notes live on the
 `;
 }
 
-/** Asserts every tested/roundtrip cell's named integration test exists. */
+/** Asserts every tested/roundtrip cell's registered scenario exists. */
 function validate(): { backed: number; errors: string[] } {
   const errors: string[] = [];
   let backed = 0;
   const namesByAdapter = new Map<Adapter, string[]>();
   for (const a of ADAPTERS) {
-    const text = Deno.readTextFileSync(suiteUrl(a));
-    const names = [...text.matchAll(new RegExp(`"${a}: ([^"]+)"`, "g"))].map((
-      m,
-    ) => m[1]);
+    const names = featureScenariosForAdapter(a).map((scenario) =>
+      scenario.name
+    );
     namesByAdapter.set(a, names);
   }
   for (const row of FEATURE_MATRIX) {
     for (const a of ADAPTERS) {
       const cell = row.cells[a];
       if (cell.status !== "tested" && cell.status !== "roundtrip") continue;
-      const needle = cellTest(row, a);
+      const needle = cellScenario(row, a);
       if (needle === undefined) {
-        errors.push(`${a} "${row.feature}": ${cell.status} cell has no test`);
+        errors.push(
+          `${a} "${row.feature}": ${cell.status} cell has no scenario`,
+        );
         continue;
       }
       const hit = namesByAdapter.get(a)!.some((n) => n.includes(needle));
       if (hit) backed += 1;
       else {
         errors.push(
-          `${a} "${row.feature}": no test name contains "${needle}" in ` +
-            `integration/${a}_features_test.ts`,
+          `${a} "${row.feature}": no registered scenario contains ` +
+            `"${needle}" for integration/${a}_features_test.ts`,
         );
       }
     }
@@ -239,14 +242,15 @@ function main(): void {
     console.log(
       `docs/feature-matrix.md is up to date (${FEATURE_MATRIX.length} features ` +
         `× ${ADAPTERS.length} adapters = ${cells} cells; ${backed} ✅/⚠️ ` +
-        `backed by named tests).`,
+        `backed by registered scenarios).`,
     );
     return;
   }
   Deno.writeTextFileSync(OUT, content);
   console.log(
     `Wrote docs/feature-matrix.md (${FEATURE_MATRIX.length} features × ` +
-      `${ADAPTERS.length} adapters; ${backed} ✅/⚠️ backed by named tests).`,
+      `${ADAPTERS.length} adapters; ${backed} ✅/⚠️ backed by registered ` +
+      `scenarios).`,
   );
 }
 
