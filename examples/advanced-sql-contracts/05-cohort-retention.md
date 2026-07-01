@@ -13,7 +13,7 @@ reads it.
 **Related runnable examples:**
 [`neon-activity-vectors`](../neon-activity-vectors/README.md) (daily/monthly
 rollups + retention framing already live here) and
-[`neon-rising-feed-ctes`](../neon-rising-feed-ctes/README.md) (chained CTEs).
+[`postgres-family-feed`](../postgres-family-feed/README.md) (chained CTEs).
 
 ## Product use case
 

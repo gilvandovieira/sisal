@@ -1,16 +1,19 @@
-# libSQL / Turso rising feed (Sisal example)
+# SQLite-family rising feed (Sisal example)
 
-The **SQLite** counterpart to [`neon-rising-feed`](../neon-rising-feed/). It
-builds the **same** Reddit-style `/rising` timeline — time-bucketed activity, a
-moving-window score, a stored `rising_score`, and keyset pagination — on
-**libSQL / Turso** with [Sisal](../../README.md).
+The **SQLite-family** counterpart to
+[`postgres-family-feed`](../postgres-family-feed/). It builds the **same**
+Reddit-style `/rising` timeline — time-bucketed activity, a moving-window score,
+a stored `rising_score`, and keyset pagination — over the SQLite dialect, on
+either `@sisal/libsql` (libSQL/Turso, default) or embedded `@sisal/sqlite`,
+selected with `SISAL_ADAPTER` (see [`src/db.ts`](src/db.ts)).
 
-Read the [Neon README](../neon-rising-feed/README.md) for the concepts: **what a
-moving average is**, **/new vs /hot vs /rising**, **why the score is stored and
-time-dependent**, **why `now` is explicit**, **5-minute buckets**, the
-**activity weights**, **unique-actor anti-spam**, **why reports penalize**, and
-**how keyset pagination works**. They are identical here. This README focuses on
-the **one big difference** and the Sisal API pressure points it surfaces.
+Read the [PostgreSQL-family README](../postgres-family-feed/README.md) for the
+concepts: **what a moving average is**, **/new vs /hot vs /rising**, **why the
+score is stored and time-dependent**, **why `now` is explicit**, **5-minute
+buckets**, the **activity weights**, **unique-actor anti-spam**, **why reports
+penalize**, and **how keyset pagination works**. They are identical here. This
+README focuses on the **one big difference** and the Sisal API pressure points
+it surfaces.
 
 ## The one big difference: no stored procedures
 
@@ -64,9 +67,10 @@ await db.transaction(async (tx) => {
 });
 ```
 
-This **does** use an interactive transaction — the very thing the Neon sibling
-avoids — because there is no function to push it into. On a local SQLite file or
-Turso that is fine; the trade-off is the lesson.
+This **does** use an interactive transaction — the very thing the serverless
+(`neon`) driver in the PostgreSQL family avoids — because there is no function
+to push it into. On a local SQLite file or Turso that is fine; the trade-off is
+the lesson.
 
 ## How to run
 
@@ -75,7 +79,7 @@ defaults to a **local SQLite file** (`file:./sisal-rising-feed.db`). For Turso,
 set `TURSO_DATABASE_URL` (+ `TURSO_AUTH_TOKEN`), e.g. in a copied `.env`.
 
 ```sh
-cd examples/libsql-rising-feed
+cd examples/sqlite-family-feed
 deno task migrate             # apply the single schema migration
 deno task seed                # insert 24 deterministic posts + activity
 deno task demo                # print /new and /rising, boost a post, repaginate
@@ -131,7 +135,7 @@ plain TypeScript, because there is no SQL function to host it.
 ## Sisal API pressure points
 
 In addition to the ones in the
-[Neon README](../neon-rising-feed/README.md#sisal-api-pressure-points):
+[PostgreSQL-family README](../postgres-family-feed/README.md):
 
 1. **No portable "stored procedure" / transaction-script abstraction.** The
    recorder reads completely differently across engines (one `db.call` on
@@ -188,7 +192,7 @@ and deterministic scoring — against a real SQLite database.
 ## Files
 
 ```
-examples/libsql-rising-feed/
+examples/sqlite-family-feed/
   README.md
   deno.json                 tasks (incl. --allow-sys for the native client)
   .env.example              optional TURSO_* / SISAL_LIBSQL_URL

@@ -15,7 +15,7 @@ pressure-case list** the adapter must satisfy.
 example) and every contract in this directory tagged "future MySQL" — this file
 is their MySQL-specific cross-cut. The Postgres reference stays
 [`neon-activity-vectors`](../neon-activity-vectors/README.md) /
-[`postgres-rising-feed`](../postgres-rising-feed/README.md).
+[`postgres-family-feed`](../postgres-family-feed/README.md).
 
 ## Why MySQL is latent, not absent
 

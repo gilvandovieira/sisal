@@ -11,8 +11,7 @@ principle** once [v0.7 Workstream B](../../docs/v0.7.0-roadmap.md) ships
 shares the wall in [02-window-analytics](02-window-analytics.md).
 
 **Related runnable examples:**
-[`neon-rising-feed`](../neon-rising-feed/README.md) and
-[`postgres-rising-feed`](../postgres-rising-feed/README.md) (ranked feeds — "top
+[`postgres-family-feed`](../postgres-family-feed/README.md) (ranked feeds — "top
 posts" is "top-1 per ranking window"),
 [`neon-activity-vectors`](../neon-activity-vectors/README.md).
 

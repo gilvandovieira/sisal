@@ -12,7 +12,7 @@ shipped almost every piece; what remains is _verification_, not new primitives.
 **Related runnable examples:**
 [`neon-activity-vectors`](../neon-activity-vectors/README.md) (the runnable PoC:
 `post_events` → hourly buckets → stats → rollups + pruning),
-[`neon-rising-feed-ctes`](../neon-rising-feed-ctes/README.md) (builder-native
+[`postgres-family-feed`](../postgres-family-feed/README.md) (builder-native
 `UPDATE … FROM` over chained CTEs), and the `*-rising-feed` siblings that
 already bucket activity.
 

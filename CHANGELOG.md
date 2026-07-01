@@ -11,6 +11,17 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **Cross-adapter decode-parity test**
+  ([`integration/cross_adapter_parity_test.ts`](integration/cross_adapter_parity_test.ts)),
+  gated behind `DATABASE_URL` (plus `NEON_DATABASE_URL`/`NEON_WS_PROXY` for the
+  neon leg). Runs the same schema-free rich row through each PostgreSQL-family
+  adapter and pins how they relate: the two `@sisal/pg` drivers (`@db/postgres`
+  ↔ postgres.js) decode **byte-identically**, and `@sisal/neon` aligns with
+  `@sisal/pg` on every type **except `bigint`** (neon → `string`, pg → `BigInt`;
+  values equal), with the raw-`date` `Date` timezone-convention difference
+  documented rather than failed. A driver behavior change fails the test and
+  forces a doc update. See the [v0.6.0 roadmap](docs/v0.6.0-roadmap.md)
+  "Cross-adapter parity" section.
 - **Documentation-only advanced SQL example contracts** under
   [`examples/advanced-sql-contracts/`](examples/advanced-sql-contracts/README.md).
   Twelve Markdown **future compatibility contracts** — ETL rollup, window
@@ -50,6 +61,22 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **Examples: consolidated the four rising-feed apps into two dialect-family
+  examples** (pilot for a family-based example taxonomy). The three
+  PostgreSQL-family feeds — `postgres-rising-feed`, `neon-rising-feed`, and
+  `neon-rising-feed-ctes` — become one
+  [`examples/postgres-family-feed`](examples/postgres-family-feed/) that runs
+  over any PostgreSQL-family driver (`@sisal/pg` on `@db/postgres` or
+  postgres.js, or `@sisal/neon`) selected by `SISAL_ADAPTER`, keeping both
+  recompute strategies (DB functions in `src/recompute.ts` and builder-native
+  chained CTEs in `src/recompute_ctes.ts`). `libsql-rising-feed` becomes
+  [`examples/sqlite-family-feed`](examples/sqlite-family-feed/), which runs over
+  `@sisal/libsql` or embedded `@sisal/sqlite`. This works because within a
+  dialect family the builder + dialect are shared and the facades are
+  structurally identical (`NeonDatabase` ≡ `PgDatabase`; `SqliteDatabase` ≡
+  `LibsqlDatabase`), so only the connection differs — the app code is identical.
+  A future `mysql-family` (MySQL/MariaDB) slots in the same way. Root
+  `deno.json` workspace/`check` and `examples/README.md` updated accordingly.
 - **Roadmap (v0.6 → v0.13):** demoted Node.js/npm from a v0.6 build workstream
   to the deferred [npm-release readiness report](docs/npm-release-readiness.md)
   (build + dual publish moved to v0.13+, on demand, gated on a chosen npm name);

@@ -1,34 +1,43 @@
-# PostgreSQL rising feed (Sisal example)
+# PostgreSQL-family rising feed (Sisal example)
 
-The **normal database** version of the Reddit-style **`/rising`** feed: a
-regular **PostgreSQL 18** connection via [`@sisal/pg`](../../packages/pg/). Same
-product behavior as the Neon and libSQL siblings — posts, 5-minute activity
-buckets, unique-actor dedup, a weighted bucket score, a stored, time-dependent
-`rising_score`, `/new` + `/rising` with keyset pagination — but with **no
-serverless execution constraint**.
+A Reddit-style **`/rising`** feed that runs over **any PostgreSQL-family
+driver** from one codebase — `@sisal/pg` on `@db/postgres` or `npm:postgres`, or
+`@sisal/neon` over a WebSocket. Same product behavior everywhere: posts,
+5-minute activity buckets, unique-actor dedup, a weighted bucket score, a
+stored, time-dependent `rising_score`, `/new` + `/rising` with keyset
+pagination.
 
-It is **not** an app — no auth, no HTTP server, no frontend, no comments tree,
-no moderation UI. Just the database/feed mechanics, three ways.
+Pick the driver with `SISAL_ADAPTER` (see [`src/db.ts`](src/db.ts)). Every other
+module is **identical** across drivers because the PostgreSQL dialect + builder
+are shared and `NeonDatabase` is structurally identical to `PgDatabase` — only
+the connection differs. This example consolidates the former
+`postgres-rising-feed`, `neon-rising-feed`, and `neon-rising-feed-ctes`.
 
-## The three-way comparison
+It is **not** an app — no auth, no full HTTP server, no frontend, no comments
+tree, no moderation UI. Just the database/feed mechanics.
 
-This example exists to compare three database environments running the **same**
-feature:
+## One feature, three drivers
 
-| Environment              | Example                                        | Adapter         | Database features                                    | Runtime shape             | Main lesson                    |
-| ------------------------ | ---------------------------------------------- | --------------- | ---------------------------------------------------- | ------------------------- | ------------------------------ |
-| **Normal PostgreSQL 18** | **`postgres-rising-feed`** (this one)          | `@sisal/pg`     | functions/procedures, regular sessions, transactions | normal TCP Postgres       | full database feature baseline |
-| **Neon / Postgres**      | [`neon-rising-feed`](../neon-rising-feed/)     | `@sisal/neon`   | Postgres functions, serverless execution constraints | single-statement friendly | constrained Postgres runtime   |
-| **libSQL / Turso**       | [`libsql-rising-feed`](../libsql-rising-feed/) | `@sisal/libsql` | no SQL stored procedures                             | TS transactions / batch   | feature-limited database       |
+| `SISAL_ADAPTER`  | Adapter       | Driver             | Runtime shape                | Note                                             |
+| ---------------- | ------------- | ------------------ | ---------------------------- | ------------------------------------------------ |
+| `pg` (default)   | `@sisal/pg`   | `jsr:@db/postgres` | regular TCP Postgres session | pure-JSR baseline; interactive transactions fine |
+| `pg-postgres-js` | `@sisal/pg`   | `npm:postgres`     | regular TCP, `TCP_NODELAY`   | the fast driver (0.5.1+)                         |
+| `neon`           | `@sisal/neon` | `@neon/serverless` | WebSocket / serverless       | single-statement-friendly; transactions still ok |
 
-- **Normal Postgres** (here): a regular connection/session model. Interactive
-  transactions are perfectly acceptable, and so are PostgreSQL functions. This
-  is the baseline: every database feature is available.
-- **Neon** uses the _same database-side idea_ (Postgres functions) but for a
-  serverless, single-statement-friendly execution model — it avoids holding a
-  connection open across an interactive transaction callback.
-- **libSQL** _cannot_ use SQL stored procedures at all, so the same multi-step
-  logic moves into TypeScript (`db.transaction(...)` / `db.batch(...)`).
+All three speak the same PostgreSQL dialect, so the schema, queries, and
+recompute are byte-identical — only the connection in `src/db.ts` changes.
+
+### Two recompute strategies
+
+The time-dependent `rising_score` goes stale as the clock moves, so it is
+recomputed — two ways, both included:
+
+- **`src/recompute.ts`** — via PostgreSQL functions (`db.call(...)`), keeping
+  the multi-step recompute atomic and database-local. `deno task recompute`.
+- **`src/recompute_ctes.ts`** — builder-native chained CTEs
+  (`db.with(...).update(...).from(...).returning(...)`), no database function.
+  `deno task recompute:ctes`. (The technique the former `neon-rising-feed-ctes`
+  demonstrated.)
 
 ## Why this example still uses PostgreSQL functions
 
@@ -80,7 +89,7 @@ keyset.
 Prerequisites: [Deno](https://deno.com/) 2.x and Docker.
 
 ```sh
-cd examples/postgres-rising-feed
+cd examples/postgres-family-feed
 cp .env.example .env
 docker compose up -d          # start PostgreSQL 18 locally
 
@@ -142,7 +151,7 @@ the interactive-transaction recorder agrees with the database-function recorder.
 ## Files
 
 ```
-examples/postgres-rising-feed/
+examples/postgres-family-feed/
   README.md
   deno.json                 tasks + JSR imports
   .env.example              DATABASE_URL + DATABASE_DIRECT_URL

@@ -43,12 +43,29 @@ export async function runMigrations(
   for (const file of MIGRATION_FILES) {
     const path = new URL(`../migrations/${file}`, import.meta.url);
     const text = await Deno.readTextFile(path);
-    const statements = splitSqlStatements(text);
+    const statements = splitSqlStatements(text)
+      .map(stripSqlLineComments)
+      .filter((statement) => statement.length > 0);
     for (const statement of statements) {
       await db.execute(raw(statement));
     }
     console.log(`applied ${file} (${statements.length} statement(s))`);
   }
+}
+
+/**
+ * Strips `--` line comments (and surrounding blank lines) from a migration
+ * statement. The libSQL client tolerates leading/inline comments, but embedded
+ * `@db/sqlite` (the `sqlite` adapter) rejects some commented DDL as "incomplete
+ * input", so the shared runner normalizes comments away. Safe here because these
+ * DDL migrations contain no string literals holding `--`.
+ */
+function stripSqlLineComments(statement: string): string {
+  return statement
+    .split("\n")
+    .map((line) => line.replace(/--.*$/, ""))
+    .join("\n")
+    .trim();
 }
 
 async function main(): Promise<void> {

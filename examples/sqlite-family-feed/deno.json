@@ -1,6 +1,6 @@
 {
-  "name": "@sisal/example-libsql-rising-feed",
-  "version": "0.4.0",
+  "name": "@sisal/example-sqlite-family-feed",
+  "version": "0.5.1",
   "exports": "./mod.ts",
   "publish": false,
   "imports": {

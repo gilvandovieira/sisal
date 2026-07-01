@@ -10,7 +10,7 @@ MariaDB 10.2+ have recursive CTEs; older MySQL does not). **Sisal's
 `db.with(...)` is non-recursive today** — there is no `WITH RECURSIVE` surface.
 
 **Related runnable examples:**
-[`neon-rising-feed-ctes`](../neon-rising-feed-ctes/README.md) (the existing
+[`postgres-family-feed`](../postgres-family-feed/README.md) (the existing
 CTE-shaped example — recursive CTEs are the next rung) and the `*-rising-feed`
 siblings.
 

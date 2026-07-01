@@ -214,7 +214,7 @@ expression is now a valid column value).
    v0.5 shipped **mutation joins** (`update(t).from(source)` renders
    `UPDATE … FROM`) and **`insert(t).select(query)`**, both demonstrated
    builder-native by the sibling
-   [`neon-rising-feed-ctes`](../neon-rising-feed-ctes/README.md)
+   [`postgres-family-feed`](../postgres-family-feed/README.md)
    (`db.with(...).update(posts).from(computedScore)`). So the surface this
    example once called missing exists today. The bulk `recomputeAggregates` here
    stays a single raw statement for a **narrower** reason: its `FROM` is a
@@ -275,7 +275,7 @@ acceptance criteria — in the [v0.4.0 roadmap](../../docs/v0.4.0-roadmap.md).
 
 - **`UPDATE … FROM` / `INSERT … SELECT`** — **landed in v0.5** (mutation joins +
   `insert().select()`; see the sibling
-  [`neon-rising-feed-ctes`](../neon-rising-feed-ctes/README.md)). The
+  [`postgres-family-feed`](../postgres-family-feed/README.md)). The
   join-in-`FROM` derived table here could move onto a CTE +
   `update(posts).from(cte)`; it stays raw only as the documented escape-hatch
   demo (see pressure point 2 above).

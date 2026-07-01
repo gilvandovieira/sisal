@@ -306,11 +306,6 @@
           "npm:drizzle-orm@0.45.2"
         ]
       },
-      "examples/libsql-rising-feed": {
-        "dependencies": [
-          "jsr:@std/assert@1"
-        ]
-      },
       "examples/neon-activity-vectors": {
         "dependencies": [
           "jsr:@neon/serverless@1",
@@ -323,19 +318,12 @@
           "jsr:@std/assert@1"
         ]
       },
-      "examples/neon-rising-feed": {
+      "examples/postgres-family-feed": {
         "dependencies": [
-          "jsr:@neon/serverless@1",
           "jsr:@std/assert@1"
         ]
       },
-      "examples/neon-rising-feed-ctes": {
-        "dependencies": [
-          "jsr:@neon/serverless@1",
-          "jsr:@std/assert@1"
-        ]
-      },
-      "examples/postgres-rising-feed": {
+      "examples/sqlite-family-feed": {
         "dependencies": [
           "jsr:@std/assert@1"
         ]
