@@ -9,7 +9,204 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.8.0 - 2026-07-02
+
 ### Added
+
+- **v0.8 final items closed — 14/15/19 + capability-matrix wiring (item 1)**,
+  each verified live on PostgreSQL 16, MySQL 8.4, MariaDB 11.8, and embedded
+  SQLite:
+  - **Generated columns (item 15)** — the generated-column builder declares
+    `GENERATED ALWAYS AS (…)` columns as either stored or virtual. The metadata
+    flows through the schema snapshot (change-detected in the diff) and the
+    PostgreSQL/SQLite/MySQL DDL generators. Virtual generated columns fail
+    closed with a typed error on PostgreSQL (STORED-only), and a generated
+    column cannot also carry a default. Expression and partial indexes were
+    already snapshot/DDL-native.
+  - **Array / JSON / set-returning IR (item 14)** — `arrayExpr` (`ARRAY[…]` /
+    `json_array`), `jsonExtract` (portable scalar JSONPath extraction), and
+    `jsonTable` — a set-returning FROM source compiling to PostgreSQL
+    `jsonb_to_recordset`, MySQL `JSON_TABLE`, and SQLite `json_each` + per-field
+    `json_extract`, with typed column refs. The select builder gains a raw-`Sql`
+    `.from(...)` overload (a set-returning/table-valued FROM fragment), which
+    also composes with `assembleSelect`.
+  - **ODKU assignment-order safety (item 19)** — `onConflictDoUpdate` set
+    assignments render in author order verbatim, and the MySQL render throws a
+    typed guard when an assignment reads a _different_ sibling column set
+    earlier in the same list (the left-to-right footgun that silently diverges
+    from PostgreSQL). Self-references, derived-first, and `excluded()` pass; the
+    policy is documented in `docs/portability-policies.md`.
+  - **Capability descriptor / matrix (item 1)** — the feature-matrix generator
+    now consumes the core registry's `CAPABILITY_TARGETS`, and
+    `deno task docs:matrix:check` fails if the matrix `ADAPTERS` and the
+    registry's six-way target space diverge (the GI-1 key-space reconciliation).
+    Per-cell capability-value wiring remains a v0.9 item.
+
+  All 19 v0.8 roadmap items are now complete.
+
+### Changed
+
+- **Advanced-SQL contract review + roadmap logging** — reviewed the
+  `examples/{postgres,mysql}-family-advanced-sql` families against
+  `examples/advanced-sql-contracts/` after v0.8 waves 0–4. Rebuilding each
+  `"raw"` case with the shipped primitives confirmed contracts **01–07** and the
+  expression/partial-index half of **11** are now builder-native; the finding is
+  recorded in the [v0.8 roadmap](docs/v0.8.0-roadmap.md) graduation section.
+  Three still-open concerns were logged into [v0.9](docs/v0.9.0-roadmap.md):
+  version-gating MySQL functional indexes (≥ 8.0.13, currently fail-closed
+  always), refreshing the advanced-SQL example families to builder-native, and
+  the recursive-CTE `CYCLE` cycle-detection question. (JSON-table, generated
+  columns, and the ODKU assignment-order hazard remain tracked as v0.8 items
+  14/15/19.)
+
+- Bumped every workspace manifest (`packages/`, `examples/`, and `benchmarks`)
+  to `0.8.0`, and updated the migration CLI's default adapter imports plus
+  README install snippets to point at the v0.8 package line.
+
+### Added
+
+- **Wave-4 proof and stamp (v0.8 items 3/5/8/13/17)** — the release's acceptance
+  proofs and the frozen-surface documentation:
+  - **Statement assembly** (`@sisal/core`'s new `assembleSelect` /
+    `assembleInsertFromSelect`, with the dialect-mapped upsert) implements the
+    item-5 seam decision. The **core-only rollup fixture**
+    (`packages/core/rollup_fixture_test.ts`) compiles the canonical v0.6
+    `post_hourly_stats` rollup — grouped insert-from-select + `FILTER`
+    aggregates + `dateTrunc` + upsert — using only `@sisal/core` exports, and
+    `packages/orm/assembly_equivalence_test.ts` proves assembly and the fluent
+    builder render **byte-identical text and parameters on every dialect**, so
+    the two surfaces cannot drift.
+  - **`SQL_IR_VERSION = 1`** is exported and `docs/core-ir.md` documents the
+    compile-target contract: the three export surfaces and their commitments,
+    the `SqlChunk` kind table with render semantics, the compatibility policy
+    (additive changes are minor; the `meta` slot is the reserved AST seam; the
+    golden suites are the behavioral pin), and what is deliberately not
+    promised.
+  - **`docs/portability-policies.md`** states the cross-family policies once:
+    the MySQL-family UTC literal policy ("executor UTC convention"), the
+    `dateTrunc`/`dateBin`/`dateDiff` value-shape table with the
+    compare-within-one-engine rule, and the no-transactional-DDL cleanup
+    pattern.
+  - Item 8 closes with golden-pinned scalar subqueries in projections; the
+    golden suite grows to **59 snapshots** (all prior keys byte-identical), and
+    `benchmarks/scenarios/advanced_sql.ts` adds render-throughput baselines for
+    the wave-3/4 constructs.
+
+- **Wave-3 expression surface in `@sisal/core` (v0.8 items 7/9/10/11/12)** —
+  every semantic verified live on PostgreSQL 16, MySQL 8.4, MariaDB 11.8, and
+  embedded SQLite with identical values before pinning:
+  - **`expr<T>()`** types a fragment as a `SqlExpression<T>` — the name-once
+    handle for computed/metric expressions, replacing `as SqlExpression<T>`
+    casts; reuse across projection/`groupBy`/`having`/`orderBy` is pinned.
+  - **`coalesce`**, **`greatest`/`least`** (SQLite renders scalar `max`/`min`;
+    per-engine NULL divergence documented) retire the last raw seams in the
+    composed rollups.
+  - **Window primitives** (`core/window.ts`): `over()` with
+    `WindowSpec`/`WindowFrame`/`FrameBound` per the analytics-readiness
+    signature, plus `rank`/`denseRank`/`rowNumber`/`lag`/`lead`, and
+    **`dateDiff`** (truncated whole units; `TIMESTAMPDIFF` / epoch-`trunc` /
+    `julianday` per family). Two new registry capabilities: `GROUPS` frames
+    (MySQL family unsupported; SQLite version-gated ≥ 3.28 through the new
+    **dialect-scoped guard exception** — `DialectGuardException.dialect` extends
+    the item-1 key space) and the `lag()`/`lead()` **default argument**, which
+    the live probe caught MariaDB 11.8 rejecting (MySQL 8.4 accepts it) —
+    guarded typed; portable spelling `coalesce(over(lag(x), …), d)`.
+  - **Recursive CTEs**:
+    `db.$withRecursive(name, columns).as((self) =>
+    base.unionAll(step))`
+    renders `WITH RECURSIVE name (cols) AS (…)` with the self-reference usable
+    as a source, one `RECURSIVE` keyword covering mixed plain/recursive lists,
+    and the portable depth-guard pattern.
+  - The golden baseline suite grew to **57 snapshots** (six new constructs × 5
+    render targets), with all 51 pre-existing keys byte-identical — closing
+    item 12.
+
+- **`@sisal/core` extracted (v0.8 wave 2, item 2)** — the new `packages/core`
+  package is Sisal's driverless compile target: schema primitives and snapshots
+  (`./schema`), the fragment SQL IR and `sql` tag, expression operators and
+  aggregates, the dialect capability registry, the dialect-aware renderer,
+  structured errors, and the `Logger` contract — everything
+  `@sisal/etl`/`@sisal/analytics` will compile into without depending on the
+  ORM. The fluent query builders, `Database` facade, relations, and typed
+  function caller stay in `@sisal/orm`, which re-exports the full core surface;
+  `@sisal/orm/core`, `/schema`, `/error`, and `/logger` remain as compatibility
+  re-exports, so **no user-visible imports change** (proven by the
+  byte-identical golden baselines and the full unit suite). The ORM's builder
+  tier reaches non-public core plumbing only through the documented-unstable
+  `@sisal/core/unstable-internal` seam. `@sisal/migrate` now depends on
+  `@sisal/core` only (the wave-1 decision, item 6), with the import mapping
+  recorded in `docs/core-migration.md`. JSR publish dry-run passes for all eight
+  workspace packages (`@sisal/core@0.8.0`).
+
+- **Core capability registry — the `(engine, variant, version-range)` key space
+  (v0.8 wave 1, item 1)** — new core module `capabilities.ts` (in
+  `packages/core/` since the wave-2 extraction): `DIALECT_CAPABILITIES` declares
+  every render-guarded construct's dialect truth (per-statement `RETURNING` with
+  MariaDB floors, `distinctOn`, `FULL JOIN`, row locking, array operators,
+  data-modifying and mutation-prefixed CTEs, `DELETE … USING`, multi-table
+  `RETURNING`) as the same serializable data the render-time `guard` chunk
+  carries. Every guard call site now derives its guard from the registry
+  (`capabilityGuard`), and the new `capabilitySupported`/`dialectGuardApplies`
+  predicates answer support questions without rendering, with identical
+  fail-closed semantics — the registry and renderer cannot disagree (pinned by
+  `capability_test.ts`; the wave-0 golden baselines are byte-identical).
+  `CAPABILITY_TARGETS` names the six capability targets
+  (`pg`/`neon`/`sqlite`/`libsql`/`mysql`/`mariadb`) as `(engine, variant)`
+  identities. Feature-matrix generation wiring is v0.9 work.
+
+- **Additive IR extension seam (v0.8 wave 1, item 4)** — `SqlChunk` gains an
+  opaque, renderer-ignored `meta` slot (`SqlChunkMeta`, `withSqlChunkMeta`,
+  `sqlChunkMeta`): annotations attach to fragments, ride through `sql`-tag and
+  builder composition by reference, and never change rendered output — proven by
+  the round-trip fixture `sql_meta_seam_test.ts`. This is the reserved seam that
+  lets a future transformable AST (v0.13 DuckDB pushdown) arrive as a
+  non-breaking version bump, closing the sequencing audit's Fix 3.
+
+- **v0.8 wave-1 decisions recorded** (roadmap open questions): the statement
+  assembler will be a **minimal assemble-from-parts API in `@sisal/core`** (the
+  fluent OLTP builder stays in `@sisal/orm`); `@sisal/migrate` will depend on
+  **core only**; the ETL checkpoint table stays **`@sisal/etl`-managed** (no
+  `etl → migrate` edge — audit Fix 2 ratified); the write-result ("inserted vs
+  conflicted/claimed") abstraction direction is recorded with implementation
+  deferred to ride with v0.9's queue-claim work.
+
+- **Golden per-dialect SQL baselines (v0.8 wave 0, item 12 first half)** — new
+  network-free snapshot suite `packages/orm/golden_sql_test.ts` pins the
+  rendered SQL of every existing IR construct (49 constructs: selects,
+  operators, joins, aggregates + `filter()`, keyset both forms, compounds, CTEs
+  incl. data-modifying bodies and `WITH`-on-mutation, date helpers, the `sql`
+  tag, `db.call`, inserts/upserts/updates/deletes with returning/multi-table
+  forms) across 5 render targets (postgres/sqlite/mysql/generic + the detected
+  MariaDB 11.8.8 identity), recording exact text, ordered params, and typed
+  guard errors, plus per-dialect prepared-plan placeholder styles. These
+  snapshots are the behavior-preservation net for the upcoming v0.8
+  `dialectGuard` generalization and `@sisal/core` extraction. Adds
+  `@std/testing` (snapshot) as a dev import.
+
+- **v0.8 roadmap priority summary** — `docs/v0.8.0-roadmap.md` gains the tracked
+  task list (19 numbered items with priority/effort/status, the v0.5 table
+  style): the IR-freeze spine (capability-descriptor key space, `@sisal/core`
+  extraction, versioned IR surface, the AST additive seam, the
+  statement-assembly decision), the expression-surface work surfaced by the
+  example graduations (aliases, computed columns, `coalesce`/`greatest`,
+  windows + date-diff helpers, recursive CTEs, the ODKU assignment-order
+  hazard), the golden-SQL/core-only-fixture proofs, and the audit-mandated
+  decisions (checkpoint-table ownership). Consolidated from the v0.5/v0.6/v0.7
+  handoffs, both v0.8 findings sections, and the roadmap sequencing audit's v0.8
+  gates (Fixes 1–4). An **execution-order section** gives the
+  dependency-compatible five-wave build sequence (golden baselines first as the
+  refactor net, freeze-shaping decisions, the extraction, the expression
+  surface, then the fixture/stamp), since the item numbers are tracking IDs, not
+  a build order. A follow-up consistency pass across
+  v0.8/v0.9/v0.11/analytics-readiness standardized the capability-descriptor key
+  naming on `(engine, variant, version-range)` (the v0.7 `DialectIdentity` axis
+  generalized), acceptance-gated the statement-assembly and `@sisal/migrate`
+  dependency decisions, settled the window-primitive boundary (grammar-level
+  `over()`/frames/`rank`/`lag`/`lead` are core; the semantic layer is
+  analytics), assigned the recursive CTE builder to v0.8 with v0.9 doing
+  per-engine verification, recorded that `@sisal/orm/core` stays as a
+  compatibility re-export of `@sisal/core`, and fixed the stale "first new
+  package boundary" wording (v0.7 already shipped `@sisal/mysql`).
 
 - **MySQL/MariaDB CI integration jobs** — the scheduled `Integration` workflow
   now runs the gated mysql-family suites against service containers:
