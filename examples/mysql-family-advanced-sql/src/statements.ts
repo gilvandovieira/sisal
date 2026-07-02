@@ -1,9 +1,12 @@
 import {
   and,
   asc,
+  avg,
   count,
+  countDistinct,
   createDatabase,
   type Database,
+  dateDiff,
   dateTrunc,
   desc,
   type DialectIdentity,
@@ -11,15 +14,23 @@ import {
   excluded,
   filter,
   gte,
+  jsonTable,
+  lag,
   lt,
+  lte,
+  min,
   OrmError,
+  over,
+  rank,
   raw,
   renderSql,
+  rowNumber,
   type Sql,
   sql,
+  sum,
 } from "@sisal/orm";
 
-import { events, hourlyStats, jobs, posts } from "./schema.ts";
+import { comments, events, hourlyStats, jobs, posts } from "./schema.ts";
 
 export type AdvancedImplementation =
   | "builder"
@@ -71,38 +82,43 @@ export function advancedSqlCases(
       id: "02",
       title: "Window analytics",
       contract: "02-window-analytics",
-      implementation: "raw",
-      statements: [windowAnalytics()],
-      v08PainPoint: "Needs core over(), frame, ranking, and window helpers.",
+      implementation: "builder",
+      statements: [windowAnalytics(db)],
+      v08PainPoint:
+        "over()/rank()/avg() with a rows frame now render this natively; " +
+        "MySQL has no ORDER BY alias reuse, so the rank window repeats there.",
       live: true,
     },
     {
       id: "03",
       title: "Sessionization",
       contract: "03-sessionization",
-      implementation: "raw",
-      statements: [sessionization()],
+      implementation: "hybrid",
+      statements: [sessionization(db)],
       v08PainPoint:
-        "Needs lag(), portable date-diff, and reusable window specs.",
+        "lag(), dateDiff(), and reusable window specs now render this; the " +
+        "session-boundary CASE stays an inline fragment.",
       live: true,
     },
     {
       id: "04",
       title: "Top-N per group",
       contract: "04-top-n-per-group",
-      implementation: "raw",
-      statements: [topNPerGroup()],
-      v08PainPoint: "Needs row_number() plus a CTE/window expression builder.",
+      implementation: "builder",
+      statements: [topNPerGroup(db)],
+      v08PainPoint:
+        "rowNumber() plus a derived-table .as() now express Top-N natively.",
       live: true,
     },
     {
       id: "05",
       title: "Cohort retention",
       contract: "05-cohort-retention",
-      implementation: "raw",
-      statements: [cohortRetention()],
+      implementation: "hybrid",
+      statements: [cohortRetention(db)],
       v08PainPoint:
-        "Needs portable cohort/date-bucket helpers and alias reuse.",
+        "The first-seen CTE, join, and countDistinct are builder-native; " +
+        "day bucketing stays an inline date() fragment.",
       live: true,
     },
     {
@@ -110,18 +126,21 @@ export function advancedSqlCases(
       title: "Funnel analysis",
       contract: "06-funnel-analysis",
       implementation: "hybrid",
-      statements: [funnelAnalysis()],
-      v08PainPoint: "Needs typed first-event helpers and CASE/FILTER parity.",
+      statements: [funnelAnalysis(db)],
+      v08PainPoint:
+        "filter(min(...)) rebuilds the first-event pivots as CASE; the " +
+        "day-window funnel math stays inline (timestampadd).",
       live: true,
     },
     {
       id: "07",
       title: "Recursive comments",
       contract: "07-recursive-comments",
-      implementation: "raw",
-      statements: [recursiveComments()],
+      implementation: "hybrid",
+      statements: [recursiveComments(db)],
       v08PainPoint:
-        "Needs a WITH RECURSIVE builder and version capability gates.",
+        "$withRecursive() renders WITH RECURSIVE with the self-reference " +
+        "guard; depth/path expressions stay inline fragments.",
       live: true,
     },
     {
@@ -146,9 +165,11 @@ export function advancedSqlCases(
       id: "10",
       title: "JSON table extraction",
       contract: "10-json-table-extraction",
-      implementation: "raw",
-      statements: [jsonTableExtraction()],
-      v08PainPoint: "Needs JSON_TABLE/set-returning projection IR.",
+      implementation: "hybrid",
+      statements: [jsonTableExtraction(db)],
+      v08PainPoint:
+        "jsonTable() renders JSON_TABLE with a typed COLUMNS clause; the " +
+        "documents table is referenced inline (no defineTable in this demo).",
       live: true,
     },
     {
@@ -158,7 +179,9 @@ export function advancedSqlCases(
       implementation: "raw-ddl",
       statements: generatedColumnDdl(),
       v08PainPoint:
-        "Generated columns work, but partial indexes are impossible on MySQL and need a typed capability error.",
+        "Generated columns (.generatedAs()) and the fail-closed partial-index " +
+        "capability error both ship; this plain stored-column index stays a " +
+        "hand-written CREATE TABLE built outside the snapshot flow.",
       live: true,
     },
     {
@@ -233,161 +256,167 @@ function etlRollup(db: Database): Sql {
   }).toSql();
 }
 
-function windowAnalytics(): Sql {
-  return sql`
-    select
-      post_id,
-      bucket,
-      votes,
-      avg(votes) over (
-        partition by post_id
-        order by bucket
-        rows between 5 preceding and current row
-      ) as vote_ma_6h,
-      rank() over (
-        partition by bucket
-        order by engagement_score desc
-      ) as engagement_rank
-    from sisal_adv_hourly_stats
-    where bucket >= ${FROM}
-    order by bucket, engagement_rank
-  `;
+function windowAnalytics(db: Database): Sql {
+  const h = hourlyStats.columns;
+  // MySQL forbids referencing a SELECT alias in ORDER BY, so the ranking window
+  // is defined once and reused in both the projection and the ORDER BY.
+  const engagementRank = over(rank(), {
+    partitionBy: [h.bucket],
+    orderBy: [desc(h.engagement_score)],
+  });
+  return db.select({
+    post_id: h.post_id,
+    bucket: h.bucket,
+    votes: h.votes,
+    vote_ma_6h: over(avg(h.votes), {
+      partitionBy: [h.post_id],
+      orderBy: [asc(h.bucket)],
+      frame: { unit: "rows", start: { preceding: 5 }, end: "currentRow" },
+    }),
+    engagement_rank: engagementRank,
+  }).from(hourlyStats)
+    .where(gte(h.bucket, FROM))
+    .orderBy(asc(h.bucket), asc(engagementRank))
+    .toSql();
 }
 
-function sessionization(): Sql {
-  return sql`
-    with ordered as (
-      select
-        actor_id,
-        occurred_at,
-        lag(occurred_at) over (
-          partition by actor_id
-          order by occurred_at
-        ) as previous_at
-      from sisal_adv_events
-      where occurred_at >= ${FROM}
-    ),
-    flagged as (
-      select
-        actor_id,
-        occurred_at,
-        case
-          when previous_at is null
-            or timestampdiff(minute, previous_at, occurred_at) > ${30}
-          then 1
-          else 0
-        end as starts_new_session
-      from ordered
-    )
-    select
-      actor_id,
-      occurred_at,
-      sum(starts_new_session) over (
-        partition by actor_id
-        order by occurred_at
-      ) as session_number
-    from flagged
-  `;
+function sessionization(db: Database): Sql {
+  const e = events.columns;
+  const ordered = db.$with("ordered").as(
+    db.select({
+      actor_id: e.actor_id,
+      occurred_at: e.occurred_at,
+      previous_at: over(lag(e.occurred_at), {
+        partitionBy: [e.actor_id],
+        orderBy: [asc(e.occurred_at)],
+      }),
+    }).from(events).where(gte(e.occurred_at, FROM)),
+  );
+  // The gap test uses portable dateDiff() (→ TIMESTAMPDIFF on MySQL); the
+  // boundary flag stays an inline CASE fragment over the CTE's columns.
+  const flagged = db.$with("flagged").as(
+    db.select({
+      actor_id: ordered.actor_id,
+      occurred_at: ordered.occurred_at,
+      starts_new_session: sql`case when ${ordered.previous_at} is null or ${
+        dateDiff("minutes", ordered.previous_at, ordered.occurred_at)
+      } > ${30} then 1 else 0 end`,
+    }).from(ordered),
+  );
+  return db.with(ordered, flagged).select({
+    actor_id: flagged.actor_id,
+    occurred_at: flagged.occurred_at,
+    session_number: over(sum(flagged.starts_new_session), {
+      partitionBy: [flagged.actor_id],
+      orderBy: [asc(flagged.occurred_at)],
+    }),
+  }).from(flagged).toSql();
 }
 
-function topNPerGroup(): Sql {
-  return sql`
-    select post_id, bucket, engagement_score, rn
-    from (
-      select
-        post_id,
-        bucket,
-        engagement_score,
-        row_number() over (
-          partition by post_id
-          order by engagement_score desc, bucket desc
-        ) as rn
-      from sisal_adv_hourly_stats
-      where bucket >= ${FROM}
-    ) ranked
-    where rn <= ${3}
-  `;
+function topNPerGroup(db: Database): Sql {
+  const h = hourlyStats.columns;
+  const ranked = db.select({
+    post_id: h.post_id,
+    bucket: h.bucket,
+    engagement_score: h.engagement_score,
+    rn: over(rowNumber(), {
+      partitionBy: [h.post_id],
+      orderBy: [desc(h.engagement_score), desc(h.bucket)],
+    }),
+  }).from(hourlyStats).where(gte(h.bucket, FROM)).as("ranked");
+  return db.select({
+    post_id: ranked.post_id,
+    bucket: ranked.bucket,
+    engagement_score: ranked.engagement_score,
+    rn: ranked.rn,
+  }).from(ranked).where(lte(ranked.rn, 3)).toSql();
 }
 
-function cohortRetention(): Sql {
-  return sql`
-    with first_seen as (
-      select actor_id, date(min(occurred_at)) as cohort_day
-      from sisal_adv_events
-      group by actor_id
-    ),
-    activity as (
-      select actor_id, date(occurred_at) as activity_day
-      from sisal_adv_events
-      where occurred_at >= ${FROM}
-    )
-    select
-      f.cohort_day,
-      a.activity_day,
-      count(distinct a.actor_id) as retained_actors
-    from first_seen f
-    join activity a on a.actor_id = f.actor_id
-    group by f.cohort_day, a.activity_day
-    order by f.cohort_day, a.activity_day
-  `;
+function cohortRetention(db: Database): Sql {
+  const e = events.columns;
+  // `first_seen` is one row per actor, so the original `activity` CTE folds
+  // into the join against the events table (same result, one fewer CTE). Day
+  // bucketing uses an inline date() fragment (MySQL DATE(), not date_trunc).
+  const firstSeen = db.$with("first_seen").as(
+    db.select({
+      actor_id: e.actor_id,
+      cohort_day: sql`date(${min(e.occurred_at)})`,
+    }).from(events).groupBy(e.actor_id),
+  );
+  const activityDay = sql`date(${e.occurred_at})`;
+  return db.with(firstSeen).select({
+    cohort_day: firstSeen.cohort_day,
+    activity_day: activityDay,
+    retained_actors: countDistinct(e.actor_id),
+  }).from(firstSeen)
+    .innerJoin(events, eq(e.actor_id, firstSeen.actor_id))
+    .where(gte(e.occurred_at, FROM))
+    .groupBy(firstSeen.cohort_day, activityDay)
+    .orderBy(asc(firstSeen.cohort_day), asc(activityDay))
+    .toSql();
 }
 
-function funnelAnalysis(): Sql {
-  return sql`
-    with first_events as (
-      select
-        actor_id,
-        min(case when kind = ${"view"} then occurred_at end) as viewed_at,
-        min(case when kind = ${"vote"} then occurred_at end) as voted_at,
-        min(case when kind = ${"comment"} then occurred_at end) as commented_at
-      from sisal_adv_events
-      where occurred_at >= ${FROM}
-      group by actor_id
-    )
-    select
-      sum(case when viewed_at is not null then 1 else 0 end) as viewed,
-      sum(case
-        when voted_at is not null
-          and voted_at <= timestampadd(day, ${1}, viewed_at)
-        then 1 else 0
-      end) as voted_within_day,
-      sum(case
-        when commented_at is not null
-          and commented_at <= timestampadd(day, ${1}, viewed_at)
-        then 1 else 0
-      end) as commented_within_day
-    from first_events
-  `;
+function funnelAnalysis(db: Database): Sql {
+  const e = events.columns;
+  // filter() has no native MySQL FILTER, so each first-event pivot rebuilds as
+  // min(CASE WHEN kind = ? THEN occurred_at END) — exactly the original SQL.
+  const firstEvents = db.$with("first_events").as(
+    db.select({
+      actor_id: e.actor_id,
+      viewed_at: filter(min(e.occurred_at), eq(e.kind, "view")),
+      voted_at: filter(min(e.occurred_at), eq(e.kind, "vote")),
+      commented_at: filter(min(e.occurred_at), eq(e.kind, "comment")),
+    }).from(events).where(gte(e.occurred_at, FROM)).groupBy(e.actor_id),
+  );
+  // The within-a-day funnel math is engine-specific (timestampadd), so the
+  // outer metrics stay inline CASE fragments over the CTE's columns.
+  return db.with(firstEvents).select({
+    viewed:
+      sql`sum(case when ${firstEvents.viewed_at} is not null then 1 else 0 end)`,
+    voted_within_day:
+      sql`sum(case when ${firstEvents.voted_at} is not null and ${firstEvents.voted_at} <= timestampadd(day, ${1}, ${firstEvents.viewed_at}) then 1 else 0 end)`,
+    commented_within_day:
+      sql`sum(case when ${firstEvents.commented_at} is not null and ${firstEvents.commented_at} <= timestampadd(day, ${1}, ${firstEvents.viewed_at}) then 1 else 0 end)`,
+  }).from(firstEvents).toSql();
 }
 
-function recursiveComments(): Sql {
-  return sql`
-    with recursive thread (id, parent_id, body, depth, path) as (
-      select
-        id,
-        parent_id,
-        body,
-        0 as depth,
-        cast(lpad(cast(id as char), 8, '0') as char(512)) as path
-      from sisal_adv_comments
-      where id = ${1}
-
-      union all
-
-      select
-        c.id,
-        c.parent_id,
-        c.body,
-        thread.depth + 1 as depth,
-        concat(thread.path, '.', lpad(cast(c.id as char), 8, '0')) as path
-      from sisal_adv_comments c
-      join thread on c.parent_id = thread.id
-      where thread.depth < ${8}
-    )
-    select id, parent_id, body, depth
-    from thread
-    order by path
-  `;
+function recursiveComments(db: Database): Sql {
+  const c = comments.columns;
+  // The recursive step MUST read the CTE via .from(self) and walk the base
+  // table with an inner join; a build-time guard rejects the self-join bug.
+  const thread = db.$withRecursive("thread", [
+    "id",
+    "parent_id",
+    "body",
+    "depth",
+    "path",
+  ]).as((self) =>
+    db.select({
+      id: c.id,
+      parent_id: c.parent_id,
+      body: c.body,
+      depth: sql`0`,
+      path: sql`cast(lpad(cast(${c.id} as char), 8, '0') as char(512))`,
+    }).from(comments).where(eq(c.id, 1))
+      .unionAll(
+        db.select({
+          id: c.id,
+          parent_id: c.parent_id,
+          body: c.body,
+          depth: sql`${self.depth} + 1`,
+          path:
+            sql`concat(${self.path}, '.', lpad(cast(${c.id} as char), 8, '0'))`,
+        }).from(self)
+          .innerJoin(comments, eq(c.parent_id, self.id))
+          .where(lt(self.depth, 8)),
+      )
+  );
+  return db.with(thread).select({
+    id: thread.id,
+    parent_id: thread.parent_id,
+    body: thread.body,
+    depth: thread.depth,
+  }).from(thread).orderBy(asc(thread.path)).toSql();
 }
 
 function claimJob(db: Database): Sql {
@@ -413,22 +442,21 @@ function checkpoint(): Sql {
   `;
 }
 
-function jsonTableExtraction(): Sql {
-  return sql`
-    select
-      d.id as document_id,
-      item.sku,
-      item.qty
-    from sisal_adv_documents d
-    join json_table(
-      d.payload,
-      '$.items[*]' columns (
-        sku varchar(64) path '$.sku',
-        qty int path '$.qty'
-      )
-    ) as item
-    where d.id = ${1}
-  `;
+function jsonTableExtraction(db: Database): Sql {
+  // jsonTable() renders the JSON_TABLE COLUMNS clause on MySQL. The documents
+  // table has no defineTable in this demo, so it is referenced inline and
+  // cross-joined with the set-returning function.
+  const item = jsonTable(sql`d.payload`, {
+    sku: { type: "text", path: "$.sku" },
+    qty: { type: "integer", path: "$.qty" },
+  }, { as: "item", path: "$.items" });
+  return db.select({
+    document_id: sql`d.id`,
+    sku: item.columns.sku,
+    qty: item.columns.qty,
+  }).from(sql`sisal_adv_documents d join ${item.from}`)
+    .where(eq(sql`d.id`, 1))
+    .toSql();
 }
 
 function generatedColumnDdl(): readonly Sql[] {

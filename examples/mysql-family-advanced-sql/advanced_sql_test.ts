@@ -19,7 +19,7 @@ Deno.test("mysql advanced SQL cases cover the graduated contracts", () => {
   ]);
 });
 
-Deno.test("mysql advanced SQL renders ODKU rollup and raw windows", () => {
+Deno.test("mysql advanced SQL renders ODKU rollup and builder windows", () => {
   const rendered = renderAdvancedSqlCases();
   const rollup = rendered.find((entry) => entry.id === "01");
   const windows = rendered.find((entry) => entry.id === "02");
@@ -28,8 +28,18 @@ Deno.test("mysql advanced SQL renders ODKU rollup and raw windows", () => {
   assertStringIncludes(rollup.sql[0], "insert into `sisal_adv_hourly_stats`");
   assertStringIncludes(rollup.sql[0], "on duplicate key update");
   assertStringIncludes(rollup.sql[0], "count(case when");
-  assertStringIncludes(windows.sql[0], "avg(votes) over");
+  // Contract 02 is now builder-native: over()/avg()/rank() render the windows
+  // (column refs are table-qualified) and the frame renders inline.
+  assertEquals(windows.implementation, "builder");
+  assertStringIncludes(
+    windows.sql[0],
+    "avg(`sisal_adv_hourly_stats`.`votes`) over",
+  );
   assertStringIncludes(windows.sql[0], "rank() over");
+  assertStringIncludes(
+    windows.sql[0],
+    "rows between 5 preceding and current row",
+  );
 });
 
 Deno.test("mysql raw advanced cases remain parameterized", () => {

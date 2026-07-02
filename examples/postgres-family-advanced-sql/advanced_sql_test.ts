@@ -20,7 +20,7 @@ Deno.test("postgres advanced SQL cases cover the graduated contracts", () => {
   ]);
 });
 
-Deno.test("postgres advanced SQL renders builder ETL and raw windows", () => {
+Deno.test("postgres advanced SQL renders builder ETL and window analytics", () => {
   const rendered = renderAdvancedSqlCases();
   const rollup = rendered.find((entry) => entry.id === "01");
   const windows = rendered.find((entry) => entry.id === "02");
@@ -29,7 +29,16 @@ Deno.test("postgres advanced SQL renders builder ETL and raw windows", () => {
   assertStringIncludes(rollup.sql[0], 'insert into "sisal_adv_hourly_stats"');
   assertStringIncludes(rollup.sql[0], "count(*) filter");
   assertStringIncludes(rollup.sql[0], "on conflict");
-  assertStringIncludes(windows.sql[0], "avg(votes) over");
+  // Window analytics is now builder-native: a moving-average window with a
+  // ROWS frame and a ranking window over the same partition.
+  assertStringIncludes(
+    windows.sql[0],
+    'avg("sisal_adv_hourly_stats"."votes") over',
+  );
+  assertStringIncludes(
+    windows.sql[0],
+    "rows between 5 preceding and current row",
+  );
   assertStringIncludes(windows.sql[0], "rank() over");
 });
 
@@ -53,6 +62,10 @@ Deno.test("postgres generated-column case stays raw DDL", () => {
   const ddl = renderAdvancedSqlCases().find((entry) => entry.id === "11");
   assert(ddl !== undefined);
   assertEquals(ddl.implementation, "raw-ddl");
-  assertStringIncludes(ddl.sql.join("\n"), "generated always as");
-  assertStringIncludes(ddl.sql.join("\n"), "where title_text is not null");
+  // Emitted by the PostgreSQL DDL generator from the schema snapshot, so the
+  // keywords render uppercase; assert case-insensitively to keep the intent
+  // (a stored generated column plus a partial expression index).
+  const emitted = ddl.sql.join("\n").toLowerCase();
+  assertStringIncludes(emitted, "generated always as");
+  assertStringIncludes(emitted, "where title_text is not null");
 });
