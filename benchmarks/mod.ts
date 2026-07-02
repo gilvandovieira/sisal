@@ -12,6 +12,7 @@ import {
   sql,
 } from "@sisal/orm";
 import { registerBenchmarkScenarios } from "./harness.ts";
+import { advancedSqlScenarios } from "./scenarios/advanced_sql.ts";
 import { drizzleProxyScenarios } from "./scenarios/drizzle_proxy.ts";
 import { fakeDbProxyScenarios } from "./scenarios/fakedbproxy.ts";
 import { migrateCliScenarios } from "./scenarios/migrate_cli.ts";
@@ -35,6 +36,7 @@ Deno.bench("create schema snapshot", () => {
   createSchemaSnapshot({ tables: [users] });
 });
 
+registerBenchmarkScenarios(advancedSqlScenarios);
 registerBenchmarkScenarios(migrateCliScenarios);
 registerBenchmarkScenarios(fakeDbProxyScenarios);
 registerBenchmarkScenarios(drizzleProxyScenarios);
