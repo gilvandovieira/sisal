@@ -39,6 +39,7 @@ import {
 import {
   type Cte,
   CTE_DEFINITIONS,
+  CTE_FROM_SOURCES,
   cteBodySql,
   type CteBuilder,
   cteColumnKeys,
@@ -557,9 +558,22 @@ class SisalDatabase<
         const self = columns as Cte<
           { readonly [K in TColumn]: SelectColumnRef }
         >;
+        const body = build(self);
+        // Guard: the recursive step must reference the self-reference in its
+        // FROM (via `from(self)`). Referencing it only in SELECT/WHERE renders a
+        // step whose FROM omits the CTE — invalid recursive SQL on every engine.
+        if (!CTE_FROM_SOURCES.has(columns)) {
+          throw new OrmError(
+            `recursive CTE "${name}" never uses its self-reference as a FROM ` +
+              `source — call \`from(self)\` in the recursive step (referencing ` +
+              `\`self\` only in SELECT/WHERE renders SQL where the CTE is ` +
+              `absent from the FROM clause)`,
+            { code: "ORM_INVALID_QUERY" },
+          );
+        }
         CTE_DEFINITIONS.set(columns, {
           name,
-          query: cteBodySql(build(self)),
+          query: cteBodySql(body),
           recursive: true,
           columnNames,
         });

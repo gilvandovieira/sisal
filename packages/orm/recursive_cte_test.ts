@@ -29,7 +29,7 @@ Deno.test("recursive CTE: base UNION ALL step with depth guard", () => {
     db.select({ id: c.id, depth: sql`1` }).from(comments)
       .where(eq(c.id, 7))
       .unionAll(
-        db.select({ id: c.id, depth: sql`${self.depth} + 1` }).from(comments)
+        db.select({ id: c.id, depth: sql`${self.depth} + 1` }).from(self)
           .innerJoin(comments, eq(c.parentId, self.id))
           .where(lt(self.depth, 5)),
       )
@@ -44,6 +44,9 @@ Deno.test("recursive CTE: base UNION ALL step with depth guard", () => {
   );
   assertStringIncludes(rendered.text, "union all");
   assertStringIncludes(rendered.text, '"thread"."depth" < $2');
+  // The recursive term is the CTE itself in the FROM (executable SQL) — the step
+  // walks it by joining the base table, not by self-joining the table.
+  assertStringIncludes(rendered.text, 'from "thread" inner join "comments"');
   // MySQL renders the same shape with backticks (supported at 8+ floors).
   assertStringIncludes(
     renderSql(
@@ -61,7 +64,7 @@ Deno.test("recursive CTE: one RECURSIVE keyword covers mixed lists", () => {
   const tree = db.$withRecursive("tree", ["id"]).as((self) =>
     db.select({ id: c.id }).from(comments)
       .unionAll(
-        db.select({ id: c.id }).from(comments)
+        db.select({ id: c.id }).from(self)
           .innerJoin(comments, eq(c.parentId, self.id)),
       )
   );
@@ -78,6 +81,28 @@ Deno.test("recursive CTE: requires an explicit column list", () => {
     () => db.$withRecursive("bad", []),
     OrmError,
     "column list",
+  );
+  assertEquals((error as OrmError).code, "ORM_INVALID_QUERY");
+});
+
+Deno.test("recursive CTE: guards a step that never uses self as a FROM source", () => {
+  // A step that references `self` only in the join condition (not in FROM)
+  // renders SQL where the CTE is absent from the FROM — invalid on every
+  // engine. The guard rejects it at build time instead of shipping bad SQL.
+  const error = assertThrows(
+    () =>
+      db.$withRecursive("thread", ["id", "depth"]).as((self) =>
+        db.select({ id: c.id, depth: sql`1` }).from(comments)
+          .where(eq(c.id, 7))
+          .unionAll(
+            db.select({ id: c.id, depth: sql`${self.depth} + 1` })
+              .from(comments) // BUG: should be from(self)
+              .innerJoin(comments, eq(c.parentId, self.id))
+              .where(lt(self.depth, 5)),
+          )
+      ),
+    OrmError,
+    "self-reference as a FROM source",
   );
   assertEquals((error as OrmError).code, "ORM_INVALID_QUERY");
 });

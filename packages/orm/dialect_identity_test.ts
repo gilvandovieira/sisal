@@ -260,6 +260,70 @@ Deno.test("identity: the database facade carries and applies the identity", asyn
   }
 });
 
+Deno.test("identity: prepared queries render with the facade identity, not the bare dialect", async () => {
+  const seen: string[] = [];
+  const record = (query: { text: string }) => {
+    seen.push(query.text);
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  };
+  const driver: OrmDriver = {
+    query: (q) => record(q),
+    execute: (q) => record(q),
+  };
+
+  const mariadb = createDatabase({
+    driver,
+    dialect: "mysql",
+    variant: "mariadb",
+    version: "11.8.8-MariaDB-ubu2404",
+  });
+
+  // Regression (Claim 1): the prepared plan is baked once at prepare() time and
+  // replayed verbatim, so it must render with the full identity — not the bare
+  // `database.dialect`. INSERT … RETURNING is lifted on MariaDB ≥ 10.5; before
+  // the fix prepare() rendered as plain "mysql" and threw the RETURNING guard.
+  const preparedInsert = mariadb.insert(posts).values({ id: 1, title: "a" })
+    .returning().prepare();
+  assertStringIncludes(preparedInsert.toSql().text, "returning");
+
+  // …and the baked plan carries RETURNING through to the driver on execute.
+  await preparedInsert.execute();
+  assertStringIncludes(seen.at(-1) ?? "", "returning");
+
+  // Version flows through prepare() too: UPDATE … RETURNING has a 13.0 floor, so
+  // preparing it on MariaDB 11.8 still fails closed at render time.
+  const updateError = assertThrows(
+    () =>
+      mariadb.update(posts).set({ title: "b" }).where(eq(posts.columns.id, 1))
+        .returning().prepare(),
+    OrmError,
+    "UPDATE … RETURNING",
+  );
+  assertEquals((updateError as OrmError).code, "ORM_DIALECT_UNSUPPORTED");
+
+  // MariaDB 13 lifts it — through the prepared path — as well.
+  const mariadb13 = createDatabase({
+    driver,
+    dialect: "mysql",
+    variant: "mariadb",
+    version: "13.0.1-MariaDB",
+  });
+  assertStringIncludes(
+    mariadb13.update(posts).set({ title: "b" }).where(eq(posts.columns.id, 1))
+      .returning().prepare().toSql().text,
+    "returning",
+  );
+
+  // A base-mysql facade still fails closed through the prepared path.
+  const mysql = createDatabase({ driver, dialect: "mysql" });
+  const mysqlError = assertThrows(
+    () =>
+      mysql.insert(posts).values({ id: 2, title: "c" }).returning().prepare(),
+    OrmError,
+  );
+  assertEquals((mysqlError as OrmError).code, "ORM_DIALECT_UNSUPPORTED");
+});
+
 Deno.test("identity: the snapshot carries the variant/version axis", () => {
   const withAxis = createSchemaSnapshot({
     dialect: "mysql",

@@ -92,6 +92,33 @@ Deno.test("insert().select(): chained data-modifying CTE (read a RETURNING)", ()
   assertStringIncludes(sql, 'from "moved"');
 });
 
+Deno.test("data-modifying CTE body: PostgreSQL-only, guarded elsewhere (T18)", () => {
+  // A `WITH x AS (DELETE … RETURNING) …` body is PostgreSQL/Neon-only; the
+  // SQLite and MySQL families render CTEs as SELECT-only, so a data-modifying
+  // body throws a typed guard at render time.
+  const moved = db.$with("moved").as(
+    db.delete(posts).where(gt(posts.columns.score, 100))
+      .returning({ id: posts.columns.id }),
+  );
+  const q = db.with(moved).insert(archive).select(
+    db.select({ id: moved.id }).from(moved),
+  );
+  // Renders on PostgreSQL.
+  assertStringIncludes(
+    renderSql(q.toSql(), { dialect: "postgres" }).text,
+    'with "moved" as (delete from "posts"',
+  );
+  // Guarded on the SQLite and MySQL families.
+  for (const dialect of ["sqlite", "mysql"] as const) {
+    const error = assertThrows(
+      () => renderSql(q.toSql(), { dialect }),
+      OrmError,
+      "data-modifying CTE",
+    );
+    assertEquals((error as OrmError).code, "ORM_DIALECT_UNSUPPORTED");
+  }
+});
+
 Deno.test("insert(): .values() and .select() are mutually exclusive", () => {
   const builder = db.insert(archive)
     .values({ id: 1, score: 1 })

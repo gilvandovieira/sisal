@@ -586,6 +586,12 @@ type SetOperationKind =
 // the projected column names (and nothing collides with a real column).
 export const CTE_DEFINITIONS = new WeakMap<object, CteDefinition>();
 
+// CTE references consumed as a `from(...)` source. `$withRecursive` checks its
+// self-reference is in here after building the body: a recursive step that names
+// the self-reference only in SELECT/WHERE (never in FROM) renders SQL where the
+// recursive CTE is absent from the FROM clause — invalid on every engine.
+export const CTE_FROM_SOURCES = new WeakSet<object>();
+
 function isCte(value: unknown): value is Record<string, SelectColumnRef> {
   return typeof value === "object" && value !== null &&
     CTE_DEFINITIONS.has(value);
@@ -790,6 +796,9 @@ export class SisalSelectBuilder<TTable, TResult>
     }
     if (isCte(source)) {
       const definition = CTE_DEFINITIONS.get(source)!;
+      // Record that this CTE was used as a FROM source (the recursive-CTE guard
+      // in `$withRecursive` reads this).
+      CTE_FROM_SOURCES.add(source);
       return new SisalSelectBuilder(this.#database, {
         ...this.#state,
         table: undefined,
@@ -1478,7 +1487,11 @@ function prepareRows<T>(
   query: Sql,
   name: string | undefined,
 ): PreparedQuery<T[]> {
-  const plan = renderToPlan(query, database.dialect);
+  // Render with the full dialect identity, not the bare dialect: the plan is
+  // baked once here and replayed verbatim at execute time, so dropping
+  // variant/version would fail closed on variant/version-gated constructs
+  // (e.g. MariaDB `INSERT … RETURNING`) that the normal execute path renders.
+  const plan = renderToPlan(query, database.dialectIdentity);
   return new SisalPreparedQuery<T[]>(
     plan,
     name,
@@ -1496,7 +1509,9 @@ function prepareResult<T>(
   query: Sql,
   name: string | undefined,
 ): PreparedQuery<OrmQueryResult<T>> {
-  const plan = renderToPlan(query, database.dialect);
+  // See prepareRows: render with the full identity so the baked plan keeps
+  // variant/version-gated rendering the normal execute path would apply.
+  const plan = renderToPlan(query, database.dialectIdentity);
   return new SisalPreparedQuery<OrmQueryResult<T>>(
     plan,
     name,
