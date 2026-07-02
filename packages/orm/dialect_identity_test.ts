@@ -13,6 +13,7 @@
  */
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import {
+  capabilitySupported,
   columns,
   compareServerVersions,
   createDatabase,
@@ -115,6 +116,60 @@ Deno.test("identity: `unless` lifts a guard only for a known, sufficient version
       version: "11.8.8-MariaDB-ubu2404",
     }).text,
     "select 1",
+  );
+});
+
+Deno.test("identity: a `baseEngine` version gate lifts base MySQL only, never the MariaDB variant", () => {
+  // "functional indexes on base MySQL ≥ 8.0.13, but never MariaDB" — the pattern
+  // T8 needs. A variant-less `unless` (the old form) would wrongly lift MariaDB
+  // 11.x (numerically ≥ 8.0.13); `baseEngine: true` excludes the variant.
+  const q = () =>
+    sql`${
+      dialectGuard("functional index", ["mysql"], {
+        unless: [{ baseEngine: true, minVersion: "8.0.13" }],
+      })
+    }select 1`;
+
+  // Base MySQL ≥ 8.0.13 lifts; below the floor and unknown-version fail closed.
+  assertEquals(
+    renderSql(q(), { dialect: "mysql", version: "8.0.16" }).text,
+    "select 1",
+  );
+  assertThrows(
+    () => renderSql(q(), { dialect: "mysql", version: "8.0.10" }),
+    OrmError,
+  );
+  assertThrows(() => renderSql(q(), { dialect: "mysql" }), OrmError);
+  // MariaDB never lifts — even at a version numerically ≥ 8.0.13.
+  assertThrows(
+    () =>
+      renderSql(q(), {
+        dialect: "mysql",
+        variant: "mariadb",
+        version: "11.8.8-MariaDB-ubu2404",
+      }),
+    OrmError,
+  );
+
+  // `capabilitySupported` — the non-rendering form the DDL generator uses — agrees.
+  const cap = {
+    id: "functional-index",
+    construct: "functional (expression) index",
+    unsupported: ["mysql"],
+    unless: [{ baseEngine: true, minVersion: "8.0.13" }],
+  } as const;
+  assertEquals(
+    capabilitySupported(cap, { dialect: "mysql", version: "8.0.16" }),
+    true,
+  );
+  assertEquals(capabilitySupported(cap, { dialect: "mysql" }), false);
+  assertEquals(
+    capabilitySupported(cap, {
+      dialect: "mysql",
+      variant: "mariadb",
+      version: "11.8.8-MariaDB-ubu2404",
+    }),
+    false,
   );
 });
 

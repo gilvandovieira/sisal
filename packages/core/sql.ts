@@ -37,6 +37,21 @@ export type ColumnName = string;
 export type SqlDialect = "postgres" | "sqlite" | "mysql" | "generic";
 
 /**
+ * Runtime companion of {@link SqlDialect}: the render dialects a
+ * {@link DialectIdentity}'s `dialect` key collapses to (the 6 capability
+ * targets project onto these 4). `satisfies` keeps every entry a valid
+ * `SqlDialect`; the reconciliation test additionally asserts the list is
+ * exhaustive against the union and matches the snapshot's `SisalDialectName`,
+ * so the render/snapshot/capability key spaces cannot drift apart.
+ */
+export const SQL_DIALECTS = [
+  "postgres",
+  "sqlite",
+  "mysql",
+  "generic",
+] as const satisfies readonly SqlDialect[];
+
+/**
  * Version-aware dialect identity — the `(engine, variant, version)` key the
  * v0.6 readiness investigation decided on (see `docs/mysql-readiness.md`,
  * decision 2). `dialect` remains the render key; `variant` names a
@@ -72,11 +87,20 @@ export type DialectGuardTarget = SqlDialect | {
  * **known** and at least `minVersion` (when set) — an unknown version never
  * lifts a guard (fail closed), so capabilities only light up when the adapter
  * has really identified the server.
+ *
+ * `baseEngine: true` narrows the lift to the **base engine only** — an identity
+ * with no `variant`. It expresses a version gate that excludes a
+ * protocol-compatible variant, e.g. "functional indexes on base MySQL ≥ 8.0.13
+ * but never MariaDB": `unless: [{ baseEngine: true, minVersion: "8.0.13" }]`.
+ * Without it a variant-less exception lifts every variant, and MariaDB 11.x is
+ * numerically ≥ 8.0.13 so it would wrongly clear the floor.
  */
 export interface DialectGuardException {
   readonly dialect?: SqlDialect;
   readonly variant?: string;
   readonly minVersion?: string;
+  /** Lift only for the base engine (no `variant`) — excludes variants like MariaDB. */
+  readonly baseEngine?: boolean;
 }
 
 /**
@@ -851,6 +875,9 @@ export function dialectGuardApplies(
     if (
       exception.variant !== undefined && exception.variant !== resolved.variant
     ) {
+      return false;
+    }
+    if (exception.baseEngine === true && resolved.variant !== undefined) {
       return false;
     }
     if (exception.minVersion !== undefined) {

@@ -57,6 +57,7 @@ export {
   renderSql,
   serializeSqlValue,
   sql,
+  SQL_DIALECTS,
   SQL_IR_VERSION,
   sqlChunkMeta,
   toSql,

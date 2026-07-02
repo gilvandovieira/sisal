@@ -151,6 +151,32 @@ export const DIALECT_CAPABILITIES = {
     construct: "lag()/lead() default argument",
     unsupported: [{ dialect: "mysql", variant: "mariadb" }],
   },
+  /**
+   * Partial (`WHERE`) indexes — the MySQL family (both MySQL and MariaDB)
+   * rejects them; PostgreSQL and the SQLite family support them. A
+   * generation-time DDL divergence rather than a render guard: the
+   * `@sisal/mysql` DDL generator reads this via {@link capabilitySupported}
+   * and fails closed at generation time (no `capabilityGuard` render chunk).
+   */
+  partialIndex: {
+    id: "partial-index",
+    construct: "partial (WHERE) index",
+    unsupported: ["mysql"],
+  },
+  /**
+   * Functional (expression) indexes — supported on **base MySQL ≥ 8.0.13**,
+   * never on MariaDB (its route is a generated column). Uses a base-engine
+   * version gate so the MariaDB variant (11.x is numerically ≥ 8.0.13) never
+   * clears the floor. A generation-time DDL divergence: the `@sisal/mysql` DDL
+   * generator reads it via {@link capabilitySupported} with the snapshot's
+   * detected identity and emits the functional key part only when it lifts.
+   */
+  functionalIndex: {
+    id: "functional-index",
+    construct: "functional (expression) index",
+    unsupported: ["mysql"],
+    unless: [{ baseEngine: true, minVersion: "8.0.13" }],
+  },
 } as const satisfies Record<string, DialectCapability>;
 
 /** A key of the core capability registry. */
