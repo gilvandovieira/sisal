@@ -4,8 +4,14 @@
  * @module
  */
 
-import { SisalError } from "@sisal/core";
-import type { Logger } from "@sisal/core";
+import { createSisalLogEmitter, SisalError } from "@sisal/core";
+import type {
+  Logger,
+  SisalLogCategory,
+  SisalLogEmitter,
+  SisalLoggingOptions,
+  SisalLogSettings,
+} from "@sisal/core";
 import {
   assertValidSchemaSnapshot,
   diffSchemaSnapshots,
@@ -62,6 +68,7 @@ export type MigrationChecksum = string;
 export interface MigrationContext {
   readonly driver: MigrationDriver;
   readonly logger?: Logger;
+  readonly logging?: SisalLogSettings;
   readonly dryRun: boolean;
   readonly direction: MigrationDirection;
 }
@@ -221,6 +228,7 @@ export interface MigratorOptions {
   readonly store?: MigrationStore;
   readonly driver?: MigrationDriver;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly lockId?: string;
   readonly useTransaction?: boolean;
   /**
@@ -313,6 +321,7 @@ export function createMigrator(options: MigratorOptions): Migrator {
     store: options.store ?? memoryMigrationStore(),
     driver: options.driver ?? noopMigrationDriver(),
     logger: options.logger,
+    ...(options.logging === undefined ? {} : { logging: options.logging }),
     lockId: options.lockId ?? DEFAULT_LOCK_ID,
     useTransaction: options.useTransaction ?? true,
     splitStatements: options.splitStatements ?? false,
@@ -860,6 +869,8 @@ interface SisalMigratorOptions {
   readonly store: MigrationStore;
   readonly driver: MigrationDriver;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
+  readonly log?: SisalLogEmitter;
   readonly lockId: string;
   readonly useTransaction: boolean;
   readonly splitStatements: boolean;
@@ -869,7 +880,7 @@ class SisalMigrator implements Migrator {
   readonly #migrations: Migration[];
   readonly #store: MigrationStore;
   readonly #driver: MigrationDriver;
-  readonly #logger?: Logger;
+  readonly #log: SisalLogEmitter;
   readonly #lockId: string;
   readonly #useTransaction: boolean;
   readonly #splitStatements: boolean;
@@ -878,7 +889,12 @@ class SisalMigrator implements Migrator {
     this.#migrations = options.migrations;
     this.#store = options.store;
     this.#driver = options.driver;
-    this.#logger = options.logger;
+    this.#log = options.log ?? createSisalLogEmitter({
+      logger: options.logger,
+      logging: options.logging,
+      defaultLevel: "debug",
+      metadata: options.logging !== undefined,
+    });
     this.#lockId = options.lockId;
     this.#useTransaction = options.useTransaction;
     this.#splitStatements = options.splitStatements;
@@ -893,10 +909,11 @@ class SisalMigrator implements Migrator {
   }
 
   async plan(): Promise<MigrationPlan> {
-    this.#debug(undefined, "migration plan started");
+    this.#debug("migrate.plan", undefined, "migration plan started");
     const applied = await this.#store.listApplied();
     const plan = createMigrationPlan(this.#migrations, applied);
     this.#debug(
+      "migrate.plan",
       { pending: plan.pending.length, applied: plan.applied.length },
       "migration plan completed",
     );
@@ -917,7 +934,11 @@ class SisalMigrator implements Migrator {
 
     if (dryRun) {
       for (const migration of migrations) {
-        this.#info({ id: migration.id, direction: "up" }, "migration dry run");
+        this.#info(
+          "migrate.step",
+          { id: migration.id, direction: "up" },
+          "migration dry run",
+        );
       }
 
       return {
@@ -979,6 +1000,7 @@ class SisalMigrator implements Migrator {
     if (dryRun) {
       for (const migration of migrations) {
         this.#info(
+          "migrate.step",
           { id: migration.id, direction: "down" },
           "migration dry run",
         );
@@ -1039,14 +1061,20 @@ class SisalMigrator implements Migrator {
   }
 
   async #runUpMigration(migration: Migration): Promise<AppliedMigration> {
-    this.#info({ id: migration.id, direction: "up" }, "migration started");
+    this.#info(
+      "migrate.step",
+      { id: migration.id, direction: "up" },
+      "migration started",
+    );
     const startedAt = performance.now();
 
     try {
       const applied = await this.#runInTransaction(async (scope) => {
         await executeMigrationStep(this.#resolveStep(migration.up), {
           driver: scope.driver,
-          logger: this.#logger,
+          logger: this.#log.settings.logger,
+          logging: this.#loggingSettings(),
+          log: this.#log,
           dryRun: false,
           direction: "up",
         });
@@ -1057,7 +1085,21 @@ class SisalMigrator implements Migrator {
 
         try {
           await scope.store.markApplied(applied);
+          if (this.#log.settings.metadata) {
+            this.#debug(
+              "migrate.history",
+              { id: migration.id, direction: "up" },
+              "migration history marked",
+            );
+          }
         } catch (error) {
+          if (this.#log.settings.metadata) {
+            this.#error(
+              "migrate.history",
+              { id: migration.id, direction: "up" },
+              "migration history mark failed",
+            );
+          }
           throw new MigrationError("Failed to mark migration as applied", {
             code: "MIGRATION_MARK_APPLIED_FAILED",
             details: { id: migration.id },
@@ -1069,12 +1111,17 @@ class SisalMigrator implements Migrator {
       });
 
       this.#info(
+        "migrate.step",
         { id: migration.id, direction: "up", executionMs: applied.executionMs },
         "migration completed",
       );
       return applied;
     } catch (error) {
-      this.#error({ id: migration.id, direction: "up" }, "migration failed");
+      this.#error(
+        "migrate.step",
+        { id: migration.id, direction: "up" },
+        "migration failed",
+      );
       throw toMigrationError(error, "MIGRATION_EXECUTE_FAILED", {
         id: migration.id,
         direction: "up",
@@ -1090,21 +1137,41 @@ class SisalMigrator implements Migrator {
       });
     }
 
-    this.#info({ id: migration.id, direction: "down" }, "migration started");
+    this.#info(
+      "migrate.step",
+      { id: migration.id, direction: "down" },
+      "migration started",
+    );
     const startedAt = performance.now();
 
     try {
       const rolledBack = await this.#runInTransaction(async (scope) => {
         await executeMigrationStep(this.#resolveStep(migration.down!), {
           driver: scope.driver,
-          logger: this.#logger,
+          logger: this.#log.settings.logger,
+          logging: this.#loggingSettings(),
+          log: this.#log,
           dryRun: false,
           direction: "down",
         });
 
         try {
           await scope.store.unmarkApplied(migration.id);
+          if (this.#log.settings.metadata) {
+            this.#debug(
+              "migrate.history",
+              { id: migration.id, direction: "down" },
+              "migration history unmarked",
+            );
+          }
         } catch (error) {
+          if (this.#log.settings.metadata) {
+            this.#error(
+              "migrate.history",
+              { id: migration.id, direction: "down" },
+              "migration history unmark failed",
+            );
+          }
           throw new MigrationError(
             "Failed to remove applied migration record",
             {
@@ -1122,6 +1189,7 @@ class SisalMigrator implements Migrator {
       });
 
       this.#info(
+        "migrate.step",
         {
           id: migration.id,
           direction: "down",
@@ -1131,7 +1199,11 @@ class SisalMigrator implements Migrator {
       );
       return rolledBack;
     } catch (error) {
-      this.#error({ id: migration.id, direction: "down" }, "migration failed");
+      this.#error(
+        "migrate.step",
+        { id: migration.id, direction: "down" },
+        "migration failed",
+      );
       throw toMigrationError(error, "MIGRATION_ROLLBACK_FAILED", {
         id: migration.id,
         direction: "down",
@@ -1173,7 +1245,11 @@ class SisalMigrator implements Migrator {
 
   async #acquireLock(): Promise<boolean> {
     if (this.#store.acquireLock === undefined) {
-      this.#warn({ lockId: this.#lockId }, "migration store has no lock");
+      this.#warn(
+        "migrate.lock",
+        { lockId: this.#lockId },
+        "migration store has no lock",
+      );
       return false;
     }
 
@@ -1186,7 +1262,11 @@ class SisalMigrator implements Migrator {
       });
     }
 
-    this.#debug({ lockId: this.#lockId }, "migration lock acquired");
+    this.#debug(
+      "migrate.lock",
+      { lockId: this.#lockId },
+      "migration lock acquired",
+    );
     return true;
   }
 
@@ -1197,7 +1277,11 @@ class SisalMigrator implements Migrator {
 
     try {
       await this.#store.releaseLock(this.#lockId);
-      this.#debug({ lockId: this.#lockId }, "migration lock released");
+      this.#debug(
+        "migrate.lock",
+        { lockId: this.#lockId },
+        "migration lock released",
+      );
     } catch (error) {
       throw new MigrationError("Failed to release migration lock", {
         code: "MIGRATION_UNLOCK_FAILED",
@@ -1207,58 +1291,93 @@ class SisalMigrator implements Migrator {
     }
   }
 
-  #debug(record: Record<string, unknown> | undefined, message: string): void {
-    try {
-      if (record === undefined) {
-        this.#logger?.debug(message);
-      } else {
-        this.#logger?.debug(record, message);
-      }
-    } catch {
-      // Logging must not break migrations.
-    }
+  #loggingSettings(): SisalLogSettings {
+    return {
+      level: this.#log.settings.level,
+      categories: this.#log.settings.categories,
+      sql: this.#log.settings.sql,
+    };
   }
 
-  #info(record: Record<string, unknown>, message: string): void {
-    try {
-      this.#logger?.info(record, message);
-    } catch {
-      // Logging must not break migrations.
-    }
+  #debug(
+    category: SisalLogCategory,
+    record: Record<string, unknown> | undefined,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "debug", category, record, message });
   }
 
-  #warn(record: Record<string, unknown>, message: string): void {
-    try {
-      this.#logger?.warn(record, message);
-    } catch {
-      // Logging must not break migrations.
-    }
+  #info(
+    category: SisalLogCategory,
+    record: Record<string, unknown>,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "info", category, record, message });
   }
 
-  #error(record: Record<string, unknown>, message: string): void {
-    try {
-      this.#logger?.error(record, message);
-    } catch {
-      // Logging must not break migrations.
-    }
+  #warn(
+    category: SisalLogCategory,
+    record: Record<string, unknown>,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "warn", category, record, message });
   }
+
+  #error(
+    category: SisalLogCategory,
+    record: Record<string, unknown>,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "error", category, record, message });
+  }
+}
+
+interface MigrationExecutionContext extends MigrationContext {
+  readonly log: SisalLogEmitter;
 }
 
 async function executeMigrationStep(
   step: MigrationStep,
-  context: MigrationContext,
+  context: MigrationExecutionContext,
 ): Promise<void> {
   if (context.dryRun) {
     return;
   }
 
   if (typeof step === "string") {
+    if (
+      context.log.settings.metadata &&
+      context.log.enabled("debug", "migrate.sql")
+    ) {
+      context.log.emit({
+        level: "debug",
+        category: "migrate.sql",
+        record: { direction: context.direction, sql: step },
+        message: "migration sql executed",
+      });
+    }
     await context.driver.execute(step);
     return;
   }
 
   if (isSqlStepArray(step)) {
-    for (const sql of step) {
+    for (const [index, sql] of step.entries()) {
+      if (
+        context.log.settings.metadata &&
+        context.log.enabled("debug", "migrate.sql")
+      ) {
+        context.log.emit({
+          level: "debug",
+          category: "migrate.sql",
+          record: {
+            direction: context.direction,
+            statement: index + 1,
+            statements: step.length,
+            sql,
+          },
+          message: "migration sql executed",
+        });
+      }
       await context.driver.execute(sql);
     }
 

@@ -7,7 +7,11 @@
  * @module
  */
 
-import type { Logger, TemporalParsingOptions } from "@sisal/orm";
+import type {
+  Logger,
+  SisalLoggingOptions,
+  TemporalParsingOptions,
+} from "@sisal/orm";
 
 import {
   createDatabase,
@@ -69,6 +73,7 @@ export interface CreateLibsqlDbOptions extends LibsqlConnectionOptions {
   /** Use an existing libSQL SQL executor instead of opening a client. */
   readonly executor?: LibsqlSqlExecutor;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly temporal?: TemporalParsingOptions;
 }
 
@@ -94,6 +99,7 @@ export async function createLibsqlDb(
     driver,
     dialect: LIBSQL_DIALECT,
     logger: options.logger,
+    logging: options.logging,
     temporal: options.temporal,
   }) as LibsqlDatabase;
 }

@@ -8,7 +8,15 @@
  * @module
  */
 
-import type { SisalDialectName, SisalSchemaSnapshot } from "@sisal/core";
+import {
+  isSisalLogLevel,
+  type Logger,
+  type SisalDialectName,
+  type SisalLoggingOptions,
+  type SisalLogLevel,
+  type SisalLogSettings,
+  type SisalSchemaSnapshot,
+} from "@sisal/core";
 import {
   buildMigrationFile,
   checkDrift,
@@ -147,6 +155,7 @@ export interface SisalCliAdapter {
   createMigrator?(options: {
     readonly config: MigrateConfig;
     readonly dialect: CliDialect;
+    readonly logging?: SisalLoggingOptions;
   }): Promise<SisalCliMigrator>;
 }
 
@@ -156,14 +165,17 @@ export interface SisalCliOptions {
   readonly fs?: MigrationFileSystem;
   readonly adapters?: Partial<Record<CliDialect, SisalCliAdapter>>;
   readonly cwd?: string;
+  readonly logging?: SisalLogSettings;
   readonly stdout?: CliOutput;
   readonly stderr?: CliOutput;
 }
 
+type CliFlagValue = string | boolean | number;
+
 interface ParsedArgs {
   readonly command?: string;
   readonly positionals: readonly string[];
-  readonly flags: ReadonlyMap<string, string | boolean>;
+  readonly flags: ReadonlyMap<string, CliFlagValue>;
 }
 
 interface CliContext {
@@ -172,6 +184,7 @@ interface CliContext {
   readonly adapter: SisalCliAdapter;
   readonly adapterInjected: boolean;
   readonly fs: MigrationFileSystem;
+  readonly logging?: SisalLoggingOptions;
   readonly out: CliOutput;
   readonly err: CliOutput;
 }
@@ -185,6 +198,7 @@ interface PostgresMigrateModule {
   readonly createPgMigrator: (options: {
     readonly url: string;
     readonly historyTable?: string;
+    readonly logging?: SisalLoggingOptions;
   }) => Promise<SisalCliMigrator>;
 }
 
@@ -197,6 +211,7 @@ interface NeonMigrateModule {
   readonly createNeonMigrator: (options: {
     readonly url: string;
     readonly historyTable?: string;
+    readonly logging?: SisalLoggingOptions;
   }) => Promise<SisalCliMigrator>;
 }
 
@@ -209,6 +224,7 @@ interface LibsqlMigrateModule {
     readonly url: string;
     readonly authToken?: string;
     readonly historyTable?: string;
+    readonly logging?: SisalLoggingOptions;
   }) => Promise<SisalCliMigrator>;
 }
 
@@ -220,6 +236,7 @@ interface SqliteMigrateModule {
   readonly createSqliteMigrator: (options: {
     readonly path: string;
     readonly historyTable?: string;
+    readonly logging?: SisalLoggingOptions;
   }) => Promise<SisalCliMigrator>;
 }
 
@@ -231,6 +248,7 @@ interface MysqlMigrateModule {
   readonly createMysqlMigrator: (options: {
     readonly url: string;
     readonly historyTable?: string;
+    readonly logging?: SisalLoggingOptions;
   }) => Promise<SisalCliMigrator>;
 }
 
@@ -257,6 +275,7 @@ const VALUE_FLAGS = new Set([
   "dialect",
   "dir",
   "history-table",
+  "log-level",
   "provider",
   "steps",
   "target",
@@ -287,6 +306,9 @@ Options:
       --allow-dirty         Run despite checksum mismatches
       --allow-empty         Write an empty generated migration
       --force               Overwrite an existing config on init
+      --log-level <level>   silent, error, warn, info, debug, or trace
+      --quiet               Suppress non-error command output
+  -v, --verbose             Debug logs; repeat or use -vv for trace logs
   -h, --help                Show help`;
 
 /** Runs the `sisal` CLI and returns a process exit code. */
@@ -299,9 +321,11 @@ export async function runSisalCli(
 
   try {
     const parsed = parseArgs(args);
+    validateCliLoggingFlags(parsed);
+    const commandOut = cliQuiet(parsed) ? (() => {}) : out;
 
     if (parsed.flags.get("help") === true || parsed.command === undefined) {
-      out(HELP);
+      commandOut(HELP);
       return 0;
     }
 
@@ -351,7 +375,8 @@ async function commandInit(
   parsed: ParsedArgs,
   options: SisalCliOptions,
 ): Promise<number> {
-  const out = options.stdout ?? ((line) => console.log(line));
+  const rawOut = options.stdout ?? ((line) => console.log(line));
+  const out = cliQuiet(parsed) ? (() => {}) : rawOut;
   const err = options.stderr ?? ((line) => console.error(line));
   const fs = options.fs ?? denoMigrationFileSystem();
   const configPath = stringFlag(parsed.flags, "config") ?? DEFAULT_CONFIG_FILE;
@@ -576,12 +601,14 @@ async function createContext(
   parsed: ParsedArgs,
   options: SisalCliOptions,
 ): Promise<CliContext> {
-  const out = options.stdout ?? ((line) => console.log(line));
+  const rawOut = options.stdout ?? ((line) => console.log(line));
+  const out = cliQuiet(parsed) ? (() => {}) : rawOut;
   const err = options.stderr ?? ((line) => console.error(line));
   const config = await loadConfig(parsed, options);
   const dialect = resolveCliDialect(config);
   const injected = options.adapters?.[dialect];
   const adapter = injected ?? await loadDefaultAdapter(dialect, config);
+  const logging = createCliLogging(parsed, options, config, rawOut, err);
 
   return {
     config,
@@ -589,6 +616,7 @@ async function createContext(
     adapter,
     adapterInjected: injected !== undefined,
     fs: options.fs ?? denoMigrationFileSystem(),
+    ...(logging === undefined ? {} : { logging }),
     out,
     err,
   };
@@ -687,6 +715,7 @@ async function loadDefaultAdapter(
         return migrate.createNeonMigrator({
           url: options.config.databaseUrl,
           historyTable: options.config.historyTable,
+          logging: options.logging,
         }) as Promise<SisalCliMigrator>;
       },
     };
@@ -713,6 +742,7 @@ async function loadDefaultAdapter(
         return migrate.createPgMigrator({
           url: options.config.databaseUrl,
           historyTable: options.config.historyTable,
+          logging: options.logging,
         }) as Promise<SisalCliMigrator>;
       },
     };
@@ -739,6 +769,7 @@ async function loadDefaultAdapter(
         return migrate.createMysqlMigrator({
           url: options.config.databaseUrl,
           historyTable: options.config.historyTable,
+          logging: options.logging,
         }) as Promise<SisalCliMigrator>;
       },
     };
@@ -769,6 +800,7 @@ async function loadDefaultAdapter(
           url: options.config.databaseUrl,
           authToken: options.config.databaseAuthToken,
           historyTable: options.config.historyTable,
+          logging: options.logging,
         }) as Promise<SisalCliMigrator>;
       },
     };
@@ -795,6 +827,7 @@ async function loadDefaultAdapter(
       return migrate.createSqliteMigrator({
         path,
         historyTable: options.config.historyTable,
+        logging: options.logging,
       }) as Promise<SisalCliMigrator>;
     },
   };
@@ -830,6 +863,7 @@ async function createMigrator(
   return await context.adapter.createMigrator({
     config: context.config,
     dialect: context.dialect,
+    logging: context.logging,
   });
 }
 
@@ -935,6 +969,144 @@ function writeDriftReport(out: CliOutput, report: DriftReport): void {
   }
 }
 
+function validateCliLoggingFlags(parsed: ParsedArgs): void {
+  resolveCliLogLevelFlag(parsed);
+}
+
+function cliQuiet(parsed: ParsedArgs): boolean {
+  return parsed.flags.get("quiet") === true;
+}
+
+function createCliLogging(
+  parsed: ParsedArgs,
+  options: SisalCliOptions,
+  config: MigrateConfig,
+  out: CliOutput,
+  err: CliOutput,
+): SisalLoggingOptions | undefined {
+  const flag = resolveCliLogLevelFlag(parsed);
+  const merged = mergeLogSettings(
+    config.logging,
+    options.logging,
+    flag.level === undefined ? undefined : { level: flag.level },
+  );
+
+  if (merged === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...merged,
+    logger: createCliLogger(out, err),
+  };
+}
+
+function resolveCliLogLevelFlag(
+  parsed: ParsedArgs,
+): { readonly level?: SisalLogLevel } {
+  const quiet = cliQuiet(parsed);
+  const explicitLevel = stringFlag(parsed.flags, "log-level");
+  const verbose = verboseFlagCount(parsed.flags);
+  const choices = [quiet, explicitLevel !== undefined, verbose > 0]
+    .filter(Boolean).length;
+
+  if (choices > 1) {
+    throw new MigrationError(
+      "Use only one of --quiet, --log-level, or --verbose",
+      { code: "MIGRATION_INVALID", status: 400 },
+    );
+  }
+
+  if (quiet) {
+    return { level: "silent" };
+  }
+
+  if (explicitLevel !== undefined) {
+    if (!isSisalLogLevel(explicitLevel)) {
+      throw new MigrationError("Unknown logging level", {
+        code: "MIGRATION_INVALID",
+        status: 400,
+        details: { level: explicitLevel },
+      });
+    }
+    return { level: explicitLevel };
+  }
+
+  if (verbose > 0) {
+    return { level: verbose > 1 ? "trace" : "debug" };
+  }
+
+  return {};
+}
+
+function createCliLogger(out: CliOutput, err: CliOutput): Logger {
+  return {
+    trace: cliLoggerMethod("trace", out),
+    debug: cliLoggerMethod("debug", out),
+    info: cliLoggerMethod("info", out),
+    warn: cliLoggerMethod("warn", err),
+    error: cliLoggerMethod("error", err),
+  };
+}
+
+function cliLoggerMethod(
+  methodLevel: Exclude<SisalLogLevel, "silent">,
+  sink: CliOutput,
+): Logger["debug"] {
+  return (
+    first: string | Record<string, unknown>,
+    second?: string,
+  ) => {
+    const record = second === undefined || typeof first === "string"
+      ? undefined
+      : first;
+    const message = second ?? String(first);
+    const level = logRecordString(record, "level") ?? methodLevel;
+    const category = logRecordString(record, "category") ?? "cli";
+    const payload = record === undefined ? {} : { ...record };
+    delete payload.level;
+    delete payload.category;
+    const suffix = Object.keys(payload).length === 0
+      ? ""
+      : ` ${JSON.stringify(payload)}`;
+
+    sink(`[${level}] ${category}: ${message}${suffix}`);
+  };
+}
+
+function logRecordString(
+  record: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const value = record?.[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function mergeLogSettings(
+  ...settingsList: readonly (SisalLogSettings | undefined)[]
+): SisalLogSettings | undefined {
+  let merged: SisalLogSettings | undefined;
+
+  for (const settings of settingsList) {
+    if (settings === undefined) {
+      continue;
+    }
+
+    merged = {
+      ...(merged ?? {}),
+      ...(settings.level === undefined ? {} : { level: settings.level }),
+      ...(settings.categories === undefined ? {} : {
+        categories: { ...(merged?.categories ?? {}), ...settings.categories },
+      }),
+      ...(settings.sql === undefined
+        ? {}
+        : { sql: { ...(merged?.sql ?? {}), ...settings.sql } }),
+    };
+  }
+
+  return merged;
+}
+
 function formatSchemaChange(change: SchemaChange): string {
   const table = change.schema === undefined
     ? change.table
@@ -945,7 +1117,7 @@ function formatSchemaChange(change: SchemaChange): string {
 }
 
 function parseArgs(args: readonly string[]): ParsedArgs {
-  const flags = new Map<string, string | boolean>();
+  const flags = new Map<string, CliFlagValue>();
   const positionals: string[] = [];
 
   for (let index = 0; index < args.length; index += 1) {
@@ -967,11 +1139,27 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       continue;
     }
 
+    if (/^-v+$/.test(token)) {
+      incrementVerboseFlag(flags, token.length - 1);
+      continue;
+    }
+
     if (token.startsWith("--")) {
       const raw = token.slice(2);
       const equals = raw.indexOf("=");
       const name = equals === -1 ? raw : raw.slice(0, equals);
       const value = equals === -1 ? undefined : raw.slice(equals + 1);
+
+      if (name === "verbose") {
+        if (value !== undefined) {
+          throw new MigrationError("--verbose does not accept a value", {
+            code: "MIGRATION_INVALID",
+            status: 400,
+          });
+        }
+        incrementVerboseFlag(flags, 1);
+        continue;
+      }
 
       if (VALUE_FLAGS.has(name)) {
         if (value !== undefined) {
@@ -993,6 +1181,13 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   return { command, positionals: rest, flags };
 }
 
+function incrementVerboseFlag(
+  flags: Map<string, CliFlagValue>,
+  count: number,
+): void {
+  flags.set("verbose", verboseFlagCount(flags) + count);
+}
+
 function requireFlagValue(
   value: string | undefined,
   name: string,
@@ -1008,15 +1203,20 @@ function requireFlagValue(
 }
 
 function stringFlag(
-  flags: ReadonlyMap<string, string | boolean>,
+  flags: ReadonlyMap<string, CliFlagValue>,
   name: string,
 ): string | undefined {
   const value = flags.get(name);
   return typeof value === "string" ? value : undefined;
 }
 
+function verboseFlagCount(flags: ReadonlyMap<string, CliFlagValue>): number {
+  const value = flags.get("verbose");
+  return typeof value === "number" ? value : value === true ? 1 : 0;
+}
+
 function optionalPositiveInteger(
-  value: string | boolean | undefined,
+  value: CliFlagValue | undefined,
   name: string,
 ): number | undefined {
   if (value === undefined || value === false) {

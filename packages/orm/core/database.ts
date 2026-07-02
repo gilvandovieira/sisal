@@ -10,6 +10,7 @@ import {
   type ColumnValueMode,
   type Condition,
   count,
+  createSisalLogEmitter,
   type DialectIdentity,
   emptySql,
   type InferProjection,
@@ -18,8 +19,12 @@ import {
   type Logger,
   normalizeSqlInput,
   OrmError,
+  redactSqlParameters,
   type SelectColumnRef,
   type SelectProjection,
+  type SisalLogCategory,
+  type SisalLogEmitter,
+  type SisalLoggingOptions,
   type Sql,
   type SqlDialect,
   type SqlInput,
@@ -269,6 +274,7 @@ export interface DatabaseOptions<
   /** Server version string; see {@link DialectIdentity}. */
   readonly version?: string;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   /** Optional schema map that enables `db.query.<schemaKey>`. */
   readonly schema?: TSchema;
   /** Relation definitions created with {@link relations}. */
@@ -295,6 +301,7 @@ export function createDatabase<
     ...(options.variant === undefined ? {} : { variant: options.variant }),
     ...(options.version === undefined ? {} : { version: options.version }),
     logger: options.logger,
+    ...(options.logging === undefined ? {} : { logging: options.logging }),
     ...(options.schema === undefined ? {} : { schema: options.schema }),
     ...(options.relations === undefined
       ? {}
@@ -369,6 +376,8 @@ interface SisalDatabaseOptions<
   readonly variant?: string;
   readonly version?: string;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
+  readonly log?: SisalLogEmitter;
   readonly schema?: TSchema;
   readonly relations?: TRelations;
   readonly temporal?: TemporalParsingOptions;
@@ -382,7 +391,7 @@ class SisalDatabase<
   readonly dialectIdentity: DialectIdentity;
   readonly query: DatabaseQuery<TSchema, TRelations>;
   readonly #driver: OrmDriver;
-  readonly #logger?: Logger;
+  readonly #log: SisalLogEmitter;
   readonly #schema?: TSchema;
   readonly #relations?: TRelations;
   readonly #temporal: TemporalParsingOptions;
@@ -396,7 +405,12 @@ class SisalDatabase<
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       ...(options.version === undefined ? {} : { version: options.version }),
     };
-    this.#logger = options.logger;
+    this.#log = options.log ?? createSisalLogEmitter({
+      logger: options.logger,
+      logging: options.logging,
+      defaultLevel: "debug",
+      metadata: options.logging !== undefined,
+    });
     this.#schema = options.schema;
     this.#relations = options.relations;
     this.#temporal = options.temporal ?? {};
@@ -690,32 +704,50 @@ class SisalDatabase<
   async transaction<T>(
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T> {
+    const startedAt = performance.now();
+    if (this.#log.settings.metadata) {
+      this.#debug("orm.transaction", undefined, "orm transaction started");
+    }
+
     try {
+      let result: T;
       if (this.#driver.transaction === undefined) {
-        return await fn(this);
+        result = await fn(this);
+      } else {
+        result = await this.#driver.transaction(async (tx) => {
+          const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
+            driver: transactionToDriver(tx),
+            dialect: this.dialect,
+            ...(this.dialectIdentity.variant === undefined
+              ? {}
+              : { variant: this.dialectIdentity.variant }),
+            ...(this.dialectIdentity.version === undefined
+              ? {}
+              : { version: this.dialectIdentity.version }),
+            log: this.#log,
+            ...(this.#schema === undefined ? {} : { schema: this.#schema }),
+            ...(this.#relations === undefined
+              ? {}
+              : { relations: this.#relations }),
+            temporal: this.#temporal,
+          });
+
+          return await fn(transactionDatabase);
+        });
       }
 
-      return await this.#driver.transaction(async (tx) => {
-        const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
-          driver: transactionToDriver(tx),
-          dialect: this.dialect,
-          ...(this.dialectIdentity.variant === undefined
-            ? {}
-            : { variant: this.dialectIdentity.variant }),
-          ...(this.dialectIdentity.version === undefined
-            ? {}
-            : { version: this.dialectIdentity.version }),
-          logger: this.#logger,
-          ...(this.#schema === undefined ? {} : { schema: this.#schema }),
-          ...(this.#relations === undefined
-            ? {}
-            : { relations: this.#relations }),
-          temporal: this.#temporal,
-        });
-
-        return await fn(transactionDatabase);
-      });
+      if (this.#log.settings.metadata) {
+        this.#debug(
+          "orm.transaction",
+          { durationMs: elapsedMs(startedAt) },
+          "orm transaction completed",
+        );
+      }
+      return result;
     } catch (error) {
+      if (this.#log.settings.metadata) {
+        this.#error("orm.transaction", undefined, "orm transaction failed");
+      }
       throw new OrmError("ORM transaction failed", {
         code: "ORM_TRANSACTION_FAILED",
         cause: error,
@@ -736,17 +768,26 @@ class SisalDatabase<
     }
 
     const startedAt = performance.now();
-    this.#debug({ statements: queries.length }, "orm batch started");
+    this.#debug(
+      "orm.batch",
+      { statements: queries.length },
+      "orm batch started",
+    );
 
     try {
       const results = await this.#runBatch(queries);
       this.#debug(
+        "orm.batch",
         { statements: queries.length, durationMs: elapsedMs(startedAt) },
         "orm batch completed",
       );
       return results;
     } catch (error) {
-      this.#error({ statements: queries.length }, "orm batch failed");
+      this.#error(
+        "orm.batch",
+        { statements: queries.length },
+        "orm batch failed",
+      );
       if (error instanceof OrmError) {
         throw error;
       }
@@ -800,11 +841,28 @@ class SisalDatabase<
     const rendered = normalizeSqlInput(query, params, this.dialectIdentity);
     const startedAt = performance.now();
 
-    this.#debug({ sql: rendered.text }, "orm query started");
+    this.#debug("orm.sql", { sql: rendered.text }, "orm query started");
+    // `metadata` gates the bind category behind opting into the new logging
+    // config (legacy bare-`logger` callers never get it); `enabled(...)` adds
+    // the level/category short-circuit so the per-parameter redaction never
+    // runs below trace only to be discarded by `emit`.
+    if (
+      rendered.params.length > 0 &&
+      this.#log.settings.sql.parameters === "redacted" &&
+      this.#log.settings.metadata &&
+      this.#log.enabled("trace", "orm.bind")
+    ) {
+      this.#trace(
+        "orm.bind",
+        { params: redactSqlParameters(rendered.params) },
+        "orm query parameters",
+      );
+    }
 
     try {
       const result = await run(rendered);
       this.#debug(
+        "orm.result",
         {
           rowCount: result.rowCount ?? result.rows.length,
           durationMs: elapsedMs(startedAt),
@@ -813,7 +871,7 @@ class SisalDatabase<
       );
       return this.#decodeResult(rendered, result);
     } catch (error) {
-      this.#error({ sql: rendered.text }, "orm query failed");
+      this.#error("orm.query", { sql: rendered.text }, "orm query failed");
 
       if (error instanceof OrmError) {
         throw error;
@@ -827,20 +885,28 @@ class SisalDatabase<
     }
   }
 
-  #debug(record: Record<string, unknown>, message: string): void {
-    try {
-      this.#logger?.debug(record, message);
-    } catch {
-      // Logging must not break queries.
-    }
+  #trace(
+    category: SisalLogCategory,
+    record: Record<string, unknown>,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "trace", category, record, message });
   }
 
-  #error(record: Record<string, unknown>, message: string): void {
-    try {
-      this.#logger?.error(record, message);
-    } catch {
-      // Logging must not break queries.
-    }
+  #debug(
+    category: SisalLogCategory,
+    record: Record<string, unknown> | undefined,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "debug", category, record, message });
+  }
+
+  #error(
+    category: SisalLogCategory,
+    record: Record<string, unknown> | undefined,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "error", category, record, message });
   }
 
   #decodeResult<T>(

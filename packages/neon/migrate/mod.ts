@@ -7,7 +7,7 @@
  * @module
  */
 
-import type { Logger } from "@sisal/orm";
+import type { Logger, SisalLoggingOptions } from "@sisal/orm";
 import {
   createPgMigrator,
   DEFAULT_PG_MIGRATION_TABLE,
@@ -74,6 +74,7 @@ export type NeonMigrator = PgMigrator;
 /** Options for creating a Neon migration facade. */
 export interface CreateNeonMigratorOptions extends NeonExecutorOptions {
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly historyTable?: string;
   /**
    * Wrap each migration in a transaction. Defaults to `false`: the Neon HTTP
@@ -98,6 +99,7 @@ export async function createNeonMigrator(
   return await createPgMigrator({
     executor,
     logger: options.logger,
+    logging: options.logging,
     historyTable: options.historyTable,
     useTransaction: options.useTransaction ?? false,
     splitStatements: options.splitStatements ?? true,

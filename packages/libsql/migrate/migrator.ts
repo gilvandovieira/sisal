@@ -1,4 +1,4 @@
-import type { Logger } from "@sisal/orm";
+import type { Logger, SisalLoggingOptions } from "@sisal/orm";
 
 import {
   type AppliedMigration,
@@ -61,6 +61,7 @@ export interface LibsqlMigrator {
 export interface CreateLibsqlMigratorOptions extends LibsqlConnectionOptions {
   readonly executor?: SqlExecutor;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly historyTable?: string;
   readonly useTransaction?: boolean;
 }
@@ -99,6 +100,7 @@ export async function createLibsqlMigrator(
     driver,
     store,
     logger: options.logger,
+    logging: options.logging,
     useTransaction: options.useTransaction ?? true,
   });
 }
@@ -107,17 +109,20 @@ class SisalLibsqlMigrator implements LibsqlMigrator {
   readonly #driver: ReturnType<typeof createLibsqlMigrationDriver>;
   readonly #store: ReturnType<typeof createLibsqlMigrationHistoryStore>;
   readonly #logger?: Logger;
+  readonly #logging?: SisalLoggingOptions;
   readonly #useTransaction: boolean;
 
   constructor(options: {
     readonly driver: ReturnType<typeof createLibsqlMigrationDriver>;
     readonly store: ReturnType<typeof createLibsqlMigrationHistoryStore>;
     readonly logger?: Logger;
+    readonly logging?: SisalLoggingOptions;
     readonly useTransaction: boolean;
   }) {
     this.#driver = options.driver;
     this.#store = options.store;
     this.#logger = options.logger;
+    this.#logging = options.logging;
     this.#useTransaction = options.useTransaction;
   }
 
@@ -148,6 +153,7 @@ class SisalLibsqlMigrator implements LibsqlMigrator {
       store: this.#store,
       driver: this.#driver,
       logger: this.#logger,
+      ...(this.#logging === undefined ? {} : { logging: this.#logging }),
       useTransaction: this.#useTransaction,
     });
   }

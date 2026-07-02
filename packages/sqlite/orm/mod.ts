@@ -7,7 +7,11 @@
  * @module
  */
 
-import type { Logger, TemporalParsingOptions } from "@sisal/orm";
+import type {
+  Logger,
+  SisalLoggingOptions,
+  TemporalParsingOptions,
+} from "@sisal/orm";
 
 import {
   createDatabase,
@@ -60,6 +64,7 @@ export interface CreateSqliteDbOptions extends SqliteConnectionOptions {
   /** Use an existing SQLite SQL executor instead of opening a database. */
   readonly executor?: import("./executor.ts").SqliteSqlExecutor;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly temporal?: TemporalParsingOptions;
 }
 
@@ -87,6 +92,7 @@ export async function createSqliteDb(
     driver,
     dialect: SQLITE_DIALECT,
     logger: options.logger,
+    logging: options.logging,
     temporal: options.temporal,
   }) as SqliteDatabase;
 }

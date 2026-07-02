@@ -4,7 +4,7 @@
  * @module
  */
 
-import type { Logger } from "@sisal/orm";
+import type { Logger, SisalLoggingOptions } from "@sisal/orm";
 
 import {
   type AppliedMigration,
@@ -63,6 +63,7 @@ export interface MysqlMigrator {
 export interface CreateMysqlMigratorOptions extends MysqlConnectionOptions {
   readonly executor?: SqlExecutor;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly historyTable?: string;
   /**
    * Wrap each migration in a transaction. Defaults to **`false`** — unlike
@@ -104,6 +105,7 @@ export function createMysqlMigrator(
       driver,
       store,
       logger: options.logger,
+      logging: options.logging,
       useTransaction: options.useTransaction ?? false,
       splitStatements: options.splitStatements ?? false,
     }),
@@ -114,6 +116,7 @@ class SisalMysqlMigrator implements MysqlMigrator {
   readonly #driver: ReturnType<typeof createMysqlMigrationDriver>;
   readonly #store: ReturnType<typeof createMysqlMigrationHistoryStore>;
   readonly #logger?: Logger;
+  readonly #logging?: SisalLoggingOptions;
   readonly #useTransaction: boolean;
   readonly #splitStatements: boolean;
 
@@ -121,12 +124,14 @@ class SisalMysqlMigrator implements MysqlMigrator {
     readonly driver: ReturnType<typeof createMysqlMigrationDriver>;
     readonly store: ReturnType<typeof createMysqlMigrationHistoryStore>;
     readonly logger?: Logger;
+    readonly logging?: SisalLoggingOptions;
     readonly useTransaction: boolean;
     readonly splitStatements: boolean;
   }) {
     this.#driver = options.driver;
     this.#store = options.store;
     this.#logger = options.logger;
+    this.#logging = options.logging;
     this.#useTransaction = options.useTransaction;
     this.#splitStatements = options.splitStatements;
   }
@@ -158,6 +163,7 @@ class SisalMysqlMigrator implements MysqlMigrator {
       store: this.#store,
       driver: this.#driver,
       logger: this.#logger,
+      ...(this.#logging === undefined ? {} : { logging: this.#logging }),
       useTransaction: this.#useTransaction,
       splitStatements: this.#splitStatements,
     });

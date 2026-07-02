@@ -1,4 +1,4 @@
-import type { Logger } from "@sisal/orm";
+import type { Logger, SisalLoggingOptions } from "@sisal/orm";
 
 import {
   type AppliedMigration,
@@ -57,6 +57,7 @@ export interface PgMigrator {
 export interface CreatePgMigratorOptions extends PgConnectionOptions {
   readonly executor?: SqlExecutor;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly historyTable?: string;
   readonly useTransaction?: boolean;
   /**
@@ -90,6 +91,7 @@ export function createPgMigrator(
       driver,
       store,
       logger: options.logger,
+      logging: options.logging,
       useTransaction: options.useTransaction ?? true,
       splitStatements: options.splitStatements ?? false,
     }),
@@ -100,6 +102,7 @@ class SisalPgMigrator implements PgMigrator {
   readonly #driver: ReturnType<typeof createPgMigrationDriver>;
   readonly #store: ReturnType<typeof createPgMigrationHistoryStore>;
   readonly #logger?: Logger;
+  readonly #logging?: SisalLoggingOptions;
   readonly #useTransaction: boolean;
   readonly #splitStatements: boolean;
 
@@ -107,12 +110,14 @@ class SisalPgMigrator implements PgMigrator {
     readonly driver: ReturnType<typeof createPgMigrationDriver>;
     readonly store: ReturnType<typeof createPgMigrationHistoryStore>;
     readonly logger?: Logger;
+    readonly logging?: SisalLoggingOptions;
     readonly useTransaction: boolean;
     readonly splitStatements: boolean;
   }) {
     this.#driver = options.driver;
     this.#store = options.store;
     this.#logger = options.logger;
+    this.#logging = options.logging;
     this.#useTransaction = options.useTransaction;
     this.#splitStatements = options.splitStatements;
   }
@@ -144,6 +149,7 @@ class SisalPgMigrator implements PgMigrator {
       store: this.#store,
       driver: this.#driver,
       logger: this.#logger,
+      ...(this.#logging === undefined ? {} : { logging: this.#logging }),
       useTransaction: this.#useTransaction,
       splitStatements: this.#splitStatements,
     });

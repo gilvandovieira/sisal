@@ -8,7 +8,11 @@
  * @module
  */
 
-import type { Logger, TemporalParsingOptions } from "@sisal/orm";
+import type {
+  Logger,
+  SisalLoggingOptions,
+  TemporalParsingOptions,
+} from "@sisal/orm";
 
 import {
   createDatabase,
@@ -72,6 +76,7 @@ export interface NeonDatabase extends Database {
 /** Options for opening a Neon-backed database facade. */
 export interface CreateNeonDbOptions extends NeonExecutorOptions {
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly temporal?: TemporalParsingOptions;
 }
 
@@ -86,6 +91,7 @@ export async function createNeonDb(
     driver,
     dialect: POSTGRES_DIALECT,
     logger: options.logger,
+    logging: options.logging,
     temporal: options.temporal,
   }) as NeonDatabase;
 }
