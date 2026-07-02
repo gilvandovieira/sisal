@@ -23,6 +23,14 @@ integration test — lives in the unified
 `deno task docs:matrix:check`. The SQLite-specific affinity mapping and the
 SQLite-vs-PostgreSQL behavior notes are below.
 
+**v0.9 additions.** The portable ETL substrate runs on SQLite: the advisory lock
+uses a **lock-row lease** (`db.tryAdvisoryLock` — SQLite has no native advisory
+lock), plus the `etlCheckpoint` watermark/retention helper and the `tryInsert`
+write-outcome (reliable via `RETURNING`, SQLite 3.35+). Read and
+`WITH RECURSIVE` CTEs have per-engine execution coverage; **data-modifying CTEs
+are guarded off** (PostgreSQL-only). All are in the
+[feature matrix](feature-matrix.md).
+
 ## Column types via the DDL test
 
 Every generated type maps onto one of SQLite's five affinities and the

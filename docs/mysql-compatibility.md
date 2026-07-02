@@ -58,6 +58,15 @@ integration test — lives in the unified
 `deno task docs:matrix:check`. The MySQL-specific type mapping and behavior
 notes are below.
 
+**v0.9 additions.** The portable ETL substrate runs on the MySQL family: the
+lock-row advisory lock (`db.tryAdvisoryLock`), `etlCheckpoint`
+(watermark/retention), and the `tryInsert` write-outcome — which on this family
+reads the affected-row count (no usable `RETURNING` on the portable no-op
+`ON DUPLICATE KEY UPDATE`) rather than `RETURNING`. Read and `WITH RECURSIVE`
+CTEs have per-engine coverage (recursive needs **MySQL 8.0+ / MariaDB**);
+data-modifying CTEs are guarded off (PostgreSQL-only). All are in the
+[feature matrix](feature-matrix.md).
+
 ## Column types via the DDL test
 
 Every generated type is executed live via `generateMysqlUpStatements`

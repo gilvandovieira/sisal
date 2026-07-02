@@ -34,6 +34,13 @@ Legacy logging imports should be removed. Pass any logger that matches Sisal's
 generic logger interface. Pequi Logger is recommended for applications that
 already use it, but it is not required by `@sisal/orm`.
 
+For Hibernate-style verbosity controls, keep `logger` for compatibility or pass
+`logging: { logger, level, categories, sql }` to ORM and migrator facades.
+`debug` emits SQL/timing categories; `trace` additionally emits redacted
+bind-parameter summaries. The migration CLI accepts `--log-level`, `--quiet`,
+and repeatable `-v`/`--verbose`, and `sisal.migrate.ts` may define default
+`logging` settings.
+
 ## Migration Approach
 
 Start by moving table definitions to `@sisal/orm`, then generate or compare

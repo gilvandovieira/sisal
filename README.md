@@ -257,17 +257,17 @@ database plan do not match.
   CLI workflow.
 - Adapter packages for PostgreSQL, Neon, SQLite, libSQL/Turso, and
   MySQL/MariaDB.
-- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus small
-  logger contracts.
+- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus
+  configurable logger contracts.
 
 ## Packages
 
 Core packages:
 
-| Package          | Purpose                                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and logger contracts.    |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config. |
+| Package          | Purpose                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging. |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.  |
 
 Adapter packages:
 

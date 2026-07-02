@@ -22,9 +22,18 @@ adapter feature through the public API.
 Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
-`deno task docs:matrix:check`. All 41 `pg:` tests pass on **pg16/17/18**;
-`scripts/pg-matrix.sh` runs the suite across pg16/17/18. Below are the
-PostgreSQL-specific column-type coverage and driver-level behavior notes.
+`deno task docs:matrix:check`. The full `pg:` feature suite passes on
+**pg16/17/18**; `scripts/pg-matrix.sh` runs the suite across pg16/17/18. Below
+are the PostgreSQL-specific column-type coverage and driver-level behavior
+notes.
+
+**v0.9 additions.** The portable ETL substrate runs on PostgreSQL — the lock-row
+advisory lock (`db.tryAdvisoryLock`), the `etlCheckpoint` watermark + retention
+helper (`advance`/`prune`/`assertReplayable`), and the `tryInsert` write-outcome
+(inserted-vs-conflicted, reliable here via `RETURNING`). Read and
+`WITH RECURSIVE` CTEs, insert-from-select, and data-modifying CTEs (a
+PostgreSQL/Neon-only capability) now have per-engine execution coverage; all are
+in the [feature matrix](feature-matrix.md).
 
 ## Column types proven by the DDL test
 

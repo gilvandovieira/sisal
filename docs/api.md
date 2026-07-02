@@ -4,380 +4,390 @@ title: API Reference
 
 # Sisal API Reference
 
-Complete reference for the public API of every Sisal package, generated from a
-full read of the source. Sisal is a Deno-first database toolkit, published to
-JSR, made of six packages with strict boundaries:
+This reference is verified against the current workspace package exports and
+source layout. Sisal is a Deno-first database toolkit, published to JSR, with a
+driverless core, a driverless ORM facade, adapter-neutral migration tooling, and
+explicit database adapters.
 
-| Package          | Import root      | Responsibility                                          |
-| ---------------- | ---------------- | ------------------------------------------------------- |
-| `@sisal/orm`     | `@sisal/orm`     | Driverless schema, typed SQL, query builders, snapshots |
-| `@sisal/migrate` | `@sisal/migrate` | Adapter-neutral migration planning, running, workflow   |
-| `@sisal/pg`      | `@sisal/pg`      | PostgreSQL execution, history, migrator, DDL            |
-| `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL execution and migrations     |
-| `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite execution, history, migrator, DDL                |
-| `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso execution, history, migrator, SQLite DDL   |
+| Package          | Import root      | Responsibility                                     |
+| ---------------- | ---------------- | -------------------------------------------------- |
+| `@sisal/core`    | `@sisal/core`    | Schema primitives, SQL IR, operators, capabilities |
+| `@sisal/orm`     | `@sisal/orm`     | Database facade, fluent builders, relations, calls |
+| `@sisal/migrate` | `@sisal/migrate` | Migration definitions, planning, workflow, CLI     |
+| `@sisal/pg`      | `@sisal/pg`      | PostgreSQL ORM, migration adapter, DDL             |
+| `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL ORM/migrations          |
+| `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite ORM, migration adapter, DDL                 |
+| `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
+| `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
 
-The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
-[`drizzle-parity`](./drizzle-parity.html) for how this surface maps to Drizzle
-ORM 0.45.2 and where it diverges on purpose.
+The manifests in this workspace are currently `0.8.0`; this page reflects the
+current tree, including `Unreleased` API additions such as structured logging
+controls and `await using` disposal aliases.
 
-> **Stability:** all packages are `0.6.0` (pre-1.0). The surface below is
-> current but may change before 1.0.
+## Subpath Exports
 
----
+Each package exposes smaller import boundaries:
 
-## Subpath exports
+| Package          | Subpaths                                         |
+| ---------------- | ------------------------------------------------ |
+| `@sisal/core`    | `.`, `./schema`, `./unstable-internal`           |
+| `@sisal/orm`     | `.`, `./core`, `./schema`, `./error`, `./logger` |
+| `@sisal/migrate` | `.`, `./core`, `./workflow`, `./cli`             |
+| `@sisal/pg`      | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/neon`    | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/sqlite`  | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/libsql`  | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/mysql`   | `.`, `./orm`, `./migrate`, `./ddl`               |
 
-Each package exposes narrower entry points so an app can import the smallest
-boundary it needs.
-
-```text
-@sisal/orm            @sisal/migrate          @sisal/pg               @sisal/neon
-  .   -> mod.ts         .        -> mod.ts       .       -> mod.ts       .       -> mod.ts
-  ./core                ./cli                    ./orm                   ./orm
-  ./error               ./core                   ./migrate               ./migrate
-  ./logger                                       ./ddl                   ./ddl
-  ./schema              ./workflow
-
-@sisal/sqlite         @sisal/libsql
-  .       -> mod.ts     .       -> mod.ts
-  ./orm                ./orm
-  ./migrate            ./migrate
-  ./ddl                ./ddl
-```
+`@sisal/core/unstable-internal` is exported for Sisal packages. Application code
+should treat it as internal plumbing.
 
 ---
 
-# @sisal/orm
+# `@sisal/core`
 
-Driverless. Owns schema definitions, typed SQL fragments, predicates, query
-builders, the database facade, and serializable schema snapshots.
+`@sisal/core` is the driverless compile target: table/column metadata,
+serializable schema snapshots, the SQL fragment IR, expression helpers, dialect
+capability declarations, structured errors, and logging contracts. `@sisal/orm`
+re-exports the stable core surface for compatibility.
 
-## Schema definition
+## Tables And Columns
 
 ### `defineTable(name, columns, extrasOrOptions?, options?)`
 
-```ts
-function defineTable<TColumns extends TableColumns>(
-  name: string,
-  columns: TColumns,
-  extrasOrOptions?:
-    | ((columns: TableDefinition<TColumns>["columns"]) => TableConstraint[])
-    | { schema?: string },
-  options?: { schema?: string },
-): TableDefinition<TColumns>;
-```
-
-Defines a typed, frozen table. Column DB names default to the property key (or
-`.named(...)` override). The optional extras callback defines table-level
-indexes and constraints. Returns a `TableDefinition` whose `.columns[key]`
-entries carry `name`, `tableName`, `propertyName`, and the resolved flags.
+Defines a frozen typed table. Column DB names default to the table's naming
+strategy, whose global default is `"snake_case"` (`createdAt` -> `created_at`).
+Use `.named(...)` for an explicit physical column name, or pass
+`{ naming: "preserve" | "camelCase" | "snake_case" | fn }` per table.
 
 ```ts
-import { check, columns, defineTable, index, sql, unique } from "@sisal/orm";
+import { check, columns, defineTable, desc, index, sql } from "@sisal/core";
 
-const users = defineTable(
-  "users",
+const posts = defineTable(
+  "posts",
   {
     id: columns.uuid().primaryKey(),
-    email: columns.text().notNull().unique(),
-    name: columns.text().notNull(),
-    age: columns.integer().optional(),
-    createdAt: columns.timestamp({ withTimezone: true }).default(() =>
-      Temporal.Now.instant()
-    ),
-    orgId: columns.uuid().references("organizations", "id", {
-      onDelete: "cascade",
-    }),
+    title: columns.text().notNull(),
+    body: columns.text(),
+    score: columns.integer().notNull().default(0),
+    createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+    search: columns.customType<string>({
+      kind: "tsvector",
+      dialectType: "tsvector",
+    }).generatedAs(sql`to_tsvector('simple', title)`, { stored: true }),
   },
   (t) => [
-    index("users_org_idx").on(t.orgId),
-    unique("users_org_email_unique").on(t.orgId, t.email),
-    check("users_age_check", sql`${t.age} >= ${0}`),
+    index("posts_feed_idx")
+      .where(sql`${t.score} > 0`)
+      .on(desc(t.score), desc(t.createdAt), t.id),
+    check("posts_score_check", sql`${t.score} >= ${0}`),
   ],
 );
-
-// Column references are reached through `.columns`:
-users.columns.id; // { name: "id", tableName: "users", dataType: "uuid", ... }
 ```
 
 Table-level helpers:
 
-| Helper                         | Purpose                                   |
-| ------------------------------ | ----------------------------------------- |
-| `index(name?).on(...cols)`     | Non-unique index                          |
-| `uniqueIndex(name?).on(...c)`  | Unique index                              |
-| `primaryKey({ columns })`      | Composite/table-level primary key         |
-| `unique(name?).on(...columns)` | Composite/table-level unique constraint   |
-| `check(name, sql\`...\`)`      | Named check constraint from a SQL literal |
+| Helper                         | Purpose                                      |
+| ------------------------------ | -------------------------------------------- |
+| `index(name?).where(sql).on()` | Non-unique index; supports partial indexes   |
+| `uniqueIndex(name?).on(...)`   | Unique index                                 |
+| `primaryKey({ columns })`      | Composite/table-level primary key            |
+| `unique(name?).on(...cols)`    | Composite/table-level unique constraint      |
+| `check(name, sql)`             | Named check constraint from trusted SQL text |
 
-### `columns` — column builder factory
+Index keys accept column refs, physical column names, `asc()`/`desc()` terms,
+and `sql` expressions. Expression indexes, partial-index predicates, check
+expressions, generated-column expressions, custom `dialectType`, and SQL
+defaults are trusted schema inputs emitted into DDL verbatim.
 
-`columns` is a frozen object of constructors. Each returns an immutable
-`ColumnBuilder`.
+### `columns`
 
-| Factory                               | Value type               | Notes                                                                      |
-| ------------------------------------- | ------------------------ | -------------------------------------------------------------------------- |
-| `columns.text()`                      | `string`                 |                                                                            |
-| `columns.varchar(length?)`            | `string`                 | `varchar(n)` when `length` given                                           |
-| `columns.char(length?)`               | `string`                 | `char(n)` when `length` given                                              |
-| `columns.integer()`                   | `number`                 |                                                                            |
-| `columns.smallint()`                  | `number`                 |                                                                            |
-| `columns.bigint()`                    | `string`                 | string-typed to preserve 64-bit precision                                  |
-| `columns.serial()`                    | `number`                 | auto-increment; optional on insert                                         |
-| `columns.bigserial()`                 | `string`                 | auto-increment; optional on insert                                         |
-| `columns.numeric(precision?, scale?)` | `string`                 | string-typed to preserve precision                                         |
-| `columns.decimal(precision?, scale?)` | `string`                 | alias of `numeric`                                                         |
-| `columns.real()`                      | `number`                 |                                                                            |
-| `columns.doublePrecision()`           | `number`                 | Postgres `double precision`                                                |
-| `columns.number()`                    | `number`                 | generic numeric                                                            |
-| `columns.boolean()`                   | `boolean`                |                                                                            |
-| `columns.json<T>()`                   | `T`                      | defaults `T = Record<string, unknown>`                                     |
-| `columns.jsonb<T>()`                  | `T`                      | Postgres `jsonb`                                                           |
-| `columns.date(options?)`              | `Temporal.PlainDate`     | `{ mode: "date" }` → `Date`; `{ mode: "string" }` → `string`               |
-| `columns.time(options?)`              | `Temporal.PlainTime`     | `{ mode: "string" }` → `string`                                            |
-| `columns.timestamp(options?)`         | `Temporal.PlainDateTime` | `{ withTimezone: true }` → `Temporal.Instant` / `timestamptz`; modes below |
-| `columns.uuid()`                      | `string`                 |                                                                            |
-| `columns.bytea()`                     | `Uint8Array`             | Postgres `bytea`; SQLite/libSQL `BLOB`                                     |
-| `columns.customType<T>(options)`      | `T`                      | trusted dialect type escape hatch                                          |
+`columns` is a frozen factory of immutable `ColumnBuilder`s:
 
-Date/time columns use semantic Temporal types by default:
+| Factory                               | Value type               | Notes                                      |
+| ------------------------------------- | ------------------------ | ------------------------------------------ |
+| `text()` / `varchar(n?)` / `char(n?)` | `string`                 | Text-like columns                          |
+| `integer()` / `smallint()`            | `number`                 | Integer columns                            |
+| `bigint()`                            | `string`                 | Preserves 64-bit precision                 |
+| `serial()` / `bigserial()`            | `number` / `string`      | Auto-increment, insert-optional            |
+| `numeric(p?, s?)` / `decimal(p?, s?)` | `string`                 | Preserves decimal precision                |
+| `real()` / `doublePrecision()`        | `number`                 | Floating-point columns                     |
+| `number()`                            | `number`                 | Generic numeric                            |
+| `boolean()`                           | `boolean`                | Boolean column                             |
+| `json<T>()` / `jsonb<T>()`            | `T`                      | `jsonb` is PostgreSQL-oriented             |
+| `date(options?)`                      | `Temporal.PlainDate`     | `mode: "date"` -> `Date`, `"string"`       |
+| `time(options?)`                      | `Temporal.PlainTime`     | `mode: "string"` available                 |
+| `timestamp(options?)`                 | `Temporal.PlainDateTime` | `withTimezone: true` -> `Temporal.Instant` |
+| `uuid()`                              | `string`                 | UUID text value                            |
+| `bytea()`                             | `Uint8Array`             | SQLite/libSQL map this to `BLOB`           |
+| `customType<T>(options)`              | `T`                      | Trusted dialect type escape hatch          |
 
-| SQL concept                   | Sisal column                                | Default JS type          |
-| ----------------------------- | ------------------------------------------- | ------------------------ |
-| `date`                        | `columns.date()`                            | `Temporal.PlainDate`     |
-| `time`                        | `columns.time()`                            | `Temporal.PlainTime`     |
-| `timestamp without time zone` | `columns.timestamp()`                       | `Temporal.PlainDateTime` |
-| `timestamp with time zone`    | `columns.timestamp({ withTimezone: true })` | `Temporal.Instant`       |
+Columns are nullable by default. `InferSelect` reads `T | null` until a column
+is narrowed by `.notNull()` or `.primaryKey()`.
 
-Use `mode: "date"` to keep JS `Date` values where supported:
-`columns.date({ mode: "date" })` or
-`columns.timestamp({ withTimezone: true, mode: "date" })`. Use `mode: "string"`
-when you want raw database/driver text. Temporal values are serialized to ISO
-strings before adapters receive params; arrays are normalized recursively.
-Result parsing is opt-in with `createDatabase({ temporal:
-{ parse: true } })`;
-without it, rows keep the driver-returned shape. The reusable mode types are
-exported as `DateColumnMode`, `TimeColumnMode`, `TimestampColumnMode`, and
-`ColumnValueMode`.
+Column modifiers:
 
-Migration notes for v0.4.0:
+| Modifier                         | Effect                                             |
+| -------------------------------- | -------------------------------------------------- |
+| `.named(name)`                   | Override the physical column name                  |
+| `.notNull()` / `.nullable()`     | Set read nullability                               |
+| `.optional()`                    | Omit key on insert without changing nullability    |
+| `.default(value                  | fn                                                 |
+| `.primaryKey()`                  | Primary key; implies `.notNull()`                  |
+| `.unique()`                      | Single-column unique constraint                    |
+| `.references(table, col, opts?)` | Single-column foreign key                          |
+| `.array()`                       | Array column; native on PostgreSQL, JSON elsewhere |
+| `.generatedAs(sql, { stored? })` | Generated column; trusted expression               |
+| `.$onUpdate(fn)`                 | Value applied on every ORM `UPDATE`                |
 
-```ts
-// Before: inferred Date; Postgres DDL emitted timestamptz.
-createdAt: columns.timestamp();
+Type helpers include `InferSelect`, `InferInsert`, `TableDefinition`,
+`TableColumn`, `ColumnBuilder`, `ColumnDefinition`, `ColumnDataType`,
+`ColumnValueMode`, `DateColumnMode`, `TimeColumnMode`, `TimestampColumnMode`,
+`ColumnNamingStrategy`, `getDefaultColumnNaming`, and `setDefaultColumnNaming`.
 
-// After: inferred Temporal.PlainDateTime; Postgres DDL emits timestamp.
-createdAt: columns.timestamp();
+## SQL Fragments
 
-// Keep instant semantics.
-createdAt: columns.timestamp({ withTimezone: true });
+`sql` is the safe tagged template. Values are bound as parameters, nested `Sql`
+fragments are inlined, and table/column refs render as identifiers.
 
-// Keep legacy JS Date values.
-createdAt: columns.timestamp({ withTimezone: true, mode: "date" });
+| Helper                                  | Purpose                                      |
+| --------------------------------------- | -------------------------------------------- |
+| `sql\`...\``                            | Build a parameterized fragment               |
+| `raw(text)`                             | Trusted raw SQL literal                      |
+| `identifier(name)`                      | Validated quoted identifier path             |
+| `placeholder(name)`                     | Named placeholder for prepared builders      |
+| `joinSql(items, sep?)` / `emptySql()`   | Fragment composition                         |
+| `expr<T>(sql)`                          | Type a fragment as `SqlExpression<T>`        |
+| `dialectSql(construct, variants, fb?)`  | Per-dialect rendering branch                 |
+| `dialectGuard(construct, unsupported)`  | Render-time unsupported-dialect guard        |
+| `renderSql(sql, { dialect, variant })`  | Driver-ready `{ text, params }`              |
+| `normalizeSqlInput(input, params?, d?)` | Normalize `Sql`, `SqlQuery`, or string input |
+| `quoteIdentifier(name, dialect?)`       | Quote one identifier                         |
+| `toSql(value)`                          | Unwrap `Sql` or `Condition`                  |
+| `serializeSqlValue(value)`              | Normalize a bind value                       |
+| `normalizeTemporalSqlValue(value)`      | ISO-serialize Temporal values recursively    |
+| `withSqlChunkMeta` / `sqlChunkMeta`     | Attach/read opaque chunk annotations         |
+| `isSql` / `isSqlQuery` / `isColumn`     | Type guards                                  |
 
-// Keep raw string values.
-createdAt: columns.timestamp({ withTimezone: true, mode: "string" });
-```
+Rendering uses `$1`, `$2`, ... for PostgreSQL and `?` for SQLite/libSQL/MySQL.
+`SQL_IR_VERSION` is `1`; `SQL_DIALECTS` is
+`["postgres", "sqlite", "mysql", "generic"]`.
 
-Precision: Temporal can represent nanoseconds, PostgreSQL stores timestamps at
-microsecond precision, and JS `Date` stores milliseconds. Sisal does not promise
-nanosecond round-trips through any database. For keyset pagination over
-date/time columns, prefer DB-returned cursor values and always include a unique
-final tiebreaker such as a primary key.
+## Operators And Expressions
 
-`columns.customType<T>({ kind, dialectType })` preserves `kind` in snapshots and
-lets Postgres DDL emit a trusted, developer-authored `dialectType` verbatim. Use
-it for types such as `interval`, `vector(1536)`, `inet`, or identity syntax when
-a dedicated Sisal factory does not exist.
+Predicates return `Condition`; expressions return typed `SqlExpression<T>`.
 
-### Column modifiers (`ColumnBuilder`)
+| Helper                                                          | Purpose                                |
+| --------------------------------------------------------------- | -------------------------------------- |
+| `eq`, `ne`, `gt`, `gte`, `lt`, `lte`                            | Comparisons                            |
+| `like`, `ilike`, `notLike`, `notIlike`                          | Pattern matching                       |
+| `between`, `notBetween`                                         | Inclusive range predicates             |
+| `inArray`, `notInArray`                                         | Array or subquery membership           |
+| `isNull`, `isNotNull`                                           | NULL checks                            |
+| `exists`, `notExists`                                           | Subquery existence                     |
+| `arrayContains`, `arrayContained`, `arrayOverlaps`              | PostgreSQL array operators             |
+| `and`, `or`, `not`                                              | Boolean composition                    |
+| `asc`, `desc`                                                   | Order terms                            |
+| `count`, `countDistinct`, `sum`, `avg`, `min`, `max`            | Aggregates                             |
+| `filter(aggregate, condition)`                                  | Conditional aggregate                  |
+| `excluded(column)`                                              | Portable upsert proposed-row reference |
+| `coalesce`, `greatest`, `least`                                 | Scalar expression helpers              |
+| `now`, `dateTrunc`, `dateAdd`, `dateSub`, `dateBin`, `dateDiff` | Temporal helpers                       |
+| `over`, `rank`, `denseRank`, `rowNumber`, `lag`, `lead`         | Window helpers                         |
+| `arrayExpr`, `jsonExtract`, `jsonTable`                         | Array/JSON expression and FROM helpers |
 
-All modifiers return a **new** builder (immutable chaining).
+`dateTrunc`, `dateBin`, and JSON/window helpers render per dialect and preserve
+portable ordering/grouping semantics, but result value shapes can still differ
+by engine; see the feature matrix for adapter-level details.
 
-| Modifier                               | Effect                                                                      |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `.notNull()`                           | Requires a value (opt out of the nullable default)                          |
-| `.nullable()`                          | Marks the column nullable (the default; explicit for readability)           |
-| `.optional()`                          | Makes the field optional **on insert** (does not change nullability)        |
-| `.default(value \| () => value)`       | Sets a default; also makes the field optional on insert                     |
-| `.primaryKey()`                        | Adds the column to the primary key (implies `.notNull()`)                   |
-| `.unique()`                            | Adds a single-column unique constraint                                      |
-| `.references(table, column, options?)` | Adds a single-column foreign key; `options` accepts `onDelete` / `onUpdate` |
-| `.array()`                             | Makes the column an array of its element type (Postgres `type[]`)           |
-| `.$onUpdate(() => value)`              | Value applied on every `UPDATE` of the row                                  |
-| `.named(name)`                         | Overrides the database column name                                          |
+## Schema Snapshots
 
-> **Nullability:** Sisal columns are **nullable by default**, matching SQL and
-> Drizzle. Call `.notNull()` to require a value; `.primaryKey()` implies it. A
-> column's inferred value type is therefore `T | null` until you narrow it with
-> `.notNull()`/`.primaryKey()`.
+Snapshots are serializable, dialect-neutral schema descriptions consumed by DDL
+generators and migration planning. `SCHEMA_SNAPSHOT_VERSION` is `2`.
 
-### Type inference
+| Helper                                               | Purpose                                   |
+| ---------------------------------------------------- | ----------------------------------------- |
+| `createSchemaSnapshot({ tables, ... })`              | Build from ORM tables                     |
+| `defineSchemaSnapshot(input)`                        | Normalize and validate authored snapshots |
+| `defineSchemaObject(object)`                         | Add trusted raw DDL objects to a snapshot |
+| `validateSchemaSnapshot` / `assertValid...`          | Report or throw validation issues         |
+| `normalizeSchemaSnapshot`                            | Deterministic sorted clone                |
+| `serializeSchemaSnapshot` / `deserialize...`         | Canonical JSON round-trip                 |
+| `equalSchemaSnapshots`                               | Normalized structural equality            |
+| `diffSchemaSnapshots` / `isEmpty...`                 | Snapshot diffing                          |
+| `selectSchemaObjects` / `schemaObjectDropStatements` | Dialect-gated raw DDL selection/drop      |
 
-```ts
-type User = InferSelect<typeof users>; // row shape returned by selects
-type NewUser = InferInsert<typeof users>; // accepted insert shape
+`createSchemaSnapshot` accepts `dialect`, `dialectVariant`, `dialectVersion`,
+`metadata`, `tables`, and `schemaObjects`. Schema objects are emitted after
+table/column/index/foreign-key creation by adapter DDL generators.
 
-// `InferInsert` honors `.optional()` and `.default()` to make fields optional.
-```
+Core snapshot types include `SisalSchemaSnapshot`, `SisalTableSnapshot`,
+`SisalColumnSnapshot`, `SisalColumnType`, `SisalColumnDefault`,
+`SisalSchemaObjectSnapshot`, `SisalIndexSnapshot`, `SisalForeignKeySnapshot`,
+`SisalSchemaSnapshotDiff`, and the related diff and issue types.
 
-## Typed SQL
+## Statement Assembly
 
-### `sql` tagged template
+`assembleSelect(parts)` and `assembleInsertFromSelect(parts)` are the core-only
+statement assembly surface for downstream packages that need deterministic SQL
+without depending on the ORM builders. They produce byte-identical SQL to the
+fluent builder for the supported shapes: projected `SELECT`, grouped/having
+selects, ordered/limited selects, and `INSERT INTO ... SELECT ...` with
+dialect-mapped upsert.
 
-```ts
-function sql(strings: TemplateStringsArray, ...values: unknown[]): Sql;
-```
+## Capabilities
 
-Interpolated values become bound **parameters**; nested `Sql` fragments are
-inlined. This is the safe building block for everything else.
+The capability registry is the source of truth for render-time and doc-matrix
+dialect divergence:
 
-```ts
-const frag = sql`id = ${userId} and active = ${true}`;
-```
+| Export                         | Purpose                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `DIALECT_CAPABILITIES`         | Named capability declarations                                   |
+| `CAPABILITY_TARGETS`           | `pg`, `neon`, `sqlite`, `libsql`, `mysql`, `mariadb` identities |
+| `capabilitySupported(cap, id)` | Non-rendering support predicate                                 |
+| `capabilityGuard(cap, label?)` | Render-time guard fragment                                      |
+| `compareServerVersions(a, b)`  | Leading numeric server-version comparison                       |
 
-### Other SQL builders
+Registered capabilities currently cover `RETURNING`, multi-table mutation forms,
+`DISTINCT ON`, `FULL JOIN`, row locking, PostgreSQL array operators,
+data-modifying CTEs, mutation CTEs, `GROUPS` window frames, `lag`/`lead`
+defaults, and partial indexes.
 
-| Function                                      | Purpose                                                    |
-| --------------------------------------------- | ---------------------------------------------------------- |
-| `raw(value)`                                  | Unsanitized raw SQL — trusted literals only                |
-| `identifier(value)`                           | Validated identifier fragment (dotted paths allowed)       |
-| `joinSql(items, separator = raw(", "))`       | Joins `Sql[]` with a separator fragment                    |
-| `emptySql()`                                  | Empty fragment                                             |
-| `renderSql(sql, { dialect? })`                | Renders a fragment to `{ text, params }`                   |
-| `normalizeSqlInput(input, params?, dialect?)` | Normalizes `Sql \| SqlQuery \| string` into a driver query |
-| `quoteIdentifier(name, dialect?)`             | Quotes/validates an identifier (`"` or backtick for mysql) |
-| `toSql(sqlOrCondition)`                       | Unwraps a `Sql` or `Condition` to `Sql`                    |
-| `serializeSqlValue(value)`                    | Coerces a JS value into a `SqlParameter`                   |
-| `normalizeTemporalSqlValue(value)`            | Converts Temporal values (including arrays) to ISO strings |
-| `isSql(v)` / `isSqlQuery(v)`                  | Type guards                                                |
+## Errors And Logging
 
-Rendering is dialect-aware: parameters render as `$1, $2, …` for `postgres` and
-`?` otherwise; identifiers are quoted per dialect.
+`SisalError` is the shared structured error (`code`, `status`, `expose`,
+`severity`, `details`, redacted `cause`). `OrmError` specializes it for schema,
+SQL, driver, transaction, and batch failures.
 
-## Predicates / operators
+Logging exports include `Logger`, `LoggerMethod`, `SisalLoggingOptions`,
+`SisalLogSettings`, `SisalLogLevel`, `SisalLogCategory`,
+`createSisalLogEmitter`, `normalizeSisalLogSettings`, `logEnabled`,
+`emitSisalLogEvent`, `redactSqlParameter`, and `redactSqlParameters`.
 
-Each returns a `Condition`. Comparison operators bind their right-hand value as
-a parameter unless it is itself a column (which renders as a column reference,
-for join conditions).
+`logging.level: "debug"` emits SQL/timing categories; `"trace"` also emits
+redacted bind summaries. The legacy `logger` option keeps the previous
+debug/error behavior without bind logs unless structured `logging` is passed.
 
-| Operator                         | SQL                                               |
-| -------------------------------- | ------------------------------------------------- |
-| `eq(col, value)`                 | `col = $n`                                        |
-| `ne(col, value)`                 | `col <> $n`                                       |
-| `gt` / `gte` / `lt` / `lte`      | `col > / >= / < / <= $n`                          |
-| `like(col, value)`               | `col like $n`                                     |
-| `ilike(col, value)`              | `col ilike $n` (Postgres-oriented)                |
-| `notLike` / `notIlike`           | `col not like / not ilike $n`                     |
-| `between(col, min, max)`         | `col between $1 and $2` (inclusive)               |
-| `notBetween(col, min, max)`      | `col not between $1 and $2`                       |
-| `inArray(col, values \| sub)`    | `col in (...)` / `in (subquery)`; empty → `1 = 0` |
-| `notInArray(col, values \| sub)` | `col not in (...)`; empty → `1 = 1`               |
-| `isNull(col)` / `isNotNull(col)` | `col is [not] null`                               |
-| `exists(sub)` / `notExists(sub)` | `[not] exists (subquery)`                         |
-| `arrayContains(col, v)`          | `col @> $n` (Postgres arrays)                     |
-| `arrayContained(col, v)`         | `col <@ $n` (Postgres arrays)                     |
-| `arrayOverlaps(col, v)`          | `col && $n` (Postgres arrays)                     |
-| `and(...conds)`                  | `(...) and (...)`; ignores nullish                |
-| `or(...conds)`                   | `(...) or (...)`; ignores nullish                 |
-| `not(cond)`                      | `not (...)`                                       |
+---
 
-### Ordering & aggregates
+# `@sisal/orm`
 
-`asc(col)` / `desc(col)` build order terms for `orderBy` (which also accepts the
-legacy `(col, "asc" | "desc")` form and multiple terms). The aggregate helpers
-`count(col?)`, `countDistinct(col)`, `sum(col)`, `avg(col)`, `min(col)`,
-`max(col)` return a typed `SqlExpression<T>` for use in select projections:
+`@sisal/orm` re-exports the stable `@sisal/core` API and adds the database
+facade, fluent query builders, relation metadata, typed database-function calls,
+test drivers, and atomic operation helpers. It stays driverless.
 
-```ts
-const rows = await db
-  .select({ org: users.columns.orgId, total: count() })
-  .from(users)
-  .orderBy(desc(count()))
-  .execute(); // rows: { org: ...; total: number }[]
-```
-
-## Database facade & query builders
-
-### `createDatabase(options?)`
+## Database Facade
 
 ```ts
 function createDatabase(options?: {
   driver?: OrmDriver;
-  dialect?: SqlDialect; // "postgres" | "sqlite" | "mysql" | "generic"
+  dialect?: SqlDialect;
+  variant?: string;
+  version?: string;
   logger?: Logger;
+  logging?: SisalLoggingOptions;
   schema?: DatabaseSchema;
   relations?: RelationsList;
   temporal?: { parse?: boolean };
 }): Database;
 ```
 
-`Database` methods: `execute`, callable `query`, schema-aware
-`query.<table>.findMany/findFirst`, `select`, `$with`/`with` (CTEs),
-`$count(table, where?)`, `insert`, `update`, `delete`, `transaction`, and
-`close`. Query builders are immutable and lazy — call `.toSql()` to inspect or
-`.execute()` to run.
+`Database` exposes:
 
-`temporal.parse` defaults to `false`. When set to `true`, ORM-built queries that
-carry column metadata (`select` from known tables/projections, `returning()`,
-relational queries, and `db.call(defineFunction(...))`) decode known date/time
-columns to their declared Temporal/string/Date mode. Raw `db.query(sql\`...\`)`
-results do not auto-parse because they have no semantic column metadata.
+| Method/property                        | Purpose                                  |
+| -------------------------------------- | ---------------------------------------- |
+| `dialect` / `dialectIdentity`          | Render dialect plus variant/version      |
+| callable `query(sql, params?)`         | Raw query returning a mappable promise   |
+| `query.<table>.findMany/findFirst`     | Relation-aware table queries             |
+| `execute(sql, params?)`                | Run manual or builder SQL                |
+| `select`, `insert`, `update`, `delete` | Fluent builders                          |
+| `$with`, `$withRecursive`, `with`      | CTE builders and CTE query roots         |
+| `$count(table, where?)`                | Count rows as `number`                   |
+| `call(fn, args)`                       | Typed database-function call             |
+| `transaction(fn)`                      | Interactive transaction callback         |
+| `batch(statements)`                    | Atomic, non-interactive statement batch  |
+| `close()` / `[Symbol.asyncDispose]()`  | Release driver resources / `await using` |
+
+Raw queries can map rows back through table metadata or a free-form column map:
 
 ```ts
-const db = createDatabase({ dialect: "postgres", driver });
-
-await db.select().from(users)
-  .where(gt(users.columns.age, 18))
-  .orderBy(users.columns.createdAt, "desc")
-  .limit(20)
-  .execute();
-
-await db.insert(users).values({ id, email, name }).returning().execute();
-
-await db.update(users).set({ name }).where(eq(users.columns.id, id)).execute();
-
-await db.delete(users).where(eq(users.columns.id, id)).execute();
-
-await db.transaction(async (tx) => {
-  await tx.insert(users).values(row).execute();
-});
+const rows = await db.query(sql`select * from users`).as(users);
+const totals = await db.query(sql`select count(*) as total from users`).as<{
+  total: number;
+}>({ total: { dataType: "integer" } });
 ```
 
-**Builder methods**
+`temporal.parse` defaults to `false`. When enabled, ORM-built queries and mapped
+raw queries decode known date/time columns according to their declared mode.
+Unmapped raw results keep the driver-returned shape.
 
-- `SelectBuilder`: `from`, `distinct`, `distinctOn(...cols)`, `innerJoin`,
-  `leftJoin`, `rightJoin`, `fullJoin`, `where`, `groupBy(...cols)`,
-  `having(cond)`, `orderBy` (legacy `(col, "asc" | "desc")` or `asc()`/`desc()`
-  terms), `limit`, `offset`, `for(strength, options?)` (row locking),
-  `as(alias)` (derived table),
-  `union`/`unionAll`/`intersect`/`intersectAll`/`except`/`exceptAll`, `toSql`,
-  `execute`.
-- `InsertBuilder`: `values`, `onConflictDoNothing({ target? })`,
-  `onConflictDoUpdate({ target, set, where? })`, `returning(projection?)`,
-  `toSql`, `execute`.
-- `UpdateBuilder`: `set`, `from`, `where`, `unsafeAllowAllRows`, `returning`,
-  `toSql`, `execute`.
-- `DeleteBuilder`: `using`, `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
-  `execute`.
+## Query Builders
 
-> **Safety rail:** `update`/`delete` without a `where` throw unless you call
-> `.unsafeAllowAllRows()` first.
+All builders are immutable and lazy. Use `.toSql()` to inspect, `.prepare()` to
+bind named placeholders later, and `.execute()` to run.
 
-### Relations & relational queries
+| Builder                 | Main methods                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `SelectBuilder`         | `from`, joins, `where`, `groupBy`, `having`, `orderBy`, `limit`, `offset`, `keyset`, `for`, `as`, set ops |
+| `CompoundSelectBuilder` | set ops, `orderBy`, `limit`, `offset`, `as`, `prepare`, `execute`                                         |
+| `InsertBuilder`         | `values`, `select`, conflict helpers, `returning`, `prepare`, `execute`                                   |
+| `UpdateBuilder`         | `set`, `from`, `where`, `unsafeAllowAllRows`, `returning`, `prepare`, `execute`                           |
+| `DeleteBuilder`         | `using`, `where`, `unsafeAllowAllRows`, `returning`, `prepare`, `execute`                                 |
+| `WithQueryBuilder`      | `select`, `insert`, `update`, `delete` with CTE prefix                                                    |
 
-`relations(table, ({ one, many }) => ({ ... }))` defines typed one-to-one and
-one-to-many metadata. Pass a schema map and relation list into
-`createDatabase()` to enable `db.query.<tableKey>`:
+`update` and `delete` without `where` throw unless `.unsafeAllowAllRows()` is
+called. `RETURNING`, `DISTINCT ON`, full joins, row locking, array operators,
+and data-modifying CTEs are capability-guarded and throw typed `OrmError`s on
+unsupported dialect identities.
+
+Prepared queries use `placeholder(name)`:
 
 ```ts
-const posts = defineTable("posts", {
-  id: columns.uuid().primaryKey(),
-  userId: columns.uuid().notNull().references("users", "id"),
-  title: columns.text().notNull(),
-});
+const byId = db.select().from(users)
+  .where(eq(users.columns.id, placeholder("id")))
+  .prepare("user_by_id");
 
+const rows = await byId.execute({ id: userId });
+```
+
+Keyset pagination returns `{ rows, nextCursor }` and should order by a unique
+final tiebreaker:
+
+```ts
+const page = await db.select({
+  id: posts.columns.id,
+  score: posts.columns.score,
+}).from(posts)
+  .keyset({
+    orderBy: [desc(posts.columns.score), desc(posts.columns.id)],
+  })
+  .limit(20)
+  .execute();
+```
+
+## CTEs, Functions, And Atomic Operations
+
+`db.$with(name).as(query)` creates a CTE from a select or a PostgreSQL-only
+data-modifying mutation with `RETURNING`. `db.$withRecursive(name, columns)`
+creates typed recursive CTE self-references.
+
+`defineFunction(name, { args?, returns })` declares typed database functions.
+`db.call(fn, args)` renders one `SELECT * FROM fn(args)` call and exposes
+`.execute()` and `.one()`.
+
+`defineAtomicOperation(name, bodyOrConfig)` packages domain operations behind
+one `.run(db, input)` call. The portable `body` runs inside
+`db.transaction(...)`; an optional `singleStatement` path runs on PostgreSQL
+when present, usually as one data-modifying CTE statement for serverless
+transports.
+
+## Relations
+
+`relations(table, ({ one, many }) => ({ ... }))` defines typed relation
+metadata. Pass `schema` and `relations` into `createDatabase` or adapter
+`connect` calls to enable `db.query.<schemaKey>.findMany/findFirst`.
+
+```ts
 const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts, {
     fields: [users.columns.id],
@@ -397,512 +407,242 @@ const rows = await db.query.users.findMany({
   with: { posts: { columns: { id: true, title: true } } },
   where: gt(users.columns.age, 18),
   orderBy: desc(users.columns.createdAt),
-  limit: 20,
 });
 ```
 
-`findMany(config?)` returns an array. `findFirst(config?)` adds `limit 1` and
-returns one row or `undefined`. `columns` can include selected columns (`true`)
-or exclude columns (`false`); `with` accepts `true` for a relation's default
-selection or a nested relational query config.
+`findFirst(config?)` adds `limit 1` and returns one row or `undefined`.
 
-### CTEs & set operations
+## Drivers
 
-Common table expressions are fluent. Create one with `db.$with(name).as(query)`
-— its columns are inferred from the inner query's projection — and consume it
-via `db.with(cte).select(...).from(cte)`:
-
-```ts
-const adults = db.$with("adults").as(
-  db.select({ id: users.columns.id, age: users.columns.age })
-    .from(users).where(gt(users.columns.age, 18)),
-);
-
-await db.with(adults)
-  .select({ id: adults.id, n: count() })
-  .from(adults)
-  .groupBy(adults.id)
-  .execute();
-// with "adults" as (select … where age > $1) select … from "adults" group by …
-```
-
-Set operations chain off any select and return a `CompoundSelectBuilder`;
-trailing `orderBy`/`limit`/`offset` apply to the whole compound:
-
-```ts
-const a = db.select({ id: users.columns.id }).from(users).where(/* … */);
-const b = db.select({ id: users.columns.id }).from(users).where(/* … */);
-
-await a.union(b).orderBy(asc(users.columns.id)).limit(10).execute();
-// also: .unionAll, .intersect, .intersectAll, .except, .exceptAll
-```
-
-Operands are **not** parenthesized, so the same query renders correctly on both
-Postgres and SQLite (which rejects parenthesized compound operands). Recursive
-CTEs are written with the `` sql`...` `` template.
-
-### Subqueries, locking & counts
-
-A select aliased with `.as("x")` becomes a **derived table**: pass it to
-`.from(...)` and reference its projected columns as `x.col`. The same builder
-also embeds as a parenthesized **scalar subquery** inside a projection or a
-`where` condition, and as the right side of `inArray(col, subquery)`:
-
-```ts
-const recent = db.select({ id: posts.columns.id, userId: posts.columns.userId })
-  .from(posts).where(gt(posts.columns.createdAt, cutoff)).as("recent");
-
-await db.select({ id: recent.id }).from(recent).execute();
-// select "recent"."id" from (select … from "posts" where …) as "recent"
-
-await db.select({
-  name: users.columns.name,
-  postCount: db.select({ c: count() }).from(posts)
-    .where(eq(posts.columns.userId, users.columns.id)), // scalar subquery
-}).from(users).execute();
-
-await db.select().from(users)
-  .where(
-    inArray(users.columns.id, db.select({ id: recent.userId }).from(recent)),
-  )
-  .execute();
-```
-
-`db.$count(table, where?)` returns a row count as a `number`. `.distinctOn(...)`
-emits Postgres `SELECT DISTINCT ON (...)`. `.for("update" | "share", options?)`
-appends row-level locking (`{ skipLocked }`, `{ noWait }`, or `{ of }`) on
-Postgres/MySQL:
-
-```ts
-const n = await db.$count(users, gt(users.columns.age, 18));
-
-await db.select().from(users)
-  .for("update", { skipLocked: true }) // for update skip locked
-  .limit(1)
-  .execute();
-```
-
-### Drivers
-
-| Helper                      | Description                                      |
-| --------------------------- | ------------------------------------------------ |
-| `noopOrmDriver()`           | Returns empty result sets; for tests/scaffolding |
-| `memoryOrmDriver(options?)` | Tiny test driver that returns empty rows         |
-
-`OrmDriver` is the async contract adapters implement (`query`, `execute`,
-optional `transaction`, `close`). `OrmTransaction` is the in-transaction facade.
-
-## Schema snapshots
-
-A snapshot is a serializable, dialect-neutral description of a schema used by
-the migration tooling. Built from tables or authored directly.
-
-| Function                                                | Purpose                                                           |
-| ------------------------------------------------------- | ----------------------------------------------------------------- |
-| `createSchemaSnapshot({ tables, dialect?, metadata? })` | Build a normalized, validated snapshot from ORM tables            |
-| `defineSchemaSnapshot(input)`                           | Normalize + validate a hand-authored snapshot                     |
-| `validateSchemaSnapshot(snapshot)`                      | Return `SisalSchemaIssue[]` without throwing                      |
-| `assertValidSchemaSnapshot(snapshot)`                   | Throw on the first validation problem                             |
-| `normalizeSchemaSnapshot(snapshot)`                     | Deterministic clone (sorted tables/constraints)                   |
-| `serializeSchemaSnapshot(snapshot)`                     | Canonical JSON (stable across ordering)                           |
-| `deserializeSchemaSnapshot(text)`                       | Parse → normalize → validate                                      |
-| `equalSchemaSnapshots(a, b)`                            | Structural equality after normalization                           |
-| `diffSchemaSnapshots(from, to)`                         | Structural diff (`addedTables`, `removedTables`, `changedTables`) |
-| `isEmptySchemaSnapshotDiff(diff)`                       | True when a diff has no changes                                   |
-
-Key types: `SisalSchemaSnapshot`, `SisalTableSnapshot`, `SisalColumnSnapshot`,
-`SisalColumnType`, `SisalColumnDefault`, `SisalPrimaryKeySnapshot`,
-`SisalIndexSnapshot`, `SisalIndexColumnSnapshot`,
-`SisalUniqueConstraintSnapshot`, `SisalForeignKeySnapshot`,
-`SisalCheckConstraintSnapshot`, plus the diff types `SisalSchemaSnapshotDiff` /
-`SisalTableDiff` / `SisalColumnDiff`. The constant `SCHEMA_SNAPSHOT_VERSION` is
-`2`.
-
-Index snapshots store `columns` as `{ value, direction?, expression? }` keys and
-may carry a partial-index `where` predicate.
-
-`SisalColumnType.dialectType`, `SisalColumnDefault` with `kind: "expression"`,
-index expression keys, and index `where` predicates are trusted schema inputs:
-DDL generators emit them verbatim. Use them only from developer-authored schema
-code, not runtime values.
-
-## Introspection & utilities
-
-`getTableColumns(table)`, `getTableName(table)`, `isTable(v)`, `isColumn(v)`,
-`createColumn(name, definition)`, `normalizeTableName(name)`,
-`normalizeColumnName(name)`.
-
-## Errors & logging
-
-- `SisalError` (`@sisal/orm/error`) — base structured error with `code`,
-  `status`, `expose`, `severity`, `details`.
-- `redactSecrets(text)` / `redactErrorCause(cause)` — mask connection-string
-  passwords and token-like key/value secrets before logging or wrapping errors.
-- `OrmError` — schema/SQL/execution failures; `OrmErrorCode` enumerates causes.
-- `Logger` / `LoggerMethod` (`@sisal/orm/logger`) — the minimal logger contract
-  accepted everywhere (`debug`/`info`/`warn`/`error`).
+`OrmDriver` is the async adapter contract: `query`, `execute`, optional
+`transaction`, optional `batch`, and optional `close`. `noopOrmDriver()` always
+returns empty result sets. `memoryOrmDriver({ tables? })` is a tiny in-memory
+test driver.
 
 ---
 
-# @sisal/migrate
+# `@sisal/migrate`
 
-Adapter-neutral migration definitions, checksums, planning, drift checks, the
-file workflow, and a generic runner. Depends only on `@sisal/orm`.
+`@sisal/migrate` is adapter-neutral and depends on `@sisal/core`. It defines
+migration records, checksums, planning, in-memory stores, a generic runner, the
+filesystem workflow, drift checks, and the CLI.
 
-## Defining migrations
-
-```ts
-function defineSqlMigration(opts: {
-  id: string;
-  up: string;
-  down?: string;
-  description?: string;
-  checksum?: string;
-  createdAt?: string;
-}): SqlMigration;
-
-function defineMigration(opts: {
-  id: string;
-  up: MigrationStep; // string | string[] | (ctx) => void | Promise<void>
-  down?: MigrationStep;
-  /* ...same metadata... */
-}): ProgrammaticMigration;
-```
-
-A `Migration` is `SqlMigration | ProgrammaticMigration`. `MigrationStep` covers
-raw SQL, an array of SQL statements, or a callback receiving a
-`MigrationContext` (`driver`, `logger`, `dryRun`, `direction`).
-
-## Running migrations
-
-### `createMigrator(options)`
+## Definitions And Core Runner
 
 ```ts
-function createMigrator(options: {
-  migrations: Migration[];
-  store?: MigrationStore; // default: memoryMigrationStore()
-  driver?: MigrationDriver; // default: noopMigrationDriver()
-  logger?: Logger;
-  lockId?: string; // default: "sisal:migrate"
-  useTransaction?: boolean; // default: true
-}): Migrator;
-```
+defineSqlMigration({
+  id: "0001_init",
+  up: "create table ...",
+  down: "drop table ...",
+});
 
-`Migrator`: `plan()`, `up(options?)`, `down(options?)`, `pending()`,
-`applied()`, `close()`.
-
-```ts
-const migrator = createMigrator({ migrations, store, driver });
-
-const plan = await migrator.plan(); // pending / applied / checksumMismatches
-await migrator.up({ dryRun: true }); // preview
-await migrator.up(); // apply pending (advisory-locked, transactional)
-await migrator.down({ steps: 1 }); // roll back the last migration
-await migrator.down({ to: "0003_x" }); // roll back down to (and including) an id
-```
-
-Run options: `MigrationRunOptions` (`dryRun`, `steps`, `allowDirty`) and
-`MigrationDownOptions` (adds `to`). The runner refuses to proceed on a checksum
-mismatch unless `allowDirty: true`.
-
-## Stores & drivers
-
-- `memoryMigrationStore(options?)` — in-memory history + lock for tests.
-- `noopMigrationDriver()` / `noopMigrator()` — execute nothing.
-- `MigrationStore` — async contract: `listApplied`, `getApplied`, `markApplied`,
-  `unmarkApplied`, optional `acquireLock`/`releaseLock`/`clear`/`close`.
-- `MigrationDriver` — `execute(sql)`, optional `transaction`, `close`.
-
-## Planning & schema diff
-
-| Function                                   | Purpose                                                                |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| `createMigrationPlan(migrations, applied)` | Pure plan from known migrations + applied history                      |
-| `planSchemaChanges({ from?, to })`         | Classify snapshot diff into ordered `SchemaChange[]`, flag destructive |
-| `planSchemaChangesFromDiff(diff)`          | Classify an already-computed schema snapshot diff                      |
-| `defineSchemaMigrationPlan({ from?, to })` | Validate/normalize a snapshot pair                                     |
-
-`SchemaChange.kind` is one of `create_table`, `drop_table`, `add_column`,
-`drop_column`, `alter_column`; `destructive` is set for drop/alter.
-
-## Checksums & helpers
-
-`calculateMigrationChecksum`, `assertMigrationChecksum`,
-`createAppliedMigration`, `isMigrationApplied`, `getPendingMigrations`,
-`getAppliedMigrations`, `getRollbackMigrations`, `sortMigrations`,
-`validateMigration`, `validateMigrations`,
-`formatMigrationFilename(sequence, name, ext = "sql")`, `slugifyMigrationName`.
-
-## File workflow (`@sisal/migrate/workflow`)
-
-A SQL-first workflow with an **injectable filesystem** so writers/readers are
-unit-testable.
-
-| Symbol                                                         | Purpose                                                                                                             |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `MigrationFileSystem`                                          | Interface: `readDir`, `readFile`, `writeFile`, `mkdir`                                                              |
-| `GeneratedMigrationFile` / `DiscoveredMigration`               | File shapes written and read by the workflow                                                                        |
-| `denoMigrationFileSystem()`                                    | Deno-backed implementation (needs `--allow-read/-write`)                                                            |
-| `buildMigrationFile({ sequence, name, statements, snapshot })` | Pure: build `.sql` + `.snapshot.json` contents                                                                      |
-| `writeMigrationFile(fs, dir, file)`                            | Write the generated pair                                                                                            |
-| `readMigrationsDir(fs, dir)`                                   | Read + order discovered migrations (with snapshots)                                                                 |
-| `parseMigrationSequence(id)` / `nextMigrationSequence(list)`   | Sequence helpers                                                                                                    |
-| `defineConfig(config)`                                         | Validate `MigrateConfig` (`dir`, `dialect?`, `snapshot?`, `databaseUrl?`, `databaseAuthToken?`, `databasePath?`, …) |
-| `checkDrift(input)`                                            | Pure drift check → `DriftReport`                                                                                    |
-
-`checkDrift` reports `schema_changed` (live schema differs from the newest
-captured snapshot), `pending_migrations`, and `missing_snapshot`. Related types:
-`MigrateConfig`, `DriftKind`, `DriftFinding`, `DriftReport`, and
-`DriftCheckInput`.
-
-## CLI (`@sisal/migrate/cli`)
-
-`runSisalCli(args, options?)` powers the `sisal` executable and returns an exit
-code. The real CLI loads `sisal.migrate.ts` by default; tests can inject
-`config`, `fs`, dialect `adapters`, `cwd`, `stdout`, and `stderr` through
-`SisalCliOptions`.
-
-Commands:
-
-| Command          | Purpose                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| `sisal init`     | Scaffold `sisal.migrate.ts` + migrations dir (`--force`, `--target`, `--dialect`, `--dir`) |
-| `sisal generate` | Diff latest snapshot → `config.snapshot`, write SQL + snapshot                             |
-| `sisal migrate`  | Apply pending SQL migrations through the dialect migrator                                  |
-| `sisal status`   | Print file counts, database plan, and drift findings                                       |
-| `sisal drift`    | Exit non-zero when drift findings exist                                                    |
-
-Config modules should export `default` or `config`:
-
-```ts
-import { defineConfig } from "@sisal/migrate";
-
-export default defineConfig({
-  dir: "migrations",
-  dialect: "sqlite",
-  databasePath: "./dev.db",
-  snapshot,
+defineMigration({
+  id: "0002_seed",
+  up: async ({ driver }) => await driver.execute("insert ..."),
 });
 ```
 
-For Turso/libSQL migrations, keep `dialect: "sqlite"` and set `databaseUrl` plus
-`databaseAuthToken` (or use `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`).
+`MigrationStep` is SQL text, an array of SQL statements, or a callback that
+receives `{ driver, logger, logging, dryRun, direction }`.
 
-`generate` emits only non-destructive SQL. Drop/alter changes are reported and
-withheld so the captured snapshot cannot get ahead of the SQL that was written.
-`splitSqlStatements(text)` is exported from `@sisal/migrate/cli` for tests and
-tooling that need the CLI's simple SQL-statement splitting behavior.
+`createMigrator(options)` accepts `migrations`, `store`, `driver`, `logger`,
+`logging`, `lockId`, `useTransaction`, and `splitStatements`. The returned
+`Migrator` exposes `plan`, `up`, `down`, `pending`, `applied`, `close`, and
+`[Symbol.asyncDispose]`.
 
-## Errors
+Pure helpers include `calculateMigrationChecksum`, `assertMigrationChecksum`,
+`createMigrationPlan`, `createAppliedMigration`, `sortMigrations`,
+`validateMigration`, `validateMigrations`, `getPendingMigrations`,
+`getAppliedMigrations`, `getRollbackMigrations`, `formatMigrationFilename`,
+`slugifyMigrationName`, and `splitSqlStatements`.
 
-`MigrationError` with `MigrationErrorCode` (`MIGRATION_INVALID`,
-`MIGRATION_DUPLICATE_ID`, `MIGRATION_CHECKSUM_MISMATCH`,
-`MIGRATION_LOCK_FAILED`, …).
+## Planning And Drift
+
+`planSchemaChanges({ from?, to })` and `planSchemaChangesFromDiff(diff)`
+classify snapshot diffs into `SchemaChange[]` with `kind` values such as
+`create_table`, `drop_table`, `add_column`, `drop_column`, and `alter_column`.
+Drop/alter changes are marked destructive.
+
+`checkDrift(input)` reports `schema_changed`, `pending_migrations`, and
+`missing_snapshot` findings. `defineSchemaMigrationPlan({ from?, to })`
+validates and normalizes schema pairs for migration planning.
+
+## File Workflow
+
+The workflow subpath (`@sisal/migrate/workflow`) is SQL-first and has an
+injectable filesystem:
+
+| Symbol                                             | Purpose                                     |
+| -------------------------------------------------- | ------------------------------------------- |
+| `MigrationFileSystem`                              | `readDir`, `readFile`, `writeFile`, `mkdir` |
+| `denoMigrationFileSystem()`                        | Deno-backed implementation                  |
+| `buildMigrationFile` / `writeMigrationFile`        | Create and write `.sql` + snapshot          |
+| `readMigrationsDir`                                | Discover ordered migrations                 |
+| `parseMigrationSequence` / `nextMigrationSequence` | Sequence helpers                            |
+| `defineConfig(config)`                             | Validate `sisal.migrate.ts` config          |
+
+`MigrateConfig` includes `dir`, `dialect`, optional `provider: "neon"`,
+`snapshot`, `databaseUrl`, `databaseAuthToken`, `databasePath`, `historyTable`,
+and default `logging`.
+
+## CLI
+
+`runSisalCli(args, options?)` powers the `sisal` executable. Commands are:
+
+| Command          | Purpose                                  |
+| ---------------- | ---------------------------------------- |
+| `sisal init`     | Scaffold config and migrations dir       |
+| `sisal generate` | Diff latest snapshot -> current snapshot |
+| `sisal migrate`  | Apply pending SQL migrations             |
+| `sisal status`   | Print files, DB plan, and drift findings |
+| `sisal drift`    | Exit non-zero when drift findings exist  |
+
+Targets: `postgres`, `neon`, `sqlite`, `libsql`, and `mysql` (`mariadb` is an
+alias). `--dialect` accepts `postgres`, `sqlite`, or `mysql`; `--provider neon`
+runs PostgreSQL DDL through the Neon adapter. Logging flags are `--log-level`,
+`--quiet`, and repeatable `-v`/`--verbose` (`-v` = debug, `-vv` = trace).
+
+`generate` emits only non-destructive SQL. Destructive drop/alter changes are
+reported and withheld so captured snapshots do not get ahead of emitted SQL.
 
 ---
 
-# @sisal/pg
+# Adapter Packages
 
-PostgreSQL adapter. Root export bundles the common helpers; `@sisal/pg/orm`,
-`@sisal/pg/migrate`, and `@sisal/pg/ddl` are narrower boundaries.
+Every adapter root re-exports its ORM helpers, migration facade, and pure DDL
+generator. Narrower imports (`@sisal/<adapter>/orm`, `/migrate`, `/ddl`) keep
+application boundaries explicit.
 
-## ORM execution (`@sisal/pg/orm`)
+## Shared Adapter Patterns
 
-| Symbol                       | Purpose                                              |
-| ---------------------------- | ---------------------------------------------------- |
-| `createPgDb(options)`        | Open a `PgDatabase` (a `Database` wired to Postgres) |
-| `connect(options)`           | Alias for `createPgDb`                               |
-| `createPgOrmDriver(options)` | Build the `OrmDriver` only                           |
-| `createPgExecutor(options)`  | Lower-level SQL executor                             |
-| `createPgPool(options)`      | Connection pool                                      |
-| `POSTGRES_DIALECT`           | `"postgres"`                                         |
+Adapter database facades (`PgDatabase`, `NeonDatabase`, `SqliteDatabase`,
+`LibsqlDatabase`, `MysqlDatabase`) extend `Database` and support `close()` plus
+`[Symbol.asyncDispose]()` through the ORM facade.
 
-Types: `PgDatabase`, `CreatePgDbOptions`, `PgOrmDriverOptions`, `PgClient`,
-`PgConnectionOptions`, `PgPool`, `PgQueryResult`, `PgSqlExecutor`.
+Adapter migration facades expose:
 
 ```ts
-import { connect } from "@sisal/pg";
-
-const db = await connect({/* connection options */});
-await db.select().from(users).execute();
+interface AdapterMigrator {
+  migrate(options: { migrations: readonly MigrationInput[] /* run opts */ });
+  rollback(options: { migrations: readonly MigrationInput[] /* down opts */ });
+  plan(options: { migrations: readonly MigrationInput[] });
+  applied();
+  close();
+  [Symbol.asyncDispose]();
+}
 ```
 
-## Migrations (`@sisal/pg/migrate`)
+All DDL generators return `{ statements, destructive }`, emit only additive
+changes (`CREATE TABLE`, `ADD COLUMN`, indexes, foreign keys, schema objects),
+and withhold destructive changes for explicit handling.
 
-`createPgMigrator(options)` returns a `PgMigrator`
-(`migrate`/`rollback`/`plan`/`applied`/`close`) backed by an advisory-locked,
-database history store.
+## `@sisal/pg`
 
-| Symbol                                   | Purpose                                  |
-| ---------------------------------------- | ---------------------------------------- |
-| `createPgMigrator(options)`              | Adapter facade over core migration flow  |
-| `createPgMigrationDriver(options)`       | `MigrationDriver` backed by Postgres SQL |
-| `createPgMigrationHistoryStore(options)` | Database-backed migration history store  |
-| `createPgExecutor(options)`              | Lower-level SQL executor                 |
-| `createPgPool(options)`                  | Connection pool                          |
-| `DEFAULT_PG_MIGRATION_TABLE`             | `"sisal_migrations"`                     |
+PostgreSQL adapter. ORM exports:
 
-Types include `CreatePgMigratorOptions`, `PgMigrationDefinition`,
-`PgMigrationInput`, `PgMigrateOptions`, `PgRollbackOptions`,
-`PgMigrationPlanOptions`, and `PgMigrator`.
+| Symbol                   | Purpose                      |
+| ------------------------ | ---------------------------- |
+| `connect` / `createPgDb` | Open a `PgDatabase`          |
+| `createPgOrmDriver`      | Build an ORM driver          |
+| `createPgExecutor`       | Lower-level SQL executor     |
+| `createPgPool`           | `@db/postgres` pool          |
+| `createPostgresJsPool`   | Optional `npm:postgres` pool |
+| `POSTGRES_DIALECT`       | `"postgres"`                 |
 
-## DDL generation (`@sisal/pg/ddl`)
+Migration exports include `createPgMigrator`, `createPgMigrationDriver`,
+`createPgMigrationHistoryStore`, `DEFAULT_PG_MIGRATION_TABLE`,
+`createPgExecutor`, and `createPgPool`.
 
-Pure functions — emit SQL strings, never open a connection.
-
-| Function                                        | Output                            |
-| ----------------------------------------------- | --------------------------------- |
-| `generatePostgresUpStatements(to, from?)`       | `{ statements, destructive }`     |
-| `generatePostgresCreateTable(table)`            | `CREATE TABLE …`                  |
-| `generatePostgresAddColumn(table, column)`      | `ALTER TABLE … ADD COLUMN …`      |
-| `generatePostgresColumnDefinition(column)`      | one column definition             |
-| `generatePostgresColumnType(type)`              | a Postgres type expression        |
-| `generatePostgresIndexes(table)`                | `CREATE [UNIQUE] INDEX …`         |
-| `generatePostgresForeignKeys(table)`            | `ALTER TABLE … ADD FOREIGN KEY …` |
-| `quotePgIdent(name)` / `pgQualifiedName(table)` | identifier quoting                |
-
-Only **additive** changes are emitted; destructive changes (drop table/column,
-type change) are returned in `destructive` for explicit handling.
-
-```ts
-import { columns, createSchemaSnapshot, defineTable } from "@sisal/orm";
-import { generatePostgresUpStatements } from "@sisal/pg/ddl";
-
-const users = defineTable("users", {
-  id: columns.uuid().primaryKey(),
-  email: columns.text().notNull().unique(),
-});
-const snapshot = createSchemaSnapshot({ dialect: "postgres", tables: [users] });
-const { statements } = generatePostgresUpStatements(snapshot);
-```
-
----
-
-# @sisal/neon
-
-Neon serverless PostgreSQL adapter, structured like `@sisal/pg` but backed by
-`jsr:@neon/serverless`. It uses the PostgreSQL SQL dialect, migrations, and DDL.
-
-## ORM execution (`@sisal/neon/orm`)
-
-`createNeonDb(options)` / `connect(options)` open a `NeonDatabase`. Options
-accept a Neon `url`/`connectionString`, an already-open `pool`/`client`, or an
-existing `executor`. Also: `createNeonPool`, `createNeonClient`,
-`createNeonExecutor`, `neonPoolConfigFromOptions`,
-`neonClientConfigFromOptions`, `resolveNeonConnectionString`,
-`normalizeNeonResult`, `NeonError`, `POSTGRES_DIALECT`.
-
-Types: `NeonDatabase`, `CreateNeonDbOptions`, `NeonClient`, `NeonPool`,
-`NeonPoolConfig`, `NeonClientConfig`, `NeonPoolConnectionOptions`,
-`NeonClientConnectionOptions`, `NeonExecutorOptions`, `NeonSqlExecutor`,
-`NeonSqlResult`, `NeonQueryResult`, `NeonDriverQueryResult`, and
-`NeonErrorCode`.
-
-```ts
-import { connect } from "@sisal/neon";
-
-const db = await connect({
-  url: Deno.env.get("DATABASE_URL"),
-});
-```
-
-## Migrations (`@sisal/neon/migrate`)
-
-`createNeonMigrator(options)` -> `NeonMigrator`, backed by the PostgreSQL
-migrator and history table. Also: `DEFAULT_NEON_MIGRATION_TABLE`. The migrate
-subpath also re-exports the Neon client/executor helpers so migration-only code
-can build pools, clients, or executors without importing `@sisal/neon/orm`.
-
-## DDL generation (`@sisal/neon/ddl`)
-
-Neon uses PostgreSQL syntax, so this subpath re-exports the `@sisal/pg/ddl`
-helpers: `generatePostgresUpStatements`, `generatePostgresCreateTable`,
+DDL exports: `generatePostgresUpStatements`, `generatePostgresCreateTable`,
 `generatePostgresAddColumn`, `generatePostgresColumnDefinition`,
-`generatePostgresColumnType`, `quotePgIdent`, and `pgQualifiedName`.
+`generatePostgresColumnType`, `generatePostgresIndexes`,
+`generatePostgresForeignKeys`, `quotePgIdent`, and `pgQualifiedName`.
 
----
+## `@sisal/neon`
 
-# @sisal/sqlite
+Neon serverless PostgreSQL adapter. ORM exports include `connect`,
+`createNeonDb`, `createNeonPool`, `createNeonClient`, `createNeonExecutor`,
+`neonPoolConfigFromOptions`, `neonClientConfigFromOptions`,
+`resolveNeonConnectionString`, `normalizeNeonResult`, `NeonError`, and
+`POSTGRES_DIALECT`.
 
-SQLite adapter, structured exactly like `@sisal/pg`.
+`createNeonMigrator` delegates to the PostgreSQL migrator with a Neon executor.
+Its defaults are serverless-oriented: `useTransaction` defaults to `false` and
+`splitStatements` defaults to `true`. `DEFAULT_NEON_MIGRATION_TABLE` matches the
+PostgreSQL history table default.
 
-## ORM execution (`@sisal/sqlite/orm`)
+`@sisal/neon/ddl` re-exports the PostgreSQL DDL helpers.
 
-`createSqliteDb(options?)` / `connect(options?)` open a `SqliteDatabase`
-(`@db/sqlite` is opened lazily, only when neither an `executor` nor an existing
-`database` is injected — so DDL/tests stay permission-free). Also:
+## `@sisal/sqlite`
+
+SQLite adapter. ORM exports include `connect`, `createSqliteDb`,
 `createSqliteOrmDriver`, `createSqliteExecutor`, `openSqliteDatabase`,
-`statementReturnsRows`, `sqliteColumnAffinity`, `SQLITE_DIALECT`.
+`statementReturnsRows`, `sqliteColumnAffinity`, and `SQLITE_DIALECT`.
+`@db/sqlite` is opened lazily only when no executor or existing database is
+injected.
 
-Types: `SqliteDatabase`, `CreateSqliteDbOptions`, `SqliteConnectionOptions`,
-`SqliteLikeDatabase`, `SqliteStatement`, `SqliteOrmDriverOptions`,
-`SqliteExecutorOptions`, `SqliteQueryResult`, `SqliteSqlExecutor`.
+Migration exports include `createSqliteMigrator`, `createSqliteMigrationDriver`,
+`createSqliteMigrationHistoryStore`, `DEFAULT_SQLITE_MIGRATION_TABLE`, and the
+SQLite executor/database helpers.
 
-## Migrations (`@sisal/sqlite/migrate`)
-
-`createSqliteMigrator(options)` → `SqliteMigrator`. Also
-`createSqliteMigrationDriver`, `createSqliteMigrationHistoryStore`,
-`createSqliteExecutor`, `openSqliteDatabase`, `statementReturnsRows`,
-`DEFAULT_SQLITE_MIGRATION_TABLE`, and the SQLite connection/database/executor
-types.
-
-## DDL generation (`@sisal/sqlite/ddl`)
-
-`generateSqliteUpStatements(to, from?)`, `generateSqliteCreateTable`,
+DDL exports: `generateSqliteUpStatements`, `generateSqliteCreateTable`,
 `generateSqliteAddColumn`, `generateSqliteColumnDefinition`,
-`generateSqliteColumnType`, `generateSqliteIndexes`, `quoteSqliteIdent`.
-Higher-level types collapse onto SQLite's five affinities
-(`TEXT`/`INTEGER`/`REAL`/`NUMERIC`/`BLOB`); booleans → `INTEGER`,
-dates/JSON/UUID → `TEXT`. Because SQLite has limited `ALTER TABLE`, destructive
-changes are always withheld and returned in `destructive`.
+`generateSqliteColumnType`, `generateSqliteIndexes`, and `quoteSqliteIdent`.
+SQLite DDL maps higher-level types onto SQLite affinities and withholds
+destructive changes for table-rebuild workflows.
 
-```ts
-import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
+## `@sisal/libsql`
 
-const { statements } = generateSqliteUpStatements(snapshot);
-```
-
----
-
-# @sisal/libsql
-
-libSQL/Turso adapter, structured like `@sisal/sqlite` but backed by
-`@libsql/client`. It uses the SQLite SQL dialect for rendering and DDL.
-
-## ORM execution (`@sisal/libsql/orm`)
-
-`createLibsqlDb(options)` / `connect(options)` open a `LibsqlDatabase`. Options
-accept a Turso/libSQL `url`, optional `authToken`, or an already-open `client`.
-Also: `createLibsqlOrmDriver`, `createLibsqlExecutor`, `openLibsqlClient`,
-`createLibsqlClient`, `isLibsqlUrl`, `libsqlConfigFromOptions`,
+libSQL/Turso adapter. ORM exports include `connect`, `createLibsqlDb`,
+`createLibsqlOrmDriver`, `createLibsqlExecutor`, `openLibsqlClient`,
+`createLibsqlClient`, `isLibsqlUrl`, `libsqlConfigFromOptions`, and
 `LIBSQL_DIALECT`.
 
-Types: `LibsqlDatabase`, `CreateLibsqlDbOptions`, `LibsqlConnectionOptions`,
-`LibsqlClient`, `LibsqlClientConfig`, `LibsqlArgs`, `LibsqlValue`,
-`LibsqlInValue`, `LibsqlStatement`, `LibsqlResultSet`, `LibsqlTransaction`,
-`LibsqlOrmDriverOptions`, `LibsqlExecutorOptions`, `LibsqlQueryResult`, and
-`LibsqlSqlExecutor`.
+Migration exports include `createLibsqlMigrator`, `createLibsqlMigrationDriver`,
+`createLibsqlMigrationHistoryStore`, `DEFAULT_LIBSQL_MIGRATION_TABLE`, and the
+libSQL client/executor helpers.
 
-```ts
-import { connect } from "@sisal/libsql";
-
-const db = await connect({
-  url: Deno.env.get("TURSO_DATABASE_URL")!,
-  authToken: Deno.env.get("TURSO_AUTH_TOKEN"),
-});
-```
-
-## Migrations (`@sisal/libsql/migrate`)
-
-`createLibsqlMigrator(options)` -> `LibsqlMigrator`. Also
-`createLibsqlMigrationDriver`, `createLibsqlMigrationHistoryStore`,
-`createLibsqlExecutor`, `openLibsqlClient`, `createLibsqlClient`, `isLibsqlUrl`,
-`libsqlConfigFromOptions`, `DEFAULT_LIBSQL_MIGRATION_TABLE`, and the libSQL
-client/executor/migration types.
-
-## DDL generation (`@sisal/libsql/ddl`)
-
-libSQL uses SQLite syntax, so DDL helpers are SQLite-compatible aliases:
-`generateLibsqlUpStatements(to, from?)`, `generateLibsqlCreateTable`,
+`@sisal/libsql/ddl` provides SQLite-compatible aliases:
+`generateLibsqlUpStatements`, `generateLibsqlCreateTable`,
 `generateLibsqlAddColumn`, `generateLibsqlColumnDefinition`,
-`generateLibsqlColumnType`, `quoteLibsqlIdent`.
+`generateLibsqlColumnType`, and `quoteLibsqlIdent`.
+
+## `@sisal/mysql`
+
+MySQL/MariaDB adapter. ORM exports:
+
+| Symbol                              | Purpose                                      |
+| ----------------------------------- | -------------------------------------------- |
+| `connect` / `createMysqlDb`         | Open a `MysqlDatabase`                       |
+| `createMysqlOrmDriver`              | Build an ORM driver                          |
+| `createMysqlExecutor`               | Lower-level SQL executor                     |
+| `createMysqlPool`                   | Lazy `npm:mysql2` pool                       |
+| `createMariadbPool`                 | Lazy `npm:mariadb` pool                      |
+| `adaptMariadbPool`                  | Adapt MariaDB connector pools                |
+| `parseMysqlServerVersion`           | Detect MariaDB variant/version               |
+| `insertReturning`                   | Fetch inserted rows with best available path |
+| `MYSQL_DIALECT` / `MARIADB_VARIANT` | Dialect identity constants                   |
+
+`connect({ driver: "mariadb" })` opts into the MariaDB connector; mysql2 is the
+default. The adapter detects `select version()` and fills
+`dialectIdentity.variant/version`, which lets version-gated capabilities such as
+MariaDB `RETURNING` light up.
+
+`insertReturning(db, table, values)` first tries real `INSERT ... RETURNING`
+when supported (MariaDB >= 10.5), then falls back to a transactionally safe
+fetch-by-primary-key strategy. The fallback refuses cases where it cannot
+identify the inserted rows correctly.
+
+Migration exports include `createMysqlMigrator`, `createMysqlMigrationDriver`,
+`createMysqlMigrationHistoryStore`, `createMysqlMigrateExecutor`, and
+`DEFAULT_MYSQL_MIGRATION_TABLE`. `CreateMysqlMigratorOptions.useTransaction`
+defaults to `false` because MySQL and MariaDB do not provide transactional DDL.
+
+DDL exports: `generateMysqlUpStatements`, `generateMysqlCreateTable`,
+`generateMysqlAddColumn`, `generateMysqlColumnDefinition`,
+`generateMysqlColumnType`, `generateMysqlIndexes`, `generateMysqlForeignKeys`,
+`quoteMysqlIdent`, and `mysqlQualifiedName`. The generator targets the shared
+MySQL/MariaDB floor, emits foreign keys after table creation, rejects
+unsupported partial/functional indexes, rejects keyed `TEXT`/`BLOB`/`JSON`
+columns that need prefix lengths, and validates `AUTO_INCREMENT` key rules
+before emitting SQL.
