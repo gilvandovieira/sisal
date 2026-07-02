@@ -9,6 +9,254 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+### Added
+
+- **MySQL/MariaDB CI integration jobs** — the scheduled `Integration` workflow
+  now runs the gated mysql-family suites against service containers:
+  `integration/mysql_features_test.ts` on `mysql:8.4` and
+  `integration/mariadb_features_test.ts` on `mariadb:11`, closing the v0.7 B8
+  `.github/workflows` deliverable so the MySQL/MariaDB feature-matrix columns
+  are CI-backed, not local-only.
+
+- **Advanced SQL contract graduation examples** - new runnable workspace
+  packages `examples/postgres-family-advanced-sql`,
+  `examples/mysql-family-advanced-sql`, and
+  `examples/sqlite-family-advanced-sql` turn the Markdown advanced-SQL contracts
+  into generation-first examples with focused render tests. They use Sisal
+  builders for ETL rollups and row locking where possible, safe parameterized
+  `sql` for engine-supported gaps such as windows, recursive CTEs, JSON-table
+  extraction, generated columns, and richer indexes, and explicit typed/skipped
+  cases for MySQL `RETURNING`, MySQL partial indexes, and conservative SQLite
+  coverage. The v0.8 roadmap now records every missing primitive and dialect
+  pain point exposed by the graduation.
+- **MySQL-family showcase + rising-feed examples (v0.7 follow-through)** —
+  `examples/mysql-family-showcase` and `examples/mysql-family-feed` complete the
+  MySQL-family side of the dialect-family example taxonomy. The showcase is
+  generation-first (zero database setup) and prints MySQL DDL, migration diffs,
+  MySQL-rendered builder SQL, `ON DUPLICATE KEY UPDATE`, and typed guards for
+  unsupported `RETURNING`; with `MYSQL_URL`/`MARIADB_URL`/`DATABASE_URL`, it
+  also runs a compact live tour over `mysql2` or the MariaDB connector. The feed
+  ports the `/rising` product example to MySQL/MariaDB with `varchar(36)` UUID
+  keys, UTC `DATETIME(6)` literals, row-value keyset pagination, TypeScript and
+  builder-CTE recompute paths, and gated MySQL/MariaDB live tests. The v0.8
+  roadmap now records the concrete IR/API pressure points this construction
+  exposed.
+- **MySQL CLI target + basic example (v0.7 B9)** — `sisal init --target mysql`
+  now scaffolds a `dialect: "mysql"` migration config with
+  `MYSQL_URL ?? DATABASE_URL` connection hints; `mariadb` is an alias for the
+  same adapter target. The CLI default adapter loader resolves
+  `@sisal/mysql/ddl` and `@sisal/mysql/migrate` for `generate`, `migrate`,
+  `status`, and `drift`. New runnable workspace example
+  `examples/mysql-family-basic` prints generated MySQL DDL without a database
+  and, when pointed at a URL, runs a tiny create/insert/count flow over either
+  `mysql2` or the MariaDB connector via `SISAL_ADAPTER`.
+- **MySQL multi-table mutation joins (v0.7 B10)** — existing portable builders
+  now render MySQL-family multi-table forms: `update(t).from(source)` maps to
+  `UPDATE t, source SET t.col = … WHERE …`, and `delete(t).using(source)` maps
+  to `DELETE FROM t USING t, source WHERE …`. PostgreSQL/SQLite `UPDATE … FROM`
+  rendering is unchanged; SQLite `DELETE … USING` stays a typed guard.
+  Multi-table mutation plus `.returning()` remains guarded for the MySQL family,
+  including MariaDB, because the proven B7 `RETURNING` support is
+  per-statement/single-table. The shared mysql-family integration scenario now
+  exercises `UPDATE FROM`, `DELETE USING`, and `INSERT SELECT`, and the feature
+  matrix marks MySQL/MariaDB mutation joins as fully tested.
+- **`@sisal/mysql` integration suite + feature-matrix columns (v0.7 B8)** — the
+  reserved `"mysql"` slot in the consolidated integration structure is filled:
+  **42 shared mysql-family scenarios**
+  (`integration/_shared/mysql_family_scenarios.ts`) run green against **both**
+  engines — `integration/mysql_features_test.ts` on MySQL 8.4.10,
+  `integration/mariadb_features_test.ts` on MariaDB 11.8.8 (also passing on the
+  opt-in mariadb driver), gated by `SISAL_MYSQL_IT=1` / `SISAL_MARIADB_IT=1`.
+  One adapter, two capability profiles: scenarios branch on the target's
+  declared capabilities, so each divergence is a tested fact (MySQL's
+  `.returning()` throws the typed guard and the B7 `insertReturning`
+  fetch-by-key strategy carries the insert; MariaDB's auto-detected identity
+  lights `INSERT`/`DELETE … RETURNING`; `UPDATE … RETURNING`, `FULL JOIN`,
+  `distinctOn`, dm-CTEs, and partial/expression indexes assert their typed
+  guards live). The cross-driver feature matrix gains **`MySQL` and `MariaDB`
+  columns** (MariaDB is a distinct profile, not a footnote — 36 features × 6
+  adapters, every ✅/⚠️ scenario- backed), `docs/mysql-compatibility.md` is the
+  new per-engine page, and the homepage `#compat` section gains both badges. The
+  row-value keyset path is confirmed working live (both keyset forms paginate
+  identically).
+
+### Changed
+
+- Future roadmap docs now consistently reflect `@sisal/mysql` as the fifth
+  adapter package and MySQL/MariaDB as distinct capability targets in the
+  six-column matrix.
+- Updated the agent/contributor guidance in `AGENTS.md` and `CLAUDE.md` to match
+  the current workspace packages, adapter matrix, validation tasks, integration
+  suites, and schema snapshot version.
+
+### Fixed
+
+- **`@sisal/mysql` value round-trips (v0.7 B8, live-caught).** Three bugs the
+  network-free unit tests could not see, fixed and re-pinned: (1) plain
+  objects/arrays reached mysql2's text protocol un-serialized — an object became
+  invalid SQL and an **array expanded into one param per element**, silently
+  shifting every later placeholder; the executor now `JSON.stringify`s them (the
+  `JSON`-column value shape). (2) `DATETIME`/`TIMESTAMP` columns decoded to
+  client-local `Date`s, timezone-shifting server values; the pool now sets
+  `dateStrings: true` so temporal columns read back as exact server text. (3)
+  Instants (`Temporal.Instant`/`ZonedDateTime`) serialized with a trailing `Z`
+  that MySQL rejects in a datetime literal; the core renderer now tags instant
+  params and rewrites them to **naive UTC** under the `mysql` render dialect
+  only (shared by MySQL and MariaDB) — the `postgres`, `sqlite`, and `generic`
+  render paths are byte-for-byte unchanged.
+
+- **`@sisal/mysql` `RETURNING` execution strategy (v0.7 B7)** — the new
+  `insertReturning(db, table, values)` helper answers "give me back the rows I
+  just inserted" with the best strategy the connected server supports, rows in
+  input order under both: real `INSERT … RETURNING` where the facade's detected
+  identity lights it (MariaDB ≥ 10.5 — the helper catches exactly the core
+  guard's typed error, keeping the core the single source of truth for
+  variant/version floors), otherwise a transactional fetch-by-key fallback — one
+  `INSERT` + one `SELECT` when every row carries its full primary key, or **one
+  `INSERT` per row capturing each statement's own `LAST_INSERT_ID`** for a
+  single-column key. Deliberately no first-id-plus-offset arithmetic: MySQL
+  8.4's live-confirmed default `innodb_autoinc_lock_mode = 2` does not guarantee
+  a batch's generated ids are consecutive, so the shortcut can silently return
+  the wrong rows. Corners the fallback cannot answer honestly fail with a typed
+  `ORM_INVALID_QUERY` (no primary key, a partial composite key, a
+  `Sql`-expression key value, or a server-generated non-`AUTO_INCREMENT` key
+  like `DEFAULT (uuid())` — which the live probe shows returning real rows on
+  MariaDB and refusing typed on MySQL). Plumbing: `insertId` now flows executor
+  → driver → facade result (`MysqlQueryResult.insertId`, bigint normalized to a
+  precision-safe string), and key matching stringifies both sides to survive the
+  number/string/bigint id-shape differences between drivers and column types.
+  Pinned by 8 network-free unit tests; verified live on MySQL 8.4.10 and MariaDB
+  11.8.8 × both drivers.
+- **`@sisal/mysql` migrate wiring (v0.7 B6)** — the new `@sisal/mysql/migrate`
+  export completes the shared adapter shape (`driver` · `history` · `migrator` ·
+  `ddl`): `createMysqlMigrator`, `createMysqlMigrationHistoryStore`,
+  `createMysqlMigrationDriver`, and `createMysqlMigrateExecutor` (which reuses
+  the ORM adapter's connection-source routing, so `driver: "mariadb"` and the
+  mandated decode options apply to migrations for free). Concurrent migrators
+  are excluded with **`GET_LOCK`/`RELEASE_LOCK` named locks** — the
+  `pg_advisory_lock` analogue from the v0.6 C4 report — held on a pinned
+  executor session because MySQL named locks are connection-scoped; lock ids
+  pass through verbatim (validated ≤ 64 chars, the MySQL cap) and the BIGINT
+  lock result is coerced from the string `"1"` the bigint-as-string driver
+  options produce. The history ledger obeys the adapter's own B5 DDL rules
+  (`varchar(255)` key — a `TEXT` key is invalid MySQL — and `datetime(6)`).
+  **`useTransaction` defaults to `false`**, unlike pg: MySQL/MariaDB DDL
+  implicitly commits, so wrapping schema migrations in a transaction is a false
+  promise; opt in for DML-only migrations. Pinned by 7 network-free unit tests;
+  verified live on MySQL 8.4.10 and MariaDB 11.8.8 **× both drivers** (migrate →
+  idempotent re-run → rollback with B5-generated DDL, ledger `appliedAt` matched
+  true UTC, and real two-connection lock contention).
+- **`@sisal/mysql` DDL generator (v0.7 B5)** — the new `@sisal/mysql/ddl`
+  export: `generateMysqlUpStatements` and its per-piece helpers
+  (`generateMysqlCreateTable`/`Indexes`/`ForeignKeys`/`AddColumn`,
+  `quoteMysqlIdent`), a mechanical sibling of the pg generator implemented to
+  the probe-verified C4 spec (`docs/mysql-ddl-mapping.md`) and pinned by 12
+  network-free unit tests; the **generated** output was applied live to MySQL
+  8.4.10 and MariaDB 11.8.8 (kitchen-sink table, FK pair with the child sorting
+  first, incremental `ADD COLUMN` — defaults fired, FK/CHECK enforced). The full
+  C4 type table (`serial` → `AUTO_INCREMENT`, `timestamp` → `DATETIME(6)`,
+  `timestamptz` → `TIMESTAMP(6)` with explicit `NULL` when nullable, `uuid` →
+  `CHAR(36)`, `bytea` → `LONGBLOB`, `json`/`.array()` → `JSON`, length-less
+  `varchar` → `VARCHAR(255)`); foreign keys emit **table-level only, after every
+  `CREATE TABLE`** (MySQL silently ignores inline `REFERENCES`); expression
+  defaults always paren-wrap and literal defaults paren-wrap on
+  TEXT/BLOB/JSON-mapped columns (the portable form both engines accept); no
+  `ENGINE`/`CHARSET` clause. Three **fail-closed generation-time validations**
+  throw a typed `ORM_DIALECT_UNSUPPORTED` instead of shipping SQL that fails at
+  apply time: an `AUTO_INCREMENT` column must lead a key (the InnoDB rule), at
+  most one per table, never via `ADD COLUMN`; no `TEXT`/`BLOB`/`JSON` key
+  columns (use `varchar(n)`); no partial or functional indexes.
+- **`@sisal/mysql` drivers + executor hardening (v0.7 B4)** — verified live on
+  MySQL 8.4.10 and MariaDB 11.8.8 **× both drivers** (four combinations), pinned
+  by 6 new network-free unit tests. `connect()` now **auto-detects the server
+  identity**: one `select version()` fills the B1 `dialectIdentity` via the new
+  `parseMysqlServerVersion` (MariaDB self-identifies in the string) — against a
+  MariaDB container, `INSERT … RETURNING` returns rows with zero configuration
+  while MySQL keeps the typed guard; defaults are on for real sources, off for
+  injected executors, `detectVersion: false` for a fully lazy (fail-closed)
+  connect. `connect({ driver: "mariadb" })` opts into the MariaDB
+  Connector/Node.js (the C6 performance candidate) through `adaptMariadbPool` +
+  a **runtime-computed specifier**, keeping the LGPL connector a soft
+  run-time-only dependency; the mysql2-compatible bigint-as-string options hold
+  on it too. **Live-probe catch, fixed and pinned:** the MariaDB connector
+  JSON-serializes a plain `Uint8Array` parameter (silent BLOB corruption) — the
+  adapter now re-views binary params as Node `Buffer`s (no copy). Value
+  normalization: BLOB reads re-viewed as plain `Uint8Array`s; **`TINYINT(1)`
+  deliberately stays `0`/`1`** (the SQLite-family precedent — a display width
+  doesn't guarantee boolean semantics); JSON on MariaDB stays text (`LONGTEXT`
+  alias — the wire protocol can't distinguish it, so parse-on-read is
+  documented, not guessed).
+- **`@sisal/mysql` adapter scaffold (v0.7 B3)** — the fifth Sisal dialect
+  package exists at `packages/mysql/` with the shared adapter shape (`orm/` =
+  dialect · errors · pool · executor · driver), wired into the workspace,
+  `check`/`test`/docs gates, and JSR publish dry-run (`@sisal/mysql@0.7.0`,
+  exports `.` and `./orm`; `./migrate` + `./ddl` land with B5/B6).
+  `connect({ url | pool | client | executor })` opens a `MysqlDatabase` facade
+  under the `mysql` dialect with the injectable executor seam every adapter uses
+  (8 network-free unit tests against a recording fake). The default driver is
+  `mysql2/promise`, **imported lazily**, with the C6-mandated
+  `supportBigNumbers` + `bigNumberStrings` always set; statements run through
+  the **text protocol** (`query()`), sidestepping MySQL 8's binary-protocol
+  `LIMIT ?` rejection by construction. `connect({ variant, version })` fills the
+  B1 `dialectIdentity` (exported `MARIADB_VARIANT`) — smoke-tested against live
+  MySQL 8.4.10 and MariaDB 11.8.8: builder round trip, the C2
+  `ON DUPLICATE KEY UPDATE` upsert with `excluded()`, transaction rollback, and
+  MariaDB `INSERT … RETURNING` returning real rows through the identity.
+- **MySQL renderings for `filter()` and the portable date helpers (v0.7 B2)** —
+  the last two `ORM_DIALECT_UNSUPPORTED` throws under the `"mysql"` dialect are
+  lifted with real SQL, executed live on MySQL 8.4.10 and MariaDB 11.8.8 with
+  semantic checks before pinning in
+  [`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts).
+  `filter(agg, cond)` now rebuilds the exported aggregates as
+  `agg(CASE WHEN cond THEN operand END)` under `mysql` (neither engine has a
+  `FILTER` clause): the aggregate helpers stamp rebuild metadata into a WeakMap
+  so the frozen fragments and public surface stay untouched; `count(*)` counts a
+  literal `1`, `countDistinct` keeps `DISTINCT`, and a hand-written `` sql`…` ``
+  aggregate (no metadata) keeps the typed throw. The date helpers render
+  `DATE_FORMAT` (`dateTrunc`; string result like the SQLite family), `NOW(6)`,
+  nested `DATE_ADD(…, INTERVAL ? unit)` (`dateAdd`/`dateSub`, quantities bound),
+  and `FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(src)/N)*N)` (`dateBin`).
+  Postgres/SQLite renderings are byte-unchanged. Recorded for the B4 executor:
+  mysql2's binary protocol rejects a bound `LIMIT ?` on MySQL 8.4 (works on
+  MariaDB and via the text protocol on both).
+- **Analytics-readiness report + IR sketch (v0.7 A1-A4)** —
+  [`docs/analytics-readiness.md`](docs/analytics-readiness.md) and
+  [`packages/orm/analytics_result_inference_test.ts`](packages/orm/analytics_result_inference_test.ts).
+  The report records the future analytical IR (`source`/`joins`/`filters`/
+  `dimensions`/`metrics`/`windows`/`derivedFields`/`order`/`limit`/
+  `executionPreference`), the `/rising` rollup walkthrough, and a five-dialect
+  portability classification across PostgreSQL, Neon, SQLite, libSQL, and future
+  MySQL/MariaDB. A3 is decided as a documented seam only: a future minimal
+  `over()`/window expression belongs in core SQL expressions, while the rich
+  metric/dimension/window-domain API belongs in `@sisal/analytics`. The
+  prototype test proves dimension/metric/derived-field maps can infer an exact
+  readonly result row. No analytics package, public API/export, renderer, or
+  feature-matrix row ships with this investigation.
+
+- **`(engine, variant, version)` dialect identity (v0.7 B1)** — the v0.6
+  dialect-key decision is now core code, landed before the v0.8 IR freeze and
+  pinned by
+  [`packages/orm/dialect_identity_test.ts`](packages/orm/dialect_identity_test.ts).
+  New `@sisal/orm` exports: `DialectIdentity`
+  (`{ dialect, variant?,
+  version? }` — `SqlDialect` stays the render key;
+  accepted everywhere a bare dialect was: `renderSql`, `renderToPlan`,
+  `normalizeSqlInput`, all non-breaking), `dialectGuard` (now public)
+  generalized to **declarative** variant-narrowable targets plus `unless`
+  refinements (`{ variant?, minVersion? }`) so guard chunks stay serializable
+  data, `DialectGuardTarget`/`DialectGuardException`, and
+  `compareServerVersions` (dotted-numeric prefix, suffix-blind). **Fail
+  closed:** an unknown server version never lifts a version-gated guard. The
+  `Database` facade carries a `dialectIdentity`
+  (`createDatabase({ dialect, variant, version })`, inherited by transaction
+  facades), and `SisalSchemaSnapshot` gains optional additive
+  `dialectVariant`/`dialectVersion` fields. **First consumer:** the `RETURNING`
+  guard is split per statement kind with the probe-verified MariaDB floors
+  (`INSERT` 10.5+, `DELETE` 10.0.5+, `UPDATE` 13.0+) — a `mariadb` identity
+  renders `INSERT`/`DELETE … RETURNING` while plain `mysql` keeps the typed
+  guard, dormant until the `@sisal/mysql` adapter (v0.7 B4) fills the identity
+  from the server handshake.
+
 ## 0.6.0 - 2026-07-01
 
 ### Added
@@ -220,6 +468,16 @@ Sisal-specific history after that baseline through `1f05448`.
   postgres.js path; development checks include the feature-matrix gate; and the
   opt-in integration commands now include Neon, PostgreSQL migration apply, and
   cross-adapter decode parity.
+- **v0.7 roadmap reconciled with the v0.6 closeout.** Added the consolidated
+  priority-summary tracker (the v0.5/v0.6 pattern the doc lacked): four
+  analytics-readiness tasks and ten `@sisal/mysql` build tasks with the P1 spine
+  (`B1` dialect axis before the v0.8 IR freeze; `B2` `filter()`/date- helper
+  renderings gating the integration suite). Stale Workstream B prose was updated
+  to the v0.6 facts: the driver is chosen (C6), the upsert is implemented (C2),
+  the guard sweep is complete (C3/C5), the DDL/type mapping is probe-verified
+  (C4), and the split is decided (C5) — so v0.7's B-stream is build-to-spec; the
+  incorrect "MySQL 8.0.21+ `RETURNING`" claim was corrected (MySQL has none),
+  and the retired risks/open questions are marked answered.
 - **`examples/postgres-family-activity-vectors`: the fold, both retention
   rollups, and the event prune are now typed builder statements** (v0.6 A1
   verification). `app.fold_events_to_buckets`, `app.rollup_daily`,

@@ -304,15 +304,16 @@ projection) and consumed with `db.with(cte).select(...).from(cte)`. A `WITH`
 chain may also terminate in a mutation — `db.with(cte).update/insert/delete(t)`
 — and a mutation can read another relation via `update(t).from(source)`
 (`UPDATE … FROM`), `insert(t).select(query)` (`INSERT … SELECT`), or
-`delete(t).using(source)` (`DELETE … USING`, PostgreSQL-only), so one CTE's
-mutation can consume another's `RETURNING`. A CTE body may itself be a
-data-modifying `INSERT`/`UPDATE`/`DELETE … RETURNING` (PostgreSQL-only). Set
-operations are chainable methods on the select builder (`q1.union(q2)`,
-`.unionAll`, `.intersect`, `.intersectAll`, `.except`, `.exceptAll`) returning a
-compound builder that still accepts `.orderBy`/`.limit`/`.offset` for the whole
-compound. Operands are **not** parenthesized, so the same query renders
-correctly on both Postgres and SQLite (SQLite rejects parenthesized compound
-operands). Recursive CTEs are written with the `` sql`...` `` template.
+`delete(t).using(source)` (`DELETE … USING`, PostgreSQL and MySQL-family; typed
+guard on the SQLite family), so one CTE's mutation can consume another's
+`RETURNING`. A CTE body may itself be a data-modifying
+`INSERT`/`UPDATE`/`DELETE … RETURNING` (PostgreSQL-only). Set operations are
+chainable methods on the select builder (`q1.union(q2)`, `.unionAll`,
+`.intersect`, `.intersectAll`, `.except`, `.exceptAll`) returning a compound
+builder that still accepts `.orderBy`/`.limit`/`.offset` for the whole compound.
+Operands are **not** parenthesized, so the same query renders correctly on both
+Postgres and SQLite (SQLite rejects parenthesized compound operands). Recursive
+CTEs are written with the `` sql`...` `` template.
 
 Relational queries are enabled with `createDatabase({ schema, relations })`.
 `db.query` remains callable for raw SQL (``db.query(sql`...`)``) and gains

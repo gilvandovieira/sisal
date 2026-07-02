@@ -5,9 +5,9 @@ title: Roadmap Overview
 # Sisal roadmap — from OLTP correctness to a typed analytics stack
 
 Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for
-**relational** data across PostgreSQL, Neon, SQLite, and libSQL. It will not
-become an object-first ORM. This page is the index and narrative spine for the
-release line; each release has its own roadmap doc with full
+**relational** data across PostgreSQL, Neon, SQLite, libSQL, and MySQL/MariaDB.
+It will not become an object-first ORM. This page is the index and narrative
+spine for the release line; each release has its own roadmap doc with full
 goal/scope/deliverables/non-goals/risks/open-questions/acceptance-criteria.
 
 ## The arc
