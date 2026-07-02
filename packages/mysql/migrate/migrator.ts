@@ -57,6 +57,9 @@ export interface MysqlMigrator {
   plan(options: MysqlMigrationPlanOptions): Promise<MigrationPlan>;
   applied(): Promise<AppliedMigration[]>;
   close(): Promise<void>;
+
+  /** Async-disposal alias for {@link close} — enables `await using`. */
+  [Symbol.asyncDispose](): Promise<void>;
 }
 
 /** Options for creating a MySQL migration facade. */
@@ -155,6 +158,10 @@ class SisalMysqlMigrator implements MysqlMigrator {
   async close(): Promise<void> {
     await this.#store.close?.();
     await this.#driver.close?.();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
   }
 
   #createCoreMigrator(migrations: readonly MysqlMigrationInput[]) {

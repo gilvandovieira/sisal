@@ -220,6 +220,13 @@ export interface Migrator {
   applied(): Promise<AppliedMigration[]>;
 
   close(): Promise<void>;
+
+  /**
+   * Async-disposal alias for {@link close}, so
+   * `await using migrator = createMigrator(...)` releases the store and driver
+   * when the scope exits — including on an early return or a throw.
+   */
+  [Symbol.asyncDispose](): Promise<void>;
 }
 
 /** Options for creating a core {@link Migrator}. */
@@ -825,7 +832,7 @@ export function noopMigrationDriver(): MigrationDriver {
 
 /** Creates a migrator that reports no migrations and executes nothing. */
 export function noopMigrator(): Migrator {
-  return {
+  const migrator: Migrator = {
     plan(): Promise<MigrationPlan> {
       return Promise.resolve(createMigrationPlan([], []));
     },
@@ -861,7 +868,13 @@ export function noopMigrator(): Migrator {
     close(): Promise<void> {
       return Promise.resolve();
     },
+
+    [Symbol.asyncDispose](): Promise<void> {
+      return migrator.close();
+    },
   };
+
+  return migrator;
 }
 
 interface SisalMigratorOptions {
@@ -1058,6 +1071,10 @@ class SisalMigrator implements Migrator {
   async close(): Promise<void> {
     await this.#store.close?.();
     await this.#driver.close?.();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
   }
 
   async #runUpMigration(migration: Migration): Promise<AppliedMigration> {

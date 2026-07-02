@@ -57,8 +57,9 @@ import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
 ## PostgreSQL Walkthrough
 
 This example defines a small feed schema, generates additive PostgreSQL DDL,
-connects through the PostgreSQL adapter, writes with a batched transaction,
-updates with a SQL expression, and reads a keyset-paginated page.
+connects through the PostgreSQL adapter with `await using` for automatic
+cleanup, writes with a batched transaction, updates with a SQL expression, and
+reads a keyset-paginated page.
 
 ```ts
 import {
@@ -104,70 +105,69 @@ const snapshot = createSchemaSnapshot({
   tables: [users, posts],
 });
 
-const db = await connect({
+// `await using` closes the connection pool when the scope exits — including on
+// an early throw — so no try/finally is needed. (Call `await db.close()`
+// manually if you need to release it sooner.)
+await using db = await connect({
   url: Deno.env.get("DATABASE_URL"),
 });
 
-try {
-  const { statements, destructive } = generatePostgresUpStatements(snapshot);
+const { statements, destructive } = generatePostgresUpStatements(snapshot);
 
-  if (destructive.length > 0) {
-    throw new Error("Refusing to apply destructive generated changes.");
-  }
-
-  for (const statement of statements) {
-    await db.execute(statement);
-  }
-
-  const userId = crypto.randomUUID();
-  const postId = crypto.randomUUID();
-
-  await db.batch([
-    db.insert(users).values({
-      id: userId,
-      email: "ada@example.com",
-      displayName: "Ada",
-      createdAt: Temporal.Now.instant(),
-    }),
-    db.insert(posts).values({
-      id: postId,
-      authorId: userId,
-      title: "Portable database tooling",
-      status: "published",
-      score: 0,
-      upvotes: 3,
-      downvotes: 1,
-      createdAt: Temporal.Now.instant(),
-    }),
-  ]);
-
-  await db.update(posts).set({
-    score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
-  }).where(eq(posts.columns.id, postId)).execute();
-
-  const page = await db.select({
-    id: posts.columns.id,
-    title: posts.columns.title,
-    author: users.columns.displayName,
-    score: posts.columns.score,
-    createdAt: posts.columns.createdAt,
-  }).from(posts)
-    .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
-    .where(eq(posts.columns.status, "published"))
-    .keyset({
-      orderBy: [
-        desc(posts.columns.score),
-        desc(posts.columns.createdAt),
-        desc(posts.columns.id),
-      ],
-    })
-    .limit(20)
-    .execute();
-
-  console.log(page.rows, page.nextCursor);
-} finally {
-  await db.close();
+if (destructive.length > 0) {
+  throw new Error("Refusing to apply destructive generated changes.");
 }
+
+for (const statement of statements) {
+  await db.execute(statement);
+}
+
+const userId = crypto.randomUUID();
+const postId = crypto.randomUUID();
+
+await db.batch([
+  db.insert(users).values({
+    id: userId,
+    email: "ada@example.com",
+    displayName: "Ada",
+    createdAt: Temporal.Now.instant(),
+  }),
+  db.insert(posts).values({
+    id: postId,
+    authorId: userId,
+    title: "Portable database tooling",
+    status: "published",
+    score: 0,
+    upvotes: 3,
+    downvotes: 1,
+    createdAt: Temporal.Now.instant(),
+  }),
+]);
+
+await db.update(posts).set({
+  score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
+}).where(eq(posts.columns.id, postId)).execute();
+
+const page = await db.select({
+  id: posts.columns.id,
+  title: posts.columns.title,
+  author: users.columns.displayName,
+  score: posts.columns.score,
+  createdAt: posts.columns.createdAt,
+}).from(posts)
+  .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
+  .where(eq(posts.columns.status, "published"))
+  .keyset({
+    orderBy: [
+      desc(posts.columns.score),
+      desc(posts.columns.createdAt),
+      desc(posts.columns.id),
+    ],
+  })
+  .limit(20)
+  .execute();
+
+console.log(page.rows, page.nextCursor);
 ```
 
 `generatePostgresUpStatements` is intentionally additive: destructive changes

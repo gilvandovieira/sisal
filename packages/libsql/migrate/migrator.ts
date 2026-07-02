@@ -55,6 +55,9 @@ export interface LibsqlMigrator {
   plan(options: LibsqlMigrationPlanOptions): Promise<MigrationPlan>;
   applied(): Promise<AppliedMigration[]>;
   close(): Promise<void>;
+
+  /** Async-disposal alias for {@link close} — enables `await using`. */
+  [Symbol.asyncDispose](): Promise<void>;
 }
 
 /** Options for creating a libSQL migration facade. */
@@ -145,6 +148,10 @@ class SisalLibsqlMigrator implements LibsqlMigrator {
   async close(): Promise<void> {
     await this.#store.close?.();
     await this.#driver.close?.();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
   }
 
   #createCoreMigrator(migrations: readonly LibsqlMigrationInput[]) {

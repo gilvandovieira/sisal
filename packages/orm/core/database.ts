@@ -260,6 +260,13 @@ export interface Database<
   batch(statements: readonly BatchStatement[]): Promise<OrmQueryResult[]>;
 
   close(): Promise<void>;
+
+  /**
+   * Async-disposal alias for {@link close}, so
+   * `await using db = await connect(...)` releases the driver's connection or
+   * pool when the scope exits — including on an early return or a throw.
+   */
+  [Symbol.asyncDispose](): Promise<void>;
 }
 
 /** Options for creating a {@link Database}. */
@@ -830,6 +837,10 @@ class SisalDatabase<
 
   async close(): Promise<void> {
     await this.#driver.close?.();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
   }
 
   async #run<T>(
