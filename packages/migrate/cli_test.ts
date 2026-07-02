@@ -80,6 +80,20 @@ const snapshotV2: SisalSchemaSnapshot = {
   ],
 };
 
+const mysqlSnapshot: SisalSchemaSnapshot = {
+  version: 2,
+  dialect: "mysql",
+  tables: [
+    {
+      name: "users",
+      columns: [
+        { name: "id", type: { kind: "serial" }, nullable: false },
+      ],
+      primaryKey: { columns: ["id"] },
+    },
+  ],
+};
+
 Deno.test("sisal cli - generate writes SQL and snapshot files", async () => {
   const fs = fakeFs();
   const output: string[] = [];
@@ -416,6 +430,36 @@ Deno.test("sisal cli - init scaffolds neon target (postgres dialect, neon provid
   assertStringIncludes(config, "DATABASE_URL");
 });
 
+Deno.test("sisal cli - init scaffolds mysql target and mariadb alias", async () => {
+  const fs = fakeFs();
+
+  const first = await runSisalCli(["init", "--target", "mysql"], {
+    fs,
+    stdout() {},
+    stderr() {},
+  });
+  const config = fs.files.get("sisal.migrate.ts") ?? "";
+
+  assertEquals(first, 0);
+  assertStringIncludes(config, 'dialect: "mysql"');
+  assertStringIncludes(config, "MYSQL_URL");
+  assertStringIncludes(config, "DATABASE_URL");
+
+  const second = await runSisalCli(
+    ["init", "--force", "--target", "mariadb"],
+    {
+      fs,
+      stdout() {},
+      stderr() {},
+    },
+  );
+  assertEquals(second, 0);
+  assertStringIncludes(
+    fs.files.get("sisal.migrate.ts") ?? "",
+    'dialect: "mysql"',
+  );
+});
+
 Deno.test("sisal cli - migrate applies a neon-provider config (postgres dialect)", async () => {
   const fs = fakeFs();
   const file = buildMigrationFile({
@@ -473,6 +517,51 @@ Deno.test("sisal cli - migrate applies a neon-provider config (postgres dialect)
   assertStringIncludes(out.join("\n"), "Applied 1 migration(s): 0001_initial");
 });
 
+Deno.test("sisal cli - migrate applies a mysql config", async () => {
+  const fs = fakeFs();
+  let seenUrl: string | undefined;
+  let seenDialect: string | undefined;
+  const adapter: SisalCliAdapter = {
+    generateUpStatements() {
+      return { statements: [], destructive: [] };
+    },
+    createMigrator(options) {
+      seenUrl = options.config.databaseUrl;
+      seenDialect = options.dialect;
+      return Promise.resolve({
+        migrate(migrateOptions) {
+          return Promise.resolve({
+            direction: "up",
+            dryRun: migrateOptions.dryRun ?? false,
+            executed: [],
+            skipped: [],
+            executionMs: 0,
+          });
+        },
+        plan() {
+          return Promise.resolve(createMigrationPlan([], []));
+        },
+      });
+    },
+  };
+
+  const code = await runSisalCli(["migrate"], {
+    config: {
+      dir: "migrations",
+      dialect: "mysql",
+      databaseUrl: "mysql://root:root@localhost:3306/sisal",
+      snapshot: mysqlSnapshot,
+    },
+    fs,
+    adapters: { mysql: adapter },
+    stdout() {},
+  });
+
+  assertEquals(code, 0);
+  assertEquals(seenDialect, "mysql");
+  assertEquals(seenUrl, "mysql://root:root@localhost:3306/sisal");
+});
+
 Deno.test("defineConfig accepts the neon provider and rejects unknown providers", () => {
   assertEquals(
     defineConfig({ dir: "migrations", dialect: "postgres", provider: "neon" })
@@ -499,6 +588,7 @@ Deno.test("sisal cli - init rejects an unknown target and lists supported ones",
   assertEquals(code, 1);
   assertStringIncludes(errs.join("\n"), "Unknown target");
   assertStringIncludes(errs.join("\n"), "libsql");
+  assertStringIncludes(errs.join("\n"), "mysql");
 });
 
 Deno.test("sisal cli - generate refuses destructive changes", async () => {

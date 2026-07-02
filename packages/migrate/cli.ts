@@ -34,7 +34,7 @@ import {
 } from "./mod.ts";
 
 /** The dialects the `sisal` migration CLI can target. */
-type CliDialect = "postgres" | "sqlite";
+type CliDialect = "postgres" | "sqlite" | "mysql";
 /** Sink for one line of CLI output — stdout by default, injectable for tests. */
 type CliOutput = (line: string) => void;
 
@@ -90,6 +90,15 @@ const INIT_TARGETS: readonly InitTarget[] = [
       "  // Local file, or a remote libSQL/Turso database:",
       '  // databaseUrl: Deno.env.get("TURSO_DATABASE_URL") ?? "file:app.db",',
       '  // databaseAuthToken: Deno.env.get("TURSO_AUTH_TOKEN"),',
+    ],
+  },
+  {
+    id: "mysql",
+    aliases: ["mariadb"],
+    label: "MySQL / MariaDB",
+    dialect: "mysql",
+    connection: [
+      '  // databaseUrl: Deno.env.get("MYSQL_URL") ?? Deno.env.get("DATABASE_URL"),',
     ],
   },
 ];
@@ -214,8 +223,20 @@ interface SqliteMigrateModule {
   }) => Promise<SisalCliMigrator>;
 }
 
+interface MysqlDdlModule {
+  readonly generateMysqlUpStatements: SisalCliAdapter["generateUpStatements"];
+}
+
+interface MysqlMigrateModule {
+  readonly createMysqlMigrator: (options: {
+    readonly url: string;
+    readonly historyTable?: string;
+  }) => Promise<SisalCliMigrator>;
+}
+
 const DEFAULT_CONFIG_FILE = "sisal.migrate.ts";
 const DEFAULT_ADAPTER_VERSION = "^0.6.0";
+const DEFAULT_MYSQL_ADAPTER_VERSION = "^0.7.0";
 const DEFAULT_ADAPTER_IMPORTS = {
   pgDdl: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/ddl`,
   pgMigrate: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/migrate`,
@@ -225,6 +246,8 @@ const DEFAULT_ADAPTER_IMPORTS = {
   libsqlMigrate: `jsr:@sisal/libsql@${DEFAULT_ADAPTER_VERSION}/migrate`,
   sqliteDdl: `jsr:@sisal/sqlite@${DEFAULT_ADAPTER_VERSION}/ddl`,
   sqliteMigrate: `jsr:@sisal/sqlite@${DEFAULT_ADAPTER_VERSION}/migrate`,
+  mysqlDdl: `jsr:@sisal/mysql@${DEFAULT_MYSQL_ADAPTER_VERSION}/ddl`,
+  mysqlMigrate: `jsr:@sisal/mysql@${DEFAULT_MYSQL_ADAPTER_VERSION}/migrate`,
 } as const;
 const VALUE_FLAGS = new Set([
   "config",
@@ -252,7 +275,7 @@ Options:
   -c, --config <file>       Config module (default: sisal.migrate.ts)
       --target <id>         init target: ${initTargetIds()}
       --dir <dir>           Override migrations directory
-      --dialect <dialect>   postgres or sqlite; init also accepts target ids
+      --dialect <dialect>   postgres, sqlite, or mysql; init also accepts target ids
       --provider <p>        Runtime adapter override (e.g. neon for Neon HTTP)
       --database-url <url>  PostgreSQL URL, libSQL URL, or SQLite path fallback
       --database-auth-token <t>
@@ -582,10 +605,7 @@ async function loadConfig(
   const configuredDialect = stringFlag(parsed.flags, "dialect") ??
     loaded.dialect ?? loaded.snapshot?.dialect;
   const databaseUrl = stringFlag(parsed.flags, "database-url") ??
-    loaded.databaseUrl ?? getEnv("DATABASE_URL") ??
-    (configuredDialect === "postgres"
-      ? undefined
-      : getEnv("TURSO_DATABASE_URL") ?? getEnv("LIBSQL_DATABASE_URL"));
+    loaded.databaseUrl ?? defaultDatabaseUrl(configuredDialect);
   const databaseAuthToken = stringFlag(parsed.flags, "database-auth-token") ??
     loaded.databaseAuthToken ?? getEnv("TURSO_AUTH_TOKEN") ??
     getEnv("LIBSQL_AUTH_TOKEN");
@@ -610,6 +630,19 @@ async function loadConfig(
       ? {}
       : { historyTable: stringFlag(parsed.flags, "history-table")! }),
   });
+}
+
+function defaultDatabaseUrl(
+  dialect: SisalDialectName | string | undefined,
+): string | undefined {
+  if (dialect === "mysql") {
+    return getEnv("MYSQL_URL") ?? getEnv("DATABASE_URL");
+  }
+  if (dialect === "postgres") {
+    return getEnv("DATABASE_URL");
+  }
+  return getEnv("DATABASE_URL") ?? getEnv("TURSO_DATABASE_URL") ??
+    getEnv("LIBSQL_DATABASE_URL");
 }
 
 async function importConfig(path: string, cwd: string): Promise<MigrateConfig> {
@@ -678,6 +711,32 @@ async function loadDefaultAdapter(
         }
 
         return migrate.createPgMigrator({
+          url: options.config.databaseUrl,
+          historyTable: options.config.historyTable,
+        }) as Promise<SisalCliMigrator>;
+      },
+    };
+  }
+
+  if (dialect === "mysql") {
+    const ddl = await importDefaultAdapterModule<MysqlDdlModule>(
+      DEFAULT_ADAPTER_IMPORTS.mysqlDdl,
+    );
+    const migrate = await importDefaultAdapterModule<MysqlMigrateModule>(
+      DEFAULT_ADAPTER_IMPORTS.mysqlMigrate,
+    );
+
+    return {
+      generateUpStatements: ddl.generateMysqlUpStatements,
+      createMigrator(options) {
+        if (options.config.databaseUrl === undefined) {
+          throw new MigrationError("MySQL databaseUrl is required", {
+            code: "MIGRATION_DRIVER_MISSING",
+            status: 400,
+          });
+        }
+
+        return migrate.createMysqlMigrator({
           url: options.config.databaseUrl,
           historyTable: options.config.historyTable,
         }) as Promise<SisalCliMigrator>;
@@ -780,10 +839,11 @@ function shouldUseMigrator(context: CliContext): boolean {
 }
 
 function hasDatabaseConfig(context: CliContext): boolean {
-  return context.dialect === "postgres"
-    ? context.config.databaseUrl !== undefined
-    : context.config.databasePath !== undefined ||
-      context.config.databaseUrl !== undefined;
+  if (context.dialect === "postgres" || context.dialect === "mysql") {
+    return context.config.databaseUrl !== undefined;
+  }
+  return context.config.databasePath !== undefined ||
+    context.config.databaseUrl !== undefined;
 }
 
 function isLibsqlDatabaseUrl(value: string | undefined): boolean {
@@ -849,12 +909,12 @@ function discoveredToMigrations(
 function resolveCliDialect(config: MigrateConfig): CliDialect {
   const dialect = config.dialect ?? config.snapshot?.dialect;
 
-  if (dialect === "postgres" || dialect === "sqlite") {
+  if (dialect === "postgres" || dialect === "sqlite" || dialect === "mysql") {
     return dialect;
   }
 
   throw new MigrationError(
-    "CLI dialect must be postgres or sqlite",
+    "CLI dialect must be postgres, sqlite, or mysql",
     {
       code: "MIGRATION_INVALID",
       status: 400,
