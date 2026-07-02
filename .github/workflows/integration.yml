@@ -114,3 +114,73 @@ jobs:
         run: |
           SISAL_LIBSQL_IT=1 deno test --frozen -A \
             integration/libsql_features_test.ts
+
+  mysql:
+    name: MySQL 8.4
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: mysql
+          MYSQL_DATABASE: sisal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pmysql"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Run MySQL compatibility suite
+        run: |
+          SISAL_MYSQL_IT=1 \
+            MYSQL_URL=mysql://root:mysql@127.0.0.1:3306/sisal \
+            deno test --frozen -A integration/mysql_features_test.ts
+
+  mariadb:
+    name: MariaDB 11
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: mariadb
+          MARIADB_DATABASE: sisal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2
+        with:
+          deno-version: ${{ env.DENO_VERSION }}
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: Run MariaDB compatibility suite
+        run: |
+          SISAL_MARIADB_IT=1 \
+            MARIADB_URL=mysql://root:mariadb@127.0.0.1:3306/sisal \
+            deno test --frozen -A integration/mariadb_features_test.ts
