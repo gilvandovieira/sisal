@@ -326,13 +326,13 @@ Deno.test("mysql B10: delete().using() renders multi-table DELETE", () => {
 });
 
 Deno.test("mysql B10: multi-table mutations keep RETURNING guarded", () => {
-  const scores = db.$with("scores").as(
-    db.select({ id: posts.columns.id }).from(posts),
-  );
-  const updated = db.with(scores).update(posts).set({ score: 0 })
+  // Subquery sources (no CTE) so only the RETURNING guard is in play — a
+  // WITH prefix would trip its own MariaDB guard first (pinned below).
+  const scores = db.select({ id: posts.columns.id }).from(posts).as("scores");
+  const updated = db.update(posts).set({ score: 0 })
     .from(scores).where(eq(posts.columns.id, scores.id))
     .returning({ id: posts.columns.id });
-  const deleted = db.with(scores).delete(posts).using(scores)
+  const deleted = db.delete(posts).using(scores)
     .where(eq(posts.columns.id, scores.id)).returning({ id: posts.columns.id });
 
   for (const query of [updated, deleted]) {
@@ -347,6 +347,58 @@ Deno.test("mysql B10: multi-table mutations keep RETURNING guarded", () => {
       "RETURNING",
     );
     assertEquals((error as OrmError).code, "ORM_DIALECT_UNSUPPORTED");
+  }
+});
+
+Deno.test("mysql: CTE-prefixed mutations throw typed under MariaDB", () => {
+  // MariaDB parses a WITH prefix only on SELECT (verified live on 11.8.8);
+  // MySQL 8+ accepts it on mutations too, so the guard is variant-narrowed.
+  const scores = db.$with("scores").as(
+    db.select({ id: posts.columns.id }).from(posts),
+  );
+  const mutations = [
+    {
+      construct: "WITH … INSERT",
+      query: db.with(scores).insert(posts).select(
+        db.select({
+          id: posts.columns.id,
+          title: posts.columns.title,
+        }).from(posts).where(eq(posts.columns.id, scores.id)),
+      ),
+    },
+    {
+      construct: "WITH … UPDATE",
+      query: db.with(scores).update(posts).set({ score: 0 })
+        .from(scores).where(eq(posts.columns.id, scores.id)),
+    },
+    {
+      construct: "WITH … DELETE",
+      query: db.with(scores).delete(posts).using(scores)
+        .where(eq(posts.columns.id, scores.id)),
+    },
+  ] as const;
+
+  for (const { construct, query } of mutations) {
+    // Base mysql (any version) still renders the prefix …
+    assertStringIncludes(
+      renderSql(query.toSql(), { dialect: "mysql" }).text,
+      "with `scores` as (",
+    );
+    // … while a mariadb identity fails typed, not with a raw 1064.
+    const error = assertThrows(
+      () => renderSql(query.toSql(), { dialect: "mysql", variant: "mariadb" }),
+      OrmError,
+      construct,
+    );
+    assertEquals((error as OrmError).code, "ORM_DIALECT_UNSUPPORTED");
+    // A WITH-prefixed SELECT stays fine on MariaDB.
+    assertStringIncludes(
+      renderSql(
+        db.with(scores).select({ id: scores.id }).from(scores).toSql(),
+        { dialect: "mysql", variant: "mariadb" },
+      ).text,
+      "with `scores` as (",
+    );
   }
 });
 

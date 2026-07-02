@@ -91,6 +91,20 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Fixed
 
+- **CTE-prefixed mutations now fail typed on MariaDB (CI-caught).** MariaDB
+  parses a `WITH` prefix only on `SELECT` (verified on 11.8.8), while MySQL 8+
+  accepts it on mutations — so `db.with(cte).update(…)`/`.delete(…)`/
+  `.insert(…)` reached MariaDB as a raw syntax error. The core renderer now
+  guards the `WITH` prefix on all three mutation builders with a
+  variant-narrowed `dialectGuard` (`WITH … UPDATE`/`WITH … DELETE`/
+  `WITH … INSERT`, unsupported on `{ dialect: "mysql", variant: "mariadb" }`);
+  base MySQL renders unchanged and `WITH … SELECT` stays fine everywhere. The
+  shared mutation-joins integration scenario branches on a new `mutationCte`
+  target capability — MariaDB asserts the typed guard and runs the same mutation
+  through a derived-table source — and the mysql-family showcase example does
+  the same. Caught by the first CI run of the new MySQL/MariaDB integration
+  jobs.
+
 - **`@sisal/mysql` value round-trips (v0.7 B8, live-caught).** Three bugs the
   network-free unit tests could not see, fixed and re-pinned: (1) plain
   objects/arrays reached mysql2's text protocol un-serialized — an object became

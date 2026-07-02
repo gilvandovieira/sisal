@@ -38,12 +38,13 @@ MySQL and MariaDB run the _same_ scenario list. The differences are pinned by
 each scenario branching on the target's declared capabilities, so a divergence
 is a tested fact, not a footnote:
 
-| Capability           | MySQL 8.4              | MariaDB 11.8                                   |
-| -------------------- | ---------------------- | ---------------------------------------------- |
-| `INSERT … RETURNING` | **none** (typed guard) | **lit** (auto-detected identity; floor 10.5)   |
-| `DELETE … RETURNING` | **none** (typed guard) | **lit** (floor 10.0.5)                         |
-| `UPDATE … RETURNING` | none (typed guard)     | none (typed guard; MariaDB floor is 13.0)      |
-| `JSON` decode        | parsed object/array    | **JSON string** (`JSON` is a `LONGTEXT` alias) |
+| Capability           | MySQL 8.4              | MariaDB 11.8                                           |
+| -------------------- | ---------------------- | ------------------------------------------------------ |
+| `INSERT … RETURNING` | **none** (typed guard) | **lit** (auto-detected identity; floor 10.5)           |
+| `DELETE … RETURNING` | **none** (typed guard) | **lit** (floor 10.0.5)                                 |
+| `UPDATE … RETURNING` | none (typed guard)     | none (typed guard; MariaDB floor is 13.0)              |
+| `WITH` on mutations  | **works** (MySQL 8+)   | **none** (typed guard; `WITH` parses on `SELECT` only) |
+| `JSON` decode        | parsed object/array    | **JSON string** (`JSON` is a `LONGTEXT` alias)         |
 
 The adapter's `dialectIdentity` (`{ dialect: "mysql", variant?, version? }`) is
 filled at `connect()` time from one `select version()`, so the version floors
@@ -144,7 +145,11 @@ refused.
   `DELETE FROM t USING t, source WHERE …`. `INSERT … SELECT` works too.
   Combining the multi-table mutation forms with `.returning()` remains a typed
   guard, even on MariaDB, because the proven B7 `RETURNING` support is
-  per-statement and single-table.
+  per-statement and single-table. On MariaDB, a `SELECT` CTE prefixed to a
+  mutation (`db.with(cte).update(…)` / `.delete(…)` / `.insert(…)`) is also a
+  typed guard — MariaDB parses `WITH` only on `SELECT` (verified on 11.8.8) — so
+  feed a mutation join from a derived-table subquery
+  (`db.select(…).as("alias")`) instead; `WITH … SELECT` works normally.
 - **Row locking works.** `.for("update" | "share")` renders natively (unlike the
   SQLite family).
 - **Migrations use `GET_LOCK`/`RELEASE_LOCK` named locks** — the

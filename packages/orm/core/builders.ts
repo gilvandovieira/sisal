@@ -612,6 +612,20 @@ function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
   ], emptySql());
 }
 
+// MariaDB accepts a `WITH` prefix only on SELECT — attaching one to
+// INSERT/UPDATE/DELETE is a syntax error there (verified on 11.8.8), while
+// MySQL 8+ allows all three. Guarded per variant so a detected mariadb
+// identity fails typed instead of with a raw 1064.
+function mutationWithPrefixSql(
+  construct: string,
+  ctes: readonly CteDefinition[],
+): Sql {
+  return joinSql([
+    dialectGuard(construct, [{ dialect: "mysql", variant: "mariadb" }]),
+    withPrefixSql(ctes),
+  ], emptySql());
+}
+
 /**
  * Column keys a data-modifying CTE body (`INSERT`/`UPDATE`/`DELETE`) exposes via
  * `RETURNING`. A body without `.returning()` exposes no columns and cannot seed
@@ -1828,7 +1842,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
 
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
-      parts.push(withPrefixSql(ctes));
+      parts.push(mutationWithPrefixSql("WITH … INSERT", ctes));
     }
 
     if (select !== undefined) {
@@ -2012,7 +2026,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
     );
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
-      parts.push(withPrefixSql(ctes));
+      parts.push(mutationWithPrefixSql("WITH … UPDATE", ctes));
     }
     parts.push(updateStatementHead(table, setSql, mysqlSetSql, from));
 
@@ -2118,7 +2132,7 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
       this.#state;
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
-      parts.push(withPrefixSql(ctes));
+      parts.push(mutationWithPrefixSql("WITH … DELETE", ctes));
     }
     parts.push(deleteStatementHead(table, using));
 

@@ -1887,6 +1887,20 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Fixed
 
+- **CTE-prefixed mutations now fail typed on MariaDB (CI-caught).** MariaDB
+  parses a `WITH` prefix only on `SELECT` (verified on 11.8.8), while MySQL 8+
+  accepts it on mutations — so `db.with(cte).update(…)`/`.delete(…)`/
+  `.insert(…)` reached MariaDB as a raw syntax error. The core renderer now
+  guards the `WITH` prefix on all three mutation builders with a
+  variant-narrowed `dialectGuard` (`WITH … UPDATE`/`WITH … DELETE`/
+  `WITH … INSERT`, unsupported on `{ dialect: "mysql", variant: "mariadb" }`);
+  base MySQL renders unchanged and `WITH … SELECT` stays fine everywhere. The
+  shared mutation-joins integration scenario branches on a new `mutationCte`
+  target capability — MariaDB asserts the typed guard and runs the same mutation
+  through a derived-table source — and the mysql-family showcase example does
+  the same. Caught by the first CI run of the new MySQL/MariaDB integration
+  jobs.
+
 - **`@sisal/mysql` value round-trips (v0.7 B8, live-caught).** Three bugs the
   network-free unit tests could not see, fixed and re-pinned: (1) plain
   objects/arrays reached mysql2's text protocol un-serialized — an object became
@@ -6499,12 +6513,13 @@ MySQL and MariaDB run the _same_ scenario list. The differences are pinned by
 each scenario branching on the target's declared capabilities, so a divergence
 is a tested fact, not a footnote:
 
-| Capability           | MySQL 8.4              | MariaDB 11.8                                   |
-| -------------------- | ---------------------- | ---------------------------------------------- |
-| `INSERT … RETURNING` | **none** (typed guard) | **lit** (auto-detected identity; floor 10.5)   |
-| `DELETE … RETURNING` | **none** (typed guard) | **lit** (floor 10.0.5)                         |
-| `UPDATE … RETURNING` | none (typed guard)     | none (typed guard; MariaDB floor is 13.0)      |
-| `JSON` decode        | parsed object/array    | **JSON string** (`JSON` is a `LONGTEXT` alias) |
+| Capability           | MySQL 8.4              | MariaDB 11.8                                           |
+| -------------------- | ---------------------- | ------------------------------------------------------ |
+| `INSERT … RETURNING` | **none** (typed guard) | **lit** (auto-detected identity; floor 10.5)           |
+| `DELETE … RETURNING` | **none** (typed guard) | **lit** (floor 10.0.5)                                 |
+| `UPDATE … RETURNING` | none (typed guard)     | none (typed guard; MariaDB floor is 13.0)              |
+| `WITH` on mutations  | **works** (MySQL 8+)   | **none** (typed guard; `WITH` parses on `SELECT` only) |
+| `JSON` decode        | parsed object/array    | **JSON string** (`JSON` is a `LONGTEXT` alias)         |
 
 The adapter's `dialectIdentity` (`{ dialect: "mysql", variant?, version? }`) is
 filled at `connect()` time from one `select version()`, so the version floors
@@ -6605,7 +6620,11 @@ refused.
   `DELETE FROM t USING t, source WHERE …`. `INSERT … SELECT` works too.
   Combining the multi-table mutation forms with `.returning()` remains a typed
   guard, even on MariaDB, because the proven B7 `RETURNING` support is
-  per-statement and single-table.
+  per-statement and single-table. On MariaDB, a `SELECT` CTE prefixed to a
+  mutation (`db.with(cte).update(…)` / `.delete(…)` / `.insert(…)`) is also a
+  typed guard — MariaDB parses `WITH` only on `SELECT` (verified on 11.8.8) — so
+  feed a mutation join from a derived-table subquery
+  (`db.select(…).as("alias")`) instead; `WITH … SELECT` works normally.
 - **Row locking works.** `.for("update" | "share")` renders natively (unlike the
   SQLite family).
 - **Migrations use `GET_LOCK`/`RELEASE_LOCK` named locks** — the
@@ -11069,6 +11088,14 @@ unit tests stay network-free), and the CLI's `sisal init` targets are a single
   shared mysql-family integration scenario now exercises `UPDATE FROM`,
   `DELETE USING`, and `INSERT SELECT`, and the matrix marks the MySQL/MariaDB
   mutation-joins cells as ✅.
+  - **Follow-up (2026-07-02, CI-caught):** MariaDB parses a `WITH` prefix only
+    on `SELECT`, so the CTE-prefixed forms of these mutations were a raw 1064
+    there. The `WITH` prefix on `INSERT`/`UPDATE`/`DELETE` is now a
+    variant-narrowed typed guard (`{ dialect: "mysql", variant: "mariadb" }`),
+    the scenario branches on a `mutationCte` capability (MariaDB asserts the
+    guard and runs the same mutation via a derived-table source), and the
+    divergence is a row in [mysql-compatibility.md](mysql-compatibility.md).
+    Mutation joins themselves stay ✅ on both engines.
 
 ## Deliverables
 

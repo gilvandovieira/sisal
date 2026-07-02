@@ -23,6 +23,7 @@ export function makeMysqlFamilyTarget(options: {
   readonly urlEnv: string;
   readonly gateEnv: string;
   readonly returning: boolean;
+  readonly mutationCte: boolean;
   readonly json: IntegrationValueShape["json"];
   readonly array: IntegrationValueShape["array"];
 }): IntegrationTarget {
@@ -48,6 +49,8 @@ export function makeMysqlFamilyTarget(options: {
       nativeArrays: false,
       typedFunctions: false,
       dataModifyingCte: false,
+      // MariaDB parses WITH only on SELECT; MySQL 8+ allows it on mutations.
+      mutationCte: options.mutationCte,
       schemaFunctions: false,
       schemaTriggers: true,
       richIndexes: false, // DESC works; partial/expression throw typed (B5).

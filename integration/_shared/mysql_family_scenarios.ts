@@ -1229,11 +1229,26 @@ export function mysqlFamilyScenarios(): IntegrationScenario[] {
         { id: 3, n: 30 },
       ]).execute();
 
+      // A WITH prefix on a mutation is MySQL-only: MariaDB parses WITH on
+      // SELECT alone, so the CTE form throws the typed guard there and the
+      // same mutation runs through a derived-table source instead.
       const big = db.$with("big").as(
         db.select({ id: mj.columns.id }).from(mj).where(gte(mj.columns.n, 20)),
       );
-      await db.with(big).update(mj).set({ n: 0 })
-        .from(big).where(eq(mj.columns.id, big.id)).execute();
+      if (currentTarget().capabilities.mutationCte) {
+        await db.with(big).update(mj).set({ n: 0 })
+          .from(big).where(eq(mj.columns.id, big.id)).execute();
+      } else {
+        const error = await assertRejects(() =>
+          db.with(big).update(mj).set({ n: 0 })
+            .from(big).where(eq(mj.columns.id, big.id)).execute()
+        );
+        assertTypedGuard(error, "WITH … UPDATE");
+        const bigSub = db.select({ id: mj.columns.id }).from(mj)
+          .where(gte(mj.columns.n, 20)).as("big");
+        await db.update(mj).set({ n: 0 })
+          .from(bigSub).where(eq(mj.columns.id, bigSub.id)).execute();
+      }
 
       const zeroed = await db.select().from(mj).where(eq(mj.columns.n, 0))
         .orderBy(asc(mj.columns.id)).execute();
@@ -1249,8 +1264,20 @@ export function mysqlFamilyScenarios(): IntegrationScenario[] {
       const small = db.$with("small").as(
         db.select({ id: mj.columns.id }).from(mj).where(eq(mj.columns.n, 10)),
       );
-      await db.with(small).delete(mj).using(small)
-        .where(eq(mj.columns.id, small.id)).execute();
+      if (currentTarget().capabilities.mutationCte) {
+        await db.with(small).delete(mj).using(small)
+          .where(eq(mj.columns.id, small.id)).execute();
+      } else {
+        const error = await assertRejects(() =>
+          db.with(small).delete(mj).using(small)
+            .where(eq(mj.columns.id, small.id)).execute()
+        );
+        assertTypedGuard(error, "WITH … DELETE");
+        const smallSub = db.select({ id: mj.columns.id }).from(mj)
+          .where(eq(mj.columns.n, 10)).as("small");
+        await db.delete(mj).using(smallSub)
+          .where(eq(mj.columns.id, smallSub.id)).execute();
+      }
 
       const remaining = await db.select({ id: mj.columns.id }).from(mj)
         .orderBy(asc(mj.columns.id)).execute();

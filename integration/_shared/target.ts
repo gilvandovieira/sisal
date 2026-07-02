@@ -29,6 +29,12 @@ export interface IntegrationCapabilities {
   readonly nativeArrays: boolean;
   readonly typedFunctions: boolean;
   readonly dataModifyingCte: boolean;
+  /**
+   * A `SELECT` CTE prefixed to a mutation (`WITH … UPDATE/DELETE/INSERT`).
+   * MariaDB parses `WITH` only on `SELECT`, so it throws a typed guard there
+   * while every other engine (including MySQL 8+) renders it.
+   */
+  readonly mutationCte: boolean;
   readonly schemaFunctions: boolean;
   readonly schemaTriggers: boolean;
   readonly richIndexes: boolean;

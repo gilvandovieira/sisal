@@ -426,12 +426,21 @@ async function runLive(url: string): Promise<void> {
         .execute(),
     );
 
-    const big = db.$with("big").as(
-      db.select({ id: posts.columns.id }).from(posts)
-        .where(gte(posts.columns.views, 10)),
-    );
-    await db.with(big).update(posts).set({ rating: 5 })
-      .from(big).where(eq(posts.columns.id, big.id)).execute();
+    // MariaDB parses WITH only on SELECT (a CTE-prefixed mutation is a typed
+    // guard), so the multi-table update uses a derived table there.
+    if (db.dialectIdentity.variant === "mariadb") {
+      const big = db.select({ id: posts.columns.id }).from(posts)
+        .where(gte(posts.columns.views, 10)).as("big");
+      await db.update(posts).set({ rating: 5 })
+        .from(big).where(eq(posts.columns.id, big.id)).execute();
+    } else {
+      const big = db.$with("big").as(
+        db.select({ id: posts.columns.id }).from(posts)
+          .where(gte(posts.columns.views, 10)),
+      );
+      await db.with(big).update(posts).set({ rating: 5 })
+        .from(big).where(eq(posts.columns.id, big.id)).execute();
+    }
 
     console.log(`\n✓ MySQL-family showcase complete (via ${adapter}).`);
   } finally {

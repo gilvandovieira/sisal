@@ -11,6 +11,7 @@ export const mysqlTarget = makeMysqlFamilyTarget({
   urlEnv: "MYSQL_URL",
   gateEnv: "SISAL_MYSQL_IT",
   returning: false,
+  mutationCte: true,
   json: "parsed",
   array: "jsonParsed",
 });
