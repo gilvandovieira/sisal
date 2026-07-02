@@ -11,6 +11,13 @@
  * @module
  */
 
+import {
+  CAPABILITY_TARGETS,
+  capabilitySupported,
+  DIALECT_CAPABILITIES,
+  type DialectCapability,
+} from "@sisal/orm";
+
 /** The six adapters, in matrix-column order. */
 export const ADAPTERS = [
   "pg",
@@ -72,6 +79,33 @@ const warn = (label: string, reason: string, scenario?: string): Cell => ({
 const no = (reason: string): Cell => ({ status: "unsupported", reason });
 const na: Cell = { status: "na" };
 
+/**
+ * A feature row whose per-adapter support is DERIVED from a registry
+ * {@link DialectCapability} (v0.8 item 1, per-cell wiring): each cell is ❌ with
+ * `reason` on the targets `capabilitySupported` excludes, else ✅ tested against
+ * `scenario`. Because the values come from `DIALECT_CAPABILITIES`, these cells
+ * cannot drift from the render-time guards — edit the capability, the matrix
+ * follows. Reserved for capabilities with a pure supported/unsupported split;
+ * constructs that *work with a documented fallback* (e.g. the MySQL-family
+ * `RETURNING` surface) stay ⚠️ and hand-authored.
+ */
+const capabilityRow = (
+  feature: string,
+  capability: DialectCapability,
+  scenario: string,
+  reason: string,
+): FeatureRow => ({
+  feature,
+  cells: Object.fromEntries(
+    ADAPTERS.map((adapter) => [
+      adapter,
+      capabilitySupported(capability, CAPABILITY_TARGETS[adapter])
+        ? ok(scenario)
+        : no(reason),
+    ]),
+  ) as Record<Adapter, Cell>,
+});
+
 // Shared reasons for the principled SQLite-family divergences (roadmap item 5).
 const LIKE = "No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` " +
   "render as ASCII case-insensitive `LIKE`/`NOT LIKE`.";
@@ -84,8 +118,13 @@ const PG_ONLY = " Rendering it for a SQLite-family or MySQL-family dialect " +
   "throws a typed `OrmError` at render time, before execution.";
 const DISTINCT_ON = "`DISTINCT ON` is PostgreSQL-only; the SQLite and MySQL " +
   "families reject it." + PG_ONLY;
+// Locking is unsupported on the SQLite family only — the MySQL family renders
+// `FOR UPDATE`/`FOR SHARE` natively — so it must NOT reuse the pg-only tail
+// (which also names the MySQL family). See `rowLocking` in capabilities.ts.
 const LOCKING = "No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the " +
-  "SQLite family." + PG_ONLY;
+  "SQLite family; rendering it for a SQLite-family dialect throws a typed " +
+  "`OrmError` at render time, before execution. The MySQL family renders it " +
+  "natively.";
 const ARRAY_OPS = "No array type or operators (`@>`/`<@`/`&&`) in the SQLite " +
   "or MySQL families." + PG_ONLY;
 const DB_CALL = "No stored-function caller off Postgres; " +
@@ -129,10 +168,12 @@ const MYSQL_DATE_TRUNC =
   "No `date_trunc`; `dateTrunc` renders via `DATE_FORMAT`, which returns " +
   "the truncated bucket as `TEXT`. Both order and group identically.";
 const MYSQL_INDEXES =
-  "`DESC` index keys apply; partial (`WHERE`) indexes are unsupported by " +
-  "both engines and expression indexes are MySQL-only (MariaDB rejects " +
-  "them), so the DDL generator throws a typed `OrmError` for either at " +
-  "generation time instead of shipping SQL one engine rejects.";
+  "`DESC` index keys apply; partial (`WHERE`) indexes are unsupported by both " +
+  "engines, so the DDL generator throws a typed `OrmError`. Functional " +
+  "(expression) indexes are emitted on a detected base MySQL ≥ 8.0.13 and " +
+  "throw below that, on MariaDB (which has none — use a generated column), or " +
+  "when the version is unknown. Sisal emits plain `CREATE INDEX` for every " +
+  "dialect (no `IF NOT EXISTS`, which MySQL proper lacks).";
 
 /** A row where every adapter is `tested` against the same scenario. */
 const allTested = (feature: string, scenario: string): FeatureRow => ({
@@ -288,39 +329,24 @@ export const FEATURE_MATRIX: FeatureRow[] = [
     },
   },
   allTested("Float (`float4`/`float8`) round-trip → `number`", "float"),
-  {
-    feature: "`distinctOn`",
-    cells: {
-      pg: ok("distinctOn"),
-      neon: ok("distinctOn"),
-      sqlite: no(DISTINCT_ON),
-      libsql: no(DISTINCT_ON),
-      mysql: no(DISTINCT_ON),
-      mariadb: no(DISTINCT_ON),
-    },
-  },
-  {
-    feature: "Row locking (`.for(...)`)",
-    cells: {
-      pg: ok("for update"),
-      neon: ok("for update"),
-      sqlite: no(LOCKING),
-      libsql: no(LOCKING),
-      mysql: ok("for update"),
-      mariadb: ok("for update"),
-    },
-  },
-  {
-    feature: "Array operators (`@>` / `<@` / `&&`)",
-    cells: {
-      pg: ok("array operators"),
-      neon: ok("array operators"),
-      sqlite: no(ARRAY_OPS),
-      libsql: no(ARRAY_OPS),
-      mysql: no(ARRAY_OPS),
-      mariadb: no(ARRAY_OPS),
-    },
-  },
+  capabilityRow(
+    "`distinctOn`",
+    DIALECT_CAPABILITIES.distinctOn,
+    "distinctOn",
+    DISTINCT_ON,
+  ),
+  capabilityRow(
+    "Row locking (`.for(...)`)",
+    DIALECT_CAPABILITIES.rowLocking,
+    "for update",
+    LOCKING,
+  ),
+  capabilityRow(
+    "Array operators (`@>` / `<@` / `&&`)",
+    DIALECT_CAPABILITIES.arrayOperators,
+    "array operators",
+    ARRAY_OPS,
+  ),
   {
     feature: "Typed function caller (`db.call`)",
     cells: {
@@ -332,17 +358,12 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       mariadb: no(DB_CALL),
     },
   },
-  {
-    feature: "Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)",
-    cells: {
-      pg: ok("data-modifying CTE"),
-      neon: ok("data-modifying CTE"),
-      sqlite: no(DM_CTE),
-      libsql: no(DM_CTE),
-      mysql: no(DM_CTE),
-      mariadb: no(DM_CTE),
-    },
-  },
+  capabilityRow(
+    "Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)",
+    DIALECT_CAPABILITIES.dataModifyingCte,
+    "data-modifying CTE",
+    DM_CTE,
+  ),
   {
     feature: "Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)",
     scenario: "mutation joins",
@@ -358,6 +379,27 @@ export const FEATURE_MATRIX: FeatureRow[] = [
   allTested(
     "ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)",
     "ETL rollup",
+  ),
+  allTested(
+    "Advisory run lock (portable lock-row lease)",
+    "advisory lock",
+  ),
+  allTested(
+    "Atomic load+advance (ETL checkpoint watermark)",
+    "checkpoint",
+  ),
+  allTested(
+    "Retention horizon + replay refusal (ETL)",
+    "checkpoint retention",
+  ),
+  allTested(
+    "Write outcome (inserted vs conflicted/claimed)",
+    "write outcome",
+  ),
+  allTested("Read CTE (WITH on SELECT)", "read cte"),
+  allTested(
+    "Recursive CTE (WITH RECURSIVE; MySQL 8+/MariaDB)",
+    "recursive cte",
   ),
 ];
 
