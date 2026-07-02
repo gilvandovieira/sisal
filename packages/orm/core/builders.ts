@@ -5,47 +5,52 @@
  * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
  */
 
-import type { Database, OrmQueryResult } from "./database.ts";
-import { OrmError } from "./errors.ts";
-import { and, asc, desc } from "./operators.ts";
 import {
-  assertCondition,
-  attachResultMetadata,
-  columnToSql,
+  and,
+  asc,
+  capabilityGuard,
   type Condition,
-  createCondition,
+  desc,
+  DIALECT_CAPABILITIES,
   dialectGuard,
   dialectSql,
   emptySql,
-  fillPreparedPlan,
-  getResultMetadata,
   identifier,
+  type InferInsert,
   type InferProjection,
+  type InferSelect,
   isColumn,
   isOrderTerm,
   isSql,
   joinSql,
   type OrderTerm,
-  paramSql,
+  OrmError,
   type PlaceholderValues,
-  type PreparedPlan,
-  QUERY_BUILDER_BRAND,
   raw,
-  renderToPlan,
   type SelectColumnRef,
   type SelectProjection,
   type Sql,
   sql,
   type SqlQuery,
-} from "./sql.ts";
-import type { ResultColumnMetadata, ResultRowMetadata } from "./temporal.ts";
+  type TableDefinition,
+} from "@sisal/core";
 import {
+  assertCondition,
   assertTable,
   assertTableColumn,
-  type InferInsert,
-  type InferSelect,
-  type TableDefinition,
-} from "./table.ts";
+  attachResultMetadata,
+  columnToSql,
+  createCondition,
+  fillPreparedPlan,
+  getResultMetadata,
+  paramSql,
+  type PreparedPlan,
+  QUERY_BUILDER_BRAND,
+  renderToPlan,
+  type ResultColumnMetadata,
+  type ResultRowMetadata,
+} from "@sisal/core/unstable-internal";
+import type { Database, OrmQueryResult } from "./database.ts";
 
 /** A `from(...)` argument: a table, a CTE, or a subquery derived table. */
 type SelectFromSource = TableDefinition | Record<string, SelectColumnRef>;
@@ -115,6 +120,13 @@ export interface SelectBuilder<TTable, TResult> {
   from<TSource extends SelectFromSource>(
     source: TSource,
   ): SelectFromResult<TSource, TResult>;
+  /**
+   * Selects from a raw `Sql` FROM fragment — a set-returning function (e.g.
+   * `jsonTable(...).from`), a table-valued function, or any dialect-native
+   * source. The fragment must include its own alias; reference its columns
+   * through the projection.
+   */
+  from(source: Sql): SelectBuilder<unknown, TResult>;
 
   /** Emits `SELECT DISTINCT`. */
   distinct(): SelectBuilder<TTable, TResult>;
@@ -321,6 +333,28 @@ export interface CteBuilder {
   ): Cte<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
 }
 
+/**
+ * Intermediate returned by {@link Database.$withRecursive}; complete it with
+ * `.as((self) => …)`. The declared column list types `self`, the CTE's own
+ * reference inside its body.
+ */
+export interface RecursiveCteBuilder<TColumn extends string> {
+  /**
+   * Binds the recursive CTE body. `build` receives the CTE's self-reference
+   * (usable in `from()` / mutation sources like any CTE) and must return the
+   * classic recursive shape: a base `SELECT` compounded with the recursive
+   * step, e.g. `base.unionAll(step)`. Every supported engine renders
+   * `WITH RECURSIVE` at Sisal's version floors; bound the recursion with an
+   * explicit depth column and `WHERE depth < n` predicate in the step — the
+   * portable cycle guard (PostgreSQL 14's `CYCLE` clause is not rendered).
+   */
+  as<TResult>(
+    build: (
+      self: Cte<{ readonly [K in TColumn]: SelectColumnRef }>,
+    ) => CteOperand<TResult>,
+  ): Cte<{ readonly [K in TColumn]: SelectColumnRef }>;
+}
+
 /** Query root seeded with CTEs, returned by {@link Database.with}. */
 export interface WithQueryBuilder {
   select(): SelectBuilder<unknown, unknown>;
@@ -497,6 +531,8 @@ interface SelectState {
   readonly table?: TableDefinition;
   readonly fromCte?: string;
   readonly fromSubquery?: SubqueryDefinition;
+  /** A raw `Sql` FROM fragment (a set-returning/table-valued function). */
+  readonly fromRaw?: Sql;
   readonly ctes?: readonly CteDefinition[];
   readonly projection?: SelectProjection;
   readonly distinct?: boolean;
@@ -528,6 +564,13 @@ interface SubqueryDefinition {
 interface CteDefinition {
   readonly name: string;
   readonly query: Sql;
+  /** True for `WITH RECURSIVE` members (declared via `db.$withRecursive`). */
+  readonly recursive?: boolean;
+  /**
+   * Explicit CTE column list, rendered as `name ("a", "b")`. Required for
+   * recursive CTEs, whose self-reference exists before the body's projection.
+   */
+  readonly columnNames?: readonly string[];
 }
 
 /** The set operations Sisal can compound two queries with. */
@@ -597,12 +640,30 @@ function mutationRelationSql(source: SelectFromSource): Sql {
 }
 
 function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
+  // One RECURSIVE keyword covers the whole WITH list (SQL grammar); plain
+  // members are unaffected by it on every supported engine.
+  const recursive = ctes.some((cte) => cte.recursive === true);
   return joinSql([
-    raw("with "),
+    raw(recursive ? "with recursive " : "with "),
     joinSql(
       ctes.map((cte) =>
         joinSql(
-          [identifier(cte.name), raw(" as ("), cte.query, raw(")")],
+          [
+            identifier(cte.name),
+            cte.columnNames === undefined || cte.columnNames.length === 0
+              ? emptySql()
+              : joinSql([
+                raw(" ("),
+                joinSql(
+                  cte.columnNames.map((column) => identifier(column)),
+                  raw(", "),
+                ),
+                raw(")"),
+              ], emptySql()),
+            raw(" as ("),
+            cte.query,
+            raw(")"),
+          ],
           emptySql(),
         )
       ),
@@ -621,7 +682,7 @@ function mutationWithPrefixSql(
   ctes: readonly CteDefinition[],
 ): Sql {
   return joinSql([
-    dialectGuard(construct, [{ dialect: "mysql", variant: "mariadb" }]),
+    capabilityGuard(DIALECT_CAPABILITIES.mutationCte, construct),
     withPrefixSql(ctes),
   ], emptySql());
 }
@@ -678,10 +739,7 @@ export function cteBodySql(query: CteOperand<unknown>): Sql {
     query instanceof SisalDeleteBuilder
   ) {
     return sql`${
-      dialectGuard("a data-modifying CTE (INSERT/UPDATE/DELETE in WITH)", [
-        "sqlite",
-        "mysql",
-      ])
+      capabilityGuard(DIALECT_CAPABILITIES.dataModifyingCte)
     }${query.toSql()}`;
   }
   return query.toSql();
@@ -707,7 +765,20 @@ export class SisalSelectBuilder<TTable, TResult>
 
   from<TSource extends SelectFromSource>(
     source: TSource,
-  ): SelectFromResult<TSource, TResult> {
+  ): SelectFromResult<TSource, TResult>;
+  from(source: Sql): SelectBuilder<unknown, TResult>;
+  from(
+    source: SelectFromSource | Sql,
+  ): SelectFromResult<SelectFromSource, TResult> {
+    if (isSql(source)) {
+      return new SisalSelectBuilder(this.#database, {
+        ...this.#state,
+        table: undefined,
+        fromCte: undefined,
+        fromSubquery: undefined,
+        fromRaw: source,
+      }) as unknown as SelectFromResult<SelectFromSource, TResult>;
+    }
     if (isSubquery(source)) {
       const definition = SUBQUERY_DEFINITIONS.get(source)!;
       return new SisalSelectBuilder(this.#database, {
@@ -715,7 +786,7 @@ export class SisalSelectBuilder<TTable, TResult>
         table: undefined,
         fromCte: undefined,
         fromSubquery: definition,
-      }) as unknown as SelectFromResult<TSource, TResult>;
+      }) as unknown as SelectFromResult<SelectFromSource, TResult>;
     }
     if (isCte(source)) {
       const definition = CTE_DEFINITIONS.get(source)!;
@@ -724,7 +795,7 @@ export class SisalSelectBuilder<TTable, TResult>
         table: undefined,
         fromSubquery: undefined,
         fromCte: definition.name,
-      }) as unknown as SelectFromResult<TSource, TResult>;
+      }) as unknown as SelectFromResult<SelectFromSource, TResult>;
     }
     assertTable(source);
     return new SisalSelectBuilder(this.#database, {
@@ -732,7 +803,7 @@ export class SisalSelectBuilder<TTable, TResult>
       table: source,
       fromCte: undefined,
       fromSubquery: undefined,
-    }) as unknown as SelectFromResult<TSource, TResult>;
+    }) as unknown as SelectFromResult<SelectFromSource, TResult>;
   }
 
   /** Column names of this select's projection (internal, for CTE inference). */
@@ -956,6 +1027,7 @@ export class SisalSelectBuilder<TTable, TResult>
       table,
       fromCte,
       fromSubquery,
+      fromRaw,
       ctes,
       projection,
       distinct,
@@ -981,6 +1053,8 @@ export class SisalSelectBuilder<TTable, TResult>
         raw(") as "),
         identifier(fromSubquery.alias),
       ], emptySql())
+      : fromRaw !== undefined
+      ? fromRaw
       : undefined;
 
     if (fromName === undefined) {
@@ -995,7 +1069,7 @@ export class SisalSelectBuilder<TTable, TResult>
     }
     if (distinctOn !== undefined && distinctOn.length > 0) {
       parts.push(
-        dialectGuard("distinctOn", ["sqlite", "mysql"]),
+        capabilityGuard(DIALECT_CAPABILITIES.distinctOn),
         raw("select distinct on ("),
         joinSql([...distinctOn], raw(", ")),
         raw(") "),
@@ -1018,7 +1092,7 @@ export class SisalSelectBuilder<TTable, TResult>
       // Neither MySQL nor MariaDB has FULL OUTER JOIN (C5 probe) — guard it
       // instead of rendering SQL both engines reject. Right joins are fine.
       if (join.kind === "full") {
-        parts.push(dialectGuard("FULL JOIN", ["mysql"]));
+        parts.push(capabilityGuard(DIALECT_CAPABILITIES.fullJoin));
       }
       parts.push(
         // join.kind is a fixed SelectJoinKind enum, never user input.
@@ -1056,7 +1130,7 @@ export class SisalSelectBuilder<TTable, TResult>
 
     if (forLock !== undefined) {
       parts.push(
-        dialectGuard('.for("update"/"share") row locking', ["sqlite"]),
+        capabilityGuard(DIALECT_CAPABILITIES.rowLocking),
         raw(forLock.strength === "share" ? " for share" : " for update"),
       );
       if (forLock.of !== undefined && forLock.of.length > 0) {
@@ -1513,19 +1587,16 @@ function tableResultMetadata(table: TableDefinition): ResultRowMetadata {
 
 // MySQL has no RETURNING on any mutation; MariaDB's is per-statement AND
 // per-version (DELETE 10.0.5+, INSERT/REPLACE 10.5+, UPDATE only 13.0+). The
-// (engine, variant, version) identity (v0.7 B1) expresses exactly that: the
-// version-less "mysql" dialect throws a typed error, and each statement kind
-// carries the MariaDB refinement that lifts the guard once an adapter renders
-// with an identified server. A fetch-by-key fallback for MySQL proper is an
+// registry capability per statement kind expresses exactly that: the
+// version-less "mysql" dialect throws a typed error, and each kind carries
+// the MariaDB refinement that lifts the guard once an adapter renders with an
+// identified server. A fetch-by-key fallback for MySQL proper is an
 // adapter/executor concern (a second round trip, not a render rewrite).
-const RETURNING_GUARDS: Record<
-  "insert" | "update" | "delete",
-  { readonly construct: string; readonly minMariadb: string }
-> = {
-  insert: { construct: "INSERT … RETURNING", minMariadb: "10.5" },
-  update: { construct: "UPDATE … RETURNING", minMariadb: "13.0" },
-  delete: { construct: "DELETE … RETURNING", minMariadb: "10.0.5" },
-};
+const RETURNING_CAPABILITIES = {
+  insert: DIALECT_CAPABILITIES.insertReturning,
+  update: DIALECT_CAPABILITIES.updateReturning,
+  delete: DIALECT_CAPABILITIES.deleteReturning,
+} as const;
 
 function returningSql(
   returning: SelectProjection | boolean,
@@ -1535,10 +1606,7 @@ function returningSql(
   if (returning === false) {
     return undefined;
   }
-  const spec = RETURNING_GUARDS[kind];
-  const guard = dialectGuard(spec.construct, ["mysql"], {
-    unless: [{ variant: "mariadb", minVersion: spec.minMariadb }],
-  });
+  const guard = capabilityGuard(RETURNING_CAPABILITIES[kind]);
   if (returning === true) {
     return joinSql(
       [guard, raw(" returning "), tableSelectionSql(table)],
@@ -1703,12 +1771,94 @@ function conflictSql(
   // The conflict `where` has no MySQL equivalent — rendering one under the
   // mysql dialect throws a typed ORM_DIALECT_UNSUPPORTED (an empty dialect
   // chunk with no mysql variant and no fallback).
+  const forwardRef = conflict.where === undefined
+    ? odkuBackwardReference(conflict.set, table)
+    : undefined;
   const duplicateKeyForm = conflict.where !== undefined
     ? dialectSql('onConflictDoUpdate "where" (conflict condition)', {})
+    // MySQL/MariaDB evaluate `ON DUPLICATE KEY UPDATE` assignments
+    // left-to-right, so an assignment that reads a sibling column set
+    // *earlier* sees that column's already-updated value — while PostgreSQL
+    // reads the pre-update row uniformly. Rather than let the same builder
+    // silently compute different results per engine, the mysql render throws
+    // a typed guard; the fix is to order the derived column first (so it reads
+    // the old value) or reference the proposed row with `excluded()`.
+    : forwardRef !== undefined
+    ? sql`${
+      dialectGuard(
+        `ON DUPLICATE KEY UPDATE assignment for "${forwardRef.column}" reads ` +
+          `"${forwardRef.reads}", which is set earlier in the same statement ` +
+          `(MySQL evaluates assignments left-to-right, so it reads the ` +
+          `updated value; put the derived column first or use excluded())`,
+        ["mysql"],
+      )
+    } on duplicate key update ${setSql}`
     : sql` on duplicate key update ${setSql}`;
   return dialectSql("upsert", {
     mysql: duplicateKeyForm,
   }, conflictForm);
+}
+
+// Recursively true when `value`'s chunks reference any of the table-qualified
+// identifiers in `qualified` (a bare `t.col` ref renders as a nested `sql`
+// chunk holding an `identifier` chunk `"t.col"`; `excluded()` renders through
+// a `dialect` chunk with an *unqualified* name, so it is never matched — the
+// proposed-row reference is always safe). Dialect-mapped helpers such as
+// `greatest()` hide their operands inside `dialect` chunks, so those variants
+// must be walked too.
+function sqlReferencesQualified(
+  value: Sql,
+  qualified: ReadonlySet<string>,
+): boolean {
+  for (const chunk of value.chunks) {
+    if (chunk.kind === "identifier" && qualified.has(chunk.value)) {
+      return true;
+    }
+    if (
+      chunk.kind === "sql" && sqlReferencesQualified(chunk.value, qualified)
+    ) {
+      return true;
+    }
+    if (chunk.kind === "dialect") {
+      for (const variant of Object.values(chunk.variants)) {
+        if (
+          variant !== undefined && sqlReferencesQualified(variant, qualified)
+        ) {
+          return true;
+        }
+      }
+      if (
+        chunk.fallback !== undefined &&
+        sqlReferencesQualified(chunk.fallback, qualified)
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Detects the first ODKU `set` assignment whose expression reads a *different*
+// sibling column set earlier in the same list — the MySQL left-to-right
+// footgun. Self-references (`col = col + 1`) and forward references
+// (derived-column-first) are safe and return undefined.
+function odkuBackwardReference(
+  set: Record<string, unknown>,
+  table: TableDefinition,
+): { readonly column: string; readonly reads: string } | undefined {
+  const entries = Object.entries(set).filter(([, v]) => v !== undefined);
+  const seen = new Map<string, string>(); // qualified id -> property key
+  for (const [key, value] of entries) {
+    if (isSql(value)) {
+      for (const [qualified, earlierKey] of seen) {
+        if (sqlReferencesQualified(value, new Set([qualified]))) {
+          return { column: key, reads: earlierKey };
+        }
+      }
+    }
+    seen.set(`${table.name}.${physicalColumnName(table, key)}`, key);
+  }
+  return undefined;
 }
 
 type InsertConflict =
@@ -2039,7 +2189,7 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
     const returningPart = returningSql(returning, table, "update");
     if (returningPart !== undefined) {
       if (from !== undefined) {
-        parts.push(dialectGuard("UPDATE … FROM … RETURNING", ["mysql"]));
+        parts.push(capabilityGuard(DIALECT_CAPABILITIES.updateFromReturning));
       }
       parts.push(returningPart);
     }
@@ -2145,7 +2295,7 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
     const returningPart = returningSql(returning, table, "delete");
     if (returningPart !== undefined) {
       if (using !== undefined) {
-        parts.push(dialectGuard("DELETE … USING … RETURNING", ["mysql"]));
+        parts.push(capabilityGuard(DIALECT_CAPABILITIES.deleteUsingReturning));
       }
       parts.push(returningPart);
     }
@@ -2197,7 +2347,7 @@ function deleteStatementHead(
   }
 
   const portable = sql`${
-    dialectGuard("DELETE … USING", ["sqlite"])
+    capabilityGuard(DIALECT_CAPABILITIES.deleteUsing)
   }delete from ${identifier(table.name)} using ${using}`;
   const mysql = sql`delete from ${identifier(table.name)} using ${
     identifier(table.name)

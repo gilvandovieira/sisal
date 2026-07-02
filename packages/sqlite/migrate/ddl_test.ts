@@ -18,6 +18,37 @@ const notes: SisalSchemaSnapshot["tables"][number] = {
   primaryKey: { columns: ["id"] },
 };
 
+Deno.test("@sisal/sqlite - emits STORED and VIRTUAL generated columns", () => {
+  const docs: SisalSchemaSnapshot["tables"][number] = {
+    name: "docs",
+    columns: [
+      { name: "id", type: { kind: "integer" }, nullable: false },
+      { name: "payload", type: { kind: "jsonb" }, nullable: false },
+      {
+        name: "title",
+        type: { kind: "text" },
+        generatedAs: { sql: "json_extract(payload, '$.title')", stored: true },
+      },
+      {
+        name: "upper",
+        type: { kind: "text" },
+        generatedAs: { sql: "upper(title)", stored: false },
+      },
+    ],
+    primaryKey: { columns: ["id"] },
+  };
+  assertEquals(
+    generateSqliteCreateTable(docs),
+    'CREATE TABLE "docs" (\n' +
+      '  "id" INTEGER NOT NULL,\n' +
+      '  "payload" TEXT NOT NULL,\n' +
+      `  "title" TEXT GENERATED ALWAYS AS (json_extract(payload, '$.title')) STORED,\n` +
+      '  "upper" TEXT GENERATED ALWAYS AS (upper(title)) VIRTUAL,\n' +
+      '  PRIMARY KEY ("id")\n' +
+      ");",
+  );
+});
+
 Deno.test("@sisal/sqlite - generates SQLite CREATE TABLE SQL", () => {
   assertEquals(
     generateSqliteCreateTable(notes),

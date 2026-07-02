@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.7.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.8.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -26,12 +26,15 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
 - [Analytics Readiness](https://gilvandovieira.github.io/sisal/analytics-readiness.html): **Date:** 2026-07-01 · **Status:** A1-A4 🟢 · **Scope:** investigation and type prototype only. No @sisal/analytics package, renderer, runtime, dashboard helper, public export, or generated feature-matrix claim ships...
 - [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL, analytics,...
+- [@sisal/core — the compile-target contract](https://gilvandovieira.github.io/sisal/core-ir.html): The documented, versioned public surface downstream packages (@sisal/etl, @sisal/analytics) compile into — the v0.8 item-3 stamp. What this page declares public is a compatibility commitment; everything else is not.
+- [@sisal/core extraction — migration notes](https://gilvandovieira.github.io/sisal/core-migration.html): v0.8 extracted @sisal/orm's lower tier into **@sisal/core** (roadmap item 2): the schema primitives, fragment SQL IR, expression operators, the dialect capability registry, and the dialect-aware renderer. The fluent...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
 - [MySQL / MariaDB compatibility](https://gilvandovieira.github.io/sisal/mysql-compatibility.html): Sisal's MySQL adapter (@sisal/mysql) is verified end-to-end against real servers — **both** MySQL proper and MariaDB, which share one adapter but are distinct capability profiles. Each suite opens a pool with the...
 - [MySQL type & DDL mapping](https://gilvandovieira.github.io/sisal/mysql-ddl-mapping.html): **Date:** 2026-07-01 · **Probe:** perf/mysql_ddl_probe.ts (deno task perf:mysql:ddl) · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), decoded through the C6-chosen driver (npm:mysql2 with the...
 - [MySQL readiness](https://gilvandovieira.github.io/sisal/mysql-readiness.html): **Date:** 2026-07-01 · **Status:** all six C tasks 🟢 · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), Deno 2.9.0 (+ Node 26 dual-runtime check)
 - [npm Release Readiness](https://gilvandovieira.github.io/sisal/npm-release-readiness.html): This is a **standing readiness report**, not a scheduled deliverable. It records what must change for Sisal to publish to **npm** alongside JSR and run on **Node.js 24+**, so the work can be picked up cheaply **if...
+- [Portability policies](https://gilvandovieira.github.io/sisal/portability-policies.html): The cross-family value and lifecycle policies Sisal's examples, adapters, and tests follow (v0.8 item 17). Per-engine details live in the docs/*-compatibility.md pages; this page states the policies once.
 - [Roadmap Sequencing Audit (v0.6 → v0.14)](https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html): This is a **second-pass sequencing audit** of the forward plan (docs/roadmap.md, docs/architecture.md, docs/v0.6.0-roadmap.md → docs/v0.14.0-roadmap.md, and the twelve examples/advanced-sql-contracts/). It...
 - [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, libSQL, and MySQL/MariaDB. It will not become an object-first ORM. This page is the...
 - [v0.10.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.10.0-roadmap.html): The investigations (v0.6) and substrate (v0.8, v0.9) are done; v0.10 ships the **first preview of Sisal ETL** as a separate package. The model is deliberately small: a **job definition + a single-run runner** that...
@@ -48,6 +51,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Package APIs
 
+- [@sisal/core](https://jsr.io/@sisal/core): Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer. Exports: ., ./schema, ./unstable-internal.
 - [@sisal/orm](https://jsr.io/@sisal/orm): Driverless schema, typed SQL, and ORM primitives for Sisal. Exports: ., ./core, ./error, ./logger, ./schema.
 - [@sisal/migrate](https://jsr.io/@sisal/migrate): Migration planning, diffing, and running primitives for Sisal. Exports: ., ./cli, ./core, ./workflow.
 - [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
@@ -64,7 +68,18 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Package Manifests
 
-### @sisal/orm 0.7.0
+### @sisal/core 0.8.0
+
+Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer.
+
+Package path: `./packages/core`
+
+Exports:
+- `.` -> `./mod.ts`
+- `./schema` -> `./schema.ts`
+- `./unstable-internal` -> `./internal.ts`
+
+### @sisal/orm 0.8.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -77,7 +92,7 @@ Exports:
 - `./logger` -> `./logger.ts`
 - `./schema` -> `./schema.ts`
 
-### @sisal/migrate 0.7.0
+### @sisal/migrate 0.8.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -89,7 +104,7 @@ Exports:
 - `./core` -> `./core/mod.ts`
 - `./workflow` -> `./core/workflow.ts`
 
-### @sisal/pg 0.7.0
+### @sisal/pg 0.8.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -101,7 +116,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/sqlite 0.7.0
+### @sisal/sqlite 0.8.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -113,7 +128,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/libsql 0.7.0
+### @sisal/libsql 0.8.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -125,7 +140,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/mysql 0.7.0
+### @sisal/mysql 0.8.0
 
 MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.
 
@@ -137,7 +152,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/neon 0.7.0
+### @sisal/neon 0.8.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -151,6 +166,278 @@ Exports:
 
 ## Public API Symbol Index
 
+### @sisal/core . (packages/core/mod.ts)
+
+@sisal/core — Sisal's driverless compile target: the schema primitives, fragment SQL IR, expression operators, capability registry, and dialect-aware renderer that every other Sisal package builds on.
+
+- `and` (function): Combines conditions with SQL AND, ignoring nullish values.
+- `AnyTableDefinition` (typeAlias): Any Sisal table definition, regardless of its column map.
+- `arrayContained` (function): Postgres array <@ — true when column is contained by value.
+- `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL have no array containment operator (rendering throws there).
+- `arrayExpr` (function): Array construction — ARRAY[a, b, c] on PostgreSQL/generic, JSON_ARRAY(…) on the MySQL family and SQLite (which have no native array type, so the array round-trips as JSON text there — the documented value shape)....
+- `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
+- `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
+- `assembleInsertFromSelect` (function): Assembles INSERT INTO t (columns) SELECT … — the destination column list derives from the select projection keys, mapped to the destination table's physical names — with an optional dialect-mapped upsert ({@link...
+- `AssembleInsertFromSelectParts` (interface): Parts for {@link assembleInsertFromSelect}.
+- `assembleSelect` (function): Assembles a SELECT statement from clause parts using only core primitives. The v0.8 item-5 seam: deterministic, no builder state — the compile target for downstream packages.
+- `AssembleSelectParts` (interface): Clause parts for {@link assembleSelect}. Projection values are columns or expressions (each renders value as "key"); groupBy/orderBy accept columns, expressions, or asc()/desc() terms; limit binds as a parameter.
+- `AssembleUpsert` (interface): The dialect-mapped upsert clause for {@link assembleInsertFromSelect}: ON CONFLICT (target) DO UPDATE SET … on PostgreSQL/SQLite and ON DUPLICATE KEY UPDATE … on the MySQL family (where the target is validated but...
+- `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
+- `avg` (function): avg(column) aggregate expression.
+- `between` (function): column BETWEEN min AND max SQL condition (inclusive).
+- `CAPABILITY_TARGETS` (variable): The six capability targets the feature matrix and integration suites key on, expressed in the (engine, variant) identity space. Version-gated capabilities (unless with minVersion) additionally require a known version...
+- `capabilityGuard` (function): The render-time guard for a registry capability: a zero-width marker that makes rendering throw the typed ORM_DIALECT_UNSUPPORTED error on identities the capability declaration excludes. construct overrides the...
+- `capabilitySupported` (function): True when identity supports capability — the non-rendering form of the render-time guard, with identical fail-closed semantics: a bare engine identity matches engine-wide targets, a variant identity also matches its...
+- `CapabilityTargetId` (typeAlias): A key of {@link CAPABILITY_TARGETS}.
+- `check` (function): A named CHECK constraint from a sql expression.
+- `coalesce` (function): coalesce(a, b, …) — the first non-null operand. Portable across all four dialects; columns and expressions render as SQL, plain values bind as parameters. Retires the last raw seam in the composed ETL rollups (v0.8...
+- `ColumnArray` (typeAlias): Array element/column type produced by {@link ColumnBuilder.array}.
+- `ColumnBuilder` (interface): Immutable column builder used to define table schemas.
+- `ColumnDataType` (typeAlias): Column data types supported by the built-in column builder factory.
+- `ColumnDefinition` (interface): Column metadata used by table definitions and future adapters.
+- `ColumnDefinitionFromBuilder` (typeAlias): Materialized column metadata inferred from a {@link ColumnBuilder}.
+- `ColumnName` (typeAlias): Normalized simple column name.
+- `ColumnNamingStrategy` (typeAlias): A column-naming strategy: how a JavaScript property key maps to the physical SQL column name when a column does not declare an explicit .named(...).
+- `ColumnRuntimeType` (typeAlias): JavaScript runtime value types represented by ORM columns.
+- `columns` (variable): Column builder factory for table schemas.
+- `ColumnValueMode` (typeAlias): Runtime value mode for date/time-ish columns.
+- `compareServerVersions` (function): Compares two server version strings by their leading dotted numeric prefixes ("11.8.8-MariaDB-ubu2404" → 11.8.8; missing segments are 0). Returns a negative number, zero, or a positive number as a is lower than,...
+- `Condition` (interface): Boolean SQL condition wrapper used by query builders.
+- `count` (function): count(*) (no argument) or count(column) aggregate expression.
+- `countDistinct` (function): count(distinct column) aggregate expression.
+- `createColumn` (function): Creates a named column definition from metadata.
+- `createSchemaSnapshot` (function): Creates a stable Sisal schema snapshot from ORM table metadata.
+- `CreateSchemaSnapshotInput` (interface): Input accepted by {@link createSchemaSnapshot}.
+- `CreateSchemaSnapshotOptions` (interface): Options applied when building a schema snapshot from ORM tables.
+- `CustomColumnTypeOptions` (interface): Trusted custom column type metadata for {@link columns.customType}.
+- `dateAdd` (function): source + duration, rendered per dialect (src + interval '…' on PostgreSQL; chained datetime(src, '+…') modifiers on the SQLite family). source is a timestamp column or SQL expression — pass {@link now} for the...
+- `dateBin` (function): Floors source to the start of its every-wide time bucket — the portable arbitrary-interval bucket (e.g. 5-minute buckets) that dateTrunc's fixed calendar fields can't express. Renders to_timestamp(floor(extract(epoch...
+- `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `dateDiff` (function): Whole units elapsed from from to to (truncated toward zero, matching MySQL's TIMESTAMPDIFF) — the portable date-diff/gap helper the sessionization and cohort contracts need (v0.8 item 10): PostgreSQL...
+- `DateDiffField` (typeAlias): Whole-unit fields accepted by {@link dateDiff}.
+- `DateDuration` (interface): A calendar/clock duration for {@link dateAdd} / {@link dateSub}. Every field is optional; at least one must be non-zero. years/months are calendar units (not a fixed number of seconds) and are rejected by {@link...
+- `dateSub` (function): source - duration, the mirror of {@link dateAdd} — the building block for moving-window predicates, e.g. gte(col, dateSub(now(), { minutes: 15 })).
+- `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
+- `DateTruncField` (typeAlias): Calendar field a {@link dateTrunc} truncates a timestamp down to.
+- `defineSchemaObject` (function): Defines a raw DDL {@link SisalSchemaObjectSnapshot} — a stored function, trigger, extension, or any verbatim CREATE … — to attach to a snapshot via createSchemaSnapshot({ tables, schemaObjects }).
+- `defineSchemaSnapshot` (function): Normalizes and validates a schema snapshot.
+- `defineTable` (function): Defines a typed table schema.
+- `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
+- `denseRank` (function): dense_rank() — window-only ranking without gaps. Wrap in {@link over}.
+- `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
+- `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `DIALECT_CAPABILITIES` (variable): The core capability registry: every render-guarded construct's (engine, variant, version-range) truth in one place. The builder/operator guard call sites derive their render guards from these entries via {@link...
+- `DialectCapability` (interface): One named dialect capability: a construct label (used verbatim in the typed ORM_DIALECT_UNSUPPORTED error) plus the declarative unsupported-targets/exceptions data evaluated by both the renderer and {@link...
+- `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
+- `dialectGuardApplies` (function): Evaluates a guard's declarative targets/exceptions against a dialect identity — the same fail-closed semantics the renderer applies to guard chunks, exposed so capability declarations ({@link dialectGuard} data and...
+- `DialectGuardException` (interface): A refinement that lifts a {@link dialectGuard} for identities it matches: the identity's dialect must equal dialect (when set — scopes the exception to one of the guard's engines when a guard targets several), its...
+- `DialectGuardTarget` (typeAlias): One dialect a guarded construct is unsupported on. A bare {@link SqlDialect} matches any variant/version of that dialect; the object form narrows to one variant (an identity with **no** variant is the base engine and...
+- `DialectIdentity` (interface): Version-aware dialect identity — the (engine, variant, version) key the v0.6 readiness investigation decided on (see docs/mysql-readiness.md, decision 2). dialect remains the render key; variant names a...
+- `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
+- `diffSchemaSnapshots` (function): Computes the structural difference from one snapshot to another.
+- `emptySql` (function): Returns an empty SQL fragment.
+- `eq` (function): column = value SQL condition.
+- `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
+- `excluded` (function): The upsert "proposed row" reference for onConflictDoUpdate set values, rendered per dialect: excluded."col" on PostgreSQL and the SQLite family, values( ` col ) on MySQL — the one spelling every MySQL 5.7→9.x and...
+- `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
+- `expr` (function): Types a fragment as a {@link SqlExpression} of T — the name-once handle for computed/metric expressions (v0.8 item 7). Assign it once and reuse it across a projection, groupBy, having, orderBy, and other expressions;...
+- `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
+- `FrameBound` (typeAlias): One edge of a {@link WindowFrame}: the frame keywords, or an offset of n rows/values before or after the current row (a validated non-negative integer — engines do not accept bound parameters in frame clauses, so the...
+- `getDefaultColumnNaming` (function): Returns the global default column-naming strategy applied by {@link defineTable} when a table does not pass its own naming option. Defaults to "snake_case".
+- `getTableColumns` (function): Returns table columns.
+- `getTableName` (function): Returns the normalized table name.
+- `greatest` (function): greatest(a, b, …) — the largest operand (SQLite renders the scalar max(a, b, …)). NULL handling diverges per engine: PostgreSQL ignores NULLs, MySQL/MariaDB and SQLite return NULL if any operand is NULL — wrap...
+- `gt` (function): column > value SQL condition.
+- `gte` (function): column >= value SQL condition.
+- `identifier` (function): Creates a validated SQL identifier fragment.
+- `ilike` (function): Case-insensitive ILIKE match. Renders ILIKE on Postgres and degrades to the (case-insensitive) LIKE on SQLite/libSQL/MySQL, which have no ILIKE.
+- `inArray` (function): column IN (...). Each value is a bound parameter. An empty array yields a constant always-false condition (1 = 0) rather than invalid IN () SQL, so dynamic filters with no values are safe. A select builder renders as...
+- `index` (function): A table index (CREATE INDEX); complete it with .on(...columns).
+- `IndexColumnSpec` (typeAlias): A single key in a table index produced by index().on(...): either a column (optionally with a sort direction) or a raw SQL expression.
+- `IndexConstraintBuilder` (interface): Fluent builder returned by {@link index} / {@link uniqueIndex}.
+- `InferInsert` (typeAlias): Infers the accepted insert shape for a table, honoring defaults and optional fields.
+- `InferProjection` (typeAlias): Inferred row type for a projected select.
+- `InferSelect` (typeAlias): Infers the row shape returned when selecting from a table.
+- `isColumn` (function): Returns true when a value has the public column definition shape.
+- `isEmptySchemaSnapshotDiff` (function): Returns true when a snapshot diff contains no table or column changes.
+- `isNotNull` (function): column IS NOT NULL SQL condition.
+- `isNull` (function): column IS NULL SQL condition.
+- `isOrderTerm` (function): Returns true when a value is an asc()/desc() {@link OrderTerm}.
+- `isSql` (function): Returns true when a value is a Sisal SQL fragment.
+- `isSqlQuery` (function): Returns true when a value is driver-ready SQL text and parameters.
+- `isTable` (function): Returns true when a value has the public table definition shape.
+- `joinSql` (function): Joins SQL fragments with a separator.
+- `jsonExtract` (function): Scalar JSON extraction at a JSONPath — col ->> '$.a.b' semantics as a portable text-typed expression: PostgreSQL jsonb_extract_path_text(col, 'a', 'b'), the MySQL family json_unquote(json_extract(col, '$.a.b')),...
+- `jsonTable` (function): A set-returning JSON-table over an array field — the portable *abstraction* compiling to each engine's native function (contract 10): PostgreSQL jsonb_to_recordset with a typed column list, the MySQL family...
+- `JsonTable` (interface): The result of {@link jsonTable}: typed column refs + the FROM fragment.
+- `JsonTableColumnSpec` (interface): A projected column of a {@link jsonTable} — its logical type and JSONPath.
+- `JsonTableOptions` (interface): Options for {@link jsonTable}.
+- `lag` (function): lag(column, offset = 1, default?) — the value offset rows before the current row in the window order (NULL — or default — outside the partition). Window-only: wrap in {@link over}.
+- `lead` (function): lead(column, offset = 1, default?) — the value offset rows after the current row in the window order. Window-only: wrap in {@link over}.
+- `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
+- `like` (function): column LIKE value SQL condition.
+- `Logger` (interface): Minimal logger contract accepted by Sisal packages.
+- `LoggerMethod` (interface): Minimal logger contracts accepted by Sisal packages.
+- `lt` (function): column < value SQL condition.
+- `lte` (function): column <= value SQL condition.
+- `max` (function): max(column) aggregate expression.
+- `min` (function): min(column) aggregate expression.
+- `ne` (function): column <> value SQL condition.
+- `normalizeColumnName` (function): Normalizes a simple column name.
+- `normalizeSchemaSnapshot` (function): Returns a deterministic clone of a schema snapshot.
+- `normalizeSqlInput` (function): Normalizes manual or builder SQL into the driver query contract.
+- `normalizeTableName` (function): Normalizes a table name.
+- `normalizeTemporalSqlValue` (function): Normalizes Temporal values nested inside arrays before driver execution.
+- `not` (function): Negates a SQL condition with NOT (...).
+- `notBetween` (function): column NOT BETWEEN min AND max SQL condition.
+- `notExists` (function): NOT EXISTS (subquery) — true when the subquery returns no rows.
+- `notIlike` (function): Case-insensitive NOT ILIKE; degrades to NOT LIKE off Postgres.
+- `notInArray` (function): column NOT IN (...). An empty array yields a constant always-true condition; a select builder renders as a subquery.
+- `notLike` (function): column NOT LIKE value SQL condition.
+- `now` (function): The current timestamp, per dialect: now() on PostgreSQL, datetime('now') on the SQLite family. Use it as the reference time for moving-window predicates (gte(col, dateSub(now(), { minutes: 15 }))).
+- `or` (function): Combines conditions with SQL OR, ignoring nullish values.
+- `OrderTerm` (interface): An ORDER BY term produced by asc()/desc(). It is a SQL fragment ("t"."col" asc) that also carries the underlying column and its direction, so keyset pagination can build the matching comparison predicate and derive a...
+- `OrmError` (class): Error thrown for schema, SQL, execution, and transaction failures.
+- `OrmErrorCode` (typeAlias): Error codes emitted by ORM schema, SQL, driver, and transaction helpers.
+- `OrmErrorOptions` (interface): Options accepted when constructing an {@link OrmError}.
+- `over` (function): Attaches an OVER (…) window to an expression — over(avg(score), { partitionBy: [c.community], orderBy: [asc(c.bucket)], frame: { unit: "rows", start: { preceding: 5 }, end: "currentRow" } }). The expression keeps its...
+- `placeholder` (function): Creates a named placeholder fragment for a prepared statement.
+- `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
+- `primaryKey` (function): A composite/table-level primary key over the given columns.
+- `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
+- `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
+- `raw` (function): Creates an unsafe raw SQL fragment.
+- `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
+- `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
+- `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
+- `ReferentialOptions` (interface): Options accepted by {@link ColumnBuilder.references}.
+- `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
+- `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
+- `schemaObjectDropStatements` (function): The down drop statements for a snapshot's dialect schema objects, in reverse declared order (so dependents drop before their dependencies).
+- `SelectColumnRef` (interface): A column reference usable in a select projection.
+- `SelectProjection` (typeAlias): Map of result key to selected column or expression, for db.select({ ... }).
+- `SelectProjectionValue` (typeAlias): A value usable in a select projection: a column reference, a SQL expression, or a select/compound builder embedded as a scalar subquery.
+- `selectSchemaObjects` (function): The schema objects to emit for dialect when migrating from → to: those matching the dialect (or dialect-agnostic) and not byte-identical in from, in declared order. Used by adapter DDL generators to append stored DDL...
+- `serializeSchemaSnapshot` (function): Serializes a snapshot to canonical JSON.
+- `serializeSqlValue` (function): Converts a JS value into a SQL parameter.
+- `setDefaultColumnNaming` (function): Sets the global default column-naming strategy for **future** {@link defineTable} calls. Tables already defined keep the name they were built with, so call this before defining your tables (e.g. at the top of your...
+- `SisalCapabilityId` (typeAlias): A key of the core capability registry.
+- `SisalCheckConstraintSnapshot` (interface): Serializable check-constraint descriptor.
+- `SisalColumnDefault` (typeAlias): Serializable column default value or expression.
+- `SisalColumnDiff` (interface): A column present in both tables whose definition changed.
+- `SisalColumnSnapshot` (interface): Serializable column definition inside a table snapshot.
+- `SisalColumnType` (interface): Dialect-neutral column type descriptor.
+- `SisalDialectName` (typeAlias): SQL dialect names understood by Sisal schema snapshots.
+- `SisalError` (class): Small structured error primitive shared by Sisal packages.
+- `SisalErrorOptions` (interface): Options accepted by {@link SisalError}.
+- `SisalErrorSeverity` (typeAlias): Severity attached to structured Sisal errors.
+- `SisalForeignKeySnapshot` (interface): Serializable foreign-key constraint descriptor.
+- `SisalIndexColumnSnapshot` (interface): A single key in an index: a column or a raw SQL expression, with an optional sort direction.
+- `SisalIndexSnapshot` (interface): Serializable index descriptor.
+- `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
+- `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
+- `SisalSchemaIssueCode` (typeAlias): Validation issue codes emitted by schema snapshot helpers.
+- `SisalSchemaObjectSnapshot` (interface): A raw, dialect-specific DDL fragment attached to a snapshot — a stored function, trigger, extension, view, or any verbatim CREATE …. Emitted after table creation, gated by {@link SisalSchemaObjectSnapshot.dialect},...
+- `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
+- `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
+- `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
+- `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
+- `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
+- `SisalUniqueConstraintSnapshot` (interface): Serializable unique-constraint descriptor.
+- `sql` (function): SQL tagged template that keeps interpolated values as parameters.
+- `Sql` (interface): SQL fragment made from safe chunks and separate parameters.
+- `SQL_IR_VERSION` (variable): Version of the public SQL fragment IR contract — the Sql/SqlChunk shapes, their render semantics, and the guard/dialect chunk data formats (see docs/core-ir.md for the full contract and compatibility policy)....
+- `SqlChunk` (typeAlias): Internal chunk representation used by parameterized SQL fragments.
+- `sqlChunkMeta` (function): Reads a chunk's opaque annotations — see {@link SqlChunkMeta}.
+- `SqlChunkMeta` (typeAlias): Opaque per-chunk annotations — the additive extension seam reserved by the v0.8 transformable-AST decision. The renderer never reads it; composition (the sql tag, joinSql, builder assembly) carries annotated chunks...
+- `SqlDialect` (typeAlias): SQL dialect names supported by SQL rendering helpers.
+- `SqlExpression` (interface): A typed SQL expression (e.g. an aggregate like {@link count}) usable as a value in a select projection. The phantom type parameter drives the inferred result type for that projected key.
+- `SqlInput` (typeAlias): Any SQL input accepted by database execution methods.
+- `SqlParameter` (typeAlias): Parameter value shape accepted by rendered SQL queries.
+- `SqlQuery` (interface): Driver-ready SQL text and parameter array.
+- `SubquerySource` (interface): A select/compound builder usable as a subquery (derived table or scalar).
+- `sum` (function): sum(column) aggregate expression.
+- `TableColumn` (typeAlias): Materialized column belonging to a table definition.
+- `TableColumns` (typeAlias): Column builder map passed to {@link defineTable}.
+- `TableConstraint` (typeAlias): A table-level constraint or index produced by the {@link defineTable} extras callback — index/uniqueIndex, primaryKey, unique, or check.
+- `TableDefinition` (interface): Table schema definition returned by defineTable.
+- `TableName` (typeAlias): Normalized table name, optionally including a validated schema path.
+- `TemporalParsingOptions` (interface): Options for Temporal result parsing in a database facade.
+- `TemporalSqlValue` (typeAlias): Temporal values accepted as SQL parameters.
+- `TimeColumnMode` (typeAlias): Runtime modes for SQL time columns.
+- `TimestampColumnMode` (typeAlias): Runtime modes for SQL timestamp / timestamptz columns.
+- `toSql` (function): Converts a SQL fragment or condition into SQL.
+- `unique` (function): A named/composite UNIQUE constraint; complete it with .on(...columns).
+- `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
+- `uniqueIndex` (function): A unique table index (CREATE UNIQUE INDEX); complete with .on(...).
+- `validateSchemaSnapshot` (function): Returns validation issues for a schema snapshot without mutating it.
+- `WindowFrame` (interface): A window frame clause: ROWS/RANGE/GROUPS BETWEEN start AND end.
+- `WindowSpec` (interface): The window specification over() renders: partition keys, ordering terms (asc()/desc() or bare columns/expressions), and an optional frame.
+- `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
+
+### @sisal/core ./schema (packages/core/schema.ts)
+
+Public entrypoint for @sisal/orm.
+
+- `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
+- `defineSchemaObject` (function): Defines a raw DDL {@link SisalSchemaObjectSnapshot} — a stored function, trigger, extension, or any verbatim CREATE … — to attach to a snapshot via createSchemaSnapshot({ tables, schemaObjects }).
+- `defineSchemaSnapshot` (function): Normalizes and validates a schema snapshot.
+- `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `diffSchemaSnapshots` (function): Computes the structural difference from one snapshot to another.
+- `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
+- `isEmptySchemaSnapshotDiff` (function): Returns true when a snapshot diff contains no table or column changes.
+- `normalizeSchemaSnapshot` (function): Returns a deterministic clone of a schema snapshot.
+- `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
+- `schemaObjectDropStatements` (function): The down drop statements for a snapshot's dialect schema objects, in reverse declared order (so dependents drop before their dependencies).
+- `selectSchemaObjects` (function): The schema objects to emit for dialect when migrating from → to: those matching the dialect (or dialect-agnostic) and not byte-identical in from, in declared order. Used by adapter DDL generators to append stored DDL...
+- `serializeSchemaSnapshot` (function): Serializes a snapshot to canonical JSON.
+- `SisalCheckConstraintSnapshot` (interface): Serializable check-constraint descriptor.
+- `SisalColumnDefault` (typeAlias): Serializable column default value or expression.
+- `SisalColumnDiff` (interface): A column present in both tables whose definition changed.
+- `SisalColumnSnapshot` (interface): Serializable column definition inside a table snapshot.
+- `SisalColumnType` (interface): Dialect-neutral column type descriptor.
+- `SisalDialectName` (typeAlias): SQL dialect names understood by Sisal schema snapshots.
+- `SisalForeignKeySnapshot` (interface): Serializable foreign-key constraint descriptor.
+- `SisalIndexColumnSnapshot` (interface): A single key in an index: a column or a raw SQL expression, with an optional sort direction.
+- `SisalIndexSnapshot` (interface): Serializable index descriptor.
+- `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
+- `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
+- `SisalSchemaIssueCode` (typeAlias): Validation issue codes emitted by schema snapshot helpers.
+- `SisalSchemaObjectSnapshot` (interface): A raw, dialect-specific DDL fragment attached to a snapshot — a stored function, trigger, extension, view, or any verbatim CREATE …. Emitted after table creation, gated by {@link SisalSchemaObjectSnapshot.dialect},...
+- `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
+- `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
+- `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
+- `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
+- `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
+- `SisalUniqueConstraintSnapshot` (interface): Serializable unique-constraint descriptor.
+- `validateSchemaSnapshot` (function): Returns validation issues for a schema snapshot without mutating it.
+
+### @sisal/core ./unstable-internal (packages/core/internal.ts)
+
+Unstable plumbing consumed by @sisal/orm's query-builder tier — **not** part of the documented @sisal/core compile target and not covered by its stability commitment. Downstream packages must import from the package...
+
+- `assertCondition` (function): Public API.
+- `assertTable` (function): Public API.
+- `assertTableColumn` (function): Public API.
+- `attachResultMetadata` (function): Attaches ORM result-column metadata to a SQL fragment or rendered query.
+- `cloneSqlQuery` (function): Public API.
+- `columnToSql` (function): Public API.
+- `createCondition` (function): Public API.
+- `decodeTemporalRow` (function): Decodes a result row when ORM column metadata is available.
+- `fillPreparedPlan` (function): Resolves a prepared plan against placeholder values into a driver query.
+- `getResultMetadata` (function): Returns ORM result-column metadata attached to a SQL fragment/query.
+- `isColumnBuilder` (function): Public API.
+- `isRecord` (function): Public API.
+- `isTemporalSqlValue` (function): Returns true when a value is one of the Temporal types Sisal supports.
+- `paramSql` (function): Public API.
+- `PreparedPlan` (interface): A query rendered to driver text plus its ordered parameter slots.
+- `QUERY_BUILDER_BRAND` (variable): Brand stamped on Sisal's query builders so {@link isQueryBuilder} can detect a subquery source without importing the builder classes (which would couple this module to ./builders.ts). The builders set this property...
+- `renderToPlan` (function): Renders a SQL fragment to a plan whose param slots may include placeholders.
+- `ResultColumnMetadata` (typeAlias): Column metadata used to decode one result field.
+- `ResultRowMetadata` (typeAlias): Result-field metadata keyed by output alias.
+- `serializeTemporalValue` (function): Public API.
+
 ### @sisal/orm . (packages/orm/mod.ts)
 
 Small typed SQL and ORM primitives for Sisal database tooling.
@@ -159,8 +446,14 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `AnyTableDefinition` (typeAlias): Any Sisal table definition, regardless of its column map.
 - `arrayContained` (function): Postgres array <@ — true when column is contained by value.
 - `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL have no array containment operator (rendering throws there).
+- `arrayExpr` (function): Array construction — ARRAY[a, b, c] on PostgreSQL/generic, JSON_ARRAY(…) on the MySQL family and SQLite (which have no native array type, so the array round-trips as JSON text there — the documented value shape)....
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
+- `assembleInsertFromSelect` (function): Assembles INSERT INTO t (columns) SELECT … — the destination column list derives from the select projection keys, mapped to the destination table's physical names — with an optional dialect-mapped upsert ({@link...
+- `AssembleInsertFromSelectParts` (interface): Parts for {@link assembleInsertFromSelect}.
+- `assembleSelect` (function): Assembles a SELECT statement from clause parts using only core primitives. The v0.8 item-5 seam: deterministic, no builder state — the compile target for downstream packages.
+- `AssembleSelectParts` (interface): Clause parts for {@link assembleSelect}. Projection values are columns or expressions (each renders value as "key"); groupBy/orderBy accept columns, expressions, or asc()/desc() terms; limit binds as a parameter.
+- `AssembleUpsert` (interface): The dialect-mapped upsert clause for {@link assembleInsertFromSelect}: ON CONFLICT (target) DO UPDATE SET … on PostgreSQL/SQLite and ON DUPLICATE KEY UPDATE … on the MySQL family (where the target is validated but...
 - `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
 - `AtomicOperation` (interface): A portable atomic operation — a "transaction script". Author dependent read-modify-write steps once; {@link AtomicOperation.run} executes them as a single transaction on any adapter (@sisal/pg, @sisal/neon,...
 - `AtomicOperationBody` (typeAlias): The interactive form of an atomic operation — runs on every adapter.
@@ -168,7 +461,12 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `avg` (function): avg(column) aggregate expression.
 - `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
+- `CAPABILITY_TARGETS` (variable): The six capability targets the feature matrix and integration suites key on, expressed in the (engine, variant) identity space. Version-gated capabilities (unless with minVersion) additionally require a known version...
+- `capabilityGuard` (function): The render-time guard for a registry capability: a zero-width marker that makes rendering throw the typed ORM_DIALECT_UNSUPPORTED error on identities the capability declaration excludes. construct overrides the...
+- `capabilitySupported` (function): True when identity supports capability — the non-rendering form of the render-time guard, with identical fail-closed semantics: a bare engine identity matches engine-wide targets, a variant identity also matches its...
+- `CapabilityTargetId` (typeAlias): A key of {@link CAPABILITY_TARGETS}.
 - `check` (function): A named CHECK constraint from a sql expression.
+- `coalesce` (function): coalesce(a, b, …) — the first non-null operand. Portable across all four dialects; columns and expressions render as SQL, plain values bind as parameters. Retires the last raw seam in the composed ETL rollups (v0.8...
 - `ColumnArray` (typeAlias): Array element/column type produced by {@link ColumnBuilder.array}.
 - `ColumnBuilder` (interface): Immutable column builder used to define table schemas.
 - `ColumnDataType` (typeAlias): Column data types supported by the built-in column builder factory.
@@ -202,6 +500,8 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `dateAdd` (function): source + duration, rendered per dialect (src + interval '…' on PostgreSQL; chained datetime(src, '+…') modifiers on the SQLite family). source is a timestamp column or SQL expression — pass {@link now} for the...
 - `dateBin` (function): Floors source to the start of its every-wide time bucket — the portable arbitrary-interval bucket (e.g. 5-minute buckets) that dateTrunc's fixed calendar fields can't express. Renders to_timestamp(floor(extract(epoch...
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `dateDiff` (function): Whole units elapsed from from to to (truncated toward zero, matching MySQL's TIMESTAMPDIFF) — the portable date-diff/gap helper the sessionization and cohort contracts need (v0.8 item 10): PostgreSQL...
+- `DateDiffField` (typeAlias): Whole-unit fields accepted by {@link dateDiff}.
 - `DateDuration` (interface): A calendar/clock duration for {@link dateAdd} / {@link dateSub}. Every field is optional; at least one must be non-zero. years/months are calendar units (not a fixed number of seconds) and are rejected by {@link...
 - `dateSub` (function): source - duration, the mirror of {@link dateAdd} — the building block for moving-window predicates, e.g. gte(col, dateSub(now(), { minutes: 15 })).
 - `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
@@ -213,10 +513,14 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
 - `DeleteBuilder` (interface): Fluent builder for DELETE queries.
+- `denseRank` (function): dense_rank() — window-only ranking without gaps. Wrap in {@link over}.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
 - `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `DIALECT_CAPABILITIES` (variable): The core capability registry: every render-guarded construct's (engine, variant, version-range) truth in one place. The builder/operator guard call sites derive their render guards from these entries via {@link...
+- `DialectCapability` (interface): One named dialect capability: a construct label (used verbatim in the typed ORM_DIALECT_UNSUPPORTED error) plus the declarative unsupported-targets/exceptions data evaluated by both the renderer and {@link...
 - `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
-- `DialectGuardException` (interface): A refinement that lifts a {@link dialectGuard} for identities it matches: the identity's variant must equal variant (when set), and its version must be **known** and at least minVersion (when set) — an unknown...
+- `dialectGuardApplies` (function): Evaluates a guard's declarative targets/exceptions against a dialect identity — the same fail-closed semantics the renderer applies to guard chunks, exposed so capability declarations ({@link dialectGuard} data and...
+- `DialectGuardException` (interface): A refinement that lifts a {@link dialectGuard} for identities it matches: the identity's dialect must equal dialect (when set — scopes the exception to one of the guard's engines when a guard targets several), its...
 - `DialectGuardTarget` (typeAlias): One dialect a guarded construct is unsupported on. A bare {@link SqlDialect} matches any variant/version of that dialect; the object form narrows to one variant (an identity with **no** variant is the base engine and...
 - `DialectIdentity` (interface): Version-aware dialect identity — the (engine, variant, version) key the v0.6 readiness investigation decided on (see docs/mysql-readiness.md, decision 2). dialect remains the render key; variant names a...
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
@@ -226,8 +530,10 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
 - `excluded` (function): The upsert "proposed row" reference for onConflictDoUpdate set values, rendered per dialect: excluded."col" on PostgreSQL and the SQLite family, values( ` col ) on MySQL — the one spelling every MySQL 5.7→9.x and...
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
+- `expr` (function): Types a fragment as a {@link SqlExpression} of T — the name-once handle for computed/metric expressions (v0.8 item 7). Assign it once and reuse it across a projection, groupBy, having, orderBy, and other expressions;...
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
+- `FrameBound` (typeAlias): One edge of a {@link WindowFrame}: the frame keywords, or an offset of n rows/values before or after the current row (a validated non-negative integer — engines do not accept bound parameters in frame clauses, so the...
 - `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
 - `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
 - `FunctionCall` (interface): The result of {@link Database.call}: a renderable, runnable function call.
@@ -238,6 +544,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `getDefaultColumnNaming` (function): Returns the global default column-naming strategy applied by {@link defineTable} when a table does not pass its own naming option. Defaults to "snake_case".
 - `getTableColumns` (function): Returns table columns.
 - `getTableName` (function): Returns the normalized table name.
+- `greatest` (function): greatest(a, b, …) — the largest operand (SQLite renders the scalar max(a, b, …)). NULL handling diverges per engine: PostgreSQL ignores NULLs, MySQL/MariaDB and SQLite return NULL if any operand is NULL — wrap...
 - `gt` (function): column > value SQL condition.
 - `gte` (function): column >= value SQL condition.
 - `identifier` (function): Creates a validated SQL identifier fragment.
@@ -260,11 +567,16 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `isSqlQuery` (function): Returns true when a value is driver-ready SQL text and parameters.
 - `isTable` (function): Returns true when a value has the public table definition shape.
 - `joinSql` (function): Joins SQL fragments with a separator.
+- `jsonExtract` (function): Scalar JSON extraction at a JSONPath — col ->> '$.a.b' semantics as a portable text-typed expression: PostgreSQL jsonb_extract_path_text(col, 'a', 'b'), the MySQL family json_unquote(json_extract(col, '$.a.b')),...
+- `jsonTable` (function): A set-returning JSON-table over an array field — the portable *abstraction* compiling to each engine's native function (contract 10): PostgreSQL jsonb_to_recordset with a typed column list, the MySQL family...
 - `KeysetCursor` (typeAlias): The cursor shape for a keyset over TResult, keyed by the ordered columns.
 - `KeysetKeys` (typeAlias): The union of JS property keys carried by a tuple of {@link OrderTerm}s.
 - `KeysetOptions` (interface): Options for {@link SelectBuilder.keyset}.
 - `KeysetPage` (interface): A page returned by a keyset query: the rows plus the cursor for the next page.
 - `KeysetSelectBuilder` (interface): A keyset-paginated select; set the page size with .limit(n) then run it.
+- `lag` (function): lag(column, offset = 1, default?) — the value offset rows before the current row in the window order (NULL — or default — outside the partition). Window-only: wrap in {@link over}.
+- `lead` (function): lead(column, offset = 1, default?) — the value offset rows after the current row in the window order. Window-only: wrap in {@link over}.
+- `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
 - `Logger` (interface): Minimal logger contract accepted by Sisal packages.
 - `LoggerMethod` (interface): Minimal logger contracts accepted by Sisal packages.
@@ -297,13 +609,16 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `OrmErrorOptions` (interface): Options accepted when constructing an {@link OrmError}.
 - `OrmQueryResult` (interface): Result returned by ORM drivers and database execution methods.
 - `OrmTransaction` (interface): Driver transaction facade exposed to transaction callbacks.
+- `over` (function): Attaches an OVER (…) window to an expression — over(avg(score), { partitionBy: [c.community], orderBy: [asc(c.bucket)], frame: { unit: "rows", start: { preceding: 5 }, end: "currentRow" } }). The expression keeps its...
 - `placeholder` (function): Creates a named placeholder fragment for a prepared statement.
 - `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
 - `PreparedQuery` (interface): A query rendered once that is executed many times with different {@link placeholder} values bound in.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
+- `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
 - `RawQueryExecutor` (interface): A raw SQL query executor.
+- `RecursiveCteBuilder` (interface): Intermediate returned by {@link Database.$withRecursive}; complete it with .as((self) => …). The declared column list types self, the CTE's own reference inside its body.
 - `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
 - `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
@@ -320,6 +635,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `relations` (function): Defines named relations for a table, Drizzle-style.
 - `RelationsList` (typeAlias): Relational metadata list accepted by {@link createDatabase}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
 - `schemaObjectDropStatements` (function): The down drop statements for a snapshot's dialect schema objects, in reverse declared order (so dependents drop before their dependencies).
 - `SelectBuilder` (interface): Fluent builder for SELECT queries.
@@ -331,6 +647,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `serializeSqlValue` (function): Converts a JS value into a SQL parameter.
 - `setDefaultColumnNaming` (function): Sets the global default column-naming strategy for **future** {@link defineTable} calls. Tables already defined keep the name they were built with, so call this before defining your tables (e.g. at the top of your...
 - `SetOperand` (typeAlias): A query usable as the right-hand operand of a set operation (union, intersect, except). Both {@link SelectBuilder} and {@link CompoundSelectBuilder} satisfy this shape.
+- `SisalCapabilityId` (typeAlias): A key of the core capability registry.
 - `SisalCheckConstraintSnapshot` (interface): Serializable check-constraint descriptor.
 - `SisalColumnDefault` (typeAlias): Serializable column default value or expression.
 - `SisalColumnDiff` (interface): A column present in both tables whose definition changed.
@@ -355,7 +672,10 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SisalUniqueConstraintSnapshot` (interface): Serializable unique-constraint descriptor.
 - `sql` (function): SQL tagged template that keeps interpolated values as parameters.
 - `Sql` (interface): SQL fragment made from safe chunks and separate parameters.
+- `SQL_IR_VERSION` (variable): Version of the public SQL fragment IR contract — the Sql/SqlChunk shapes, their render semantics, and the guard/dialect chunk data formats (see docs/core-ir.md for the full contract and compatibility policy)....
 - `SqlChunk` (typeAlias): Internal chunk representation used by parameterized SQL fragments.
+- `sqlChunkMeta` (function): Reads a chunk's opaque annotations — see {@link SqlChunkMeta}.
+- `SqlChunkMeta` (typeAlias): Opaque per-chunk annotations — the additive extension seam reserved by the v0.8 transformable-AST decision. The renderer never reads it; composition (the sql tag, joinSql, builder assembly) carries annotated chunks...
 - `SqlDialect` (typeAlias): SQL dialect names supported by SQL rendering helpers.
 - `SqlExpression` (interface): A typed SQL expression (e.g. an aggregate like {@link count}) usable as a value in a select projection. The phantom type parameter drives the inferred result type for that projected key.
 - `SqlInput` (typeAlias): Any SQL input accepted by database execution methods.
@@ -381,7 +701,10 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `UpdateBuilder` (interface): Fluent builder for UPDATE queries.
 - `UpdateValues` (typeAlias): Update/upsert assignments: each column set to its literal type or a Sql expression, all columns optional (UPDATE ... SET).
 - `validateSchemaSnapshot` (function): Returns validation issues for a schema snapshot without mutating it.
+- `WindowFrame` (interface): A window frame clause: ROWS/RANGE/GROUPS BETWEEN start AND end.
+- `WindowSpec` (interface): The window specification over() renders: partition keys, ordering terms (asc()/desc() or bare columns/expressions), and an optional frame.
 - `WithQueryBuilder` (interface): Query root seeded with CTEs, returned by {@link Database.with}.
+- `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 
 ### @sisal/orm ./core (packages/orm/core/mod.ts)
 
@@ -391,15 +714,26 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `AnyTableDefinition` (typeAlias): Any Sisal table definition, regardless of its column map.
 - `arrayContained` (function): Postgres array <@ — true when column is contained by value.
 - `arrayContains` (function): Postgres array @> — true when column contains every element of value. SQLite/libSQL have no array containment operator (rendering throws there).
+- `arrayExpr` (function): Array construction — ARRAY[a, b, c] on PostgreSQL/generic, JSON_ARRAY(…) on the MySQL family and SQLite (which have no native array type, so the array round-trips as JSON text there — the documented value shape)....
 - `arrayOverlaps` (function): Postgres array && — true when column and value share any element.
 - `asc` (function): Ascending order term for orderBy, e.g. orderBy(asc(users.columns.name)).
+- `assembleInsertFromSelect` (function): Assembles INSERT INTO t (columns) SELECT … — the destination column list derives from the select projection keys, mapped to the destination table's physical names — with an optional dialect-mapped upsert ({@link...
+- `AssembleInsertFromSelectParts` (interface): Parts for {@link assembleInsertFromSelect}.
+- `assembleSelect` (function): Assembles a SELECT statement from clause parts using only core primitives. The v0.8 item-5 seam: deterministic, no builder state — the compile target for downstream packages.
+- `AssembleSelectParts` (interface): Clause parts for {@link assembleSelect}. Projection values are columns or expressions (each renders value as "key"); groupBy/orderBy accept columns, expressions, or asc()/desc() terms; limit binds as a parameter.
+- `AssembleUpsert` (interface): The dialect-mapped upsert clause for {@link assembleInsertFromSelect}: ON CONFLICT (target) DO UPDATE SET … on PostgreSQL/SQLite and ON DUPLICATE KEY UPDATE … on the MySQL family (where the target is validated but...
 - `AtomicOperation` (interface): A portable atomic operation — a "transaction script". Author dependent read-modify-write steps once; {@link AtomicOperation.run} executes them as a single transaction on any adapter (@sisal/pg, @sisal/neon,...
 - `AtomicOperationBody` (typeAlias): The interactive form of an atomic operation — runs on every adapter.
 - `AtomicOperationConfig` (interface): An atomic operation with two render strategies behind one definition. body is the portable interactive transaction (required, runs everywhere). singleStatement is an optional **single-round-trip** path for the...
 - `avg` (function): avg(column) aggregate expression.
 - `BatchStatement` (typeAlias): Statement accepted by Database.batch: a query builder, Sql fragment, or already-rendered SqlQuery.
 - `between` (function): column BETWEEN min AND max SQL condition (inclusive).
+- `CAPABILITY_TARGETS` (variable): The six capability targets the feature matrix and integration suites key on, expressed in the (engine, variant) identity space. Version-gated capabilities (unless with minVersion) additionally require a known version...
+- `capabilityGuard` (function): The render-time guard for a registry capability: a zero-width marker that makes rendering throw the typed ORM_DIALECT_UNSUPPORTED error on identities the capability declaration excludes. construct overrides the...
+- `capabilitySupported` (function): True when identity supports capability — the non-rendering form of the render-time guard, with identical fail-closed semantics: a bare engine identity matches engine-wide targets, a variant identity also matches its...
+- `CapabilityTargetId` (typeAlias): A key of {@link CAPABILITY_TARGETS}.
 - `check` (function): A named CHECK constraint from a sql expression.
+- `coalesce` (function): coalesce(a, b, …) — the first non-null operand. Portable across all four dialects; columns and expressions render as SQL, plain values bind as parameters. Retires the last raw seam in the composed ETL rollups (v0.8...
 - `ColumnArray` (typeAlias): Array element/column type produced by {@link ColumnBuilder.array}.
 - `ColumnBuilder` (interface): Immutable column builder used to define table schemas.
 - `ColumnDataType` (typeAlias): Column data types supported by the built-in column builder factory.
@@ -433,6 +767,8 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `dateAdd` (function): source + duration, rendered per dialect (src + interval '…' on PostgreSQL; chained datetime(src, '+…') modifiers on the SQLite family). source is a timestamp column or SQL expression — pass {@link now} for the...
 - `dateBin` (function): Floors source to the start of its every-wide time bucket — the portable arbitrary-interval bucket (e.g. 5-minute buckets) that dateTrunc's fixed calendar fields can't express. Renders to_timestamp(floor(extract(epoch...
 - `DateColumnMode` (typeAlias): Runtime modes for SQL date columns.
+- `dateDiff` (function): Whole units elapsed from from to to (truncated toward zero, matching MySQL's TIMESTAMPDIFF) — the portable date-diff/gap helper the sessionization and cohort contracts need (v0.8 item 10): PostgreSQL...
+- `DateDiffField` (typeAlias): Whole-unit fields accepted by {@link dateDiff}.
 - `DateDuration` (interface): A calendar/clock duration for {@link dateAdd} / {@link dateSub}. Every field is optional; at least one must be non-zero. years/months are calendar units (not a fixed number of seconds) and are rejected by {@link...
 - `dateSub` (function): source - duration, the mirror of {@link dateAdd} — the building block for moving-window predicates, e.g. gte(col, dateSub(now(), { minutes: 15 })).
 - `dateTrunc` (function): Portable timestamp truncation to a calendar field: renders date_trunc('', src) on PostgreSQL and the equivalent strftime('', src) on the SQLite family, so a time-bucket GROUP BY reads the same on every adapter....
@@ -442,9 +778,13 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `defineTable` (function): Defines a typed table schema.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
 - `DeleteBuilder` (interface): Fluent builder for DELETE queries.
+- `denseRank` (function): dense_rank() — window-only ranking without gaps. Wrap in {@link over}.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
+- `DIALECT_CAPABILITIES` (variable): The core capability registry: every render-guarded construct's (engine, variant, version-range) truth in one place. The builder/operator guard call sites derive their render guards from these entries via {@link...
+- `DialectCapability` (interface): One named dialect capability: a construct label (used verbatim in the typed ORM_DIALECT_UNSUPPORTED error) plus the declarative unsupported-targets/exceptions data evaluated by both the renderer and {@link...
 - `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
-- `DialectGuardException` (interface): A refinement that lifts a {@link dialectGuard} for identities it matches: the identity's variant must equal variant (when set), and its version must be **known** and at least minVersion (when set) — an unknown...
+- `dialectGuardApplies` (function): Evaluates a guard's declarative targets/exceptions against a dialect identity — the same fail-closed semantics the renderer applies to guard chunks, exposed so capability declarations ({@link dialectGuard} data and...
+- `DialectGuardException` (interface): A refinement that lifts a {@link dialectGuard} for identities it matches: the identity's dialect must equal dialect (when set — scopes the exception to one of the guard's engines when a guard targets several), its...
 - `DialectGuardTarget` (typeAlias): One dialect a guarded construct is unsupported on. A bare {@link SqlDialect} matches any variant/version of that dialect; the object form narrows to one variant (an identity with **no** variant is the base engine and...
 - `DialectIdentity` (interface): Version-aware dialect identity — the (engine, variant, version) key the v0.6 readiness investigation decided on (see docs/mysql-readiness.md, decision 2). dialect remains the render key; variant names a...
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
@@ -452,8 +792,10 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `eq` (function): column = value SQL condition.
 - `excluded` (function): The upsert "proposed row" reference for onConflictDoUpdate set values, rendered per dialect: excluded."col" on PostgreSQL and the SQLite family, values( ` col ) on MySQL — the one spelling every MySQL 5.7→9.x and...
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
+- `expr` (function): Types a fragment as a {@link SqlExpression} of T — the name-once handle for computed/metric expressions (v0.8 item 7). Assign it once and reuse it across a projection, groupBy, having, orderBy, and other expressions;...
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
+- `FrameBound` (typeAlias): One edge of a {@link WindowFrame}: the frame keywords, or an offset of n rows/values before or after the current row (a validated non-negative integer — engines do not accept bound parameters in frame clauses, so the...
 - `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
 - `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
 - `FunctionCall` (interface): The result of {@link Database.call}: a renderable, runnable function call.
@@ -464,6 +806,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `getDefaultColumnNaming` (function): Returns the global default column-naming strategy applied by {@link defineTable} when a table does not pass its own naming option. Defaults to "snake_case".
 - `getTableColumns` (function): Returns table columns.
 - `getTableName` (function): Returns the normalized table name.
+- `greatest` (function): greatest(a, b, …) — the largest operand (SQLite renders the scalar max(a, b, …)). NULL handling diverges per engine: PostgreSQL ignores NULLs, MySQL/MariaDB and SQLite return NULL if any operand is NULL — wrap...
 - `gt` (function): column > value SQL condition.
 - `gte` (function): column >= value SQL condition.
 - `identifier` (function): Creates a validated SQL identifier fragment.
@@ -485,11 +828,16 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `isSqlQuery` (function): Returns true when a value is driver-ready SQL text and parameters.
 - `isTable` (function): Returns true when a value has the public table definition shape.
 - `joinSql` (function): Joins SQL fragments with a separator.
+- `jsonExtract` (function): Scalar JSON extraction at a JSONPath — col ->> '$.a.b' semantics as a portable text-typed expression: PostgreSQL jsonb_extract_path_text(col, 'a', 'b'), the MySQL family json_unquote(json_extract(col, '$.a.b')),...
+- `jsonTable` (function): A set-returning JSON-table over an array field — the portable *abstraction* compiling to each engine's native function (contract 10): PostgreSQL jsonb_to_recordset with a typed column list, the MySQL family...
 - `KeysetCursor` (typeAlias): The cursor shape for a keyset over TResult, keyed by the ordered columns.
 - `KeysetKeys` (typeAlias): The union of JS property keys carried by a tuple of {@link OrderTerm}s.
 - `KeysetOptions` (interface): Options for {@link SelectBuilder.keyset}.
 - `KeysetPage` (interface): A page returned by a keyset query: the rows plus the cursor for the next page.
 - `KeysetSelectBuilder` (interface): A keyset-paginated select; set the page size with .limit(n) then run it.
+- `lag` (function): lag(column, offset = 1, default?) — the value offset rows before the current row in the window order (NULL — or default — outside the partition). Window-only: wrap in {@link over}.
+- `lead` (function): lead(column, offset = 1, default?) — the value offset rows after the current row in the window order. Window-only: wrap in {@link over}.
+- `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
@@ -519,13 +867,16 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `OrmErrorOptions` (interface): Options accepted when constructing an {@link OrmError}.
 - `OrmQueryResult` (interface): Result returned by ORM drivers and database execution methods.
 - `OrmTransaction` (interface): Driver transaction facade exposed to transaction callbacks.
+- `over` (function): Attaches an OVER (…) window to an expression — over(avg(score), { partitionBy: [c.community], orderBy: [asc(c.bucket)], frame: { unit: "rows", start: { preceding: 5 }, end: "currentRow" } }). The expression keeps its...
 - `placeholder` (function): Creates a named placeholder fragment for a prepared statement.
 - `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
 - `PreparedQuery` (interface): A query rendered once that is executed many times with different {@link placeholder} values bound in.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
+- `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
 - `RawQueryExecutor` (interface): A raw SQL query executor.
+- `RecursiveCteBuilder` (interface): Intermediate returned by {@link Database.$withRecursive}; complete it with .as((self) => …). The declared column list types self, the CTE's own reference inside its body.
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
 - `ReferentialOptions` (interface): Options accepted by {@link ColumnBuilder.references}.
 - `RelationalColumnSelection` (typeAlias): Column selection accepted by relational queries.
@@ -540,6 +891,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `relations` (function): Defines named relations for a table, Drizzle-style.
 - `RelationsList` (typeAlias): Relational metadata list accepted by {@link createDatabase}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SelectBuilder` (interface): Fluent builder for SELECT queries.
 - `SelectColumnRef` (interface): A column reference usable in a select projection.
 - `SelectProjection` (typeAlias): Map of result key to selected column or expression, for db.select({ ... }).
@@ -547,9 +899,13 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `serializeSqlValue` (function): Converts a JS value into a SQL parameter.
 - `setDefaultColumnNaming` (function): Sets the global default column-naming strategy for **future** {@link defineTable} calls. Tables already defined keep the name they were built with, so call this before defining your tables (e.g. at the top of your...
 - `SetOperand` (typeAlias): A query usable as the right-hand operand of a set operation (union, intersect, except). Both {@link SelectBuilder} and {@link CompoundSelectBuilder} satisfy this shape.
+- `SisalCapabilityId` (typeAlias): A key of the core capability registry.
 - `sql` (function): SQL tagged template that keeps interpolated values as parameters.
 - `Sql` (interface): SQL fragment made from safe chunks and separate parameters.
+- `SQL_IR_VERSION` (variable): Version of the public SQL fragment IR contract — the Sql/SqlChunk shapes, their render semantics, and the guard/dialect chunk data formats (see docs/core-ir.md for the full contract and compatibility policy)....
 - `SqlChunk` (typeAlias): Internal chunk representation used by parameterized SQL fragments.
+- `sqlChunkMeta` (function): Reads a chunk's opaque annotations — see {@link SqlChunkMeta}.
+- `SqlChunkMeta` (typeAlias): Opaque per-chunk annotations — the additive extension seam reserved by the v0.8 transformable-AST decision. The renderer never reads it; composition (the sql tag, joinSql, builder assembly) carries annotated chunks...
 - `SqlDialect` (typeAlias): SQL dialect names supported by SQL rendering helpers.
 - `SqlExpression` (interface): A typed SQL expression (e.g. an aggregate like {@link count}) usable as a value in a select projection. The phantom type parameter drives the inferred result type for that projected key.
 - `SqlInput` (typeAlias): Any SQL input accepted by database execution methods.
@@ -574,11 +930,14 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `uniqueIndex` (function): A unique table index (CREATE UNIQUE INDEX); complete with .on(...).
 - `UpdateBuilder` (interface): Fluent builder for UPDATE queries.
 - `UpdateValues` (typeAlias): Update/upsert assignments: each column set to its literal type or a Sql expression, all columns optional (UPDATE ... SET).
+- `WindowFrame` (interface): A window frame clause: ROWS/RANGE/GROUPS BETWEEN start AND end.
+- `WindowSpec` (interface): The window specification over() renders: partition keys, ordering terms (asc()/desc() or bare columns/expressions), and an optional frame.
 - `WithQueryBuilder` (interface): Query root seeded with CTEs, returned by {@link Database.with}.
+- `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 
 ### @sisal/orm ./error (packages/orm/error.ts)
 
-Structured error primitives shared by Sisal packages.
+Structured error primitives shared by Sisal packages — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
 - `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
 - `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
@@ -588,14 +947,14 @@ Structured error primitives shared by Sisal packages.
 
 ### @sisal/orm ./logger (packages/orm/logger.ts)
 
-Minimal logger contracts accepted by Sisal packages.
+Minimal logging contract accepted by Sisal facades — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
 - `Logger` (interface): Minimal logger contract accepted by Sisal packages.
 - `LoggerMethod` (interface): Minimal logger contracts accepted by Sisal packages.
 
 ### @sisal/orm ./schema (packages/orm/schema.ts)
 
-Public entrypoint for @sisal/orm.
+The serializable schema-snapshot contract — compatibility re-export: the module lives at @sisal/core/schema since the v0.8 extraction. New code should import from @sisal/core (or @sisal/core/schema) directly.
 
 - `assertValidSchemaSnapshot` (function): Throws when a schema snapshot is invalid.
 - `defineSchemaObject` (function): Defines a raw DDL {@link SisalSchemaObjectSnapshot} — a stored function, trigger, extension, or any verbatim CREATE … — to attach to a snapshot via createSchemaSnapshot({ tables, schemaObjects }).
@@ -1483,9 +1842,9 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.7.0 \
-  jsr:@sisal/migrate@0.7.0 \
-  jsr:@sisal/pg@0.7.0
+deno add jsr:@sisal/orm@0.8.0 \
+  jsr:@sisal/migrate@0.8.0 \
+  jsr:@sisal/pg@0.8.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -1493,11 +1852,11 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target        | Install                                                                          |
 | ------------- | -------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/pg@0.7.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/neon@0.7.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/sqlite@0.7.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/libsql@0.7.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/mysql@0.7.0`  |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/pg@0.8.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/neon@0.8.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/sqlite@0.8.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/libsql@0.8.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/mysql@0.8.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -1631,7 +1990,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.7.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.8.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -1805,7 +2164,204 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.8.0 - 2026-07-02
+
 ### Added
+
+- **v0.8 final items closed — 14/15/19 + capability-matrix wiring (item 1)**,
+  each verified live on PostgreSQL 16, MySQL 8.4, MariaDB 11.8, and embedded
+  SQLite:
+  - **Generated columns (item 15)** — the generated-column builder declares
+    `GENERATED ALWAYS AS (…)` columns as either stored or virtual. The metadata
+    flows through the schema snapshot (change-detected in the diff) and the
+    PostgreSQL/SQLite/MySQL DDL generators. Virtual generated columns fail
+    closed with a typed error on PostgreSQL (STORED-only), and a generated
+    column cannot also carry a default. Expression and partial indexes were
+    already snapshot/DDL-native.
+  - **Array / JSON / set-returning IR (item 14)** — `arrayExpr` (`ARRAY[…]` /
+    `json_array`), `jsonExtract` (portable scalar JSONPath extraction), and
+    `jsonTable` — a set-returning FROM source compiling to PostgreSQL
+    `jsonb_to_recordset`, MySQL `JSON_TABLE`, and SQLite `json_each` + per-field
+    `json_extract`, with typed column refs. The select builder gains a raw-`Sql`
+    `.from(...)` overload (a set-returning/table-valued FROM fragment), which
+    also composes with `assembleSelect`.
+  - **ODKU assignment-order safety (item 19)** — `onConflictDoUpdate` set
+    assignments render in author order verbatim, and the MySQL render throws a
+    typed guard when an assignment reads a _different_ sibling column set
+    earlier in the same list (the left-to-right footgun that silently diverges
+    from PostgreSQL). Self-references, derived-first, and `excluded()` pass; the
+    policy is documented in `docs/portability-policies.md`.
+  - **Capability descriptor / matrix (item 1)** — the feature-matrix generator
+    now consumes the core registry's `CAPABILITY_TARGETS`, and
+    `deno task docs:matrix:check` fails if the matrix `ADAPTERS` and the
+    registry's six-way target space diverge (the GI-1 key-space reconciliation).
+    Per-cell capability-value wiring remains a v0.9 item.
+
+  All 19 v0.8 roadmap items are now complete.
+
+### Changed
+
+- **Advanced-SQL contract review + roadmap logging** — reviewed the
+  `examples/{postgres,mysql}-family-advanced-sql` families against
+  `examples/advanced-sql-contracts/` after v0.8 waves 0–4. Rebuilding each
+  `"raw"` case with the shipped primitives confirmed contracts **01–07** and the
+  expression/partial-index half of **11** are now builder-native; the finding is
+  recorded in the [v0.8 roadmap](docs/v0.8.0-roadmap.md) graduation section.
+  Three still-open concerns were logged into [v0.9](docs/v0.9.0-roadmap.md):
+  version-gating MySQL functional indexes (≥ 8.0.13, currently fail-closed
+  always), refreshing the advanced-SQL example families to builder-native, and
+  the recursive-CTE `CYCLE` cycle-detection question. (JSON-table, generated
+  columns, and the ODKU assignment-order hazard remain tracked as v0.8 items
+  14/15/19.)
+
+- Bumped every workspace manifest (`packages/`, `examples/`, and `benchmarks`)
+  to `0.8.0`, and updated the migration CLI's default adapter imports plus
+  README install snippets to point at the v0.8 package line.
+
+### Added
+
+- **Wave-4 proof and stamp (v0.8 items 3/5/8/13/17)** — the release's acceptance
+  proofs and the frozen-surface documentation:
+  - **Statement assembly** (`@sisal/core`'s new `assembleSelect` /
+    `assembleInsertFromSelect`, with the dialect-mapped upsert) implements the
+    item-5 seam decision. The **core-only rollup fixture**
+    (`packages/core/rollup_fixture_test.ts`) compiles the canonical v0.6
+    `post_hourly_stats` rollup — grouped insert-from-select + `FILTER`
+    aggregates + `dateTrunc` + upsert — using only `@sisal/core` exports, and
+    `packages/orm/assembly_equivalence_test.ts` proves assembly and the fluent
+    builder render **byte-identical text and parameters on every dialect**, so
+    the two surfaces cannot drift.
+  - **`SQL_IR_VERSION = 1`** is exported and `docs/core-ir.md` documents the
+    compile-target contract: the three export surfaces and their commitments,
+    the `SqlChunk` kind table with render semantics, the compatibility policy
+    (additive changes are minor; the `meta` slot is the reserved AST seam; the
+    golden suites are the behavioral pin), and what is deliberately not
+    promised.
+  - **`docs/portability-policies.md`** states the cross-family policies once:
+    the MySQL-family UTC literal policy ("executor UTC convention"), the
+    `dateTrunc`/`dateBin`/`dateDiff` value-shape table with the
+    compare-within-one-engine rule, and the no-transactional-DDL cleanup
+    pattern.
+  - Item 8 closes with golden-pinned scalar subqueries in projections; the
+    golden suite grows to **59 snapshots** (all prior keys byte-identical), and
+    `benchmarks/scenarios/advanced_sql.ts` adds render-throughput baselines for
+    the wave-3/4 constructs.
+
+- **Wave-3 expression surface in `@sisal/core` (v0.8 items 7/9/10/11/12)** —
+  every semantic verified live on PostgreSQL 16, MySQL 8.4, MariaDB 11.8, and
+  embedded SQLite with identical values before pinning:
+  - **`expr<T>()`** types a fragment as a `SqlExpression<T>` — the name-once
+    handle for computed/metric expressions, replacing `as SqlExpression<T>`
+    casts; reuse across projection/`groupBy`/`having`/`orderBy` is pinned.
+  - **`coalesce`**, **`greatest`/`least`** (SQLite renders scalar `max`/`min`;
+    per-engine NULL divergence documented) retire the last raw seams in the
+    composed rollups.
+  - **Window primitives** (`core/window.ts`): `over()` with
+    `WindowSpec`/`WindowFrame`/`FrameBound` per the analytics-readiness
+    signature, plus `rank`/`denseRank`/`rowNumber`/`lag`/`lead`, and
+    **`dateDiff`** (truncated whole units; `TIMESTAMPDIFF` / epoch-`trunc` /
+    `julianday` per family). Two new registry capabilities: `GROUPS` frames
+    (MySQL family unsupported; SQLite version-gated ≥ 3.28 through the new
+    **dialect-scoped guard exception** — `DialectGuardException.dialect` extends
+    the item-1 key space) and the `lag()`/`lead()` **default argument**, which
+    the live probe caught MariaDB 11.8 rejecting (MySQL 8.4 accepts it) —
+    guarded typed; portable spelling `coalesce(over(lag(x), …), d)`.
+  - **Recursive CTEs**:
+    `db.$withRecursive(name, columns).as((self) =>
+    base.unionAll(step))`
+    renders `WITH RECURSIVE name (cols) AS (…)` with the self-reference usable
+    as a source, one `RECURSIVE` keyword covering mixed plain/recursive lists,
+    and the portable depth-guard pattern.
+  - The golden baseline suite grew to **57 snapshots** (six new constructs × 5
+    render targets), with all 51 pre-existing keys byte-identical — closing
+    item 12.
+
+- **`@sisal/core` extracted (v0.8 wave 2, item 2)** — the new `packages/core`
+  package is Sisal's driverless compile target: schema primitives and snapshots
+  (`./schema`), the fragment SQL IR and `sql` tag, expression operators and
+  aggregates, the dialect capability registry, the dialect-aware renderer,
+  structured errors, and the `Logger` contract — everything
+  `@sisal/etl`/`@sisal/analytics` will compile into without depending on the
+  ORM. The fluent query builders, `Database` facade, relations, and typed
+  function caller stay in `@sisal/orm`, which re-exports the full core surface;
+  `@sisal/orm/core`, `/schema`, `/error`, and `/logger` remain as compatibility
+  re-exports, so **no user-visible imports change** (proven by the
+  byte-identical golden baselines and the full unit suite). The ORM's builder
+  tier reaches non-public core plumbing only through the documented-unstable
+  `@sisal/core/unstable-internal` seam. `@sisal/migrate` now depends on
+  `@sisal/core` only (the wave-1 decision, item 6), with the import mapping
+  recorded in `docs/core-migration.md`. JSR publish dry-run passes for all eight
+  workspace packages (`@sisal/core@0.8.0`).
+
+- **Core capability registry — the `(engine, variant, version-range)` key space
+  (v0.8 wave 1, item 1)** — new core module `capabilities.ts` (in
+  `packages/core/` since the wave-2 extraction): `DIALECT_CAPABILITIES` declares
+  every render-guarded construct's dialect truth (per-statement `RETURNING` with
+  MariaDB floors, `distinctOn`, `FULL JOIN`, row locking, array operators,
+  data-modifying and mutation-prefixed CTEs, `DELETE … USING`, multi-table
+  `RETURNING`) as the same serializable data the render-time `guard` chunk
+  carries. Every guard call site now derives its guard from the registry
+  (`capabilityGuard`), and the new `capabilitySupported`/`dialectGuardApplies`
+  predicates answer support questions without rendering, with identical
+  fail-closed semantics — the registry and renderer cannot disagree (pinned by
+  `capability_test.ts`; the wave-0 golden baselines are byte-identical).
+  `CAPABILITY_TARGETS` names the six capability targets
+  (`pg`/`neon`/`sqlite`/`libsql`/`mysql`/`mariadb`) as `(engine, variant)`
+  identities. Feature-matrix generation wiring is v0.9 work.
+
+- **Additive IR extension seam (v0.8 wave 1, item 4)** — `SqlChunk` gains an
+  opaque, renderer-ignored `meta` slot (`SqlChunkMeta`, `withSqlChunkMeta`,
+  `sqlChunkMeta`): annotations attach to fragments, ride through `sql`-tag and
+  builder composition by reference, and never change rendered output — proven by
+  the round-trip fixture `sql_meta_seam_test.ts`. This is the reserved seam that
+  lets a future transformable AST (v0.13 DuckDB pushdown) arrive as a
+  non-breaking version bump, closing the sequencing audit's Fix 3.
+
+- **v0.8 wave-1 decisions recorded** (roadmap open questions): the statement
+  assembler will be a **minimal assemble-from-parts API in `@sisal/core`** (the
+  fluent OLTP builder stays in `@sisal/orm`); `@sisal/migrate` will depend on
+  **core only**; the ETL checkpoint table stays **`@sisal/etl`-managed** (no
+  `etl → migrate` edge — audit Fix 2 ratified); the write-result ("inserted vs
+  conflicted/claimed") abstraction direction is recorded with implementation
+  deferred to ride with v0.9's queue-claim work.
+
+- **Golden per-dialect SQL baselines (v0.8 wave 0, item 12 first half)** — new
+  network-free snapshot suite `packages/orm/golden_sql_test.ts` pins the
+  rendered SQL of every existing IR construct (49 constructs: selects,
+  operators, joins, aggregates + `filter()`, keyset both forms, compounds, CTEs
+  incl. data-modifying bodies and `WITH`-on-mutation, date helpers, the `sql`
+  tag, `db.call`, inserts/upserts/updates/deletes with returning/multi-table
+  forms) across 5 render targets (postgres/sqlite/mysql/generic + the detected
+  MariaDB 11.8.8 identity), recording exact text, ordered params, and typed
+  guard errors, plus per-dialect prepared-plan placeholder styles. These
+  snapshots are the behavior-preservation net for the upcoming v0.8
+  `dialectGuard` generalization and `@sisal/core` extraction. Adds
+  `@std/testing` (snapshot) as a dev import.
+
+- **v0.8 roadmap priority summary** — `docs/v0.8.0-roadmap.md` gains the tracked
+  task list (19 numbered items with priority/effort/status, the v0.5 table
+  style): the IR-freeze spine (capability-descriptor key space, `@sisal/core`
+  extraction, versioned IR surface, the AST additive seam, the
+  statement-assembly decision), the expression-surface work surfaced by the
+  example graduations (aliases, computed columns, `coalesce`/`greatest`,
+  windows + date-diff helpers, recursive CTEs, the ODKU assignment-order
+  hazard), the golden-SQL/core-only-fixture proofs, and the audit-mandated
+  decisions (checkpoint-table ownership). Consolidated from the v0.5/v0.6/v0.7
+  handoffs, both v0.8 findings sections, and the roadmap sequencing audit's v0.8
+  gates (Fixes 1–4). An **execution-order section** gives the
+  dependency-compatible five-wave build sequence (golden baselines first as the
+  refactor net, freeze-shaping decisions, the extraction, the expression
+  surface, then the fixture/stamp), since the item numbers are tracking IDs, not
+  a build order. A follow-up consistency pass across
+  v0.8/v0.9/v0.11/analytics-readiness standardized the capability-descriptor key
+  naming on `(engine, variant, version-range)` (the v0.7 `DialectIdentity` axis
+  generalized), acceptance-gated the statement-assembly and `@sisal/migrate`
+  dependency decisions, settled the window-primitive boundary (grammar-level
+  `over()`/frames/`rank`/`lag`/`lead` are core; the semantic layer is
+  analytics), assigned the recursive CTE builder to v0.8 with v0.9 doing
+  per-engine verification, recorded that `@sisal/orm/core` stays as a
+  compatibility re-export of `@sisal/core`, and fixed the stale "first new
+  package boundary" wording (v0.7 already shipped `@sisal/mysql`).
 
 - **MySQL/MariaDB CI integration jobs** — the scheduled `Integration` workflow
   now runs the gated mysql-family suites against service containers:
@@ -5873,13 +6429,16 @@ function over<T>(
 ): SqlExpression<T>;
 ```
 
+Future core-owned surface (decided with the v0.8 task list, item 10): the
+grammar-level window expressions — `over()`, `WindowSpec`/frames, and the bare
+window-function expression helpers (`rank`/`rowNumber`/`lag`/`lead`, which are
+plain SQL functions like `sum()`), all capability-gated per dialect.
+
 Future analytics-owned surface:
 
 - `metric(...)` and `dimension(...)` descriptors.
 - Named windows.
 - Moving-average helpers.
-- Ranking helpers.
-- `lag` / `lead` helpers.
 - Period comparison.
 - Percentile helpers.
 - Rollup-table querying.
@@ -6179,22 +6738,22 @@ Each is a thin, typed layer over the same core primitives.
 
 ## Where we are today (the honest baseline)
 
-There is **no `@sisal/core` package yet** — everything lives in `@sisal/orm`
-(its `deno.json` already exposes `./core` and `./schema` subpaths). The good
-news, confirmed by a June 2026 code audit: the module graph is **already layered
-as if pre-split**. The internal DAG is
-`errors ← sql ← {operators, columns} ←
-table ← {builders, relations} ← database`,
-and the lower tier (`errors`, `sql`, `operators`, `columns`, `table`,
-`temporal`, and the zero-import leaf `schema.ts`) has **no upward edges** into
-the OLTP builders. The one cross-cut — embedding a query builder as a subquery
-fragment — is already inverted behind the `QUERY_BUILDER_BRAND` symbol + a
-structural `SubquerySource` interface, so `sql.ts` never imports the builders.
+As of v0.8, **`@sisal/core` exists** as the extracted lower tier. It owns the
+schema primitives/snapshots, SQL fragment IR, expression operators, capability
+registry, renderer, structured errors, and logger contracts. The fluent
+builders, `Database` facade, relations, and typed function caller remain in
+`@sisal/orm`, which re-exports the full core surface so existing imports keep
+working.
 
-Consequently, extracting `@sisal/core` is **mostly file-moves, barrel-splitting,
-and a new `deno.json`** — not an ORM rewrite. That extraction is a
-[v0.8](v0.8.0-roadmap.md) deliverable, and it is the gate that lets ETL and
-analytics be built as _separate_ packages instead of growing inside the ORM.
+The split follows the layering confirmed by the June 2026 code audit:
+`errors ← sql ← {operators, columns} ←
+table ← {builders, relations} ← database`.
+The lower tier (`errors`, `sql`, `operators`, `columns`, `table`, `temporal`,
+and the schema snapshot leaf) has **no upward edges** into the OLTP builders.
+The one cross-cut — embedding a query builder as a subquery fragment — remains
+inverted behind the `QUERY_BUILDER_BRAND` symbol + a structural `SubquerySource`
+interface, exposed only through `@sisal/core/unstable-internal` for the ORM
+tier.
 
 **Important nuance for ETL/analytics:** what `@sisal/core` exposes is a
 dialect-agnostic **fragment/expression IR plus a serializable schema snapshot**
@@ -6203,6 +6762,159 @@ can **build and render** parameterized SQL/predicates on it, but query
 _introspection/rewriting_ (predicate pushdown, plan optimization) does not exist
 today and would be new core work if a milestone genuinely needs it (flagged in
 [v0.8](v0.8.0-roadmap.md)).
+```
+
+### docs/core-ir.md
+
+URL: https://gilvandovieira.github.io/sisal/core-ir.html
+
+```md
+---
+title: "@sisal/core — the compile-target contract"
+---
+
+# `@sisal/core` — the compile-target contract
+
+The documented, versioned public surface downstream packages (`@sisal/etl`,
+`@sisal/analytics`) compile into — the v0.8 item-3 stamp. What this page
+declares public is a compatibility commitment; everything else is not.
+
+## The three export surfaces
+
+| Export                          | Commitment                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `@sisal/core`                   | **Stable.** The compile target described below.                                                        |
+| `@sisal/core/schema`            | **Stable.** The snapshot contract, independently versioned by `SCHEMA_SNAPSHOT_VERSION` (currently 2). |
+| `@sisal/core/unstable-internal` | **None.** `@sisal/orm` builder plumbing; may change in any release. Do not build on it.                |
+
+## The fragment IR (`SQL_IR_VERSION = 1`)
+
+A statement is a `Sql` — a flat list of `SqlChunk`s rendered in one two-phase
+pass. The chunk kinds and their render semantics **are the contract**:
+
+| Chunk kind    | Renders as                                                                                                                                                            |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `text`        | verbatim SQL text (from the `sql` tag's literal parts)                                                                                                                |
+| `param`       | a positional marker (`$n` on postgres, `?` elsewhere) + bound value; instants tagged `temporal: "instant"` rewrite to naive UTC under `mysql` only                    |
+| `placeholder` | a named prepared-plan slot, bound at `PreparedQuery.toSql(values)` time                                                                                               |
+| `raw`         | verbatim trusted text (`raw()`; guarded by the `sisal/no-raw-interpolation` lint)                                                                                     |
+| `identifier`  | a dialect-quoted identifier (`"a"."b"` / `` `a`.`b` ``)                                                                                                               |
+| `operator`    | a dialect-mapped operator (`ilike` → `like` off postgres)                                                                                                             |
+| `guard`       | **zero-width**; throws typed `ORM_DIALECT_UNSUPPORTED` when the render identity matches its declarative `unsupported`/`unless` data (fail closed on unknown versions) |
+| `dialect`     | the variant for the render dialect, the fallback, or a typed throw                                                                                                    |
+| `sql`         | a nested fragment (composition)                                                                                                                                       |
+
+Every chunk optionally carries an opaque **`meta`** annotation (`SqlChunkMeta`)
+— renderer-ignored, carried by reference through composition. This is the
+reserved additive seam for a future transformable AST (v0.8 item 4): populating
+it is a **minor** version bump, never a breaking one.
+
+**Compatibility policy.** `SQL_IR_VERSION` names the render semantics of the
+kinds above. Additive changes — new chunk kinds, new optional fields, `meta`
+payloads, new capability registry entries — do **not** bump it and arrive as
+minor `@sisal/core` releases. A change that makes an existing chunk render
+differently would bump it and is expected never to happen: the golden
+per-dialect SQL suites (`packages/orm/golden_sql_test.ts`, 62 snapshots across
+the construct catalog and prepared-plan checks) pin every construct's exact
+text, parameters, and typed errors.
+
+## What the compile target includes
+
+- **Schema primitives** — `defineTable`, `columns` (including generated columns
+  via `generatedAs`), constraints, and `createSchemaSnapshot` (the snapshot
+  spine).
+- **The `sql` tag and fragment primitives** — `sql`, `raw`, `identifier`,
+  `joinSql`, `placeholder`, `expr<T>()`, `withSqlChunkMeta`/`sqlChunkMeta`.
+- **Expressions** — operators/predicates, aggregates, `filter()`, the date
+  helpers (`dateTrunc`/`dateBin`/`dateAdd`/`dateSub`/`dateDiff`/`now`),
+  `coalesce`/`greatest`/`least`, and the window primitives (`over`/`WindowSpec`,
+  `rank`/`denseRank`/`rowNumber`/`lag`/`lead`).
+- **JSON / array helpers** — `arrayExpr`, `jsonExtract`, and `jsonTable` as the
+  typed set-returning FROM source for JSON-array projection.
+- **The capability registry** — `DIALECT_CAPABILITIES`, `capabilitySupported`,
+  `capabilityGuard`, `CAPABILITY_TARGETS`, and the
+  `(engine, variant, version-range)` identity (`DialectIdentity`,
+  `dialectGuard`/`dialectGuardApplies`, `compareServerVersions`).
+- **Statement assembly** — `assembleSelect` and `assembleInsertFromSelect` (the
+  item-5 seam): deterministic assemble-from-parts whose output is byte-identical
+  to the ORM builder's render for the same statement (pinned by
+  `packages/orm/assembly_equivalence_test.ts`). The fluent builders, `Database`
+  facade, relations, and function caller are **`@sisal/orm`**, not core.
+- **The renderer** — `renderSql(fragment, dialect | identity)` and the error
+  (`OrmError`/`SisalError`) and `Logger` contracts.
+
+## What is deliberately not promised
+
+No transformable/introspectable AST (the `meta` seam reserves the path); no
+query planner; no statement shapes beyond the assembly seam above; nothing
+exported from `unstable-internal`.
+```
+
+### docs/core-migration.md
+
+URL: https://gilvandovieira.github.io/sisal/core-migration.html
+
+```md
+---
+title: "@sisal/core extraction — migration notes"
+---
+
+# `@sisal/core` extraction — migration notes
+
+v0.8 extracted `@sisal/orm`'s lower tier into **`@sisal/core`** (roadmap item
+2): the schema primitives, fragment SQL IR, expression operators, the dialect
+capability registry, and the dialect-aware renderer. The fluent query builders,
+`Database` facade, relations, and typed function caller stay in `@sisal/orm`.
+
+## Do I need to change anything?
+
+**No.** `@sisal/orm` re-exports the entire core surface, and every previous
+subpath keeps working as a compatibility re-export:
+
+| Existing import     | Status                                  |
+| ------------------- | --------------------------------------- |
+| `@sisal/orm`        | unchanged — re-exports all of core      |
+| `@sisal/orm/core`   | unchanged — core surface + the ORM tier |
+| `@sisal/orm/schema` | re-exports `@sisal/core/schema`         |
+| `@sisal/orm/error`  | re-exports the core error primitives    |
+| `@sisal/orm/logger` | re-exports the core `Logger` contract   |
+
+Adapters (`@sisal/pg`, `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`,
+`@sisal/mysql`) are unaffected.
+
+## When to import `@sisal/core` directly
+
+Prefer `@sisal/core` when the code does **not** need the ORM tier — it is the
+compile target for downstream packages (`@sisal/etl`, `@sisal/analytics`) and
+for anything that only renders SQL, defines schema, or queries capabilities:
+
+- `defineTable`, `columns`, `createSchemaSnapshot`, constraint helpers
+- the `sql` tag, `renderSql`, `dialectSql`, prepared-plan primitives
+- operators and aggregates (`eq`, `and`, `count`, `filter`, date helpers, …)
+- the capability registry (`DIALECT_CAPABILITIES`, `capabilitySupported`,
+  `capabilityGuard`, `CAPABILITY_TARGETS`) and `dialectGuard`
+- `SisalError`/`OrmError`, `Logger`, and the snapshot contract
+  (`@sisal/core/schema`)
+
+`@sisal/migrate` follows this rule and now depends on `@sisal/core` only.
+
+## What moved where
+
+| Module                                       | New home                    |
+| -------------------------------------------- | --------------------------- |
+| `error`, `logger`, `schema`                  | `packages/core/` (root)     |
+| `errors`, `sql`, `capabilities`, `operators` | `packages/core/`            |
+| `columns`, `temporal`, `table`               | `packages/core/`            |
+| `builders`, `database`, `functions`,         | `packages/orm/core/` (stay) |
+| `relations`                                  |                             |
+
+## The `unstable-internal` seam
+
+`@sisal/core/unstable-internal` exposes the builder plumbing `@sisal/orm`'s
+query-builder tier needs (condition/metadata internals, prepared-plan filling,
+`QUERY_BUILDER_BRAND`, temporal decode helpers). It is **not** part of the
+documented compile target and carries no stability commitment — do not build on
+it. Downstream packages use the package root.
 ```
 
 ### docs/editor-lsp.md
@@ -7147,6 +7859,92 @@ So deferring costs nothing later:
   end-to-end.
 ```
 
+### docs/portability-policies.md
+
+URL: https://gilvandovieira.github.io/sisal/portability-policies.html
+
+```md
+---
+title: Portability policies
+---
+
+# Portability policies
+
+The cross-family value and lifecycle policies Sisal's examples, adapters, and
+tests follow (v0.8 item 17). Per-engine details live in the
+`docs/*-compatibility.md` pages; this page states the policies once.
+
+## UTC literal policy (MySQL-family `DATETIME(6)`)
+
+MySQL/MariaDB `DATETIME` rejects zone designators: a trailing `Z` or offset in a
+datetime literal is a syntax error. The policy — the "executor UTC convention"
+(v0.7 B8):
+
+- **Store UTC, always.** `DATETIME(6)` columns carry naive UTC.
+- Literals are written `YYYY-MM-DD HH:mm:ss.SSS000` (no `Z`, no offset).
+- The core renderer tags `Temporal.Instant`/`ZonedDateTime` params and rewrites
+  them to naive UTC **under the `mysql` render dialect only**; the MySQL
+  adapter's pool sets `dateStrings: true` so values read back as the server's
+  exact text instead of timezone-shifted client `Date`s.
+- A `mode: "string"` timestamp column must be given a MySQL-valid literal (no
+  `Z`) by the caller.
+
+## `dateTrunc` / `dateBin` / `dateDiff` value shapes
+
+The date helpers are dialect-mapped and their **result shapes differ by family**
+— treat them as grouping/predicate values, not as portable timestamps:
+
+| Helper      | PostgreSQL/Neon        | SQLite family (text)      | MySQL family (text)      |
+| ----------- | ---------------------- | ------------------------- | ------------------------ |
+| `dateTrunc` | `timestamp`            | `strftime` string         | `DATE_FORMAT` string     |
+| `dateBin`   | `timestamp`            | `datetime` string         | `FROM_UNIXTIME` value    |
+| `dateDiff`  | number (`trunc`/epoch) | number (`julianday` cast) | number (`TIMESTAMPDIFF`) |
+
+Policy: compare bucketed values **within one engine** (group keys, keyset
+cursors, window partitions); never compare a bucket string from one family with
+a timestamp from another. `dateDiff` returns whole units truncated toward zero
+on every family (live-verified identical values).
+
+## DDL-cleanup pattern (no transactional DDL on the MySQL family)
+
+PostgreSQL DDL is transactional — tests and showcases can wrap schema work in a
+transaction and roll it back. MySQL/MariaDB DDL **implicitly commits**, so that
+pattern silently breaks. The policy:
+
+- Tests/examples against the MySQL family create **namespaced tables** (`it_*`,
+  `w3_*`, …) and drop them in explicit cleanup steps, never relying on rollback.
+- `@sisal/mysql`'s migrator defaults `useTransaction: false` for the same reason
+  (a transaction around schema migrations would be a false promise); opt in only
+  for DML-only migrations.
+- Anything portable that must be atomic across engines belongs in DML (one
+  transaction / `db.batch`), never mixed DML+DDL.
+
+## Upsert (`ON DUPLICATE KEY UPDATE`) assignment order
+
+PostgreSQL's `ON CONFLICT DO UPDATE SET …` reads the **pre-update row**
+uniformly: a bare column reference in any assignment sees the existing value,
+regardless of assignment order. MySQL/MariaDB's `ON DUPLICATE KEY UPDATE`
+evaluates assignments **left-to-right**, so a reference to a sibling column set
+**earlier** in the same statement sees that column's **already-updated** value.
+The same builder can therefore compute different results per engine. The policy:
+
+- **Assignment order is rendered verbatim** — the object key order of
+  `onConflictDoUpdate({ set })` is the SQL order on every dialect, so the author
+  controls MySQL's left-to-right evaluation deliberately.
+- **Reference the proposed row with `excluded()`** (renders `VALUES(col)` on the
+  MySQL family) when an assignment needs the incoming value; this is
+  order-independent and always safe.
+- **Order derived columns first.** A column computed from the _old_ values of
+  siblings must be assigned before those siblings are updated, so it reads the
+  pre-update values on MySQL too.
+- **The renderer enforces this.** An ODKU assignment that reads a _different_
+  sibling column set earlier in the same list throws a typed
+  `ORM_DIALECT_UNSUPPORTED` under the `mysql` render dialect (naming both
+  columns and the fix), rather than silently diverging from PostgreSQL.
+  Self-references (`col = col + 1`), forward references (derived-first), and
+  `excluded()` all pass.
+```
+
 ### docs/roadmap-sequencing-audit.md
 
 URL: https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html
@@ -7885,8 +8683,11 @@ this package.
 
 ## Open questions
 
-- Are `rank`/`lag`/`lead` exposed as core builder primitives too, or
-  analytics-only?
+- ~~Are `rank`/`lag`/`lead` exposed as core builder primitives too, or
+  analytics-only?~~ **Answered by the v0.8 task list (item 10):** the
+  grammar-level window expressions (`over()`, frames, `rank`/`row_number`/
+  `lag`/`lead`) are core primitives; analytics wraps them in the semantic layer
+  (named windows, moving averages, period comparisons).
 - Percentiles: ship Postgres-first, or keep experimental until DuckDB (v0.13+)?
 - How much of the API can SQLite/libSQL honestly support (modern SQLite has
   window functions; PARTITION/frame/percentile coverage varies)?
@@ -11241,13 +12042,271 @@ expression system — and extract **`@sisal/core`** — so that the future
 `@sisal/etl` and `@sisal/analytics` packages can **compile into Sisal safely**,
 without forcing invasive ORM rewrites later.
 
-This release ships the first new package boundary: **`@sisal/core`**.
+This release ships the first shared **core** package boundary —
+**`@sisal/core`** — the substrate every other package builds on (v0.7 already
+added an adapter package, `@sisal/mysql`).
 
 ## Status legend
 
 | Symbol | Meaning                                                    |
 | ------ | ---------------------------------------------------------- |
 | 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Priority summary — everything to track
+
+All v0.8 tasks, consolidated from this document's scope/deliverables, the
+v0.5/v0.6/v0.7 handoffs, and the
+[sequencing audit](roadmap-sequencing-audit.md)'s v0.8 gates. Each item points
+at the section of this document (or the audit fix) that specifies it.
+
+| #  | Item                                                                                      | Priority | Rough effort | Status |
+| -- | ----------------------------------------------------------------------------------------- | -------- | ------------ | ------ |
+| 1  | Capability descriptor: pin the `(engine, variant, version-range)` key space (audit Fix 1) | P1       | L            | 🟢     |
+| 2  | Extract `@sisal/core` (file-moves + barrel split; re-point orm/migrate/adapters; JSR)     | P1       | L            | 🟢     |
+| 3  | Version + document the public IR/compile-target surface (`Sql`/`SqlChunk` contract)       | P1       | M            | 🟢     |
+| 4  | Transformable-AST decision **+ ship the additive extension point** (audit Fix 3)          | P1       | M            | 🟢     |
+| 5  | Statement-assembly seam decision — expose assembly API vs fragments-only (audit Fix 4)    | P1       | M            | 🟢     |
+| 6  | `@sisal/migrate` dependency decision (core-only vs orm) + import-migration notes          | P2       | S            | 🟢     |
+| 7  | First-class typed expression aliases (name-once metric/projection expressions)            | P1       | M            | 🟢     |
+| 8  | Computed columns + nested selects — typed, reusable, inference-checked                    | P2       | L            | 🟢     |
+| 9  | Typed `coalesce`/`greatest` (retire the last raw seams in the composed rollups)           | P2       | S            | 🟢     |
+| 10 | Core `over()` + window/frame/ranking/`lag`/`lead` + portable date-diff/gap helpers        | P2       | L            | 🟢     |
+| 11 | Recursive CTE builder (`WITH RECURSIVE`, depth/cycle guards, version-aware gates)         | P2       | M            | 🟢     |
+| 12 | Golden per-dialect SQL suites + parameter-binding + prepared-plan round-trips             | P1       | L            | 🟢     |
+| 13 | `@sisal/core`-only fixture: compile the `post_hourly_stats` rollup via core exports       | P1       | M            | 🟢     |
+| 14 | `ARRAY[…]` / `unnest` / JSON-table set-returning IR with typed projected columns          | P3       | L            | 🟢     |
+| 15 | Generated columns + expression/partial indexes in snapshots/DDL, typed unsupported errors | P3       | L            | 🟢     |
+| 16 | Write-result abstraction decision (`inserted` vs `conflicted`/`claimed` result shape)     | P3       | S            | 🟢     |
+| 17 | Portability policy docs: UTC literals, `dateTrunc`/`dateBin` shapes, DDL-cleanup pattern  | P3       | S            | 🟢     |
+| 18 | Checkpoint-table ownership decision — etl-managed vs migrate system table (audit Fix 2)   | P2       | S            | 🟢     |
+| 19 | Upsert assignment abstraction — make ODKU left-to-right evaluation order safe/explicit    | P3       | S            | 🟢     |
+
+**P1 spine.** Item 1 first — the audit's 🟥 gate (GI-1/G6): the descriptor's key
+space must be settled **at v0.8, before the IR freezes**, because the exported
+guard/IR surface cannot migrate afterwards (v0.7's B1
+`(engine, variant, version)` identity is the adapter-level seed it generalizes).
+Then 2/3 (the extraction and what freezes with it) with 4/5 settled **in the
+same release** — the audit's other two gates: the AST seam (item 4) keeps v0.13
+DuckDB pushdown unblocked without building the AST now, and the assembler
+decision (item 5) is the dependency-direction gate that decides whether
+v0.10/v0.11 can stay off `@sisal/orm`. Items 7 and 12/13 are the proof
+obligations: aliases feed every downstream metric column, and the golden suites
+plus the core-only rollup fixture are what "stable compile target" means in
+practice. Items 8–11 are the expression-surface work the
+[example graduations](#findings-from-advanced-sql-example-graduation) demand
+(over()/windows per the [A3 seam](analytics-readiness.md); recursive CTEs per
+contract 07); 14–17 and 19 are electives that can slip to v0.9+ without breaking
+a gate.
+
+**Routed elsewhere (tracked here so they aren't lost):** the portable
+queue-claim/advisory-lock abstraction (contract 08) and the checkpoint/watermark
+contracts (contract 09) belong to **v0.9** per the master sequencing (v0.6
+documents → v0.9 implements → v0.10 consumes) — and per
+[audit Fix 2](roadmap-sequencing-audit.md) they must become **v0.9 acceptance
+criteria**, not droppable hardening items; v0.8 only supplies the SQL-expression
+substrate they ride on, plus the ownership _decision_ (item 18, which — if it
+resolves to "migrate-managed" — adds an `etl → migrate` edge that
+`architecture.md`'s graph must then show). Window-function _rendering_ lands
+here (item 10), but the rich metric/dimension API stays in v0.11's
+`@sisal/analytics` per the v0.7 A3 decision.
+
+Item sources: 1 — [acceptance criteria](#acceptance-criteria) +
+[audit Fix 1](roadmap-sequencing-audit.md); 2/3/6 — [scope](#scope--focus) +
+[deliverables](#deliverables); 4 — [open questions](#open-questions) +
+[audit Fix 3](roadmap-sequencing-audit.md); 5 — [deliverables](#deliverables) +
+[audit Fix 4](roadmap-sequencing-audit.md); 7/8/9 — scope +
+[MySQL-family findings](#findings-from-mysql-family-examples) (expression-reuse
+finding: raw `coalesce`/`greatest`/rising-score seams) + v0.6 A1's `coalesce`
+candidate; 10/11/14/15 —
+[graduation table](#findings-from-advanced-sql-example-graduation) contracts
+02/03/04/05 (03/05 add the date-diff/gap helpers), 07, 10, 11; 12/13 —
+[required examples / tests](#required-examples--tests); 16/17/19 — the
+MySQL-family findings (write-result shape, actor dedupe, time handling, the
+non-transactional-DDL cleanup pattern, the ODKU assignment-order hazard) and the
+cross-cutting pain points in both findings sections; 18 —
+[audit Fix 2](roadmap-sequencing-audit.md) ("resolve checkpoint-table ownership
+in v0.8/v0.9, before v0.10 ships the table").
+
+## Execution order
+
+The item numbers above are stable tracking IDs, **not** a build sequence — read
+literally they stamp the surface before the seams that change it and refactor
+the guard machinery without a net. The dependency-compatible order is five
+waves; items within a wave can run in parallel.
+
+**Wave 0 — the net (first half of item 12). ✅ Done (2026-07-02).** Golden
+per-dialect SQL baselines for every _existing_ IR construct, before anything
+moves. Wave 1 rewrites the guard machinery and wave 2 relocates every core file;
+the baselines are what prove both are behavior-preserving (the same
+pin-then-change discipline the v0.7 B-stream used). Shipped as
+[`packages/orm/golden_sql_test.ts`](../packages/orm/golden_sql_test.ts): 49
+constructs × 5 render targets (postgres/sqlite/mysql/generic + the detected
+MariaDB 11.8.8 identity) snapshotted with text, ordered params, and typed guard
+errors — including the identity-divergent baselines (MariaDB `RETURNING` lift,
+`WITH`-on-mutation guards, the instant naive-UTC rewrite) — plus per-dialect
+prepared-plan placeholder styles. Update intentionally via
+`deno test --allow-read --allow-write packages/orm/golden_sql_test.ts -- --update`.
+The remaining half of 12 — goldens for _new_ constructs — accrues per item in
+wave 3, not as a phase of its own.
+
+**Wave 1 — decisions that shape what freezes: 1, 4, 5, 6+18, 16 (decision only).
+✅ Done (2026-07-02).** Landed under the wave-0 net (every golden snapshot
+byte-identical): **item 1** — the capability registry
+(`packages/core/capabilities.ts` after extraction): `DIALECT_CAPABILITIES`
+declares every render-guarded construct's `(engine, variant, version-range)`
+truth as the same serializable data the `guard` chunk carries; every guard call
+site now derives its render guard from the registry via `capabilityGuard`, and
+`capabilitySupported` answers the same question without rendering (identical
+fail-closed semantics through the shared `dialectGuardApplies`) —
+`CAPABILITY_TARGETS` names the six matrix targets as `(engine, variant)`
+identities; pinned by `capability_test.ts` incl. the registry/renderer agreement
+invariant. Wave 5 adds the matrix-target wiring that closes item 1; per-cell
+matrix value derivation remains v0.9. **Item 4** — the `SqlChunk` `meta` seam is
+shipped and fixture-proven (see open questions; 🟢). **Items 5/6/18/16** —
+decisions closed and recorded in [open questions](#open-questions): minimal core
+assembly API (5; fixture proof lands in wave 4); `@sisal/migrate` → core only
+(6; notes land in wave 2); checkpoints stay etl-managed, no `etl → migrate` edge
+(18); and the write-result abstraction (16 as a decision): record the direction
+— a portable write-outcome ("inserted" vs "conflicted"/"claimed") surfaced per
+adapter — and **defer implementation** to ride with v0.9's queue-claim/lock
+work; until then the feature-matrix round-trip notes stay authoritative. Item 1
+is the long pole (the 🟥 gate) and rewrites `dialectGuard` under the wave-0 net.
+Item 4's seam is a small `SqlChunk` change. Items 5 and 16 are decisions whose
+outcomes are part of the stamped surface. Items 6 and 18 are coupled — both
+decide `migrate`-edge topology — so decide them together. Everything in this
+wave changes _what_ item 2 moves and item 3 stamps, which is why both wait.
+
+**Wave 2 — the move: 2. ✅ Done (2026-07-02).** Extraction after the shapes are
+final, so files move exactly once and the re-pointing churn across
+orm/migrate/adapters happens in one pass (with item 6's migration notes). Before
+the construct work, so waves 3–4 land directly in `@sisal/core` instead of being
+moved after the fact. Shipped: `packages/core/` (`@sisal/core@0.8.0`, exports
+`.`, `./schema`, `./unstable-internal`) holds the lower tier (`error`, `logger`,
+`schema`, `errors`, `sql`, `capabilities`, `operators`, `columns`, `temporal`,
+`table`); the ORM tier (`builders`, `database`, `functions`, `relations`) stays
+in `packages/orm/core/` and reaches non-public plumbing only through the
+`unstable-internal` seam. `@sisal/orm` re-exports everything (its `/core`,
+`/schema`, `/error`, `/logger` subpaths are compatibility re-exports — no
+user-visible change, proven by the byte-identical golden baselines and full
+suite); `@sisal/migrate` now imports `@sisal/core` only, closing item 6 with
+[core-migration.md](core-migration.md) as the notes. JSR publish dry-run passes
+for all eight packages. Item 3 (versioning + documenting the public surface)
+deliberately stays open for wave 4.
+
+**Wave 3 — expression surface, in the new package: 7 → 9, then 8, 10, 11. ✅
+Done (2026-07-02).** Item 7 first — aliases are what 8/13 reuse and the cheapest
+surface change. Items 10, 11, 14, and 15 _consume_ item 1's version-aware gates,
+which is why none of them can close before wave 1. Shipped, each construct with
+its golden coverage (contributing to item 12) and **every semantic verified live
+on PostgreSQL 16, MySQL 8.4, MariaDB 11.8, and embedded SQLite with identical
+values** before pinning:
+
+- **7** — `expr<T>()` types a fragment without the old `as SqlExpression<T>`
+  casts; expression handles were already accepted uniformly (projection,
+  `groupBy`, `having`, `orderBy`, operators funnel through `columnToSql`), so
+  name-once reuse is a const + re-render, pinned in the expression tests. Item 8
+  moves to 🟡: computed-expression projection inference and nested selects
+  (subqueries/`exists`) pre-existed and are now pinned via item 7 — the
+  remaining 8-scope (reusable computed-column declarations on tables) is
+  re-derived in wave 4 or slips to v0.9 without breaking a gate.
+- **9** — typed `coalesce`, plus `greatest`/`least` (SQLite renders scalar
+  `max`/`min`; per-engine NULL divergence documented — wrap operands in
+  `coalesce`).
+- **10** — `core/window.ts`: `over()` with `WindowSpec` (partition/order/frame
+  per the analytics-readiness signature),
+  `rank`/`denseRank`/`rowNumber`/`lag`/`lead`, and `dateDiff` (truncated whole
+  units: `TIMESTAMPDIFF` on the MySQL family, epoch-`trunc` on PostgreSQL,
+  `julianday` on SQLite). Two registry capabilities landed with it: `GROUPS`
+  frames (MySQL family never; SQLite version-gated ≥ 3.28 via the new
+  **dialect-scoped guard exception** — an item-1 key-space extension this
+  construct forced) and the `lag()`/`lead()` **default argument**, which the
+  live probe caught MariaDB 11.8 rejecting outright (MySQL 8.4 accepts it) —
+  guarded typed, portable spelling `coalesce(over(lag(x), …), d)`.
+- **11** — `db.$withRecursive(name, columns).as((self) => base.unionAll(step))`
+  renders `WITH RECURSIVE name (cols) AS (…)` with the self-reference usable as
+  a source, one `RECURSIVE` keyword covering mixed lists, and the portable
+  depth-guard pattern (`WHERE depth < n`) documented and live-verified;
+  PostgreSQL 14's `CYCLE` clause is deliberately not rendered (future,
+  version-gated).
+
+**Wave 4 — proof and stamp: 13, then 3, then 17. ✅ Done (2026-07-02).** The
+core-only rollup fixture (13) needs item 5's decision (what a downstream package
+may use) and exercises 7/9; it is the acceptance-criteria proof that the compile
+target is real. Item 3 — versioning and documenting the public surface — goes
+**last** deliberately: it stamps the net result of 1/4/5/7/16, and stamping
+earlier means re-versioning after every wave-3 addition. Shipped:
+
+- **5+13** — `@sisal/core`'s `assemble.ts` (`assembleSelect`,
+  `assembleInsertFromSelect` with the dialect-mapped upsert) implements the
+  item-5 decision; `packages/core/rollup_fixture_test.ts` compiles the canonical
+  `post_hourly_stats` rollup **using only core exports** and pins the exact SQL;
+  `packages/orm/assembly_equivalence_test.ts` proves the assembly and the fluent
+  builder render **byte-identical text and params on every dialect** — the two
+  surfaces cannot drift.
+- **3** — `SQL_IR_VERSION = 1` exported from core, and [core-ir.md](core-ir.md)
+  documents the compile-target contract: the three export surfaces and their
+  commitments, the chunk-kind table with render semantics, the compatibility
+  policy (additive = minor; the `meta` seam is the reserved AST path; the golden
+  suites are the behavioral pin), and what is deliberately not promised.
+- **17** — [portability-policies.md](portability-policies.md): the UTC literal
+  policy (the "executor UTC convention"), the `dateTrunc`/`dateBin`/`dateDiff`
+  value-shape table with the compare-within-one-engine rule, and the DDL-cleanup
+  pattern (no transactional DDL on the MySQL family).
+- **8 closed alongside**: computed expressions (`expr` + projection inference)
+  and nested selects (scalar subqueries in projections, now golden-pinned) plus
+  the assembly seam cover its scope; table-level generated columns are tracked
+  separately as item 15 and close in wave 5.
+- The golden suite grew to **59 snapshots** (scalar-subquery projection + the
+  assembly statement), all prior keys byte-identical, and
+  `benchmarks/scenarios/advanced_sql.ts` gives the wave-3/4 constructs
+  render-throughput baselines for future refactors.
+
+**Wave 5 — the remaining items closed (2026-07-02).** The last four items (1,
+14, 15, 19), all verified live on PostgreSQL 16, MySQL 8.4, MariaDB 11.8, and
+embedded SQLite:
+
+- **19 — ODKU assignment order.** The renderer preserves `onConflictDoUpdate`
+  set order verbatim, and injects a MySQL-only typed guard when an assignment
+  reads a _different_ sibling column set **earlier** in the same list (the
+  left-to-right footgun) — self-references, forward references (derived-first),
+  and `excluded()` pass. Live: derived-first computes the pre-update value on
+  every engine; the buggy order throws typed. Policy documented in
+  [portability-policies.md](portability-policies.md); pinned by
+  `odku_assignment_order_test.ts`.
+- **15 — generated columns.** `.generatedAs(sql, { stored })` on the column
+  builder flows into the snapshot (`generatedAs`, portable expression text,
+  change-detected in the diff) and emits
+  `GENERATED ALWAYS AS (…)
+  STORED|VIRTUAL` in the pg/sqlite/mysql DDL
+  generators — VIRTUAL fails closed typed on PostgreSQL, and a generated column
+  can't also carry a default. (Expression + partial indexes were already
+  snapshot/DDL-native; only generated columns remained.) Live: the generated
+  column computes on all four engines.
+- **14 — array / JSON / set-returning IR.** `arrayExpr` (`ARRAY[…]` /
+  `json_array`), `jsonExtract` (portable scalar path extraction), and
+  `jsonTable` — the set-returning source compiling to PostgreSQL
+  `jsonb_to_recordset`, MySQL `JSON_TABLE`, and SQLite `json_each` + per-field
+  `json_extract`, with typed column refs and a raw-`Sql` `.from()` overload
+  (also composes with `assembleSelect`). Live: `jsonTable` explodes a JSON array
+  into typed rows identically on all four engines. Golden entries added (62
+  snapshots).
+- **1 — capability descriptor.** Already the single source `dialectGuard` reads;
+  now the feature-matrix generator consumes the registry's `CAPABILITY_TARGETS`
+  and `docs:matrix:check` fails if the matrix's `ADAPTERS` and the registry's
+  six-way target space diverge — closing the GI-1 key-space-reconciliation
+  concern. The per-cell capability-value wiring (matrix cells derived from
+  `capabilitySupported`) remains a **v0.9** acceptance criterion, as its roadmap
+  already states.
+
+All 19 v0.8 items are 🟢. The only v0.8-adjacent work deferred to v0.9 is the
+per-cell matrix-value wiring (item 1's completion) and the follow-ups logged
+during the advanced-SQL review (MySQL functional-index version gate, example
+refresh, recursive-CTE `CYCLE`).
+
+Two edges worth restating because they are easy to violate: **3 concludes, it
+does not lead** (its P1 rank reflects importance, not position), and **nothing
+version-gated (10/11/14/15) finishes before 1** — a construct shipped against
+the old 4-value guard would need immediate rework.
 
 ## Goal
 
@@ -11303,12 +12362,16 @@ rewritable relational AST**.
   must be settled in v0.8, before v0.10/v0.11 consume core. (See open
   questions.)
 - Golden-SQL snapshot tests per dialect for every IR construct.
-- Migration notes for the `@sisal/orm` → `@sisal/core` import changes.
+- Migration notes for the `@sisal/orm` → `@sisal/core` import changes
+  (`@sisal/orm/core` stays as a compatibility re-export; the notes cover when to
+  prefer importing `@sisal/core` directly).
 
 ## Non-goals
 
 No ETL/analytics package (v0.10/v0.11); no DuckDB; no query optimizer/planner;
-no breaking change to the public ORM builder API beyond import paths.
+no breaking change to the public ORM builder API — including import paths:
+`@sisal/orm/core` **remains as a compatibility re-export** of `@sisal/core`, so
+existing imports keep working; new code should import `@sisal/core` directly.
 
 ## Risks
 
@@ -11399,25 +12462,73 @@ Cross-cutting pain points from the graduation:
   render advanced SQL today, but ETL/analytics packages need a stable assembler
   or core compile target that does not depend on ORM internals.
 
+### Post-implementation status (2026-07-02)
+
+A review of the two advanced-SQL example families against these contracts, after
+waves 0–4, confirmed (by rebuilding each `"raw"` case with the shipped
+primitives and rendering it) that the graduation's fix targets are **now
+builder-native** for contracts **01–07** and the **index half of 11**:
+
+| Contract              | Fix target                          | Now provided by                                                               |
+| --------------------- | ----------------------------------- | ----------------------------------------------------------------------------- |
+| 01 ETL rollup         | expression aliases                  | `expr()` (item 7) + assembly seam (5/13)                                      |
+| 02 Window analytics   | `over()`/frames/ranking             | `over`/`WindowSpec`/`rank`/… (item 10)                                        |
+| 03 Sessionization     | `lag`/date-diff                     | `lag` + `dateDiff` (item 10), SQLite-verified                                 |
+| 04 Top-N per group    | `row_number` + derived-table seam   | `rowNumber` + `over` + `.as()` (item 10)                                      |
+| 05 Cohort retention   | date-bucket/date-diff + alias reuse | `dateTrunc`/`dateDiff`/`expr` (9/10)                                          |
+| 06 Funnel analysis    | first-event helpers / alias reuse   | `filter(min(...))` + `dateAdd` + `expr`                                       |
+| 07 Recursive comments | `WITH RECURSIVE` builder            | `$withRecursive` (item 11)                                                    |
+| 11 (index half)       | expression + partial indexes        | `index().on(sql\`…\`).where(…)` — snapshot + pg/sqlite DDL; mysql fail-closes |
+
+**After wave 5**, the remaining v0.8 tracking items are closed too: contract
+**10** (JSON set-returning) → item 14; the **generated-columns half of 11** →
+item 15; and the **ODKU assignment-order** hazard (contract 12 pressure) → item
+19. Contracts **08** (portable lock/claim) and **09** (checkpoint contract)
+remain routed to **v0.9**. The example families still carry `"raw"`
+implementations and stale `v08PainPoint` annotations for the now-solved cases;
+refreshing them to builder-native is logged in
+[v0.9](v0.9.0-roadmap.md#required-examples--tests).
+
 ## Open questions
 
-- **Compose-only fragment IR, or add an introspectable expression AST?**
-  Recommendation: keep the fragment IR as the compile target; add a
-  transformable AST **only** if a concrete consumer (DuckDB pushdown,
-  optimization) needs it — but **ship the additive extension point now** (an
-  opaque origin/`meta` slot on `SqlChunk`, or a flag-gated un-lowered capture)
-  so the AST can be added later as a **non-breaking** version bump. v0.13 DuckDB
-  pushdown is the consumer this protects (see its open questions).
-- Expose the statement assembler publicly, or require downstream packages to
-  compile fragments + a thin assembly helper?
-- Does `@sisal/migrate` depend on `@sisal/core` only, or still on `@sisal/orm`?
+- ~~**Compose-only fragment IR, or add an introspectable expression AST?**~~
+  **Decided (wave 1, 2026-07-02): defer the AST, ship the seam** — the fragment
+  IR stays the compile target, and the additive extension point is **shipped**:
+  an opaque `meta` slot on `SqlChunk`
+  (`SqlChunkMeta`/`withSqlChunkMeta`/`sqlChunkMeta`), renderer-ignored and
+  carried by reference through composition, proven by the round-trip fixture
+  `packages/orm/sql_meta_seam_test.ts` (annotations survive the `sql` tag and
+  builder assembly with byte-identical render output). A transformable AST can
+  populate the slot later as a non-breaking version bump — v0.13 DuckDB pushdown
+  is unblocked either way (audit Fix 3 satisfied).
+- ~~Expose the statement assembler publicly, or require downstream packages to
+  compile fragments + a thin assembly helper?~~ **Decided (wave 1, 2026-07-02):
+  expose a minimal assembly API from `@sisal/core`** — deterministic
+  assemble-from-parts functions (select / insert-from-select with group-by and
+  upsert), **not** the fluent OLTP builder, which stays in `@sisal/orm`.
+  Rationale: fragments-only would force ETL/analytics to hand-assemble whole
+  statements (the "raw SQL is too necessary" pain point), while exposing the
+  fluent builder would drag the OLTP surface into the compile target. The G1
+  dependency direction holds: `@sisal/etl` / `@sisal/analytics` depend on core
+  only. The wave-4 core-only fixture (item 13) may use exactly this API, nothing
+  more.
+- ~~Does `@sisal/migrate` depend on `@sisal/core` only, or still on
+  `@sisal/orm`?~~ **Decided (wave 1, 2026-07-02): core only.** Everything
+  `@sisal/migrate` consumes (the snapshot contract in `schema.ts`, errors, the
+  render primitives) lives in the extracted lower tier; no OLTP-builder
+  dependency exists to keep. The wave-2 extraction re-points it, and the
+  import-migration notes record the change. Coupled decision, same day:
+  **checkpoint-table ownership stays `@sisal/etl`-managed**
+  (`sisal_etl_checkpoints`, the v0.6 A3 default, ratified per audit Fix 2) — no
+  `etl → migrate` edge is added, `architecture.md`'s graph is already correct,
+  and v0.9 validates the contract per engine (item 18 closed).
 
 ## Acceptance criteria
 
 - `@sisal/core` exists, is published to **JSR** (npm deferred — see the
   [npm-release readiness report](npm-release-readiness.md)), and
   `@sisal/orm`/adapters import from it; the public ORM API is unchanged for
-  users.
+  users (`@sisal/orm/core` stays as a compatibility re-export of `@sisal/core`).
 - Every IR construct (select/CTE/insert-from-select/aggregate/window where
   supported) has golden per-dialect SQL tests and correct parameter binding.
 - A downstream package can construct and render a grouped insert-from-select +
@@ -11426,13 +12537,20 @@ Cross-cutting pain points from the graduation:
   if deferred, the additive extension point is shipped and proven** by a fixture
   that round-trips a fragment through the seam — so v0.13 cannot be blocked by a
   frozen IR.
-- The capability descriptor's key is **`(engine, version-range)`** — it
-  distinguishes the five adapter packages (neon ≠ pg, libsql ≠ sqlite) and the
-  six matrix/integration capability targets (`mysql` and `mariadb` split under
-  `@sisal/mysql`), admits a version predicate, and `dialectGuard` is generalized
-  to a version-aware capability check (e.g. MySQL ≥ 8.0.21 for `RETURNING`,
-  Postgres ≥ 14 for `CYCLE`, SQLite ≥ 3.31). It is the single source the matrix,
-  `dialectGuard`, and ETL/analytics read.
+- The capability descriptor's key is **`(engine, variant, version-range)`** —
+  the v0.7 `DialectIdentity` `(engine, variant, version)` axis generalized with
+  version-range predicates. It must express all six matrix/integration
+  capability targets (`pg`, `neon`, `sqlite`, `libsql`, `mysql`, `mariadb` —
+  neon ≠ pg and libsql ≠ sqlite as well as the MySQL/MariaDB variant split), and
+  `dialectGuard` is generalized to a version-aware capability check (e.g. MySQL
+  ≥ 8.0.21 for `RETURNING`, Postgres ≥ 14 for `CYCLE`, SQLite ≥ 3.31). It is the
+  single source the matrix, `dialectGuard`, and ETL/analytics read.
+- The **statement-assembly seam decision is closed** — exposed minimal assembly
+  API or fragments-only — documented, and reflected in the core-only fixture
+  (which may use exactly what the decision makes public, nothing more).
+- The **`@sisal/migrate` dependency decision is closed** (core-only vs
+  `@sisal/orm`) and reflected in the extraction's import graph and the migration
+  notes.
 
 ## Affected packages
 
@@ -11449,13 +12567,13 @@ app-visible API break.
 
 ## Dialect compatibility notes
 
-Capability gates become **declarative** (an `(engine, version)` capability
-descriptor — keyed to the five adapter packages and six matrix targets plus a
-version axis, **not** the 4-value render dialect, which still collapses
-neon→postgres and libsql→sqlite) rather than scattered render branches. It is
-the single source the v0.9 matrix and the `dialectGuard` both read.
-Window/data-modifying-CTE/insert-from-select rendering is Postgres-first with
-explicit gates for the SQLite and MySQL families.
+Capability gates become **declarative** (an `(engine, variant, version-range)`
+capability descriptor — keyed to express the six matrix targets, **not** the
+4-value render dialect, which still collapses neon→postgres and libsql→sqlite)
+rather than scattered render branches. It is the single source the v0.9 matrix
+and the `dialectGuard` both read. Window/data-modifying-CTE/insert-from-select
+rendering is Postgres-first with explicit gates for the SQLite and MySQL
+families.
 ```
 
 ### docs/v0.9.0-roadmap.md
@@ -11512,17 +12630,27 @@ an engine can't match Postgres.
 
 ## Specific hardening items (from the audit)
 
-- **Declarative `(engine, version)` capability descriptor** (the v0.8 surface):
-  one source of truth the feature matrix, the `dialectGuard`, and ETL/analytics
-  read. It must distinguish **neon ≠ pg, libsql ≠ sqlite, and mysql ≠ mariadb ≠
-  by-version** — the 4-value render dialect cannot (it collapses neon→pg,
-  libsql→sqlite), so the matrix's six capability targets plus a version axis are
-  authoritative.
+- **Declarative `(engine, variant, version-range)` capability descriptor** (the
+  v0.8 surface): one source of truth the feature matrix, the `dialectGuard`, and
+  ETL/analytics read. It must distinguish **neon ≠ pg, libsql ≠ sqlite, and
+  mysql ≠ mariadb ≠ by-version** — the 4-value render dialect cannot (it
+  collapses neon→pg, libsql→sqlite), so the matrix's six capability targets plus
+  a version axis are authoritative.
 - **CTE per-engine execution tests** — CTEs render dialect-agnostically today
   but have **no per-engine integration test**; add them for
   pg/neon/sqlite/libsql/mysql/mariadb.
-- **Recursive CTE** support decision (`WITH RECURSIVE`) — currently unsupported;
-  decide build vs document-as-unsupported.
+- **Recursive CTE** per-engine verification — the builder itself is **v0.8
+  work** (its task list, item 11); v0.9 pins the per-engine/per-version behavior
+  it renders (MySQL 8+ vs 5.7, MariaDB, SQLite depth/cycle limits), consistent
+  with this release's "no new SQL constructs beyond v0.8" non-goal.
+- **MySQL functional (expression) indexes — version-gate, don't fail-closed
+  always** (raised by the v0.8 advanced-SQL review, contract 11). The
+  `@sisal/mysql` DDL generator currently rejects **every** expression index
+  unconditionally ("version-less generator fails closed"), but MySQL **≥
+  8.0.13** supports functional indexes; light them through the capability
+  descriptor on MySQL 8.0.13+ and keep the typed rejection only below that and
+  on **MariaDB** (which has none). Partial indexes stay `❌` for the whole MySQL
+  family. Pin with DDL render tests + a live per-engine check.
 - **`@sisal/pg` float8 → number** (v0.5 item 11) — the only adapter returning
   `double precision` as a string; fix so numeric reads match the other three
   adapters (critical for analytics math).
@@ -11570,6 +12698,12 @@ no DuckDB.
 ## Open questions
 
 - Recursive CTEs: in scope for analytics (hierarchies) or deferred?
+- **Recursive CTE cycle detection** (raised by the v0.8 review, contract 07):
+  the shipped `$withRecursive` relies on the portable depth-guard pattern
+  (`WHERE depth < n`). Ship the PostgreSQL 14+ `CYCLE`/`SEARCH` clauses as a
+  version-gated construct, or keep the depth-guard-only surface? A new construct
+  is beyond this release's non-goal, so this is a v0.10+/backlog flag, not v0.9
+  build work.
 - Is materialized-view DDL worth adding for Postgres (rollup acceleration),
   given SQLite has none?
 - How much SQLite-family ETL is "supported" vs "Postgres-first, documented gap"?
@@ -11578,8 +12712,9 @@ no DuckDB.
 
 - Every dialect-divergent behavior relevant to ETL/analytics is a declared
   capability with a backing per-engine test (matrix `✅`/`⚠️`/`❌` all
-  test-backed). The descriptor is keyed `(engine, version)` and distinguishes
-  neon/pg and libsql/sqlite.
+  test-backed). The descriptor is keyed `(engine, variant, version-range)` (the
+  v0.7 `DialectIdentity` axis generalized) and distinguishes all six capability
+  targets — neon/pg, libsql/sqlite, and mysql/mariadb.
 - `@sisal/pg` returns `double precision` as a JS `number`.
 - Insert-from-select, upsert-from-select, data-modifying CTEs, filtered
   aggregates, and date buckets each have a per-engine pass/fallback test.
@@ -11608,6 +12743,16 @@ no DuckDB.
 - Per-engine integration tests for each ETL/analytics shape and fallback.
 - A numeric round-trip suite (float/numeric/bigint) across all five adapter
   packages and six capability targets.
+- **Refresh the advanced-SQL example families to builder-native** (raised by the
+  v0.8 review). `examples/{postgres,mysql,sqlite}-family-advanced-sql` still
+  implement contracts **01–07** and the index-half of **11** as `"raw"` /
+  `"hybrid"` with stale `v08PainPoint` annotations that claim missing primitives
+  — but v0.8 shipped them (`over`/windows, `lag`/`dateDiff`, `rowNumber`,
+  `$withRecursive`, `expr` alias reuse, expression/partial indexes). Upgrade
+  those cases to the typed primitives, correct the annotations, and keep only
+  the genuinely-dialect-native/deferred cases (JSON-table = v0.8 item 14,
+  generated columns = v0.8 item 15, lock/claim = contract 08, checkpoint =
+  contract 09) as raw with accurate notes.
 
 ## Dialect compatibility notes
 

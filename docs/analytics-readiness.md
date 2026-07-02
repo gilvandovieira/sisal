@@ -121,13 +121,16 @@ function over<T>(
 ): SqlExpression<T>;
 ```
 
+Future core-owned surface (decided with the v0.8 task list, item 10): the
+grammar-level window expressions — `over()`, `WindowSpec`/frames, and the bare
+window-function expression helpers (`rank`/`rowNumber`/`lag`/`lead`, which are
+plain SQL functions like `sum()`), all capability-gated per dialect.
+
 Future analytics-owned surface:
 
 - `metric(...)` and `dimension(...)` descriptors.
 - Named windows.
 - Moving-average helpers.
-- Ranking helpers.
-- `lag` / `lead` helpers.
 - Period comparison.
 - Percentile helpers.
 - Rollup-table querying.

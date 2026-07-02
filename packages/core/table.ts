@@ -2,7 +2,7 @@
  * Table definitions, table-level constraints, type inference, introspection,
  * and serializable schema-snapshot conversion.
  *
- * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
+ * Part of `@sisal/core`; re-exported through `./mod.ts`.
  */
 
 import {
@@ -16,7 +16,7 @@ import {
   type SisalSchemaObjectSnapshot,
   type SisalSchemaSnapshot,
   type SisalUniqueConstraintSnapshot,
-} from "../schema.ts";
+} from "./schema.ts";
 import {
   cloneColumnDefinition,
   type ColumnBuilder,
@@ -654,6 +654,12 @@ function tableToSnapshot(
       ...(columnDefaultToSnapshot(column) === undefined
         ? {}
         : { default: columnDefaultToSnapshot(column) }),
+      ...(column.generatedAs === undefined ? {} : {
+        generatedAs: {
+          sql: columnGeneratedExpression(column.generatedAs.sql, table.name),
+          stored: column.generatedAs.stored,
+        },
+      }),
       metadata: {
         propertyName: column.propertyName,
         optionalInsert: column.optionalInsert,
@@ -694,6 +700,19 @@ function columnDefaultToSnapshot(
   }
 
   return undefined;
+}
+
+// Renders a generated-column expression to portable DDL text (like a `sql`
+// default or a CHECK): identifiers stay quoted, the table prefix is stripped,
+// and bound parameters are rejected (a generation expression is static DDL).
+function columnGeneratedExpression(expression: Sql, tableName: string): string {
+  const rendered = renderSql(expression, { dialect: "postgres" });
+  if (rendered.params.length > 0) {
+    throw new OrmError("A generated column expression cannot bind parameters", {
+      code: "ORM_INVALID_COLUMN",
+    });
+  }
+  return rendered.text.replaceAll(`"${tableName}".`, "");
 }
 
 export function assertTable(value: unknown): asserts value is TableDefinition {

@@ -171,6 +171,17 @@ export function generateMysqlColumnDefinition(
   const sqlType = generateMysqlColumnType(column.type);
   let definition = `${quoteMysqlIdent(column.name)} ${sqlType}`;
 
+  if (column.generatedAs !== undefined) {
+    // MySQL/MariaDB support both STORED and VIRTUAL generated columns; the
+    // generation clause replaces the DEFAULT/AUTO_INCREMENT slot.
+    const kind = column.generatedAs.stored ? "STORED" : "VIRTUAL";
+    definition += ` GENERATED ALWAYS AS (${column.generatedAs.sql}) ${kind}`;
+    if (column.nullable === false) {
+      definition += " NOT NULL";
+    }
+    return definition;
+  }
+
   if (isAutoIncrementColumn(column)) {
     definition += " NOT NULL AUTO_INCREMENT";
   } else if (column.nullable === false) {

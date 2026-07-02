@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import type { SisalSchemaSnapshot } from "@sisal/orm";
+import type { SisalSchemaSnapshot } from "@sisal/core";
 import {
   buildMigrationFile,
   createAppliedMigration,

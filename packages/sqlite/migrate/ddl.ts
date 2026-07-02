@@ -88,11 +88,17 @@ export function generateSqliteColumnDefinition(
     generateSqliteColumnType(column.type)
   }`;
 
+  if (column.generatedAs !== undefined) {
+    // SQLite (3.31+) supports both STORED and VIRTUAL generated columns.
+    const kind = column.generatedAs.stored ? "STORED" : "VIRTUAL";
+    definition += ` GENERATED ALWAYS AS (${column.generatedAs.sql}) ${kind}`;
+  }
+
   if (column.nullable === false) {
     definition += " NOT NULL";
   }
 
-  if (column.default !== undefined) {
+  if (column.default !== undefined && column.generatedAs === undefined) {
     definition += ` DEFAULT ${renderSqliteDefault(column.default)}`;
   }
 

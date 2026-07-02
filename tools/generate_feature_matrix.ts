@@ -22,6 +22,7 @@ import {
   FEATURE_MATRIX,
 } from "./feature_matrix.ts";
 import { featureScenariosForAdapter } from "../integration/_shared/scenarios.ts";
+import { CAPABILITY_TARGETS } from "@sisal/orm";
 
 const OUT = new URL("../docs/feature-matrix.md", import.meta.url);
 
@@ -194,6 +195,18 @@ Per-engine behavior notes live on the
 function validate(): { backed: number; errors: string[] } {
   const errors: string[] = [];
   let backed = 0;
+  // The feature matrix and the core capability registry must key on the same
+  // six-way target space (the GI-1 reconciliation): the registry is the
+  // single source of truth, so the matrix's `ADAPTERS` are checked against
+  // its `CAPABILITY_TARGETS` here (per-cell capability wiring lands in v0.9).
+  const registryTargets = Object.keys(CAPABILITY_TARGETS).sort();
+  const matrixTargets = [...ADAPTERS].sort();
+  if (registryTargets.join(",") !== matrixTargets.join(",")) {
+    errors.push(
+      `capability targets diverge: matrix ADAPTERS [${matrixTargets}] != ` +
+        `core CAPABILITY_TARGETS [${registryTargets}]`,
+    );
+  }
   const namesByAdapter = new Map<Adapter, string[]>();
   for (const a of ADAPTERS) {
     const names = featureScenariosForAdapter(a).map((scenario) =>

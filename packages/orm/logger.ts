@@ -1,22 +1,9 @@
 /**
- * Minimal logger contracts accepted by Sisal packages.
+ * Minimal logging contract accepted by Sisal facades — compatibility
+ * re-export: the module lives in `@sisal/core` since the v0.8 extraction.
+ * New code should import from `@sisal/core` directly.
  *
  * @module
  */
 
-export interface LoggerMethod {
-  (message: string): void;
-  (record: Record<string, unknown>, message: string): void;
-}
-
-/**
- * Minimal logger contract accepted by Sisal packages.
- *
- * Pequi Logger is a good fit for this shape, but Sisal does not depend on it.
- */
-export interface Logger {
-  readonly debug: LoggerMethod;
-  readonly info: LoggerMethod;
-  readonly warn: LoggerMethod;
-  readonly error: LoggerMethod;
-}
+export type { Logger, LoggerMethod } from "@sisal/core";

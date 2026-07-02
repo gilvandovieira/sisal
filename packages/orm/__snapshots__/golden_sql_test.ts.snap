@@ -1,0 +1,2148 @@
+export const snapshot = {};
+
+snapshot[`golden: every IR construct renders identically per dialect > select: star + where eq 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "published",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`author_id\` as \`authorId\`, \`posts\`.\`title\` as \`title\`, \`posts\`.\`status\` as \`status\`, \`posts\`.\`hot_score\` as \`hotScore\`, \`posts\`.\`published\` as \`published\`, \`posts\`.\`created_at\` as \`createdAt\`, \`posts\`.\`tags\` as \`tags\`, \`posts\`.\`meta\` as \`meta\` from \`posts\` where \`posts\`.\`status\` = ?",
+  },
+  generic: {
+    params: [
+      "published",
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where "posts"."status" = ?',
+  },
+  mysql: {
+    params: [
+      "published",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`author_id\` as \`authorId\`, \`posts\`.\`title\` as \`title\`, \`posts\`.\`status\` as \`status\`, \`posts\`.\`hot_score\` as \`hotScore\`, \`posts\`.\`published\` as \`published\`, \`posts\`.\`created_at\` as \`createdAt\`, \`posts\`.\`tags\` as \`tags\`, \`posts\`.\`meta\` as \`meta\` from \`posts\` where \`posts\`.\`status\` = ?",
+  },
+  postgres: {
+    params: [
+      "published",
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where "posts"."status" = \$1',
+  },
+  sqlite: {
+    params: [
+      "published",
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where "posts"."status" = ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > select: projection aliases + naming map 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`hot_score\` as \`hotScore\` from \`posts\`",
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id", "posts"."hot_score" as "hotScore" from "posts"',
+  },
+  mysql: {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`hot_score\` as \`hotScore\` from \`posts\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id", "posts"."hot_score" as "hotScore" from "posts"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "posts"."id" as "id", "posts"."hot_score" as "hotScore" from "posts"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > operators: comparisons 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "draft",
+      1,
+      2,
+      100,
+      99,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`status\` <> ?) and (\`posts\`.\`hot_score\` > ?) and (\`posts\`.\`hot_score\` >= ?) and (\`posts\`.\`id\` < ?) and (\`posts\`.\`id\` <= ?)",
+  },
+  generic: {
+    params: [
+      "draft",
+      1,
+      2,
+      100,
+      99,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" <> ?) and ("posts"."hot_score" > ?) and ("posts"."hot_score" >= ?) and ("posts"."id" < ?) and ("posts"."id" <= ?)',
+  },
+  mysql: {
+    params: [
+      "draft",
+      1,
+      2,
+      100,
+      99,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`status\` <> ?) and (\`posts\`.\`hot_score\` > ?) and (\`posts\`.\`hot_score\` >= ?) and (\`posts\`.\`id\` < ?) and (\`posts\`.\`id\` <= ?)",
+  },
+  postgres: {
+    params: [
+      "draft",
+      1,
+      2,
+      100,
+      99,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" <> \$1) and ("posts"."hot_score" > \$2) and ("posts"."hot_score" >= \$3) and ("posts"."id" < \$4) and ("posts"."id" <= \$5)',
+  },
+  sqlite: {
+    params: [
+      "draft",
+      1,
+      2,
+      100,
+      99,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" <> ?) and ("posts"."hot_score" > ?) and ("posts"."hot_score" >= ?) and ("posts"."id" < ?) and ("posts"."id" <= ?)',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > operators: like family 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "a%",
+      "b%",
+      "c%",
+      "d%",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`title\` like ?) or (\`posts\`.\`title\` not like ?) or (\`posts\`.\`title\` like ?) or (\`posts\`.\`title\` not like ?)",
+  },
+  generic: {
+    params: [
+      "a%",
+      "b%",
+      "c%",
+      "d%",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."title" like ?) or ("posts"."title" not like ?) or ("posts"."title" like ?) or ("posts"."title" not like ?)',
+  },
+  mysql: {
+    params: [
+      "a%",
+      "b%",
+      "c%",
+      "d%",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`title\` like ?) or (\`posts\`.\`title\` not like ?) or (\`posts\`.\`title\` like ?) or (\`posts\`.\`title\` not like ?)",
+  },
+  postgres: {
+    params: [
+      "a%",
+      "b%",
+      "c%",
+      "d%",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."title" like \$1) or ("posts"."title" not like \$2) or ("posts"."title" ilike \$3) or ("posts"."title" not ilike \$4)',
+  },
+  sqlite: {
+    params: [
+      "a%",
+      "b%",
+      "c%",
+      "d%",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."title" like ?) or ("posts"."title" not like ?) or ("posts"."title" like ?) or ("posts"."title" not like ?)',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > operators: in / null 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "published",
+      "archived",
+      1,
+      2,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`status\` in (?, ?)) and (\`posts\`.\`id\` not in (?, ?)) and (\`posts\`.\`published\` is null) and (\`posts\`.\`created_at\` is not null)",
+  },
+  generic: {
+    params: [
+      "published",
+      "archived",
+      1,
+      2,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" in (?, ?)) and ("posts"."id" not in (?, ?)) and ("posts"."published" is null) and ("posts"."created_at" is not null)',
+  },
+  mysql: {
+    params: [
+      "published",
+      "archived",
+      1,
+      2,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`status\` in (?, ?)) and (\`posts\`.\`id\` not in (?, ?)) and (\`posts\`.\`published\` is null) and (\`posts\`.\`created_at\` is not null)",
+  },
+  postgres: {
+    params: [
+      "published",
+      "archived",
+      1,
+      2,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" in (\$1, \$2)) and ("posts"."id" not in (\$3, \$4)) and ("posts"."published" is null) and ("posts"."created_at" is not null)',
+  },
+  sqlite: {
+    params: [
+      "published",
+      "archived",
+      1,
+      2,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" in (?, ?)) and ("posts"."id" not in (?, ?)) and ("posts"."published" is null) and ("posts"."created_at" is not null)',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > operators: between / not 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+      10,
+      5,
+      6,
+      "hidden",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`hot_score\` between ? and ?) and (\`posts\`.\`id\` not between ? and ?) and (not (\`posts\`.\`status\` = ?))",
+  },
+  generic: {
+    params: [
+      1,
+      10,
+      5,
+      6,
+      "hidden",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."hot_score" between ? and ?) and ("posts"."id" not between ? and ?) and (not ("posts"."status" = ?))',
+  },
+  mysql: {
+    params: [
+      1,
+      10,
+      5,
+      6,
+      "hidden",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`hot_score\` between ? and ?) and (\`posts\`.\`id\` not between ? and ?) and (not (\`posts\`.\`status\` = ?))",
+  },
+  postgres: {
+    params: [
+      1,
+      10,
+      5,
+      6,
+      "hidden",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."hot_score" between \$1 and \$2) and ("posts"."id" not between \$3 and \$4) and (not ("posts"."status" = \$5))',
+  },
+  sqlite: {
+    params: [
+      1,
+      10,
+      5,
+      6,
+      "hidden",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."hot_score" between ? and ?) and ("posts"."id" not between ? and ?) and (not ("posts"."status" = ?))',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > operators: exists / notExists 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "banned",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (exists (select \`authors\`.\`id\` as \`id\` from \`authors\` where \`authors\`.\`id\` = \`posts\`.\`author_id\`)) and (not exists (select \`authors\`.\`id\` as \`id\` from \`authors\` where \`authors\`.\`name\` = ?))",
+  },
+  generic: {
+    params: [
+      "banned",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where (exists (select "authors"."id" as "id" from "authors" where "authors"."id" = "posts"."author_id")) and (not exists (select "authors"."id" as "id" from "authors" where "authors"."name" = ?))',
+  },
+  mysql: {
+    params: [
+      "banned",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (exists (select \`authors\`.\`id\` as \`id\` from \`authors\` where \`authors\`.\`id\` = \`posts\`.\`author_id\`)) and (not exists (select \`authors\`.\`id\` as \`id\` from \`authors\` where \`authors\`.\`name\` = ?))",
+  },
+  postgres: {
+    params: [
+      "banned",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where (exists (select "authors"."id" as "id" from "authors" where "authors"."id" = "posts"."author_id")) and (not exists (select "authors"."id" as "id" from "authors" where "authors"."name" = \$1))',
+  },
+  sqlite: {
+    params: [
+      "banned",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where (exists (select "authors"."id" as "id" from "authors" where "authors"."id" = "posts"."author_id")) and (not exists (select "authors"."id" as "id" from "authors" where "authors"."name" = ?))',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > operators: array (pg-only guards) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: arrayContains ("@>") is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      [
+        "deno",
+      ],
+      [
+        "deno",
+        "sql",
+      ],
+      [
+        "orm",
+      ],
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."tags" @> ?) or ("posts"."tags" <@ ?) or ("posts"."tags" && ?)',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: arrayContains ("@>") is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [
+      [
+        "deno",
+      ],
+      [
+        "deno",
+        "sql",
+      ],
+      [
+        "orm",
+      ],
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."tags" @> \$1) or ("posts"."tags" <@ \$2) or ("posts"."tags" && \$3)',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: arrayContains ("@>") is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > join: inner + left 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, \`authors\`.\`name\` as \`name\` from \`posts\` inner join \`authors\` on \`posts\`.\`author_id\` = \`authors\`.\`id\` left join \`posts_archive\` on \`posts\`.\`id\` = \`posts_archive\`.\`id\`",
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" inner join "authors" on "posts"."author_id" = "authors"."id" left join "posts_archive" on "posts"."id" = "posts_archive"."id"',
+  },
+  mysql: {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, \`authors\`.\`name\` as \`name\` from \`posts\` inner join \`authors\` on \`posts\`.\`author_id\` = \`authors\`.\`id\` left join \`posts_archive\` on \`posts\`.\`id\` = \`posts_archive\`.\`id\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" inner join "authors" on "posts"."author_id" = "authors"."id" left join "posts_archive" on "posts"."id" = "posts_archive"."id"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" inner join "authors" on "posts"."author_id" = "authors"."id" left join "posts_archive" on "posts"."id" = "posts_archive"."id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > join: right 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, \`authors\`.\`name\` as \`name\` from \`posts\` right join \`authors\` on \`posts\`.\`author_id\` = \`authors\`.\`id\`",
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" right join "authors" on "posts"."author_id" = "authors"."id"',
+  },
+  mysql: {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, \`authors\`.\`name\` as \`name\` from \`posts\` right join \`authors\` on \`posts\`.\`author_id\` = \`authors\`.\`id\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" right join "authors" on "posts"."author_id" = "authors"."id"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" right join "authors" on "posts"."author_id" = "authors"."id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > join: full (guarded off postgres) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: FULL JOIN is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" full join "authors" on "posts"."author_id" = "authors"."id"',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: FULL JOIN is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" full join "authors" on "posts"."author_id" = "authors"."id"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "posts"."id" as "id", "authors"."name" as "name" from "posts" full join "authors" on "posts"."author_id" = "authors"."id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > aggregates: group by + having 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+    ],
+    text: "select \`posts\`.\`status\` as \`status\`, count(*) as \`total\`, count(distinct \`posts\`.\`author_id\`) as \`authors\`, sum(\`posts\`.\`hot_score\`) as \`score\`, avg(\`posts\`.\`hot_score\`) as \`average\`, min(\`posts\`.\`hot_score\`) as \`lowest\`, max(\`posts\`.\`hot_score\`) as \`highest\` from \`posts\` group by \`posts\`.\`status\` having count(*) > ?",
+  },
+  generic: {
+    params: [
+      1,
+    ],
+    text: 'select "posts"."status" as "status", count(*) as "total", count(distinct "posts"."author_id") as "authors", sum("posts"."hot_score") as "score", avg("posts"."hot_score") as "average", min("posts"."hot_score") as "lowest", max("posts"."hot_score") as "highest" from "posts" group by "posts"."status" having count(*) > ?',
+  },
+  mysql: {
+    params: [
+      1,
+    ],
+    text: "select \`posts\`.\`status\` as \`status\`, count(*) as \`total\`, count(distinct \`posts\`.\`author_id\`) as \`authors\`, sum(\`posts\`.\`hot_score\`) as \`score\`, avg(\`posts\`.\`hot_score\`) as \`average\`, min(\`posts\`.\`hot_score\`) as \`lowest\`, max(\`posts\`.\`hot_score\`) as \`highest\` from \`posts\` group by \`posts\`.\`status\` having count(*) > ?",
+  },
+  postgres: {
+    params: [
+      1,
+    ],
+    text: 'select "posts"."status" as "status", count(*) as "total", count(distinct "posts"."author_id") as "authors", sum("posts"."hot_score") as "score", avg("posts"."hot_score") as "average", min("posts"."hot_score") as "lowest", max("posts"."hot_score") as "highest" from "posts" group by "posts"."status" having count(*) > \$1',
+  },
+  sqlite: {
+    params: [
+      1,
+    ],
+    text: 'select "posts"."status" as "status", count(*) as "total", count(distinct "posts"."author_id") as "authors", sum("posts"."hot_score") as "score", avg("posts"."hot_score") as "average", min("posts"."hot_score") as "lowest", max("posts"."hot_score") as "highest" from "posts" group by "posts"."status" having count(*) > ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > aggregates: filter() 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "published",
+      10,
+    ],
+    text: "select count(case when \`posts\`.\`status\` = ? then 1 end) as \`published\`, sum(case when \`posts\`.\`hot_score\` > ? then \`posts\`.\`hot_score\` end) as \`hotSum\` from \`posts\` group by \`posts\`.\`author_id\`",
+  },
+  generic: {
+    params: [
+      "published",
+      10,
+    ],
+    text: 'select count(*) filter (where "posts"."status" = ?) as "published", sum("posts"."hot_score") filter (where "posts"."hot_score" > ?) as "hotSum" from "posts" group by "posts"."author_id"',
+  },
+  mysql: {
+    params: [
+      "published",
+      10,
+    ],
+    text: "select count(case when \`posts\`.\`status\` = ? then 1 end) as \`published\`, sum(case when \`posts\`.\`hot_score\` > ? then \`posts\`.\`hot_score\` end) as \`hotSum\` from \`posts\` group by \`posts\`.\`author_id\`",
+  },
+  postgres: {
+    params: [
+      "published",
+      10,
+    ],
+    text: 'select count(*) filter (where "posts"."status" = \$1) as "published", sum("posts"."hot_score") filter (where "posts"."hot_score" > \$2) as "hotSum" from "posts" group by "posts"."author_id"',
+  },
+  sqlite: {
+    params: [
+      "published",
+      10,
+    ],
+    text: 'select count(*) filter (where "posts"."status" = ?) as "published", sum("posts"."hot_score") filter (where "posts"."hot_score" > ?) as "hotSum" from "posts" group by "posts"."author_id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > order + limit + offset 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      10,
+      20,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` order by \`posts\`.\`hot_score\` desc, \`posts\`.\`id\` asc limit ? offset ?",
+  },
+  generic: {
+    params: [
+      10,
+      20,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" order by "posts"."hot_score" desc, "posts"."id" asc limit ? offset ?',
+  },
+  mysql: {
+    params: [
+      10,
+      20,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` order by \`posts\`.\`hot_score\` desc, \`posts\`.\`id\` asc limit ? offset ?",
+  },
+  postgres: {
+    params: [
+      10,
+      20,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" order by "posts"."hot_score" desc, "posts"."id" asc limit \$1 offset \$2',
+  },
+  sqlite: {
+    params: [
+      10,
+      20,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" order by "posts"."hot_score" desc, "posts"."id" asc limit ? offset ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > distinct 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select distinct \`posts\`.\`status\` as \`status\` from \`posts\`",
+  },
+  generic: {
+    params: [],
+    text: 'select distinct "posts"."status" as "status" from "posts"',
+  },
+  mysql: {
+    params: [],
+    text: "select distinct \`posts\`.\`status\` as \`status\` from \`posts\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select distinct "posts"."status" as "status" from "posts"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select distinct "posts"."status" as "status" from "posts"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > distinctOn (guarded off postgres) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: distinctOn is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [],
+    text: 'select distinct on ("posts"."status") "posts"."status" as "status", "posts"."id" as "id" from "posts" order by "posts"."status" asc, "posts"."id" desc',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: distinctOn is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [],
+    text: 'select distinct on ("posts"."status") "posts"."status" as "status", "posts"."id" as "id" from "posts" order by "posts"."status" asc, "posts"."id" desc',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: distinctOn is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > row locking: for update skip locked 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "queued",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`status\` = ? for update skip locked",
+  },
+  generic: {
+    params: [
+      "queued",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where "posts"."status" = ? for update skip locked',
+  },
+  mysql: {
+    params: [
+      "queued",
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`status\` = ? for update skip locked",
+  },
+  postgres: {
+    params: [
+      "queued",
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where "posts"."status" = \$1 for update skip locked',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: .for("update"/"share") row locking is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > row locking: for share nowait 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` for share nowait",
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" for share nowait',
+  },
+  mysql: {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` for share nowait",
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" for share nowait',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: .for("update"/"share") row locking is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > keyset: expanded form 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "2024-01-01T00:00:00",
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`author_id\` as \`authorId\`, \`posts\`.\`title\` as \`title\`, \`posts\`.\`status\` as \`status\`, \`posts\`.\`hot_score\` as \`hotScore\`, \`posts\`.\`published\` as \`published\`, \`posts\`.\`created_at\` as \`createdAt\`, \`posts\`.\`tags\` as \`tags\`, \`posts\`.\`meta\` as \`meta\` from \`posts\` where (\`posts\`.\`created_at\` < ?) or (\`posts\`.\`created_at\` = ? and \`posts\`.\`id\` < ?) order by \`posts\`.\`created_at\` desc, \`posts\`.\`id\` desc limit ?",
+  },
+  generic: {
+    params: [
+      "2024-01-01T00:00:00",
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where ("posts"."created_at" < ?) or ("posts"."created_at" = ? and "posts"."id" < ?) order by "posts"."created_at" desc, "posts"."id" desc limit ?',
+  },
+  mysql: {
+    params: [
+      "2024-01-01T00:00:00",
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`author_id\` as \`authorId\`, \`posts\`.\`title\` as \`title\`, \`posts\`.\`status\` as \`status\`, \`posts\`.\`hot_score\` as \`hotScore\`, \`posts\`.\`published\` as \`published\`, \`posts\`.\`created_at\` as \`createdAt\`, \`posts\`.\`tags\` as \`tags\`, \`posts\`.\`meta\` as \`meta\` from \`posts\` where (\`posts\`.\`created_at\` < ?) or (\`posts\`.\`created_at\` = ? and \`posts\`.\`id\` < ?) order by \`posts\`.\`created_at\` desc, \`posts\`.\`id\` desc limit ?",
+  },
+  postgres: {
+    params: [
+      "2024-01-01T00:00:00",
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where ("posts"."created_at" < \$1) or ("posts"."created_at" = \$2 and "posts"."id" < \$3) order by "posts"."created_at" desc, "posts"."id" desc limit \$4',
+  },
+  sqlite: {
+    params: [
+      "2024-01-01T00:00:00",
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where ("posts"."created_at" < ?) or ("posts"."created_at" = ? and "posts"."id" < ?) order by "posts"."created_at" desc, "posts"."id" desc limit ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > keyset: row-value form 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`author_id\` as \`authorId\`, \`posts\`.\`title\` as \`title\`, \`posts\`.\`status\` as \`status\`, \`posts\`.\`hot_score\` as \`hotScore\`, \`posts\`.\`published\` as \`published\`, \`posts\`.\`created_at\` as \`createdAt\`, \`posts\`.\`tags\` as \`tags\`, \`posts\`.\`meta\` as \`meta\` from \`posts\` where (\`posts\`.\`created_at\`, \`posts\`.\`id\`) < (?, ?) order by \`posts\`.\`created_at\` desc, \`posts\`.\`id\` desc limit ?",
+  },
+  generic: {
+    params: [
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where ("posts"."created_at", "posts"."id") < (?, ?) order by "posts"."created_at" desc, "posts"."id" desc limit ?',
+  },
+  mysql: {
+    params: [
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\`, \`posts\`.\`author_id\` as \`authorId\`, \`posts\`.\`title\` as \`title\`, \`posts\`.\`status\` as \`status\`, \`posts\`.\`hot_score\` as \`hotScore\`, \`posts\`.\`published\` as \`published\`, \`posts\`.\`created_at\` as \`createdAt\`, \`posts\`.\`tags\` as \`tags\`, \`posts\`.\`meta\` as \`meta\` from \`posts\` where (\`posts\`.\`created_at\`, \`posts\`.\`id\`) < (?, ?) order by \`posts\`.\`created_at\` desc, \`posts\`.\`id\` desc limit ?",
+  },
+  postgres: {
+    params: [
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where ("posts"."created_at", "posts"."id") < (\$1, \$2) order by "posts"."created_at" desc, "posts"."id" desc limit \$3',
+  },
+  sqlite: {
+    params: [
+      "2024-01-01T00:00:00",
+      7,
+      2,
+    ],
+    text: 'select "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta" from "posts" where ("posts"."created_at", "posts"."id") < (?, ?) order by "posts"."created_at" desc, "posts"."id" desc limit ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > compound: union 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` union select \`posts_archive\`.\`id\` as \`id\` from \`posts_archive\`",
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" union select "posts_archive"."id" as "id" from "posts_archive"',
+  },
+  mysql: {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` union select \`posts_archive\`.\`id\` as \`id\` from \`posts_archive\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" union select "posts_archive"."id" as "id" from "posts_archive"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" union select "posts_archive"."id" as "id" from "posts_archive"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > compound: unionAll + intersect + except 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` union all select \`posts_archive\`.\`id\` as \`id\` from \`posts_archive\` intersect select \`posts\`.\`id\` as \`id\` from \`posts\` except select \`posts_archive\`.\`id\` as \`id\` from \`posts_archive\`",
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" union all select "posts_archive"."id" as "id" from "posts_archive" intersect select "posts"."id" as "id" from "posts" except select "posts_archive"."id" as "id" from "posts_archive"',
+  },
+  mysql: {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` union all select \`posts_archive\`.\`id\` as \`id\` from \`posts_archive\` intersect select \`posts\`.\`id\` as \`id\` from \`posts\` except select \`posts_archive\`.\`id\` as \`id\` from \`posts_archive\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" union all select "posts_archive"."id" as "id" from "posts_archive" intersect select "posts"."id" as "id" from "posts" except select "posts_archive"."id" as "id" from "posts_archive"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "posts"."id" as "id" from "posts" union all select "posts_archive"."id" as "id" from "posts_archive" intersect select "posts"."id" as "id" from "posts" except select "posts_archive"."id" as "id" from "posts_archive"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > cte: WITH ... SELECT 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      10,
+    ],
+    text: "with \`hot\` as (select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`hot_score\` > ?) select \`hot\`.\`id\` as \`id\` from \`hot\`",
+  },
+  generic: {
+    params: [
+      10,
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > ?) select "hot"."id" as "id" from "hot"',
+  },
+  mysql: {
+    params: [
+      10,
+    ],
+    text: "with \`hot\` as (select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`hot_score\` > ?) select \`hot\`.\`id\` as \`id\` from \`hot\`",
+  },
+  postgres: {
+    params: [
+      10,
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > \$1) select "hot"."id" as "id" from "hot"',
+  },
+  sqlite: {
+    params: [
+      10,
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > ?) select "hot"."id" as "id" from "hot"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > subquery: derived table via .as() 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      10,
+    ],
+    text: "select \`hot\`.\`id\` as \`id\` from (select \`posts\`.\`id\` as \`id\`, \`posts\`.\`hot_score\` as \`hotScore\` from \`posts\` where \`posts\`.\`hot_score\` > ?) as \`hot\`",
+  },
+  generic: {
+    params: [
+      10,
+    ],
+    text: 'select "hot"."id" as "id" from (select "posts"."id" as "id", "posts"."hot_score" as "hotScore" from "posts" where "posts"."hot_score" > ?) as "hot"',
+  },
+  mysql: {
+    params: [
+      10,
+    ],
+    text: "select \`hot\`.\`id\` as \`id\` from (select \`posts\`.\`id\` as \`id\`, \`posts\`.\`hot_score\` as \`hotScore\` from \`posts\` where \`posts\`.\`hot_score\` > ?) as \`hot\`",
+  },
+  postgres: {
+    params: [
+      10,
+    ],
+    text: 'select "hot"."id" as "id" from (select "posts"."id" as "id", "posts"."hot_score" as "hotScore" from "posts" where "posts"."hot_score" > \$1) as "hot"',
+  },
+  sqlite: {
+    params: [
+      10,
+    ],
+    text: 'select "hot"."id" as "id" from (select "posts"."id" as "id", "posts"."hot_score" as "hotScore" from "posts" where "posts"."hot_score" > ?) as "hot"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > dates: dateTrunc / now / dateAdd / dateSub 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+      -30,
+      -6,
+    ],
+    text: "select date_format(\`posts\`.\`created_at\`, '%Y-%m-%d %H:00:00') as \`bucket\`, date_add(now(6), interval ? day) as \`until\`, date_add(now(6), interval ? minute) as \`since\` from \`posts\` where \`posts\`.\`created_at\` >= date_add(now(6), interval ? hour)",
+  },
+  generic: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: dateTrunc is not supported by the "generic" dialect',
+  },
+  mysql: {
+    params: [
+      1,
+      -30,
+      -6,
+    ],
+    text: "select date_format(\`posts\`.\`created_at\`, '%Y-%m-%d %H:00:00') as \`bucket\`, date_add(now(6), interval ? day) as \`until\`, date_add(now(6), interval ? minute) as \`since\` from \`posts\` where \`posts\`.\`created_at\` >= date_add(now(6), interval ? hour)",
+  },
+  postgres: {
+    params: [
+      "1 days",
+      "30 minutes",
+      "6 hours",
+    ],
+    text: \`select date_trunc('hour', "posts"."created_at") as "bucket", now() + \$1::interval as "until", now() - \$2::interval as "since" from "posts" where "posts"."created_at" >= now() - \$3::interval\`,
+  },
+  sqlite: {
+    params: [
+      "+1 days",
+      "-30 minutes",
+      "-6 hours",
+    ],
+    text: \`select strftime('%Y-%m-%d %H:00:00', "posts"."created_at") as "bucket", datetime(datetime('now'), ?) as "until", datetime(datetime('now'), ?) as "since" from "posts" where "posts"."created_at" >= datetime(datetime('now'), ?)\`,
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > dates: dateBin bucketing 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select from_unixtime(floor(unix_timestamp(\`posts\`.\`created_at\`) / 300) * 300) as \`bucket\`, count(*) as \`n\` from \`posts\` group by from_unixtime(floor(unix_timestamp(\`posts\`.\`created_at\`) / 300) * 300) order by from_unixtime(floor(unix_timestamp(\`posts\`.\`created_at\`) / 300) * 300) asc",
+  },
+  generic: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: dateBin is not supported by the "generic" dialect',
+  },
+  mysql: {
+    params: [],
+    text: "select from_unixtime(floor(unix_timestamp(\`posts\`.\`created_at\`) / 300) * 300) as \`bucket\`, count(*) as \`n\` from \`posts\` group by from_unixtime(floor(unix_timestamp(\`posts\`.\`created_at\`) / 300) * 300) order by from_unixtime(floor(unix_timestamp(\`posts\`.\`created_at\`) / 300) * 300) asc",
+  },
+  postgres: {
+    params: [],
+    text: 'select to_timestamp(floor(extract(epoch from "posts"."created_at") / 300) * 300) as "bucket", count(*) as "n" from "posts" group by to_timestamp(floor(extract(epoch from "posts"."created_at") / 300) * 300) order by to_timestamp(floor(extract(epoch from "posts"."created_at") / 300) * 300) asc',
+  },
+  sqlite: {
+    params: [],
+    text: \`select datetime((unixepoch("posts"."created_at") / 300) * 300, 'unixepoch') as "bucket", count(*) as "n" from "posts" group by datetime((unixepoch("posts"."created_at") / 300) * 300, 'unixepoch') order by datetime((unixepoch("posts"."created_at") / 300) * 300, 'unixepoch') asc\`,
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > select: scalar subquery in projection 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`authors\`.\`id\` as \`id\`, (select count(*) as \`n\` from \`posts\` where \`posts\`.\`author_id\` = \`authors\`.\`id\`) as \`posts\` from \`authors\`",
+  },
+  generic: {
+    params: [],
+    text: 'select "authors"."id" as "id", (select count(*) as "n" from "posts" where "posts"."author_id" = "authors"."id") as "posts" from "authors"',
+  },
+  mysql: {
+    params: [],
+    text: "select \`authors\`.\`id\` as \`id\`, (select count(*) as \`n\` from \`posts\` where \`posts\`.\`author_id\` = \`authors\`.\`id\`) as \`posts\` from \`authors\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select "authors"."id" as "id", (select count(*) as "n" from "posts" where "posts"."author_id" = "authors"."id") as "posts" from "authors"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "authors"."id" as "id", (select count(*) as "n" from "posts" where "posts"."author_id" = "authors"."id") as "posts" from "authors"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > json: arrayExpr construction 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "a",
+      "b",
+    ],
+    text: "select json_array(?, ?, \`posts\`.\`title\`) as \`tags\` from \`posts\`",
+  },
+  generic: {
+    params: [
+      "a",
+      "b",
+    ],
+    text: 'select array[?, ?, "posts"."title"] as "tags" from "posts"',
+  },
+  mysql: {
+    params: [
+      "a",
+      "b",
+    ],
+    text: "select json_array(?, ?, \`posts\`.\`title\`) as \`tags\` from \`posts\`",
+  },
+  postgres: {
+    params: [
+      "a",
+      "b",
+    ],
+    text: 'select array[\$1, \$2, "posts"."title"] as "tags" from "posts"',
+  },
+  sqlite: {
+    params: [
+      "a",
+      "b",
+    ],
+    text: 'select json_array(?, ?, "posts"."title") as "tags" from "posts"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > json: jsonExtract scalar path 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select json_unquote(json_extract(\`posts\`.\`meta\`, '\$.title')) as \`title\` from \`posts\`",
+  },
+  generic: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: jsonExtract is not supported by the "generic" dialect',
+  },
+  mysql: {
+    params: [],
+    text: "select json_unquote(json_extract(\`posts\`.\`meta\`, '\$.title')) as \`title\` from \`posts\`",
+  },
+  postgres: {
+    params: [],
+    text: \`select jsonb_extract_path_text("posts"."meta", 'title') as "title" from "posts"\`,
+  },
+  sqlite: {
+    params: [],
+    text: \`select json_extract("posts"."meta", '\$.title') as "title" from "posts"\`,
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > json: jsonTable set-returning FROM 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`item\`.\`sku\` as \`sku\`, \`item\`.\`qty\` as \`qty\` from json_table(\`posts\`.\`meta\`, '\$.items[*]' columns (\`sku\` varchar(255) path '\$.sku', \`qty\` int path '\$.qty')) as \`item\`",
+  },
+  generic: {
+    params: [],
+    text: \`select "item"."sku" as "sku", "item"."qty" as "qty" from jsonb_to_recordset("posts"."meta" #> '{items}') as "item"("sku" text, "qty" integer)\`,
+  },
+  mysql: {
+    params: [],
+    text: "select \`item\`.\`sku\` as \`sku\`, \`item\`.\`qty\` as \`qty\` from json_table(\`posts\`.\`meta\`, '\$.items[*]' columns (\`sku\` varchar(255) path '\$.sku', \`qty\` int path '\$.qty')) as \`item\`",
+  },
+  postgres: {
+    params: [],
+    text: \`select "item"."sku" as "sku", "item"."qty" as "qty" from jsonb_to_recordset("posts"."meta" #> '{items}') as "item"("sku" text, "qty" integer)\`,
+  },
+  sqlite: {
+    params: [],
+    text: \`select json_extract("item"."value", '\$.sku') as "sku", json_extract("item"."value", '\$.qty') as "qty" from json_each("posts"."meta", '\$.items') as "item"\`,
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > assembly: insert-from-select + upsert (core seam) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "archived",
+    ],
+    text: "insert into \`posts_archive\` (\`id\`, \`title\`) select \`posts\`.\`id\` as \`id\`, \`posts\`.\`title\` as \`title\` from \`posts\` where \`posts\`.\`status\` = ? on duplicate key update \`title\` = values(\`title\`)",
+  },
+  generic: {
+    params: [
+      "archived",
+    ],
+    text: 'insert into "posts_archive" ("id", "title") select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."status" = ? on conflict ("id") do update set "title" = excluded."title"',
+  },
+  mysql: {
+    params: [
+      "archived",
+    ],
+    text: "insert into \`posts_archive\` (\`id\`, \`title\`) select \`posts\`.\`id\` as \`id\`, \`posts\`.\`title\` as \`title\` from \`posts\` where \`posts\`.\`status\` = ? on duplicate key update \`title\` = values(\`title\`)",
+  },
+  postgres: {
+    params: [
+      "archived",
+    ],
+    text: 'insert into "posts_archive" ("id", "title") select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."status" = \$1 on conflict ("id") do update set "title" = excluded."title"',
+  },
+  sqlite: {
+    params: [
+      "archived",
+    ],
+    text: 'insert into "posts_archive" ("id", "title") select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."status" = ? on conflict ("id") do update set "title" = excluded."title"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > expressions: coalesce + greatest + least 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      0,
+      0,
+      100,
+    ],
+    text: "select coalesce(\`posts\`.\`hot_score\`, ?) as \`score\`, greatest(\`posts\`.\`hot_score\`, ?) as \`capped\`, least(\`posts\`.\`hot_score\`, ?) as \`floor\` from \`posts\`",
+  },
+  generic: {
+    params: [
+      0,
+      0,
+      100,
+    ],
+    text: 'select coalesce("posts"."hot_score", ?) as "score", greatest("posts"."hot_score", ?) as "capped", least("posts"."hot_score", ?) as "floor" from "posts"',
+  },
+  mysql: {
+    params: [
+      0,
+      0,
+      100,
+    ],
+    text: "select coalesce(\`posts\`.\`hot_score\`, ?) as \`score\`, greatest(\`posts\`.\`hot_score\`, ?) as \`capped\`, least(\`posts\`.\`hot_score\`, ?) as \`floor\` from \`posts\`",
+  },
+  postgres: {
+    params: [
+      0,
+      0,
+      100,
+    ],
+    text: 'select coalesce("posts"."hot_score", \$1) as "score", greatest("posts"."hot_score", \$2) as "capped", least("posts"."hot_score", \$3) as "floor" from "posts"',
+  },
+  sqlite: {
+    params: [
+      0,
+      0,
+      100,
+    ],
+    text: 'select coalesce("posts"."hot_score", ?) as "score", max("posts"."hot_score", ?) as "capped", min("posts"."hot_score", ?) as "floor" from "posts"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > dates: dateDiff whole units 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select timestampdiff(minute, \`posts\`.\`created_at\`, now(6)) as \`ageMinutes\`, timestampdiff(day, \`posts\`.\`created_at\`, now(6)) as \`ageDays\` from \`posts\`",
+  },
+  generic: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: dateDiff is not supported by the "generic" dialect',
+  },
+  mysql: {
+    params: [],
+    text: "select timestampdiff(minute, \`posts\`.\`created_at\`, now(6)) as \`ageMinutes\`, timestampdiff(day, \`posts\`.\`created_at\`, now(6)) as \`ageDays\` from \`posts\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select trunc(extract(epoch from (now() - "posts"."created_at")) / 60) as "ageMinutes", trunc(extract(epoch from (now() - "posts"."created_at")) / 86400) as "ageDays" from "posts"',
+  },
+  sqlite: {
+    params: [],
+    text: \`select cast((julianday(datetime('now')) - julianday("posts"."created_at")) * 86400.0 / 60 as integer) as "ageMinutes", cast((julianday(datetime('now')) - julianday("posts"."created_at")) * 86400.0 / 86400 as integer) as "ageDays" from "posts"\`,
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > window: over partition/order/rows frame 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, avg(\`posts\`.\`hot_score\`) over (partition by \`posts\`.\`author_id\` order by \`posts\`.\`created_at\` asc rows between 5 preceding and current row) as \`moving\` from \`posts\`",
+  },
+  generic: {
+    params: [],
+    text: 'select "posts"."id" as "id", avg("posts"."hot_score") over (partition by "posts"."author_id" order by "posts"."created_at" asc rows between 5 preceding and current row) as "moving" from "posts"',
+  },
+  mysql: {
+    params: [],
+    text: "select \`posts\`.\`id\` as \`id\`, avg(\`posts\`.\`hot_score\`) over (partition by \`posts\`.\`author_id\` order by \`posts\`.\`created_at\` asc rows between 5 preceding and current row) as \`moving\` from \`posts\`",
+  },
+  postgres: {
+    params: [],
+    text: 'select "posts"."id" as "id", avg("posts"."hot_score") over (partition by "posts"."author_id" order by "posts"."created_at" asc rows between 5 preceding and current row) as "moving" from "posts"',
+  },
+  sqlite: {
+    params: [],
+    text: 'select "posts"."id" as "id", avg("posts"."hot_score") over (partition by "posts"."author_id" order by "posts"."created_at" asc rows between 5 preceding and current row) as "moving" from "posts"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > window: ranking + lag/lead 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: lag()/lead() default argument is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      0,
+    ],
+    text: 'select rank() over (order by "posts"."hot_score" desc) as "pos", row_number() over (order by "posts"."id" asc) as "n", lag("posts"."hot_score", 1, ?) over (order by "posts"."id" asc) as "prev", lead("posts"."hot_score", 1) over (order by "posts"."id" asc) as "next" from "posts"',
+  },
+  mysql: {
+    params: [
+      0,
+    ],
+    text: "select rank() over (order by \`posts\`.\`hot_score\` desc) as \`pos\`, row_number() over (order by \`posts\`.\`id\` asc) as \`n\`, lag(\`posts\`.\`hot_score\`, 1, ?) over (order by \`posts\`.\`id\` asc) as \`prev\`, lead(\`posts\`.\`hot_score\`, 1) over (order by \`posts\`.\`id\` asc) as \`next\` from \`posts\`",
+  },
+  postgres: {
+    params: [
+      0,
+    ],
+    text: 'select rank() over (order by "posts"."hot_score" desc) as "pos", row_number() over (order by "posts"."id" asc) as "n", lag("posts"."hot_score", 1, \$1) over (order by "posts"."id" asc) as "prev", lead("posts"."hot_score", 1) over (order by "posts"."id" asc) as "next" from "posts"',
+  },
+  sqlite: {
+    params: [
+      0,
+    ],
+    text: 'select rank() over (order by "posts"."hot_score" desc) as "pos", row_number() over (order by "posts"."id" asc) as "n", lag("posts"."hot_score", 1, ?) over (order by "posts"."id" asc) as "prev", lead("posts"."hot_score", 1) over (order by "posts"."id" asc) as "next" from "posts"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > window: groups frame (capability-gated) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: GROUPS window frames is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [],
+    text: 'select sum("posts"."hot_score") over (order by "posts"."hot_score" asc groups between unbounded preceding and current row) as "dense" from "posts"',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: GROUPS window frames is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [],
+    text: 'select sum("posts"."hot_score") over (order by "posts"."hot_score" asc groups between unbounded preceding and current row) as "dense" from "posts"',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: GROUPS window frames is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > cte: WITH RECURSIVE (column list + union all) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+      5,
+    ],
+    text: "with recursive \`tree\` (\`id\`, \`depth\`) as (select \`posts\`.\`id\` as \`id\`, 1 as \`depth\` from \`posts\` where \`posts\`.\`id\` = ? union all select \`posts\`.\`id\` as \`id\`, \`tree\`.\`depth\` + 1 as \`depth\` from \`posts\` inner join \`posts\` on \`posts\`.\`author_id\` = \`tree\`.\`id\` where \`tree\`.\`depth\` < ?) select \`tree\`.\`id\` as \`id\` from \`tree\`",
+  },
+  generic: {
+    params: [
+      1,
+      5,
+    ],
+    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = ? union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "posts" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < ?) select "tree"."id" as "id" from "tree"',
+  },
+  mysql: {
+    params: [
+      1,
+      5,
+    ],
+    text: "with recursive \`tree\` (\`id\`, \`depth\`) as (select \`posts\`.\`id\` as \`id\`, 1 as \`depth\` from \`posts\` where \`posts\`.\`id\` = ? union all select \`posts\`.\`id\` as \`id\`, \`tree\`.\`depth\` + 1 as \`depth\` from \`posts\` inner join \`posts\` on \`posts\`.\`author_id\` = \`tree\`.\`id\` where \`tree\`.\`depth\` < ?) select \`tree\`.\`id\` as \`id\` from \`tree\`",
+  },
+  postgres: {
+    params: [
+      1,
+      5,
+    ],
+    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = \$1 union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "posts" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < \$2) select "tree"."id" as "id" from "tree"',
+  },
+  sqlite: {
+    params: [
+      1,
+      5,
+    ],
+    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = ? union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "posts" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < ?) select "tree"."id" as "id" from "tree"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > sql tag: params + identifier + raw + nesting 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      5,
+      "published",
+    ],
+    text: "select \`posts\`.\`title\`, 1 + 1 as two from posts where \`posts\`.\`hot_score\` > ? and \`posts\`.\`status\` = ?",
+  },
+  generic: {
+    params: [
+      5,
+      "published",
+    ],
+    text: 'select "posts"."title", 1 + 1 as two from posts where "posts"."hot_score" > ? and "posts"."status" = ?',
+  },
+  mysql: {
+    params: [
+      5,
+      "published",
+    ],
+    text: "select \`posts\`.\`title\`, 1 + 1 as two from posts where \`posts\`.\`hot_score\` > ? and \`posts\`.\`status\` = ?",
+  },
+  postgres: {
+    params: [
+      5,
+      "published",
+    ],
+    text: 'select "posts"."title", 1 + 1 as two from posts where "posts"."hot_score" > \$1 and "posts"."status" = \$2',
+  },
+  sqlite: {
+    params: [
+      5,
+      "published",
+    ],
+    text: 'select "posts"."title", 1 + 1 as two from posts where "posts"."hot_score" > ? and "posts"."status" = ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > sql tag: temporal instant param (mysql naive-UTC rewrite) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "2026-01-02 03:04:05.123456",
+    ],
+    text: "select * from posts where created_at >= ?",
+  },
+  generic: {
+    params: [
+      "2026-01-02T03:04:05.123456Z",
+    ],
+    text: "select * from posts where created_at >= ?",
+  },
+  mysql: {
+    params: [
+      "2026-01-02 03:04:05.123456",
+    ],
+    text: "select * from posts where created_at >= ?",
+  },
+  postgres: {
+    params: [
+      "2026-01-02T03:04:05.123456Z",
+    ],
+    text: "select * from posts where created_at >= \$1",
+  },
+  sqlite: {
+    params: [
+      "2026-01-02T03:04:05.123456Z",
+    ],
+    text: "select * from posts where created_at >= ?",
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > function call: db.call 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "p1",
+      1,
+    ],
+    text: "select * from \`app\`.\`vote_post\`(?::uuid, ?::smallint)",
+  },
+  generic: {
+    params: [
+      "p1",
+      1,
+    ],
+    text: 'select * from "app"."vote_post"(?::uuid, ?::smallint)',
+  },
+  mysql: {
+    params: [
+      "p1",
+      1,
+    ],
+    text: "select * from \`app\`.\`vote_post\`(?::uuid, ?::smallint)",
+  },
+  postgres: {
+    params: [
+      "p1",
+      1,
+    ],
+    text: 'select * from "app"."vote_post"(\$1::uuid, \$2::smallint)',
+  },
+  sqlite: {
+    params: [
+      "p1",
+      1,
+    ],
+    text: 'select * from "app"."vote_post"(?::uuid, ?::smallint)',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > insert: single row (sql expression value) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+      2,
+      "hello",
+    ],
+    text: "insert into \`posts\` (\`id\`, \`author_id\`, \`title\`, \`hot_score\`) values (?, ?, ?, 1 + 2)",
+  },
+  generic: {
+    params: [
+      1,
+      2,
+      "hello",
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title", "hot_score") values (?, ?, ?, 1 + 2)',
+  },
+  mysql: {
+    params: [
+      1,
+      2,
+      "hello",
+    ],
+    text: "insert into \`posts\` (\`id\`, \`author_id\`, \`title\`, \`hot_score\`) values (?, ?, ?, 1 + 2)",
+  },
+  postgres: {
+    params: [
+      1,
+      2,
+      "hello",
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title", "hot_score") values (\$1, \$2, \$3, 1 + 2)',
+  },
+  sqlite: {
+    params: [
+      1,
+      2,
+      "hello",
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title", "hot_score") values (?, ?, ?, 1 + 2)',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > insert: multi-row 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+      "ada",
+      2,
+      "grace",
+    ],
+    text: "insert into \`authors\` (\`id\`, \`name\`) values (?, ?), (?, ?)",
+  },
+  generic: {
+    params: [
+      1,
+      "ada",
+      2,
+      "grace",
+    ],
+    text: 'insert into "authors" ("id", "name") values (?, ?), (?, ?)',
+  },
+  mysql: {
+    params: [
+      1,
+      "ada",
+      2,
+      "grace",
+    ],
+    text: "insert into \`authors\` (\`id\`, \`name\`) values (?, ?), (?, ?)",
+  },
+  postgres: {
+    params: [
+      1,
+      "ada",
+      2,
+      "grace",
+    ],
+    text: 'insert into "authors" ("id", "name") values (\$1, \$2), (\$3, \$4)',
+  },
+  sqlite: {
+    params: [
+      1,
+      "ada",
+      2,
+      "grace",
+    ],
+    text: 'insert into "authors" ("id", "name") values (?, ?), (?, ?)',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > insert: from select 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "archived",
+    ],
+    text: "insert into \`posts_archive\` (\`id\`, \`title\`) select \`posts\`.\`id\` as \`id\`, \`posts\`.\`title\` as \`title\` from \`posts\` where \`posts\`.\`status\` = ?",
+  },
+  generic: {
+    params: [
+      "archived",
+    ],
+    text: 'insert into "posts_archive" ("id", "title") select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."status" = ?',
+  },
+  mysql: {
+    params: [
+      "archived",
+    ],
+    text: "insert into \`posts_archive\` (\`id\`, \`title\`) select \`posts\`.\`id\` as \`id\`, \`posts\`.\`title\` as \`title\` from \`posts\` where \`posts\`.\`status\` = ?",
+  },
+  postgres: {
+    params: [
+      "archived",
+    ],
+    text: 'insert into "posts_archive" ("id", "title") select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."status" = \$1',
+  },
+  sqlite: {
+    params: [
+      "archived",
+    ],
+    text: 'insert into "posts_archive" ("id", "title") select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."status" = ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > insert: returning 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      3,
+      "lin",
+    ],
+    text: "insert into \`authors\` (\`id\`, \`name\`) values (?, ?) returning *",
+  },
+  generic: {
+    params: [
+      3,
+      "lin",
+    ],
+    text: 'insert into "authors" ("id", "name") values (?, ?) returning *',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: INSERT … RETURNING is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [
+      3,
+      "lin",
+    ],
+    text: 'insert into "authors" ("id", "name") values (\$1, \$2) returning *',
+  },
+  sqlite: {
+    params: [
+      3,
+      "lin",
+    ],
+    text: 'insert into "authors" ("id", "name") values (?, ?) returning *',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > upsert: onConflictDoUpdate + excluded() 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+      2,
+      "hi",
+    ],
+    text: "insert into \`posts\` (\`id\`, \`author_id\`, \`title\`) values (?, ?, ?) on duplicate key update \`title\` = values(\`title\`), \`hot_score\` = values(\`hot_score\`) + 1",
+  },
+  generic: {
+    params: [
+      1,
+      2,
+      "hi",
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title") values (?, ?, ?) on conflict ("id") do update set "title" = excluded."title", "hot_score" = excluded."hot_score" + 1',
+  },
+  mysql: {
+    params: [
+      1,
+      2,
+      "hi",
+    ],
+    text: "insert into \`posts\` (\`id\`, \`author_id\`, \`title\`) values (?, ?, ?) on duplicate key update \`title\` = values(\`title\`), \`hot_score\` = values(\`hot_score\`) + 1",
+  },
+  postgres: {
+    params: [
+      1,
+      2,
+      "hi",
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title") values (\$1, \$2, \$3) on conflict ("id") do update set "title" = excluded."title", "hot_score" = excluded."hot_score" + 1',
+  },
+  sqlite: {
+    params: [
+      1,
+      2,
+      "hi",
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title") values (?, ?, ?) on conflict ("id") do update set "title" = excluded."title", "hot_score" = excluded."hot_score" + 1',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > upsert: onConflictDoNothing (bare) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+      "ada",
+    ],
+    text: "insert into \`authors\` (\`id\`, \`name\`) values (?, ?) on duplicate key update \`id\` = \`id\`",
+  },
+  generic: {
+    params: [
+      1,
+      "ada",
+    ],
+    text: 'insert into "authors" ("id", "name") values (?, ?) on conflict do nothing',
+  },
+  mysql: {
+    params: [
+      1,
+      "ada",
+    ],
+    text: "insert into \`authors\` (\`id\`, \`name\`) values (?, ?) on duplicate key update \`id\` = \`id\`",
+  },
+  postgres: {
+    params: [
+      1,
+      "ada",
+    ],
+    text: 'insert into "authors" ("id", "name") values (\$1, \$2) on conflict do nothing',
+  },
+  sqlite: {
+    params: [
+      1,
+      "ada",
+    ],
+    text: 'insert into "authors" ("id", "name") values (?, ?) on conflict do nothing',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > upsert: conflict where (no mysql equivalent) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: onConflictDoUpdate "where" (conflict condition) is not supported by the "mysql" dialect',
+  },
+  generic: {
+    params: [
+      1,
+      2,
+      "hi",
+      0,
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title") values (?, ?, ?) on conflict ("id") do update set "title" = excluded."title" where "posts"."hot_score" > ?',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: onConflictDoUpdate "where" (conflict condition) is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [
+      1,
+      2,
+      "hi",
+      0,
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title") values (\$1, \$2, \$3) on conflict ("id") do update set "title" = excluded."title" where "posts"."hot_score" > \$4',
+  },
+  sqlite: {
+    params: [
+      1,
+      2,
+      "hi",
+      0,
+    ],
+    text: 'insert into "posts" ("id", "author_id", "title") values (?, ?, ?) on conflict ("id") do update set "title" = excluded."title" where "posts"."hot_score" > ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > cte: WITH ... INSERT (mariadb guard) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: WITH … INSERT is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      10,
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."hot_score" > ?) insert into "posts_archive" ("id", "title") select "hot"."id" as "id", "hot"."title" as "title" from "hot"',
+  },
+  mysql: {
+    params: [
+      10,
+    ],
+    text: "with \`hot\` as (select \`posts\`.\`id\` as \`id\`, \`posts\`.\`title\` as \`title\` from \`posts\` where \`posts\`.\`hot_score\` > ?) insert into \`posts_archive\` (\`id\`, \`title\`) select \`hot\`.\`id\` as \`id\`, \`hot\`.\`title\` as \`title\` from \`hot\`",
+  },
+  postgres: {
+    params: [
+      10,
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."hot_score" > \$1) insert into "posts_archive" ("id", "title") select "hot"."id" as "id", "hot"."title" as "title" from "hot"',
+  },
+  sqlite: {
+    params: [
+      10,
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id", "posts"."title" as "title" from "posts" where "posts"."hot_score" > ?) insert into "posts_archive" ("id", "title") select "hot"."id" as "id", "hot"."title" as "title" from "hot"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > update: set + where (sql expression) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "published",
+      1,
+    ],
+    text: "update \`posts\` set \`status\` = ?, \`hot_score\` = \`posts\`.\`hot_score\` + 1 where \`posts\`.\`id\` = ?",
+  },
+  generic: {
+    params: [
+      "published",
+      1,
+    ],
+    text: 'update "posts" set "status" = ?, "hot_score" = "posts"."hot_score" + 1 where "posts"."id" = ?',
+  },
+  mysql: {
+    params: [
+      "published",
+      1,
+    ],
+    text: "update \`posts\` set \`status\` = ?, \`hot_score\` = \`posts\`.\`hot_score\` + 1 where \`posts\`.\`id\` = ?",
+  },
+  postgres: {
+    params: [
+      "published",
+      1,
+    ],
+    text: 'update "posts" set "status" = \$1, "hot_score" = "posts"."hot_score" + 1 where "posts"."id" = \$2',
+  },
+  sqlite: {
+    params: [
+      "published",
+      1,
+    ],
+    text: 'update "posts" set "status" = ?, "hot_score" = "posts"."hot_score" + 1 where "posts"."id" = ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > update: unsafeAllowAllRows 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      "draft",
+    ],
+    text: "update \`posts\` set \`status\` = ?",
+  },
+  generic: {
+    params: [
+      "draft",
+    ],
+    text: 'update "posts" set "status" = ?',
+  },
+  mysql: {
+    params: [
+      "draft",
+    ],
+    text: "update \`posts\` set \`status\` = ?",
+  },
+  postgres: {
+    params: [
+      "draft",
+    ],
+    text: 'update "posts" set "status" = \$1',
+  },
+  sqlite: {
+    params: [
+      "draft",
+    ],
+    text: 'update "posts" set "status" = ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > update: from table (multi-table mapping) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      0,
+    ],
+    text: "update \`posts\`, \`authors\` set \`posts\`.\`hot_score\` = ? where \`posts\`.\`author_id\` = \`authors\`.\`id\`",
+  },
+  generic: {
+    params: [
+      0,
+    ],
+    text: 'update "posts" set "hot_score" = ? from "authors" where "posts"."author_id" = "authors"."id"',
+  },
+  mysql: {
+    params: [
+      0,
+    ],
+    text: "update \`posts\`, \`authors\` set \`posts\`.\`hot_score\` = ? where \`posts\`.\`author_id\` = \`authors\`.\`id\`",
+  },
+  postgres: {
+    params: [
+      0,
+    ],
+    text: 'update "posts" set "hot_score" = \$1 from "authors" where "posts"."author_id" = "authors"."id"',
+  },
+  sqlite: {
+    params: [
+      0,
+    ],
+    text: 'update "posts" set "hot_score" = ? from "authors" where "posts"."author_id" = "authors"."id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > update: from subquery 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      10,
+      "hot",
+    ],
+    text: "update \`posts\`, (select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`hot_score\` > ?) as \`hot\` set \`posts\`.\`status\` = ? where \`posts\`.\`id\` = \`hot\`.\`id\`",
+  },
+  generic: {
+    params: [
+      "hot",
+      10,
+    ],
+    text: 'update "posts" set "status" = ? from (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > ?) as "hot" where "posts"."id" = "hot"."id"',
+  },
+  mysql: {
+    params: [
+      10,
+      "hot",
+    ],
+    text: "update \`posts\`, (select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`hot_score\` > ?) as \`hot\` set \`posts\`.\`status\` = ? where \`posts\`.\`id\` = \`hot\`.\`id\`",
+  },
+  postgres: {
+    params: [
+      "hot",
+      10,
+    ],
+    text: 'update "posts" set "status" = \$1 from (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > \$2) as "hot" where "posts"."id" = "hot"."id"',
+  },
+  sqlite: {
+    params: [
+      "hot",
+      10,
+    ],
+    text: 'update "posts" set "status" = ? from (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > ?) as "hot" where "posts"."id" = "hot"."id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > update: returning 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: UPDATE … RETURNING is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      "published",
+      1,
+    ],
+    text: 'update "posts" set "status" = ? where "posts"."id" = ? returning "posts"."id" as "id"',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: UPDATE … RETURNING is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [
+      "published",
+      1,
+    ],
+    text: 'update "posts" set "status" = \$1 where "posts"."id" = \$2 returning "posts"."id" as "id"',
+  },
+  sqlite: {
+    params: [
+      "published",
+      1,
+    ],
+    text: 'update "posts" set "status" = ? where "posts"."id" = ? returning "posts"."id" as "id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > update: from + returning (double guard) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: UPDATE … FROM … RETURNING is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      0,
+    ],
+    text: 'update "posts" set "hot_score" = ? from "authors" where "posts"."author_id" = "authors"."id" returning "posts"."id" as "id"',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: UPDATE … FROM … RETURNING is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [
+      0,
+    ],
+    text: 'update "posts" set "hot_score" = \$1 from "authors" where "posts"."author_id" = "authors"."id" returning "posts"."id" as "id"',
+  },
+  sqlite: {
+    params: [
+      0,
+    ],
+    text: 'update "posts" set "hot_score" = ? from "authors" where "posts"."author_id" = "authors"."id" returning "posts"."id" as "id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > cte: WITH ... UPDATE (mariadb guard) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: WITH … UPDATE is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      10,
+      "hot",
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > ?) update "posts" set "status" = ? from "hot" where "posts"."id" = "hot"."id"',
+  },
+  mysql: {
+    params: [
+      10,
+      "hot",
+    ],
+    text: "with \`hot\` as (select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`hot_score\` > ?) update \`posts\`, \`hot\` set \`posts\`.\`status\` = ? where \`posts\`.\`id\` = \`hot\`.\`id\`",
+  },
+  postgres: {
+    params: [
+      10,
+      "hot",
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > \$1) update "posts" set "status" = \$2 from "hot" where "posts"."id" = "hot"."id"',
+  },
+  sqlite: {
+    params: [
+      10,
+      "hot",
+    ],
+    text: 'with "hot" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" > ?) update "posts" set "status" = ? from "hot" where "posts"."id" = "hot"."id"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > cte: data-modifying body (pg-only) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: WITH … INSERT is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      "archived",
+    ],
+    text: 'with "moved" as (delete from "posts" where "posts"."status" = ? returning "posts"."id" as "id", "posts"."title" as "title") insert into "posts_archive" ("id", "title") select "moved"."id" as "id", "moved"."title" as "title" from "moved"',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: a data-modifying CTE (INSERT/UPDATE/DELETE in WITH) is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [
+      "archived",
+    ],
+    text: 'with "moved" as (delete from "posts" where "posts"."status" = \$1 returning "posts"."id" as "id", "posts"."title" as "title") insert into "posts_archive" ("id", "title") select "moved"."id" as "id", "moved"."title" as "title" from "moved"',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: a data-modifying CTE (INSERT/UPDATE/DELETE in WITH) is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > delete: where 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+    ],
+    text: "delete from \`posts\` where \`posts\`.\`id\` = ?",
+  },
+  generic: {
+    params: [
+      1,
+    ],
+    text: 'delete from "posts" where "posts"."id" = ?',
+  },
+  mysql: {
+    params: [
+      1,
+    ],
+    text: "delete from \`posts\` where \`posts\`.\`id\` = ?",
+  },
+  postgres: {
+    params: [
+      1,
+    ],
+    text: 'delete from "posts" where "posts"."id" = \$1',
+  },
+  sqlite: {
+    params: [
+      1,
+    ],
+    text: 'delete from "posts" where "posts"."id" = ?',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > delete: unsafeAllowAllRows 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "delete from \`posts_archive\`",
+  },
+  generic: {
+    params: [],
+    text: 'delete from "posts_archive"',
+  },
+  mysql: {
+    params: [],
+    text: "delete from \`posts_archive\`",
+  },
+  postgres: {
+    params: [],
+    text: 'delete from "posts_archive"',
+  },
+  sqlite: {
+    params: [],
+    text: 'delete from "posts_archive"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > delete: using (multi-table mapping) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [],
+    text: "delete from \`posts\` using \`posts\`, \`authors\` where \`posts\`.\`author_id\` = \`authors\`.\`id\`",
+  },
+  generic: {
+    params: [],
+    text: 'delete from "posts" using "authors" where "posts"."author_id" = "authors"."id"',
+  },
+  mysql: {
+    params: [],
+    text: "delete from \`posts\` using \`posts\`, \`authors\` where \`posts\`.\`author_id\` = \`authors\`.\`id\`",
+  },
+  postgres: {
+    params: [],
+    text: 'delete from "posts" using "authors" where "posts"."author_id" = "authors"."id"',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: DELETE … USING is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > delete: returning 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    params: [
+      1,
+    ],
+    text: "delete from \`posts\` where \`posts\`.\`id\` = ? returning \`posts\`.\`id\` as \`id\`, \`posts\`.\`author_id\` as \`authorId\`, \`posts\`.\`title\` as \`title\`, \`posts\`.\`status\` as \`status\`, \`posts\`.\`hot_score\` as \`hotScore\`, \`posts\`.\`published\` as \`published\`, \`posts\`.\`created_at\` as \`createdAt\`, \`posts\`.\`tags\` as \`tags\`, \`posts\`.\`meta\` as \`meta\`",
+  },
+  generic: {
+    params: [
+      1,
+    ],
+    text: 'delete from "posts" where "posts"."id" = ? returning "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta"',
+  },
+  mysql: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: DELETE … RETURNING is not supported by the "mysql" dialect',
+  },
+  postgres: {
+    params: [
+      1,
+    ],
+    text: 'delete from "posts" where "posts"."id" = \$1 returning "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta"',
+  },
+  sqlite: {
+    params: [
+      1,
+    ],
+    text: 'delete from "posts" where "posts"."id" = ? returning "posts"."id" as "id", "posts"."author_id" as "authorId", "posts"."title" as "title", "posts"."status" as "status", "posts"."hot_score" as "hotScore", "posts"."published" as "published", "posts"."created_at" as "createdAt", "posts"."tags" as "tags", "posts"."meta" as "meta"',
+  },
+}
+`;
+
+snapshot[`golden: every IR construct renders identically per dialect > cte: WITH ... DELETE (mariadb guard) 1`] = `
+{
+  "mysql (mariadb 11.8.8)": {
+    throws: 'ORM_DIALECT_UNSUPPORTED: WITH … DELETE is not supported by the "mysql" dialect (variant mariadb 11.8.8)',
+  },
+  generic: {
+    params: [
+      0,
+    ],
+    text: 'with "stale" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" < ?) delete from "posts" using "stale" where "posts"."id" = "stale"."id"',
+  },
+  mysql: {
+    params: [
+      0,
+    ],
+    text: "with \`stale\` as (select \`posts\`.\`id\` as \`id\` from \`posts\` where \`posts\`.\`hot_score\` < ?) delete from \`posts\` using \`posts\`, \`stale\` where \`posts\`.\`id\` = \`stale\`.\`id\`",
+  },
+  postgres: {
+    params: [
+      0,
+    ],
+    text: 'with "stale" as (select "posts"."id" as "id" from "posts" where "posts"."hot_score" < \$1) delete from "posts" using "stale" where "posts"."id" = "stale"."id"',
+  },
+  sqlite: {
+    throws: 'ORM_DIALECT_UNSUPPORTED: DELETE … USING is not supported by the "sqlite" dialect',
+  },
+}
+`;
+
+snapshot[`golden: prepared-plan placeholders per dialect 1`] = `
+{
+  generic: {
+    params: [
+      "published",
+      5,
+      3,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" = ?) and ("posts"."hot_score" > ?) order by "posts"."id" desc limit ?',
+  },
+  mysql: {
+    params: [
+      "published",
+      5,
+      3,
+    ],
+    text: "select \`posts\`.\`id\` as \`id\` from \`posts\` where (\`posts\`.\`status\` = ?) and (\`posts\`.\`hot_score\` > ?) order by \`posts\`.\`id\` desc limit ?",
+  },
+  postgres: {
+    params: [
+      "published",
+      5,
+      3,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" = \$1) and ("posts"."hot_score" > \$2) order by "posts"."id" desc limit \$3',
+  },
+  sqlite: {
+    params: [
+      "published",
+      5,
+      3,
+    ],
+    text: 'select "posts"."id" as "id" from "posts" where ("posts"."status" = ?) and ("posts"."hot_score" > ?) order by "posts"."id" desc limit ?',
+  },
+}
+`;

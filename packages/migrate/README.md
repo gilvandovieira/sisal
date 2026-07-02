@@ -4,8 +4,8 @@ Adapter-neutral migration planning and running for Sisal.
 
 `@sisal/migrate` defines migration records, checksums, plans, in-memory history
 storage, file workflow helpers, schema diff classification, and a generic
-migrator. It may depend on `@sisal/orm` for schema snapshot types and helpers,
-but it does not depend on PostgreSQL or SQLite drivers.
+migrator. It depends on `@sisal/core` for schema snapshot types and helpers, but
+it does not depend on PostgreSQL or SQLite drivers.
 
 ```ts
 import {

@@ -73,22 +73,22 @@ Each is a thin, typed layer over the same core primitives.
 
 ## Where we are today (the honest baseline)
 
-There is **no `@sisal/core` package yet** — everything lives in `@sisal/orm`
-(its `deno.json` already exposes `./core` and `./schema` subpaths). The good
-news, confirmed by a June 2026 code audit: the module graph is **already layered
-as if pre-split**. The internal DAG is
-`errors ← sql ← {operators, columns} ←
-table ← {builders, relations} ← database`,
-and the lower tier (`errors`, `sql`, `operators`, `columns`, `table`,
-`temporal`, and the zero-import leaf `schema.ts`) has **no upward edges** into
-the OLTP builders. The one cross-cut — embedding a query builder as a subquery
-fragment — is already inverted behind the `QUERY_BUILDER_BRAND` symbol + a
-structural `SubquerySource` interface, so `sql.ts` never imports the builders.
+As of v0.8, **`@sisal/core` exists** as the extracted lower tier. It owns the
+schema primitives/snapshots, SQL fragment IR, expression operators, capability
+registry, renderer, structured errors, and logger contracts. The fluent
+builders, `Database` facade, relations, and typed function caller remain in
+`@sisal/orm`, which re-exports the full core surface so existing imports keep
+working.
 
-Consequently, extracting `@sisal/core` is **mostly file-moves, barrel-splitting,
-and a new `deno.json`** — not an ORM rewrite. That extraction is a
-[v0.8](v0.8.0-roadmap.md) deliverable, and it is the gate that lets ETL and
-analytics be built as _separate_ packages instead of growing inside the ORM.
+The split follows the layering confirmed by the June 2026 code audit:
+`errors ← sql ← {operators, columns} ←
+table ← {builders, relations} ← database`.
+The lower tier (`errors`, `sql`, `operators`, `columns`, `table`, `temporal`,
+and the schema snapshot leaf) has **no upward edges** into the OLTP builders.
+The one cross-cut — embedding a query builder as a subquery fragment — remains
+inverted behind the `QUERY_BUILDER_BRAND` symbol + a structural `SubquerySource`
+interface, exposed only through `@sisal/core/unstable-internal` for the ORM
+tier.
 
 **Important nuance for ETL/analytics:** what `@sisal/core` exposes is a
 dialect-agnostic **fragment/expression IR plus a serializable schema snapshot**

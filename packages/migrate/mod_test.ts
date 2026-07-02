@@ -34,7 +34,7 @@ import {
   validateMigrations,
   writeMigrationFile,
 } from "./mod.ts";
-import type { SisalSchemaSnapshot } from "@sisal/orm";
+import type { SisalSchemaSnapshot } from "@sisal/core";
 
 /** In-memory MigrationFileSystem for tests. */
 function fakeFs(): MigrationFileSystem & {

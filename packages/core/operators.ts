@@ -2,9 +2,10 @@
  * Filter operators, ordering helpers, and aggregate expressions used to build
  * `Condition`s and projections (Drizzle-style `eq`/`and`/`inArray`/`count`).
  *
- * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
+ * Part of `@sisal/core`; re-exported through `./mod.ts`.
  */
 
+import { capabilityGuard, DIALECT_CAPABILITIES } from "./capabilities.ts";
 import { OrmError } from "./errors.ts";
 import {
   assertCondition,
@@ -12,18 +13,18 @@ import {
   columnToSql,
   type Condition,
   createCondition,
-  dialectGuard,
   dialectSql,
+  expr,
   identifier,
   isColumn,
   isQueryBuilder,
+  isSql,
   joinSql,
   operatorSql,
   type OrderTerm,
   raw,
   type Sql,
   sql,
-  type SqlDialect,
   type SqlExpression,
   type SubquerySource,
   subquerySql,
@@ -146,11 +147,10 @@ export function notExists(subquery: SubquerySource): Condition {
   return createCondition(sql`not exists ${subquery}`);
 }
 
-// The Postgres array operators render literally (`@>`/`<@`/`&&`); a dialect
-// guard makes rendering throw a typed `OrmError` on the SQLite family and
-// MySQL (no array type/operators) instead of emitting SQL they reject.
-const ARRAY_OP_UNSUPPORTED: readonly SqlDialect[] = ["sqlite", "mysql"];
-
+// The Postgres array operators render literally (`@>`/`<@`/`&&`); the
+// registry capability makes rendering throw a typed `OrmError` on the SQLite
+// family and MySQL (no array type/operators) instead of emitting SQL they
+// reject. Each operator names itself as the guard's construct.
 function arrayCondition(
   column: unknown,
   operator: string,
@@ -159,7 +159,7 @@ function arrayCondition(
 ): Condition {
   const right = isColumn(value) ? columnToSql(value) : value;
   return createCondition(
-    sql`${dialectGuard(construct, ARRAY_OP_UNSUPPORTED)}${
+    sql`${capabilityGuard(DIALECT_CAPABILITIES.arrayOperators, construct)}${
       columnToSql(column)
     } ${raw(operator)} ${right}`,
   );
@@ -651,6 +651,130 @@ export function dateBin(
     sqlite: sql`datetime((unixepoch(${src}) / ${n}) * ${n}, 'unixepoch')`,
     mysql: sql`from_unixtime(floor(unix_timestamp(${src}) / ${n}) * ${n})`,
   }) as SqlExpression<string>;
+}
+
+// A scalar-function operand: columns/expressions render as SQL, anything
+// else binds as a parameter (the binaryCondition rule for argument lists).
+function operandSql(value: unknown): Sql {
+  return isColumn(value) || isSql(value) ? columnToSql(value) : sql`${value}`;
+}
+
+/**
+ * `coalesce(a, b, …)` — the first non-null operand. Portable across all four
+ * dialects; columns and expressions render as SQL, plain values bind as
+ * parameters. Retires the last raw seam in the composed ETL rollups
+ * (v0.8 item 9).
+ */
+export function coalesce<T = unknown>(
+  ...values: readonly unknown[]
+): SqlExpression<T> {
+  if (values.length < 2) {
+    throw new OrmError("coalesce requires at least two operands", {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  return expr<T>(
+    sql`coalesce(${joinSql(values.map(operandSql), raw(", "))})`,
+  );
+}
+
+// greatest/least render natively on PostgreSQL and the MySQL family; the
+// SQLite family spells them as the multi-argument scalar max()/min(). NULL
+// semantics diverge across engines (PostgreSQL ignores NULL operands;
+// MySQL/MariaDB and SQLite return NULL when any operand is NULL) — pass
+// coalesce()d operands when NULLs are possible.
+function extremumSql(
+  construct: "greatest" | "least",
+  sqliteName: "max" | "min",
+  values: readonly unknown[],
+): Sql {
+  if (values.length < 2) {
+    throw new OrmError(`${construct} requires at least two operands`, {
+      code: "ORM_INVALID_QUERY",
+    });
+  }
+  const operands = joinSql(values.map(operandSql), raw(", "));
+  return dialectSql(construct, {
+    postgres: sql`${raw(construct)}(${operands})`,
+    mysql: sql`${raw(construct)}(${operands})`,
+    generic: sql`${raw(construct)}(${operands})`,
+    sqlite: sql`${raw(sqliteName)}(${operands})`,
+  });
+}
+
+/**
+ * `greatest(a, b, …)` — the largest operand (SQLite renders the scalar
+ * `max(a, b, …)`). NULL handling diverges per engine: PostgreSQL ignores
+ * NULLs, MySQL/MariaDB and SQLite return NULL if any operand is NULL — wrap
+ * operands in {@link coalesce} when they can be NULL.
+ */
+export function greatest<T = unknown>(
+  ...values: readonly unknown[]
+): SqlExpression<T> {
+  return expr<T>(extremumSql("greatest", "max", values));
+}
+
+/**
+ * `least(a, b, …)` — the smallest operand (SQLite renders the scalar
+ * `min(a, b, …)`). The same per-engine NULL divergence as {@link greatest}
+ * applies.
+ */
+export function least<T = unknown>(
+  ...values: readonly unknown[]
+): SqlExpression<T> {
+  return expr<T>(extremumSql("least", "min", values));
+}
+
+/** Whole-unit fields accepted by {@link dateDiff}. */
+export type DateDiffField = "seconds" | "minutes" | "hours" | "days";
+
+const DATE_DIFF_SECONDS: Record<DateDiffField, number> = {
+  seconds: 1,
+  minutes: 60,
+  hours: 3600,
+  days: 86400,
+};
+
+// The MySQL TIMESTAMPDIFF unit keyword per field — fixed keywords, never
+// interpolated from input.
+const DATE_DIFF_MYSQL_UNIT: Record<DateDiffField, Sql> = {
+  seconds: raw("second"),
+  minutes: raw("minute"),
+  hours: raw("hour"),
+  days: raw("day"),
+};
+
+/**
+ * Whole units elapsed from `from` to `to` (truncated toward zero, matching
+ * MySQL's `TIMESTAMPDIFF`) — the portable date-diff/gap helper the
+ * sessionization and cohort contracts need (v0.8 item 10):
+ * PostgreSQL `trunc(extract(epoch from (to - from)) / N)`, MySQL family
+ * `timestampdiff(unit, from, to)`, SQLite
+ * `cast((julianday(to) - julianday(from)) * 86400.0 / N as integer)`.
+ * Positive when `to` is later than `from`.
+ */
+export function dateDiff(
+  field: DateDiffField,
+  from: unknown,
+  to: unknown,
+): SqlExpression<number> {
+  const seconds = DATE_DIFF_SECONDS[field];
+  if (seconds === undefined) {
+    throw new OrmError("dateDiff field must be seconds|minutes|hours|days", {
+      code: "ORM_INVALID_SQL",
+      details: { field },
+    });
+  }
+  // Validated positive integers from the fixed table above — safe to inline.
+  const n = raw(String(seconds));
+  const a = operandSql(from);
+  const b = operandSql(to);
+  return dialectSql("dateDiff", {
+    postgres: sql`trunc(extract(epoch from (${b} - ${a})) / ${n})`,
+    mysql: sql`timestampdiff(${DATE_DIFF_MYSQL_UNIT[field]}, ${a}, ${b})`,
+    sqlite:
+      sql`cast((julianday(${b}) - julianday(${a})) * 86400.0 / ${n} as integer)`,
+  }) as SqlExpression<number>;
 }
 
 function binaryCondition(
