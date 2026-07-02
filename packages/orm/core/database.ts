@@ -102,8 +102,10 @@ export interface OrmDriver {
 
   /**
    * Runs several pre-rendered statements as one atomic, non-interactive unit
-   * (`begin; …; commit`), ideally in a single round trip. Optional: when a
-   * driver omits it, {@link Database.batch} falls back to {@link transaction}.
+   * (`begin; …; commit`). A driver may collapse this into a single round trip
+   * where its client supports one; the built-in adapters run the statements
+   * sequentially inside one transaction. Optional: when a driver omits it,
+   * {@link Database.batch} falls back to {@link transaction}.
    */
   batch?(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]>;
 
@@ -847,7 +849,9 @@ class SisalDatabase<
   }
 
   async #runBatch(queries: SqlQuery[]): Promise<OrmQueryResult[]> {
-    // Prefer a driver's native batch (one round trip where supported).
+    // Prefer a driver's own batch: it may collapse the statements into a single
+    // round trip where the client supports one, though the built-in adapters run
+    // them sequentially inside one transaction.
     if (this.#driver.batch !== undefined) {
       return await this.#driver.batch(queries);
     }
