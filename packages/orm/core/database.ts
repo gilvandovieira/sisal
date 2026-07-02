@@ -72,6 +72,13 @@ import {
   type RelationRegistry,
   type RelationsList,
 } from "./relations.ts";
+import {
+  type AdvisoryLock,
+  type AdvisoryLockOptions,
+  tryAcquireAdvisoryLock,
+} from "./advisory_lock.ts";
+
+export type { AdvisoryLock, AdvisoryLockOptions };
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
@@ -258,6 +265,33 @@ export interface Database<
    * database functions are for).
    */
   batch(statements: readonly BatchStatement[]): Promise<OrmQueryResult[]>;
+
+  /**
+   * Tries to claim a portable, **lightweight** advisory lock named `name` — a
+   * coarse whole-job mutual-exclusion primitive (the v0.6 A2 / contract-08
+   * substrate a future ETL runner uses so two runs never process the same
+   * window twice). Non-blocking: it returns immediately whether or not the lock
+   * was won. Backed by a `sisal_advisory_locks` lease row, so **no connection
+   * or server-side lock is held** between acquire and release — work proceeds on
+   * the normal pool. Always `await using` the result so the lease is released on
+   * scope exit, including on an early return or a throw:
+   *
+   * ```ts
+   * await using lock = await db.tryAdvisoryLock(`sisal:etl:${job}`);
+   * if (!lock.acquired) return; // another runner holds it
+   * await runWindow(db);
+   * ```
+   *
+   * A crashed holder's lease expires after `ttlMs` (default 30s), after which
+   * another claimant may steal it; long runs should call `lock.renew()` and stop
+   * on a `false`. The lease rows live in `sisal_advisory_locks` by default;
+   * pass `{ table }` to place them under your own name. Throws
+   * `ORM_DIALECT_UNSUPPORTED` on the `generic` dialect.
+   */
+  tryAdvisoryLock(
+    name: string,
+    options?: AdvisoryLockOptions,
+  ): Promise<AdvisoryLock>;
 
   close(): Promise<void>;
 
@@ -833,6 +867,13 @@ class SisalDatabase<
       results.push(await this.#driver.execute(query));
     }
     return results;
+  }
+
+  tryAdvisoryLock(
+    name: string,
+    options?: AdvisoryLockOptions,
+  ): Promise<AdvisoryLock> {
+    return tryAcquireAdvisoryLock(this, name, options);
   }
 
   async close(): Promise<void> {

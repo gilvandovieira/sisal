@@ -53,6 +53,26 @@ This is a **design contract**, not a feature-matrix claim. v0.9 owns the
 per-engine implementation and contention tests; v0.10 may only consume the lock
 after those tests exist.
 
+### v0.9 implementation note (T11)
+
+v0.9 shipped the coarse run lock as `Database.tryAdvisoryLock(name, options?)` —
+a **portable lock-row lease**, not the per-dialect session-scoped native locks
+sketched above. The logical `sisal:etl:<job>` key is honored (the caller passes
+it verbatim as `name`), but the mechanism is uniform across every engine: one
+row in `sisal_advisory_locks` (default; overridable with `{ table }`) carrying
+an ISO-8601 lease, claimed via reap-expired + `ON CONFLICT DO NOTHING`, released
+by deleting the row (via `await using`). The rationale is performance and API
+fit — a session-scoped `pg_advisory_lock` / `GET_LOCK` pins a connection and a
+server-side lock for the whole run, and a held `BEGIN IMMEDIATE` cannot express
+`await using` commit-vs-rollback disposal on the single-connection SQLite
+executor. This matches the "lock-row on SQLite" note in the v0.6 compatibility
+table and the [v0.10 roadmap](../../docs/v0.10.0-roadmap.md); the trade-off is
+that a crashed holder's lease must expire (or be `renew()`-ed) rather than
+auto-releasing on disconnect. The `claimNextJob` row-claim
+(`FOR UPDATE SKIP
+LOCKED` ↔ CAS-update) remains a separate, still-unbuilt A2
+primitive.
+
 ## SQL shape to preserve
 
 ```sql

@@ -236,7 +236,18 @@ export {
   memoryOrmDriver,
   noopOrmDriver,
 } from "./database.ts";
+export { etlCheckpoint } from "./checkpoint.ts";
+export { tryInsert } from "./write_outcome.ts";
+export type { WriteOutcome } from "./write_outcome.ts";
 export type {
+  Checkpoint,
+  CheckpointOptions,
+  CheckpointState,
+  ReplayGuardOptions,
+} from "./checkpoint.ts";
+export type {
+  AdvisoryLock,
+  AdvisoryLockOptions,
   AtomicOperation,
   AtomicOperationBody,
   AtomicOperationConfig,
