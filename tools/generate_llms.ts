@@ -192,7 +192,7 @@ function buildLlmsTxt(
     "",
     "> Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.",
     "",
-    `Workspace package version: ${version}. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.`,
+    `Workspace package version: ${version}. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.`,
     "",
     "Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.",
     "",

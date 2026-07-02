@@ -82,6 +82,9 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- Bumped every workspace manifest (`packages/`, `examples/`, and `benchmarks`)
+  to `0.7.0`, and updated the migration CLI's default adapter imports plus
+  README install snippets to point at the v0.7 package line.
 - Future roadmap docs now consistently reflect `@sisal/mysql` as the fifth
   adapter package and MySQL/MariaDB as distinct capability targets in the
   six-column matrix.
