@@ -38,7 +38,7 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "check": "deno check packages/core/mod.ts packages/orm/mod.ts packages/migrate/mod.ts packages/migrate/cli.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/neon/mod.ts packages/neon/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts packages/libsql/mod.ts packages/libsql/migrate/mod.ts packages/mysql/mod.ts packages/mysql/migrate/mod.ts examples/postgres-family-basic/mod.ts examples/sqlite-family-basic/mod.ts examples/mysql-family-basic/mod.ts examples/postgres-family-showcase/mod.ts examples/sqlite-family-showcase/mod.ts examples/mysql-family-showcase/mod.ts examples/logging/mod.ts examples/postgres-family-advanced-sql/mod.ts examples/mysql-family-advanced-sql/mod.ts examples/sqlite-family-advanced-sql/mod.ts examples/postgres-family-hot-feed/mod.ts examples/postgres-family-feed/mod.ts examples/sqlite-family-feed/mod.ts examples/mysql-family-feed/mod.ts examples/postgres-family-activity-vectors/mod.ts benchmarks/mod.ts perf/latency.ts perf/pg_driver_latency.ts perf/postgres_js_pool.ts perf/mysql_driver_survey.ts perf/mysql_ddl_probe.ts perf/mysql_variant_probe.ts",
     "sisal": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi packages/migrate/cli.ts",
-    "bench": "deno bench --allow-run=deno benchmarks/mod.ts",
+    "bench": "deno bench benchmarks/mod.ts",
     "perf:pg": "deno run --no-lock --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency.ts",
     "perf:pg:guard": "deno test --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency_test.ts",
     "perf:mysql": "deno run --no-lock --allow-net --allow-env --allow-read perf/mysql_driver_survey.ts",

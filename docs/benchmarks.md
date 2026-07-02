@@ -12,20 +12,11 @@ Sisal _can_ control is the CPU it spends on each query, and that is what these
 benchmarks pin down.
 
 - **Harness:** `Deno.bench` via `benchmarks/`, run with `deno task bench`.
-- **Comparison target:** Drizzle ORM 0.45.2 (the version pinned by the
-  [Drizzle parity matrix](drizzle-parity.html)).
 
 Absolute microsecond timings are machine-dependent, so this page does not report
 them — every figure below is **normalized**: a ratio between two things measured
 on the same machine, in the same run, which cancels the hardware out. Run
 `deno task bench` to see the raw numbers for your own machine.
-
-> **Drizzle runs through Deno's `npm:` compatibility layer**
-> (`npm:drizzle-orm@0.45.2`), since Sisal is a Deno-native project and Drizzle
-> ships as an npm package. That interop mainly affects module loading rather
-> than steady-state compute — the query building and row mapping run as ordinary
-> JavaScript on V8 — but a native Node or Bun run could differ. The ratios below
-> are specific to running Drizzle under Deno's npm compatibility.
 
 ## What is and isn't measured
 
@@ -95,99 +86,36 @@ ratios) will wobble; the magnitudes hold.
 
 ---
 
-## 2. SQL generation — Sisal vs Drizzle
+## 2. Temporal serialization + parsing (Sisal)
 
-Same query, same payload, both **built and rendered** to parameterized SQL:
-Drizzle's `query.toSQL()` vs Sisal's `builder.toSql()` +
-`renderSql({ dialect })`. The two dialects cover all four Sisal engines:
-Postgres backs `@sisal/pg` and `@sisal/neon`; SQLite backs `@sisal/sqlite` and
-`@sisal/libsql`.
+Every query that binds or returns a date/time value runs through Sisal's own
+temporal paths. Two database-free groups pin that cost:
 
-| Operation             | Postgres — Sisal vs Drizzle | SQLite — Sisal vs Drizzle |
-| --------------------- | :-------------------------: | :-----------------------: |
-| simple select         |        ~2.5× faster         |        ~2× faster         |
-| filtered select       |        ~2.5× faster         |       ~2.5× faster        |
-| CTE select            |        ~2.5× faster         |       ~2.5× faster        |
-| insert + returning    |         ~6× faster          |        ~5× faster         |
-| bulk insert (50 rows) |         ~10× faster         |        ~5× faster         |
-| update                |         ~5× faster          |       ~3.5× faster        |
-| delete                |        ~3.5× faster         |        ~3× faster         |
+- `sisal temporal params` — `serializeSqlValue(...)` for `Date` and each
+  `Temporal.*` type (including arrays), plus `renderSql` for statements that
+  bind them. This is the write-side cost of turning a temporal value into a
+  bound parameter.
+- `sisal temporal row parsing · N rows` — a fake `OrmDriver` returns rows shaped
+  like database date/time text, swept across 1 / 100 / 1000 rows. `parse=false`
+  is the baseline; `parse=true` adds Temporal decoding, so the ratio is the
+  per-row cost Sisal pays to hand back `Temporal.*` values instead of strings —
+  and it grows with row count, which is the signal worth watching.
 
-**Takeaways.**
-
-- Sisal generates SQL **~2×–10× faster** than Drizzle across every operation and
-  both dialects.
-- The widest gap is **Postgres bulk insert** — Drizzle's per-row parameter
-  encoding for the pg dialect is its costliest step, and it compounds with row
-  count. SQLite's lighter value encoding narrows the gap.
-- **Writes beat reads in margin** — insert/update/delete show the largest gaps;
-  selects are closest (~2–2.7×) because both libraries spend their time
-  enumerating the same column projections.
-
----
-
-## 3. Execution + result mapping — Sisal vs Drizzle
-
-The other half of a query's cost is the **read path**: dispatch the statement
-and turn the driver's raw rows into typed result objects. The database is the
-zero-latency fake returning identical canned rows, so the only thing timed is
-each ORM's dispatch + row mapping. Row count is the stressor.
-
-| Result size | Postgres — Sisal vs Drizzle | SQLite — Sisal vs Drizzle |
-| ----------- | :-------------------------: | :-----------------------: |
-| 1 row       |         ~2× faster          |        ~2× faster         |
-| 100 rows    |        ~4.5× faster         |       ~4.5× faster        |
-| 1000 rows   |         ~15× faster         |        ~15× faster        |
-
-Per row, Drizzle's mapping costs **well over 10× as much as Sisal's**.
-
-**Takeaways.**
-
-- The advantage **widens with result size** — ~2× at one row, ~15× at a thousand
-  — because mapping cost is per row, and Sisal's per-row cost is far lower.
-- Sisal's read path adds almost nothing per row: its `OrmDriver` contract hands
-  back name-keyed row objects (a real adapter builds those in native driver
-  code), so there is little left to do in JS. Drizzle reconstructs each row from
-  positional values and coerces every column in JS.
-
-> **Fairness note.** The two ORMs are measured from their _own_ driver
-> boundaries, which differ by design — Sisal's returns named row objects,
-> Drizzle's proxy returns positional arrays it maps to fields. Part of the gap
-> is therefore _where_ column-naming happens, not pure overhead. These are the
-> realistic per-query read costs of each library, not an isolated "mapping only"
-> microbenchmark.
-
----
-
-## 4. Date vs Temporal
-
-The `date api parse`, `date api format`, `sisal temporal params`, and
-`sisal temporal row parsing · N rows` groups compare JavaScript `Date` with the
-ECMAScript Temporal API in database-shaped paths:
-
-- Raw construction and formatting: `new Date(...)`, `date.toISOString()`, and
-  the equivalent `Temporal.Instant`, `PlainDate`, `PlainTime`, `PlainDateTime`,
-  and `ZonedDateTime` operations.
-- Sisal parameter handling: `serializeSqlValue(...)` and rendering SQL with Date
-  or Temporal bound parameters, including arrays and mixed date/time statements.
-- ORM result parsing: a fake `OrmDriver` returns rows shaped like database
-  date/time text, then the benchmark compares parse-disabled selects,
-  parse-enabled Temporal decoding, and manual `Date`/`Temporal.Instant` mapping.
-
-`Date` may be cheaper for simple instant-only work in microbenchmarks. Temporal
-is still Sisal's preferred model for SQL date/time because it matches the
-database semantics: `date` is a calendar date, `time` is a wall-clock time,
-`timestamp` is a local date-time, and `timestamptz` is an instant.
+Temporal is Sisal's model for SQL date/time because it matches the database
+semantics: `date` is a calendar date, `time` is a wall-clock time, `timestamp`
+is a local date-time, and `timestamptz` is an instant. (Benchmarks that timed
+the raw `Date`/`Temporal` runtime APIs were dropped — Sisal cannot influence
+them, so they carried no regression signal.)
 
 ## Honest framing
 
 These benchmarks measure **CPU efficiency and headroom**, not end-to-end request
-latency. In a real application the database and network dominate, so a 10× edge
-in generation or mapping rarely moves the wall-clock time of a single query. The
-gap matters when the per-query CPU is the constraint: large result sets, tight
-loops building many statements, serverless cold paths where every millisecond of
-compute is billed, and high-throughput services where ORM overhead competes with
-real work for the event loop.
+latency. In a real application the database and network dominate, so a large
+edge in generation or mapping rarely moves the wall-clock time of a single
+query. The gap matters when the per-query CPU is the constraint: large result
+sets, tight loops building many statements, serverless cold paths where every
+millisecond of compute is billed, and high-throughput services where ORM
+overhead competes with real work for the event loop.
 
 ## Reproduce
 
@@ -195,9 +123,9 @@ real work for the event loop.
 deno task bench                 # the whole suite
 ```
 
-The generation, Drizzle generation, Drizzle execution, and Date-vs-Temporal
-scenarios live in
-`benchmarks/scenarios/{sql_generation,vs_drizzle,vs_drizzle_execute,temporal}.ts`.
-The suite is network- and engine-free: it runs entirely against the in-memory
-fake driver, so it needs no database and no special permissions beyond
-`--allow-read` (plus `--allow-run=deno` for the migration-CLI scenarios).
+The scenarios live in `benchmarks/scenarios/` — SQL generation
+(`sql_generation.ts`), advanced-SQL constructs (`advanced_sql.ts`), the ORM
+dispatch/read path (`fakedbproxy.ts`), migration workflow (`migrate_cli.ts`),
+and temporal serialization/parsing (`temporal.ts`). The suite is network- and
+engine-free: it runs entirely against the in-memory fake driver, so it needs no
+database and no special permissions.

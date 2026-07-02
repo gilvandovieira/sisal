@@ -94,24 +94,6 @@ export interface FakeDbQueryResult<Row = Record<string, unknown>> {
   readonly rowCount: number;
 }
 
-export type FakeDrizzlePgProxyMethod = "all" | "execute";
-
-export interface FakeDrizzlePgProxyOptions {
-  readonly columns?:
-    | readonly string[]
-    | ((
-      request: FakeDbRequest,
-      rows: readonly FakeDbRow[],
-    ) => readonly string[]);
-}
-
-export type FakeDrizzlePgProxyClient = (
-  sql: string,
-  params: readonly unknown[],
-  method: FakeDrizzlePgProxyMethod,
-  typings?: readonly unknown[],
-) => Promise<{ rows: unknown[] | unknown[][] }>;
-
 export interface FakeSqlExecutor {
   execute<Row = Record<string, unknown>>(
     sql: string,
@@ -130,9 +112,6 @@ export interface FakeDbProxy {
   asOrmDriver(): OrmDriver;
   asMigrationDriver(): MigrationDriver;
   asSqlExecutor(): FakeSqlExecutor;
-  asDrizzlePgProxy(
-    options?: FakeDrizzlePgProxyOptions,
-  ): FakeDrizzlePgProxyClient;
 }
 
 interface MutableFakeDbCall {
@@ -257,53 +236,11 @@ class SisalFakeDbProxy implements FakeDbProxy {
     return executor;
   }
 
-  asDrizzlePgProxy(
-    options: FakeDrizzlePgProxyOptions = {},
-  ): FakeDrizzlePgProxyClient {
-    return async (
-      sql: string,
-      params: readonly unknown[],
-      method: FakeDrizzlePgProxyMethod,
-    ): Promise<{ rows: unknown[] | unknown[][] }> => {
-      const operation = method === "all" ? "query" : "execute";
-      const { request, result } = await this.#runRowsWithRequest<FakeDbRow>(
-        operation,
-        sql,
-        params,
-      );
-
-      if (method === "execute") {
-        return { rows: [] };
-      }
-
-      return {
-        rows: toDrizzleArrayRows(request, result.rows, options),
-      };
-    };
-  }
-
   async #runRows<Row>(
     operation: "query" | "execute",
     sql: string,
     params: readonly unknown[],
   ): Promise<FakeDbQueryResult<Row>> {
-    const { result } = await this.#runRowsWithRequest<Row>(
-      operation,
-      sql,
-      params,
-    );
-
-    return result;
-  }
-
-  async #runRowsWithRequest<Row>(
-    operation: "query" | "execute",
-    sql: string,
-    params: readonly unknown[],
-  ): Promise<{
-    readonly request: FakeDbRequest;
-    readonly result: FakeDbQueryResult<Row>;
-  }> {
     const call = this.#startCall(operation, sql, params);
     const startedAt = performance.now();
 
@@ -323,7 +260,7 @@ class SisalFakeDbProxy implements FakeDbProxy {
 
       call.rowCount = rowCount;
       this.#stats.rowsReturned += rows.length;
-      return { request, result: { rows, rowCount } };
+      return { rows, rowCount };
     } catch (error) {
       this.#markFailed(call);
       throw error;
@@ -513,35 +450,6 @@ function generatedRow(request: FakeDbRequest, index: number): FakeDbRow {
     sqlLength: request.sql.length,
     paramCount: request.params.length,
   };
-}
-
-function toDrizzleArrayRows(
-  request: FakeDbRequest,
-  rows: readonly FakeDbRow[],
-  options: FakeDrizzlePgProxyOptions,
-): unknown[][] {
-  if (rows.length === 0) {
-    return [];
-  }
-
-  const columns = resolveDrizzleColumns(request, rows, options);
-  return rows.map((row) => columns.map((column) => row[column]));
-}
-
-function resolveDrizzleColumns(
-  request: FakeDbRequest,
-  rows: readonly FakeDbRow[],
-  options: FakeDrizzlePgProxyOptions,
-): readonly string[] {
-  if (typeof options.columns === "function") {
-    return options.columns(request, rows);
-  }
-
-  if (options.columns !== undefined) {
-    return options.columns;
-  }
-
-  return Object.keys(rows[0] ?? {});
 }
 
 function normalizeRowCount(value: number): number {
