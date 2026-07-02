@@ -1,0 +1,34 @@
+# Local MySQL + MariaDB for the mysql-family rising-feed example.
+#
+#   docker compose up -d
+#   SISAL_MYSQL_RISING_FEED_IT=1 deno test -A feed_db_test.ts
+#   SISAL_MARIADB_RISING_FEED_IT=1 SISAL_ADAPTER=mariadb \
+#     MARIADB_URL=mysql://root:root@localhost:33110/sisal \
+#     deno test -A feed_db_test.ts
+
+services:
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "33084:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sisal
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mariadb:
+    image: mariadb:11
+    ports:
+      - "33110:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: sisal
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

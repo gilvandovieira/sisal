@@ -1,24 +1,41 @@
-# Advanced SQL example contracts (documentation-only)
+# Advanced SQL example contracts
 
-**Status:** documentation-only future contracts. **Nothing in this directory is
-runnable, and none of it is part of the Deno workspace** (it is intentionally
-absent from the root `deno.json` and the `deno task check` entrypoint list).
-There is no `mod.ts`, no `deno.json`, and no code to execute here — only
-Markdown.
+**Status:** Markdown contracts. **Nothing in this directory is runnable, and
+none of it is part of the Deno workspace** (it is intentionally absent from the
+root `deno.json` and the `deno task check` entrypoint list). There is no
+`mod.ts`, no `deno.json`, and no code to execute here — only Markdown.
 
-These files are **future compatibility contracts**. Each one preserves an
-advanced-SQL example idea — product-shaped, with the concrete SQL it would need
-— so that v0.6 / v0.7 / v0.8+ planning can point at a real target instead of
-re-inventing it later. They deliberately describe SQL and builder primitives
-Sisal does **not** ship today; writing the idea down now is how we keep the
-example backlog without pretending the features already exist.
+These files are compatibility contracts. Each one preserves an advanced-SQL
+example idea — product-shaped, with the concrete SQL it would need — so that
+planning can point at a real target instead of re-inventing it later. The first
+runnable graduation lives in sibling workspace packages:
+[`postgres-family-advanced-sql`](../postgres-family-advanced-sql/),
+[`mysql-family-advanced-sql`](../mysql-family-advanced-sql/), and
+[`sqlite-family-advanced-sql`](../sqlite-family-advanced-sql/). Those examples
+use Sisal builders where the surface exists and safe parameterized `sql` where
+the database can run the shape but Sisal still lacks the primitive.
 
-> Why contracts instead of examples? A runnable example is a workspace package
-> with a `deno.json` + `mod.ts` that `deno task check` type-checks. We are not
-> ready to build these (most need window functions, recursive CTEs, array
-> projection, a MySQL adapter, or a checkpoint abstraction that does not exist
-> yet). A contract is the cheap, honest placeholder: it captures the shape and
-> the gap so the future example is a fill-in, not a rediscovery.
+> Why keep contracts after graduation? A runnable example proves today's
+> executable shape. The contract records the long-lived product target and the
+> missing Sisal primitive, especially when the runnable example still uses raw
+> `sql` or skips a dialect.
+
+## Runnable graduation status
+
+| #  | Contract                                                       | PostgreSQL/Neon                           | MySQL/MariaDB                             | SQLite/libSQL                                      |
+| -- | -------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | -------------------------------------------------- |
+| 01 | [ETL rollup](01-etl-rollup.md)                                 | runnable builder                          | runnable builder                          | runnable builder                                   |
+| 02 | [Window analytics](02-window-analytics.md)                     | runnable parameterized raw SQL            | runnable parameterized raw SQL            | capability-probed parameterized raw SQL            |
+| 03 | [Sessionization](03-sessionization.md)                         | runnable parameterized raw SQL            | runnable parameterized raw SQL            | skipped until portable date/window helpers         |
+| 04 | [Top-N per group](04-top-n-per-group.md)                       | runnable parameterized raw SQL            | runnable parameterized raw SQL            | capability-probed parameterized raw SQL            |
+| 05 | [Cohort retention](05-cohort-retention.md)                     | runnable parameterized raw SQL            | runnable parameterized raw SQL            | skipped until date-bucket semantics are normalized |
+| 06 | [Funnel analysis](06-funnel-analysis.md)                       | runnable parameterized raw SQL            | runnable parameterized raw SQL            | skipped until first-event helpers land             |
+| 07 | [Recursive comments](07-recursive-comments.md)                 | runnable parameterized raw SQL            | runnable parameterized raw SQL            | capability-probed parameterized raw SQL            |
+| 08 | [Job-queue locking](08-job-queue-locking.md)                   | runnable builder `FOR UPDATE SKIP LOCKED` | runnable builder `FOR UPDATE SKIP LOCKED` | capability-probed CAS `UPDATE ... RETURNING`       |
+| 09 | [Idempotent backfill](09-idempotent-backfill.md)               | runnable builder/raw hybrid               | runnable builder/raw hybrid               | skipped until checkpoint contracts land            |
+| 10 | [JSON → table extraction](10-json-table-extraction.md)         | runnable parameterized raw SQL            | runnable parameterized raw `JSON_TABLE`   | capability-probed `json_each`                      |
+| 11 | [Generated columns & indexes](11-generated-columns-indexes.md) | runnable raw DDL                          | generated-column DDL; no partial index    | capability-probed raw DDL                          |
+| 12 | [MySQL compatibility](12-mysql-compatibility.md)               | cross-reference only                      | runnable pressure cases + typed guards    | not applicable                                     |
 
 ## How a contract maps to the roadmap
 
@@ -46,10 +63,11 @@ difference · ❌ genuine dialect limit · — not applicable).
 
 So each contract's **dialect classification** is the design-time precursor to a
 matrix row: the "fail guarded" bucket becomes a `❌` cell once the feature lands
-and a guard/test pins it. These contracts **do not** add matrix rows now —
-`deno task docs:matrix:check` requires every ✅/⚠️ to be backed by a real
-integration test, and these features do not exist yet. The row is added with the
-feature, not before it.
+and a guard/test pins it. The advanced SQL examples do not add feature-matrix
+rows yet. `deno task docs:matrix:check` requires every ✅/⚠️ to be backed by a
+named integration scenario, and these examples are mostly render/smoke
+demonstrations plus roadmap pressure points. Matrix rows are added only when the
+feature becomes a supported Sisal capability.
 
 ## Contract template
 

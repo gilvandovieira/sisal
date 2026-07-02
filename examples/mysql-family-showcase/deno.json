@@ -1,0 +1,10 @@
+{
+  "name": "@sisal/example-mysql-family-showcase",
+  "version": "0.7.0",
+  "exports": "./mod.ts",
+  "publish": false,
+  "tasks": {
+    "ddl": "deno run --allow-read mod.ts",
+    "run": "deno run --allow-env --allow-net --allow-read mod.ts"
+  }
+}
