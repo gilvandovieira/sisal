@@ -100,6 +100,41 @@ Deno.test("@sisal/mysql - timestamptz is explicit NULL only when nullable", () =
   );
 });
 
+Deno.test("@sisal/mysql - emits STORED and VIRTUAL generated columns", () => {
+  const table: TableSnapshot = {
+    name: "docs",
+    columns: [
+      { name: "id", type: { kind: "integer" }, nullable: false },
+      { name: "payload", type: { kind: "json" }, nullable: false },
+      {
+        name: "title",
+        type: { kind: "varchar", length: 255 },
+        generatedAs: {
+          sql: "json_unquote(json_extract(payload, '$.title'))",
+          stored: true,
+        },
+      },
+      {
+        name: "upper",
+        type: { kind: "varchar", length: 255 },
+        generatedAs: { sql: "upper(title)", stored: false },
+      },
+    ],
+    primaryKey: { columns: ["id"] },
+  };
+  assertEquals(
+    generateMysqlCreateTable(table),
+    "CREATE TABLE `docs` (\n" +
+      "  `id` INT NOT NULL,\n" +
+      "  `payload` JSON NOT NULL,\n" +
+      "  `title` VARCHAR(255) GENERATED ALWAYS AS " +
+      "(json_unquote(json_extract(payload, '$.title'))) STORED,\n" +
+      "  `upper` VARCHAR(255) GENERATED ALWAYS AS (upper(title)) VIRTUAL,\n" +
+      "  PRIMARY KEY (`id`)\n" +
+      ");",
+  );
+});
+
 Deno.test("@sisal/mysql - defaults: plain literals, boolean 0/1, paren expressions, paren literals on TEXT/JSON", () => {
   const table: TableSnapshot = {
     name: "defaults",

@@ -11,6 +11,7 @@
 
 import {
   diffSchemaSnapshots,
+  OrmError,
   selectSchemaObjects,
   type SisalColumnDefault,
   type SisalColumnSnapshot,
@@ -92,11 +93,25 @@ export function generatePostgresColumnDefinition(
     generatePostgresColumnType(column.type)
   }`;
 
+  if (column.generatedAs !== undefined) {
+    // PostgreSQL has only STORED generated columns; a VIRTUAL one is rejected
+    // (the SQLite/MySQL families support both). Fail closed with a typed error
+    // rather than emitting SQL Postgres cannot parse.
+    if (!column.generatedAs.stored) {
+      throw new OrmError(
+        `Column "${column.name}" is VIRTUAL generated, which PostgreSQL does ` +
+          `not support (use { stored: true } or a different engine)`,
+        { code: "ORM_DIALECT_UNSUPPORTED" },
+      );
+    }
+    definition += ` GENERATED ALWAYS AS (${column.generatedAs.sql}) STORED`;
+  }
+
   if (column.nullable === false) {
     definition += " NOT NULL";
   }
 
-  if (column.default !== undefined) {
+  if (column.default !== undefined && column.generatedAs === undefined) {
     definition += ` DEFAULT ${renderPgDefault(column.default)}`;
   }
 
