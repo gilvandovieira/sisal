@@ -34,7 +34,7 @@
  * @module
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assertEquals } from "@std/assert";
 import { raw } from "@sisal/orm";
 import { connect as connectPg, type PgDatabase } from "@sisal/pg";
 import { connect as connectNeon, type NeonDatabase } from "@sisal/neon";
@@ -143,11 +143,11 @@ Deno.test({
       const rowNeon = await readRich(neon);
       printParity("neon vs pg", rowNeon, rowPg);
 
-      // Columns that must decode identically across neon and pg. `big` and `d`
-      // are handled below: `big` is a real divergence; `d` (raw `date` → `Date`)
-      // differs only in its midnight timezone convention (neon local vs pg UTC),
-      // which is process-TZ-dependent and resolves under `temporal:{parse:true}`,
-      // so it is not asserted for raw equality here.
+      // Columns that must decode identically across neon and pg. `d` (raw
+      // `date` → `Date`) differs only in its midnight timezone convention (neon
+      // local vs pg UTC), which is process-TZ-dependent and resolves under
+      // `temporal:{parse:true}`, so it is not asserted for raw equality here.
+      // `big` now aligns (both `string`) and is type-pinned below.
       const identical = Object.keys(rowPg).filter((k) =>
         k !== "big" && k !== "d"
       );
@@ -162,23 +162,23 @@ Deno.test({
         );
       }
 
-      // Documented divergence: bigint. Pinned so it fails if either side drifts.
-      // (`@sisal/pg` returns int8 as `BigInt`; `@sisal/neon` returns it as a
-      // string. See docs/v0.6.0-roadmap.md "Cross-adapter parity".)
+      // bigint: the Postgres family now agrees — `@sisal/pg` coerces int8 to a
+      // `string` to match `@sisal/neon` (v0.9 T7). Pinned so it fails if either
+      // side drifts back (pg → `BigInt`, neon → anything else).
       assertEquals(
         typeof rowPg.big,
-        "bigint",
-        `@sisal/pg should decode bigint as BigInt, got ${cell(rowPg.big)}`,
+        "string",
+        `@sisal/pg should decode bigint as string, got ${cell(rowPg.big)}`,
       );
       assertEquals(
         typeof rowNeon.big,
         "string",
         `@sisal/neon should decode bigint as string, got ${cell(rowNeon.big)}`,
       );
-      assert(
-        String(rowPg.big) === String(rowNeon.big),
-        "bigint values must be numerically equal across adapters even though " +
-          "their JS types differ",
+      assertEquals(
+        rowPg.big,
+        rowNeon.big,
+        "bigint must decode identically across the Postgres family",
       );
     } finally {
       await pg.close();

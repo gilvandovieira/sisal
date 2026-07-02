@@ -44,6 +44,7 @@ export const sqliteTarget: IntegrationTarget = {
     array: "jsonText",
     binary: "uint8array",
     numeric: "number",
+    bigint: "number",
     dateTrunc: "text",
   },
   sql: { supportsCascadeDrops: false, metadataFlavor: "pragma" },

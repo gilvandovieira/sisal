@@ -80,6 +80,58 @@ Deno.test("@sisal/pg - ORM driver uses scoped transaction executor", async () =>
   ]);
 });
 
+Deno.test("@sisal/pg - executor coerces float4/float8 → number, int8 → string, keeps numeric strings", async () => {
+  // `@db/postgres` hands float4/float8 (OIDs 700/701) back as strings and int8
+  // (20) as `BigInt`. The adapter coerces floats to `number` (v0.5 item 11 /
+  // v0.9 T5) and int8 to `string` so the Postgres family agrees (v0.9 T7),
+  // while leaving `numeric` (1700) a string to preserve precision.
+  const client: PgClient = {
+    queryObject<Row = Record<string, unknown>>(): Promise<PgDriverResult<Row>> {
+      return Promise.resolve({
+        rows: [{
+          id: 1,
+          f4: "1.5",
+          f8: "306.25",
+          big: 9007199254740993n, // > 2^53 — precision would be lost as a number
+          amount: "99.99",
+          label: "x",
+        }] as Row[],
+        rowCount: 1,
+        rowDescription: {
+          columns: [
+            { name: "id", typeOid: 23 }, // int4
+            { name: "f4", typeOid: 700 }, // float4 → number
+            { name: "f8", typeOid: 701 }, // float8 → number
+            { name: "big", typeOid: 20 }, // int8 → string
+            { name: "amount", typeOid: 1700 }, // numeric → stays string
+            { name: "label", typeOid: 25 }, // text
+          ],
+        },
+      });
+    },
+    release(): void {},
+  };
+  const pool: PgPool = { connect: () => Promise.resolve(client) };
+  const executor = createPgExecutor({ pool });
+
+  const { rows: [row] } = await executor.execute<{
+    id: number;
+    f4: unknown;
+    f8: unknown;
+    big: unknown;
+    amount: unknown;
+    label: unknown;
+  }>("select * from it_floats");
+
+  assertEquals([row.f4, typeof row.f4], [1.5, "number"]);
+  assertEquals([row.f8, typeof row.f8], [306.25, "number"]);
+  // int8 → string, precision preserved verbatim.
+  assertEquals([row.big, typeof row.big], ["9007199254740993", "string"]);
+  // numeric + text preserved verbatim (precision-safe).
+  assertEquals([row.amount, typeof row.amount], ["99.99", "string"]);
+  assertEquals(row.label, "x");
+});
+
 interface QueryCall {
   readonly sql: string;
   readonly params: readonly unknown[];

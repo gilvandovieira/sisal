@@ -142,7 +142,7 @@ class SisalPgExecutor implements PgSqlExecutor {
         normalizeParams(params),
       );
 
-      coerceFloatColumns(result.rows, result.rowDescription);
+      coercePgColumns(result.rows, result.rowDescription);
 
       return {
         rows: result.rows,
@@ -178,13 +178,16 @@ function normalizeParams(params: readonly unknown[]): unknown[] {
   return params.map(normalizeTemporalSqlValue);
 }
 
-// `float4` (700) and `float8` (701) are decoded to strings by `@db/postgres`;
-// coerce them back to `number` so a `columns.doublePrecision()` column reads as
-// the `number` it infers — matching `@sisal/neon`/`@sisal/sqlite`/`@sisal/libsql`.
-// `numeric` (1700) and `bigint` deliberately stay strings to preserve precision.
+// `@db/postgres` decodes `float4` (700) / `float8` (701) to strings and
+// `int8`/`bigint` (20) to `BigInt`. Coerce floats back to `number` (a
+// `columns.doublePrecision()` column reads as the `number` it infers, matching
+// the SQLite family) and int8 to `string` so the Postgres family agrees:
+// `@sisal/pg` reads `bigint` as a `string`, the same as `@sisal/neon` (v0.9 T7).
+// `numeric` (1700) already arrives as a string and stays one for precision.
 const PG_FLOAT_OIDS = new Set([700, 701]);
+const PG_INT8_OID = 20;
 
-function coerceFloatColumns(
+function coercePgColumns(
   rows: readonly unknown[],
   rowDescription:
     | { readonly columns: ReadonlyArray<PgResultColumn> }
@@ -192,16 +195,25 @@ function coerceFloatColumns(
     | undefined,
 ): void {
   if (rowDescription == null || rows.length === 0) return;
-  const floatColumns = rowDescription.columns
-    .filter((column) => PG_FLOAT_OIDS.has(column.typeOid))
-    .map((column) => column.name);
-  if (floatColumns.length === 0) return;
+  const floatColumns: string[] = [];
+  const int8Columns: string[] = [];
+  for (const column of rowDescription.columns) {
+    if (PG_FLOAT_OIDS.has(column.typeOid)) floatColumns.push(column.name);
+    else if (column.typeOid === PG_INT8_OID) int8Columns.push(column.name);
+  }
+  if (floatColumns.length === 0 && int8Columns.length === 0) return;
 
   for (const row of rows as Record<string, unknown>[]) {
     for (const name of floatColumns) {
       const value = row[name];
       if (typeof value === "string" && value.length > 0) {
         row[name] = Number(value);
+      }
+    }
+    for (const name of int8Columns) {
+      const value = row[name];
+      if (typeof value === "bigint") {
+        row[name] = value.toString();
       }
     }
   }

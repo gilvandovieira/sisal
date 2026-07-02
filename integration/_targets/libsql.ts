@@ -52,6 +52,7 @@ export const libsqlTarget: IntegrationTarget = {
     array: "jsonText",
     binary: "arraybuffer",
     numeric: "number",
+    bigint: "number",
     dateTrunc: "text",
   },
   sql: { supportsCascadeDrops: false, metadataFlavor: "pragma" },

@@ -53,6 +53,12 @@ export interface IntegrationValueShape {
   readonly array: "native" | "jsonText" | "jsonParsed";
   readonly binary: "uint8array" | "arraybuffer";
   readonly numeric: "string" | "number";
+  /**
+   * `bigint`/int8 decode type. The Postgres family aligns on `"string"` (pg
+   * coerces int8 → string to match neon, v0.9 T7); the SQLite family returns
+   * `"number"` (INTEGER, lossy above 2^53); MySQL/MariaDB return `"string"`.
+   */
+  readonly bigint: "string" | "number";
   readonly dateTrunc: "timestamp" | "text";
 }
 
