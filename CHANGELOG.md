@@ -9,6 +9,8 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.9.0 - 2026-07-02
+
 ### Added
 
 - **Portable write-outcome — `tryInsert` / `WriteOutcome` (v0.9 T15).** A
