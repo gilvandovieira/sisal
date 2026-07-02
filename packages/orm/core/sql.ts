@@ -8,6 +8,7 @@
 import type { ColumnDefinition } from "./columns.ts";
 import { OrmError, type OrmErrorCode } from "./errors.ts";
 import {
+  isTemporalInstantValue,
   isTemporalSqlValue,
   normalizeTemporalSqlValue,
   type ResultRowMetadata,
@@ -23,6 +24,74 @@ export type ColumnName = string;
 
 /** SQL dialect names supported by SQL rendering helpers. */
 export type SqlDialect = "postgres" | "sqlite" | "mysql" | "generic";
+
+/**
+ * Version-aware dialect identity — the `(engine, variant, version)` key the
+ * v0.6 readiness investigation decided on (see `docs/mysql-readiness.md`,
+ * decision 2). `dialect` remains the render key; `variant` names a
+ * protocol-compatible sibling engine (`"mariadb"` for the `mysql` dialect;
+ * `"neon"`/`"libsql"` are reserved for the pg/sqlite families), and `version`
+ * is the server version string as reported by the engine (a leading dotted
+ * numeric prefix is compared; suffixes like `"-MariaDB-ubu2404"` are
+ * ignored). Everywhere a bare {@link SqlDialect} is accepted, the identity is
+ * too — a bare dialect means "base engine, version unknown".
+ */
+export interface DialectIdentity {
+  readonly dialect: SqlDialect;
+  readonly variant?: string;
+  readonly version?: string;
+}
+
+/**
+ * One dialect a guarded construct is unsupported on. A bare {@link SqlDialect}
+ * matches any variant/version of that dialect; the object form narrows to one
+ * `variant` (an identity with **no** variant is the base engine and does not
+ * match a variant-narrowed target).
+ */
+export type DialectGuardTarget = SqlDialect | {
+  readonly dialect: SqlDialect;
+  readonly variant?: string;
+};
+
+/**
+ * A refinement that lifts a {@link dialectGuard} for identities it matches:
+ * the identity's `variant` must equal `variant` (when set), and its `version`
+ * must be **known** and at least `minVersion` (when set) — an unknown version
+ * never lifts a guard (fail closed), so capabilities only light up when the
+ * adapter has really identified the server.
+ */
+export interface DialectGuardException {
+  readonly variant?: string;
+  readonly minVersion?: string;
+}
+
+/**
+ * Compares two server version strings by their leading dotted numeric
+ * prefixes (`"11.8.8-MariaDB-ubu2404"` → `11.8.8`; missing segments are `0`).
+ * Returns a negative number, zero, or a positive number as `a` is lower than,
+ * equal to, or higher than `b`. Non-numeric versions compare as `0.0.0`.
+ */
+export function compareServerVersions(a: string, b: string): number {
+  const parse = (value: string): number[] =>
+    (value.match(/^\d+(?:\.\d+)*/)?.[0] ?? "0")
+      .split(".")
+      .map((part) => Number(part));
+  const left = parse(a);
+  const right = parse(b);
+  const length = Math.max(left.length, right.length);
+  for (let i = 0; i < length; i++) {
+    const delta = (left[i] ?? 0) - (right[i] ?? 0);
+    if (delta !== 0) return delta;
+  }
+  return 0;
+}
+
+/** Normalizes a bare dialect or identity into a {@link DialectIdentity}. */
+function toDialectIdentity(
+  dialect: SqlDialect | DialectIdentity,
+): DialectIdentity {
+  return typeof dialect === "string" ? { dialect } : dialect;
+}
 
 /** Parameter value shape accepted by rendered SQL queries. */
 export type SqlParameter =
@@ -56,7 +125,18 @@ export interface Sql {
 /** Internal chunk representation used by parameterized SQL fragments. */
 export type SqlChunk =
   | { readonly kind: "text"; readonly value: string }
-  | { readonly kind: "param"; readonly value: SqlParameter }
+  | {
+    readonly kind: "param";
+    readonly value: SqlParameter;
+    /**
+     * Set when the param's source was an instant (`Temporal.Instant` /
+     * `Temporal.ZonedDateTime`), whose ISO serialization carries a `Z`
+     * suffix. MySQL rejects zone designators in datetime literals, so the
+     * renderer rewrites tagged values to naive UTC under the `mysql`
+     * dialect; other dialects render them unchanged.
+     */
+    readonly temporal?: "instant";
+  }
   | { readonly kind: "placeholder"; readonly name: string }
   | { readonly kind: "raw"; readonly value: string }
   | { readonly kind: "identifier"; readonly value: string }
@@ -64,7 +144,8 @@ export type SqlChunk =
   | {
     readonly kind: "guard";
     readonly construct: string;
-    readonly unsupported: readonly SqlDialect[];
+    readonly unsupported: readonly DialectGuardTarget[];
+    readonly unless?: readonly DialectGuardException[];
   }
   | {
     readonly kind: "dialect";
@@ -171,7 +252,13 @@ export function sql(
         // a `check()` expression), not a bound parameter.
         chunks.push({ kind: "sql", value: columnToSql(value) });
       } else {
-        chunks.push({ kind: "param", value: serializeSqlValue(value) });
+        chunks.push({
+          kind: "param",
+          value: serializeSqlValue(value),
+          ...(isTemporalInstantValue(value)
+            ? { temporal: "instant" as const }
+            : {}),
+        });
       }
     }
   }
@@ -249,9 +336,17 @@ export function renderSql(
   query: Sql,
   options: {
     readonly dialect?: SqlDialect;
+    /** Variant of the dialect's engine (e.g. `"mariadb"`); see {@link DialectIdentity}. */
+    readonly variant?: string;
+    /** Server version string; see {@link DialectIdentity}. */
+    readonly version?: string;
   } = {},
 ): SqlQuery {
-  const plan = renderToPlan(query, options.dialect ?? "generic");
+  const plan = renderToPlan(query, {
+    dialect: options.dialect ?? "generic",
+    ...(options.variant === undefined ? {} : { variant: options.variant }),
+    ...(options.version === undefined ? {} : { version: options.version }),
+  });
   const params = plan.params.map((param) => {
     if (param.kind === "placeholder") {
       throw new OrmError(
@@ -272,7 +367,7 @@ export function renderSql(
 export function normalizeSqlInput(
   query: SqlInput,
   params: readonly SqlParameter[] | undefined = undefined,
-  dialect: SqlDialect = "generic",
+  dialect: SqlDialect | DialectIdentity = "generic",
 ): SqlQuery {
   if (isSql(query)) {
     if (params !== undefined && params.length > 0) {
@@ -281,7 +376,7 @@ export function normalizeSqlInput(
       });
     }
 
-    return renderSql(query, { dialect });
+    return renderSql(query, toDialectIdentity(dialect));
   }
 
   if (typeof query === "string") {
@@ -447,7 +542,11 @@ function makeSql(chunks: SqlChunk[]): Sql {
 }
 
 export function paramSql(value: unknown): Sql {
-  return makeSql([{ kind: "param", value: serializeSqlValue(value) }]);
+  return makeSql([{
+    kind: "param",
+    value: serializeSqlValue(value),
+    ...(isTemporalInstantValue(value) ? { temporal: "instant" as const } : {}),
+  }]);
 }
 
 /** Attaches ORM result-column metadata to a SQL fragment or rendered query. */
@@ -491,17 +590,29 @@ interface RenderState {
   text: string;
   params: PreparedParam[];
   dialect: SqlDialect;
+  variant?: string;
+  version?: string;
 }
 
 /** Renders a SQL fragment to a plan whose param slots may include placeholders. */
-export function renderToPlan(query: Sql, dialect: SqlDialect): PreparedPlan {
+export function renderToPlan(
+  query: Sql,
+  dialect: SqlDialect | DialectIdentity,
+): PreparedPlan {
   if (!isSql(query)) {
     throw new OrmError("Expected a SQL fragment", {
       code: "ORM_INVALID_SQL",
     });
   }
 
-  const state: RenderState = { text: "", params: [], dialect };
+  const identity = toDialectIdentity(dialect);
+  const state: RenderState = {
+    text: "",
+    params: [],
+    dialect: identity.dialect,
+    ...(identity.variant === undefined ? {} : { variant: identity.variant }),
+    ...(identity.version === undefined ? {} : { version: identity.version }),
+  };
   renderSqlInto(query, state);
 
   return { text: state.text, params: state.params };
@@ -528,6 +639,16 @@ export function fillPreparedPlan(
   return { text: plan.text, params };
 }
 
+// MySQL rejects zone designators in datetime literals, so an instant param
+// (tagged at serialization time) is re-rendered as its naive UTC text —
+// the mysql-family "executor UTC convention".
+function mysqlInstantLiteral(value: SqlParameter): SqlParameter {
+  if (typeof value !== "string") {
+    return value;
+  }
+  return value.replace(/[zZ]$/u, "").replace("T", " ");
+}
+
 function renderSqlInto(query: Sql, state: RenderState): void {
   for (const chunk of query.chunks) {
     if (chunk.kind === "text" || chunk.kind === "raw") {
@@ -541,7 +662,12 @@ function renderSqlInto(query: Sql, state: RenderState): void {
     }
 
     if (chunk.kind === "param") {
-      state.params.push({ kind: "value", value: chunk.value });
+      state.params.push({
+        kind: "value",
+        value: chunk.temporal === "instant" && state.dialect === "mysql"
+          ? mysqlInstantLiteral(chunk.value)
+          : chunk.value,
+      });
       state.text += positionalMarker(state);
       continue;
     }
@@ -558,13 +684,27 @@ function renderSqlInto(query: Sql, state: RenderState): void {
     }
 
     if (chunk.kind === "guard") {
-      if (chunk.unsupported.includes(state.dialect)) {
+      if (guardApplies(chunk, state)) {
         throw new OrmError(
           `${chunk.construct} is not supported by the "${state.dialect}" ` +
-            `dialect`,
+            `dialect` +
+            (state.variant === undefined
+              ? ""
+              : ` (variant ${state.variant}${
+                state.version === undefined ? "" : ` ${state.version}`
+              })`),
           {
             code: "ORM_DIALECT_UNSUPPORTED",
-            details: { construct: chunk.construct, dialect: state.dialect },
+            details: {
+              construct: chunk.construct,
+              dialect: state.dialect,
+              ...(state.variant === undefined
+                ? {}
+                : { variant: state.variant }),
+              ...(state.version === undefined
+                ? {}
+                : { version: state.version }),
+            },
           },
         );
       }
@@ -589,6 +729,50 @@ function renderSqlInto(query: Sql, state: RenderState): void {
 
     renderSqlInto(chunk.value, state);
   }
+}
+
+// Whether a guard chunk applies to the rendering identity: some `unsupported`
+// target must match (bare dialect = any variant; a variant-narrowed target
+// requires that exact variant), and no `unless` refinement may lift it. An
+// unknown variant is the base engine; an unknown version never satisfies a
+// `minVersion` refinement (fail closed — capabilities light up only when the
+// adapter has identified the server).
+function guardApplies(
+  chunk: {
+    readonly unsupported: readonly DialectGuardTarget[];
+    readonly unless?: readonly DialectGuardException[];
+  },
+  state: RenderState,
+): boolean {
+  const targeted = chunk.unsupported.some((target) => {
+    if (typeof target === "string") {
+      return target === state.dialect;
+    }
+    if (target.dialect !== state.dialect) {
+      return false;
+    }
+    return target.variant === undefined || target.variant === state.variant;
+  });
+  if (!targeted) {
+    return false;
+  }
+  const lifted = (chunk.unless ?? []).some((exception) => {
+    if (
+      exception.variant !== undefined && exception.variant !== state.variant
+    ) {
+      return false;
+    }
+    if (exception.minVersion !== undefined) {
+      if (state.version === undefined) {
+        return false;
+      }
+      if (compareServerVersions(state.version, exception.minVersion) < 0) {
+        return false;
+      }
+    }
+    return true;
+  });
+  return !lifted;
 }
 
 // Postgres uses ordinal `$N` markers; every other dialect uses `?`.
@@ -623,12 +807,26 @@ export function operatorSql(name: string): Sql {
  * operators on the SQLite family; those plus `RETURNING`, `UPDATE … FROM`,
  * and data-modifying CTEs on MySQL) with a clear, typed error before they
  * reach the engine as invalid SQL.
+ *
+ * Targets and exceptions are declarative data, keeping guard chunks
+ * serializable: a target may narrow to one engine `variant`, and
+ * `options.unless` lifts the guard for identities matching a
+ * {@link DialectGuardException} (e.g. `RETURNING` unsupported on `"mysql"`
+ * unless `{ variant: "mariadb", minVersion: "10.5" }`). Version-gated
+ * exceptions require a **known** server version — an unidentified server
+ * stays guarded (fail closed).
  */
 export function dialectGuard(
   construct: string,
-  unsupported: readonly SqlDialect[],
+  unsupported: readonly DialectGuardTarget[],
+  options: { readonly unless?: readonly DialectGuardException[] } = {},
 ): Sql {
-  return makeSql([{ kind: "guard", construct, unsupported }]);
+  return makeSql([{
+    kind: "guard",
+    construct,
+    unsupported,
+    ...(options.unless === undefined ? {} : { unless: options.unless }),
+  }]);
 }
 
 /**

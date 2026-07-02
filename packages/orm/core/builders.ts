@@ -612,6 +612,20 @@ function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
   ], emptySql());
 }
 
+// MariaDB accepts a `WITH` prefix only on SELECT — attaching one to
+// INSERT/UPDATE/DELETE is a syntax error there (verified on 11.8.8), while
+// MySQL 8+ allows all three. Guarded per variant so a detected mariadb
+// identity fails typed instead of with a raw 1064.
+function mutationWithPrefixSql(
+  construct: string,
+  ctes: readonly CteDefinition[],
+): Sql {
+  return joinSql([
+    dialectGuard(construct, [{ dialect: "mysql", variant: "mariadb" }]),
+    withPrefixSql(ctes),
+  ], emptySql());
+}
+
 /**
  * Column keys a data-modifying CTE body (`INSERT`/`UPDATE`/`DELETE`) exposes via
  * `RETURNING`. A body without `.returning()` exposes no columns and cannot seed
@@ -1498,21 +1512,33 @@ function tableResultMetadata(table: TableDefinition): ResultRowMetadata {
 }
 
 // MySQL has no RETURNING on any mutation; MariaDB's is per-statement AND
-// per-version (DELETE 10.0.5+, INSERT/REPLACE 10.5+, UPDATE only 13.0+), so
-// even emitting it for MariaDB needs the (engine, version) dialect key. Until
-// then the version-less "mysql" dialect throws a typed error instead of
-// rendering SQL the engine rejects; a fetch-by-key fallback is an
+// per-version (DELETE 10.0.5+, INSERT/REPLACE 10.5+, UPDATE only 13.0+). The
+// (engine, variant, version) identity (v0.7 B1) expresses exactly that: the
+// version-less "mysql" dialect throws a typed error, and each statement kind
+// carries the MariaDB refinement that lifts the guard once an adapter renders
+// with an identified server. A fetch-by-key fallback for MySQL proper is an
 // adapter/executor concern (a second round trip, not a render rewrite).
-const RETURNING_GUARD = "INSERT/UPDATE/DELETE … RETURNING";
+const RETURNING_GUARDS: Record<
+  "insert" | "update" | "delete",
+  { readonly construct: string; readonly minMariadb: string }
+> = {
+  insert: { construct: "INSERT … RETURNING", minMariadb: "10.5" },
+  update: { construct: "UPDATE … RETURNING", minMariadb: "13.0" },
+  delete: { construct: "DELETE … RETURNING", minMariadb: "10.0.5" },
+};
 
 function returningSql(
   returning: SelectProjection | boolean,
   table: TableDefinition,
+  kind: "insert" | "update" | "delete",
 ): Sql | undefined {
   if (returning === false) {
     return undefined;
   }
-  const guard = dialectGuard(RETURNING_GUARD, ["mysql"]);
+  const spec = RETURNING_GUARDS[kind];
+  const guard = dialectGuard(spec.construct, ["mysql"], {
+    unless: [{ variant: "mariadb", minVersion: spec.minMariadb }],
+  });
   if (returning === true) {
     return joinSql(
       [guard, raw(" returning "), tableSelectionSql(table)],
@@ -1816,7 +1842,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
 
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
-      parts.push(withPrefixSql(ctes));
+      parts.push(mutationWithPrefixSql("WITH … INSERT", ctes));
     }
 
     if (select !== undefined) {
@@ -1877,7 +1903,7 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
       parts.push(conflictPart);
     }
 
-    const returningPart = returningSql(returning, table);
+    const returningPart = returningSql(returning, table, "insert");
     if (returningPart !== undefined) {
       parts.push(returningPart);
     }
@@ -1991,24 +2017,18 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
         sql`${identifier(physicalColumnName(table, name))} = ${value}`
       ),
     );
+    const mysqlSetSql = joinSql(
+      entries.map(([name, value]) =>
+        sql`${
+          identifier(`${table.name}.${physicalColumnName(table, name)}`)
+        } = ${value}`
+      ),
+    );
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
-      parts.push(withPrefixSql(ctes));
+      parts.push(mutationWithPrefixSql("WITH … UPDATE", ctes));
     }
-    parts.push(
-      raw("update "),
-      identifier(table.name),
-      raw(" set "),
-      setSql,
-    );
-
-    // `UPDATE … FROM <source>` precedes the WHERE so the predicate can join
-    // it. MySQL's equivalent is the multi-table `UPDATE t, s SET …` — a
-    // different statement shape, so the mysql dialect guards instead of
-    // rendering Postgres/SQLite syntax it rejects (mapping it is v0.7 work).
-    if (from !== undefined) {
-      parts.push(dialectGuard("UPDATE … FROM", ["mysql"]), raw(" from "), from);
-    }
+    parts.push(updateStatementHead(table, setSql, mysqlSetSql, from));
 
     if (condition === undefined) {
       assertUnsafeAllRowsAllowed("update", allowAllRows, table.name);
@@ -2016,8 +2036,11 @@ export class SisalUpdateBuilder<TTable extends TableDefinition>
       parts.push(raw(" where "), condition.sql);
     }
 
-    const returningPart = returningSql(returning, table);
+    const returningPart = returningSql(returning, table, "update");
     if (returningPart !== undefined) {
+      if (from !== undefined) {
+        parts.push(dialectGuard("UPDATE … FROM … RETURNING", ["mysql"]));
+      }
       parts.push(returningPart);
     }
 
@@ -2070,14 +2093,8 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
   }
 
   using(source: SelectFromSource): DeleteBuilder<TTable> {
-    // `DELETE … USING` is PostgreSQL-only; the SQLite family has no USING clause
-    // on DELETE, so rendering for it throws a typed guard.
     return this.#with({
-      // MySQL's multi-table DELETE … USING requires the target repeated in
-      // the USING list — a different shape, guarded until v0.7 maps it.
-      using: sql`${dialectGuard("DELETE … USING", ["sqlite", "mysql"])}${
-        mutationRelationSql(source)
-      }`,
+      using: mutationRelationSql(source),
     });
   }
 
@@ -2115,13 +2132,9 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
       this.#state;
     const parts: Sql[] = [];
     if (ctes !== undefined && ctes.length > 0) {
-      parts.push(withPrefixSql(ctes));
+      parts.push(mutationWithPrefixSql("WITH … DELETE", ctes));
     }
-    parts.push(raw("delete from "), identifier(table.name));
-
-    if (using !== undefined) {
-      parts.push(raw(" using "), using);
-    }
+    parts.push(deleteStatementHead(table, using));
 
     if (condition === undefined) {
       assertUnsafeAllRowsAllowed("delete", allowAllRows, table.name);
@@ -2129,8 +2142,11 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
       parts.push(raw(" where "), condition.sql);
     }
 
-    const returningPart = returningSql(returning, table);
+    const returningPart = returningSql(returning, table, "delete");
     if (returningPart !== undefined) {
+      if (using !== undefined) {
+        parts.push(dialectGuard("DELETE … USING … RETURNING", ["mysql"]));
+      }
       parts.push(returningPart);
     }
 
@@ -2151,6 +2167,42 @@ export class SisalDeleteBuilder<TTable extends TableDefinition>
   execute(): Promise<OrmQueryResult<InferSelect<TTable>>> {
     return this.#database.execute<InferSelect<TTable>>(this.toSql());
   }
+}
+
+function updateStatementHead(
+  table: TableDefinition,
+  setSql: Sql,
+  mysqlSetSql: Sql,
+  from: Sql | undefined,
+): Sql {
+  if (from === undefined) {
+    return sql`update ${identifier(table.name)} set ${setSql}`;
+  }
+
+  const portable = sql`update ${
+    identifier(table.name)
+  } set ${setSql} from ${from}`;
+  const mysql = sql`update ${
+    identifier(table.name)
+  }, ${from} set ${mysqlSetSql}`;
+  return dialectSql("UPDATE … FROM", { mysql }, portable);
+}
+
+function deleteStatementHead(
+  table: TableDefinition,
+  using: Sql | undefined,
+): Sql {
+  if (using === undefined) {
+    return sql`delete from ${identifier(table.name)}`;
+  }
+
+  const portable = sql`${
+    dialectGuard("DELETE … USING", ["sqlite"])
+  }delete from ${identifier(table.name)} using ${using}`;
+  const mysql = sql`delete from ${identifier(table.name)} using ${
+    identifier(table.name)
+  }, ${using}`;
+  return dialectSql("DELETE … USING", { mysql }, portable);
 }
 
 // Resolves a JS property key to the physical SQL column name a table renders.

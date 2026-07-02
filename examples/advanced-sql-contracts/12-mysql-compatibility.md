@@ -1,38 +1,39 @@
-# 12 — MySQL compatibility (documentation-only future contract)
+# 12 — MySQL compatibility (graduated contract)
 
-**Status:** documentation-only future contract. Not runnable; not in the
-workspace. **No `@sisal/mysql` package exists** (and none is created here).
+**Status:** graduated into runnable workspace examples. The original pressure
+cases now live in `@sisal/mysql`, the mysql-family integration suite, and the
+MySQL-family examples.
 
 **Roadmap owner:**
 [v0.6 Workstream C](../../docs/v0.6.0-roadmap.md#workstream-c--mysql-support-investigation)
 (MySQL-readiness investigation — pin the latent `"mysql"` render path, design
 the upsert/`RETURNING` divergences) →
-[v0.7 Workstream B](../../docs/v0.7.0-roadmap.md) (builds and ships the
-`@sisal/mysql` adapter, Sisal's fifth dialect). This contract is the **example
-pressure-case list** the adapter must satisfy.
+[v0.7 Workstream B](../../docs/v0.7.0-roadmap.md) (built and shipped the
+`@sisal/mysql` adapter, Sisal's fifth dialect). This contract is retained as the
+historical pressure-case list the adapter and examples now satisfy.
 
-**Related runnable examples:** the future `examples/basic-mysql` (v0.7 required
-example) and every contract in this directory tagged "future MySQL" — this file
-is their MySQL-specific cross-cut. The Postgres reference stays
-[`neon-activity-vectors`](../postgres-family-activity-vectors/README.md) /
-[`postgres-family-feed`](../postgres-family-feed/README.md).
+**Related runnable examples:** [`mysql-family-basic`](../mysql-family-basic/),
+[`mysql-family-showcase`](../mysql-family-showcase/), and
+[`mysql-family-feed`](../mysql-family-feed/README.md). The PostgreSQL reference
+stays
+[`postgres-family-activity-vectors`](../postgres-family-activity-vectors/README.md)
+/ [`postgres-family-feed`](../postgres-family-feed/README.md).
 
-## Why MySQL is latent, not absent
+## Why this contract graduated
 
-The renderer already half-knows MySQL: `SqlDialect` includes `"mysql"`,
-identifiers quote with **backticks**, placeholders fall through to `?`, and
-`ilike` degrades to `LIKE` (per [v0.6 C1](../../docs/v0.6.0-roadmap.md), all
-render-tested). What is **absent** is everything an adapter needs — no
-`MYSQL_DIALECT`, no executor/driver/pool, no `generateMysqlUpStatements`, no
-type mapping, no integration suite, no matrix column.
+The renderer now has a tested MySQL-family adapter behind it: `@sisal/mysql`
+provides the dialect identity, lazy `mysql2`/MariaDB drivers, MySQL DDL,
+migrations, feature-matrix columns, and shared live integration scenarios. The
+new examples keep the remaining pressure points visible instead of burying them
+in implementation detail.
 
 ## Product use case
 
 A developer points Sisal at MySQL 8 (or MariaDB) and expects the **same
 builder** to work — CRUD, joins, CTEs, window functions, upsert, migrations —
 with the divergences handled explicitly, not silently mis-rendered. This
-contract enumerates the **pressure cases** a `basic-mysql` + a feature suite
-must cover.
+contract enumerates the **pressure cases** the MySQL-family examples and feature
+suite now cover.
 
 ## Pressure cases to preserve
 
@@ -48,7 +49,8 @@ must cover.
 4. **Upsert divergence** — the biggest gap: `onConflictDoUpdate` renders
    Postgres `ON CONFLICT (…) DO UPDATE`, but MySQL needs
    `INSERT … ON DUPLICATE KEY UPDATE col = VALUES(col)` (or 8.0.20+
-   `AS new … new.col`). **Renders wrong under `"mysql"` today** (v0.6 C2).
+   `AS new … new.col`). This is now mapped by Sisal's portable `onConflict...`
+   API.
 5. **`RETURNING` divergence** — the renderer emits `RETURNING *` under
    `"mysql"`, but **MySQL 8 has no `RETURNING`** (MariaDB 10.5+ does). Emit on
    MariaDB, else a fetch-by-key fallback or typed guard (v0.6 C3).
@@ -76,19 +78,21 @@ ON CONFLICT (k) DO UPDATE       ON DUPLICATE KEY UPDATE
   SET v = excluded.v;             `v` = VALUES(`v`);   -- or: AS new … new.v
 ```
 
-## Required future Sisal primitives
+## Landed Sisal primitives
 
 - **The whole `@sisal/mysql` adapter** (`MYSQL_DIALECT`, executor, lazy driver +
-  pool, errors, `migrate/`) — v0.7 B. **Absent.**
+  pool, errors, `migrate/`) — landed in v0.7 B.
 - **Upsert mapping** — `onConflictDoUpdate` → `ON DUPLICATE KEY UPDATE`, or a
-  dedicated `onDuplicateKeyUpdate` surface (the v0.6 design decision).
+  dedicated `onDuplicateKeyUpdate` surface (answered by the v0.6 design
+  decision: keep the portable `onConflict...` surface).
 - **`RETURNING` strategy** — dialect/version-aware emit-or-emulate.
 - **`generateMysqlUpStatements`** — additive DDL with MySQL type mapping.
-- **A chosen MySQL driver** (Deno + Node, per the v0.6 Node/npm workstream).
+- **A chosen MySQL driver** — `mysql2` by default, MariaDB Connector/Node.js as
+  the lazy opt-in.
 
 ## Dialect classification (the fifth column)
 
-| Capability       | pg/neon       | sqlite/libsql | future MySQL 8           | future MariaDB     |
+| Capability       | pg/neon       | sqlite/libsql | MySQL 8                  | MariaDB            |
 | ---------------- | ------------- | ------------- | ------------------------ | ------------------ |
 | backtick + `?`   | n/a           | n/a           | ✅ render-ready          | ✅                 |
 | upsert           | `ON CONFLICT` | `ON CONFLICT` | `ON DUPLICATE KEY` (map) | `ON DUPLICATE KEY` |
@@ -100,30 +104,29 @@ ON CONFLICT (k) DO UPDATE       ON DUPLICATE KEY UPDATE
 
 ## Portable / emulatable / dialect-native / fail-guarded
 
-- **Portable (once the adapter exists):** CRUD, joins, CTEs, window functions on
-  MySQL 8 — the same builder, different rendering.
+- **Portable:** CRUD, joins, CTEs, window functions on MySQL 8 — the same
+  builder, different rendering.
 - **Emulatable:** `RETURNING` on MySQL 8 (`INSERT` + `SELECT` of affected keys);
   partial index (generated boolean column + full index — imperfect).
 - **Dialect-native:** `ON DUPLICATE KEY UPDATE`, `AUTO_INCREMENT`, `TINYINT(1)`
   booleans — MySQL-native, mapped by the adapter.
-- **Fail guarded → feature-matrix:** the v0.7 deliverable is a **test-backed
-  fifth column** in [`docs/feature-matrix.md`](../../docs/feature-matrix.md):
-  `RETURNING` on MySQL 8 and partial indexes are `❌`, the upsert/`TINYINT`/JSON
-  round-trips are `⚠️` with documented notes, the rest ✅. The exact embodiment
-  of "if it can't be done here, the matrix tracks it."
+- **Fail guarded → feature-matrix:** the v0.7 deliverable is now a test-backed
+  MySQL/MariaDB pair of columns in
+  [`docs/feature-matrix.md`](../../docs/feature-matrix.md): `RETURNING` on MySQL
+  8 and partial indexes are `❌`, the upsert/`TINYINT`/JSON round-trips are `⚠️`
+  with documented notes, the rest ✅ where live scenarios back it.
 
 ## Non-goals
 
-Not full MariaDB parity unless v0.6 C5 scopes it in; not a MySQL-specific
-ETL/analytics surface (Postgres stays the reference); no driver dependency or
-integration test added by _this_ contract (those are v0.7).
+Not a MySQL-specific ETL/analytics package (Postgres stays the reference); not a
+promise that every PostgreSQL-only surface can be emulated.
 
-## Future acceptance criteria
+## Verified acceptance criteria
 
-- `@sisal/mysql` passes the shared OLTP feature suite against `mysql:8` (gated
-  `SISAL_MYSQL_IT=1`), with a `basic-mysql` example mirroring the other
-  `basic-*` examples.
-- Upsert and `RETURNING` behave correctly or fail/emulate **as documented**; the
-  latent `"mysql"` render path is corrected (C2/C3) before the adapter ships.
-- The feature matrix gains a test-backed MySQL column; the other four dialects'
-  render output is unchanged.
+- `@sisal/mysql` passes the shared OLTP feature suite against MySQL and MariaDB,
+  gated by `SISAL_MYSQL_IT=1` / `SISAL_MARIADB_IT=1`.
+- `mysql-family-basic`, `mysql-family-showcase`, and `mysql-family-feed` mirror
+  the dialect-family taxonomy.
+- Upsert and `RETURNING` behave correctly or fail/emulate **as documented**.
+- The feature matrix has test-backed MySQL and MariaDB columns; the other four
+  dialects' render output is unchanged.

@@ -31,6 +31,7 @@ export const sqliteTarget: IntegrationTarget = {
     nativeArrays: false,
     typedFunctions: false,
     dataModifyingCte: false,
+    mutationCte: true,
     schemaFunctions: false,
     schemaTriggers: true,
     richIndexes: true,

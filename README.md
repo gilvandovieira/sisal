@@ -16,14 +16,15 @@ safe SQL builders, schema snapshots, migration planning, and explicit database
 adapters.
 
 The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
-adapter-neutral. PostgreSQL, Neon, SQLite, and libSQL/Turso behavior lives in
-adapter packages, where database drivers and runtime-specific dependency edges
-belong.
+adapter-neutral. PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB
+behavior lives in adapter packages, where database drivers and runtime-specific
+dependency edges belong.
 
 Every Sisal package is published to JSR. The core packages stay pure JSR.
 Adapter packages own runtime-specific driver edges: `@sisal/pg` defaults to
 `jsr:@db/postgres` and can opt into `npm:postgres` with `driver: "postgres-js"`;
-libSQL/Turso uses `npm:@libsql/client`; Neon uses `@neon/serverless`.
+libSQL/Turso uses `npm:@libsql/client`; Neon uses `@neon/serverless`;
+MySQL/MariaDB uses `npm:mysql2` by default with a lazy MariaDB connector opt-in.
 
 Sisal is inspired by useful vocabulary from the TypeScript database ecosystem,
 including Drizzle's fluent SQL-builder style, but it is not a compatibility
@@ -34,20 +35,21 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.6.0 \
-  jsr:@sisal/migrate@0.6.0 \
-  jsr:@sisal/pg@0.6.0
+deno add jsr:@sisal/orm@0.7.0 \
+  jsr:@sisal/migrate@0.7.0 \
+  jsr:@sisal/pg@0.7.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
 and one adapter package. Swap only the adapter for the database runtime you use.
 
-| Target       | Install                                                                          |
-| ------------ | -------------------------------------------------------------------------------- |
-| PostgreSQL   | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/pg@0.6.0`     |
-| Neon         | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/neon@0.6.0`   |
-| SQLite       | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/sqlite@0.6.0` |
-| libSQL/Turso | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/libsql@0.6.0` |
+| Target        | Install                                                                          |
+| ------------- | -------------------------------------------------------------------------------- |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/pg@0.7.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/neon@0.7.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/sqlite@0.7.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/libsql@0.7.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/mysql@0.7.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -181,7 +183,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.6.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.7.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -191,9 +193,9 @@ work locally and in CI:
 }
 ```
 
-SQLite and libSQL/Turso tasks also need `--allow-ffi`. `sisal init` creates
-`sisal.migrate.ts`; edit that config so `snapshot` is built from the same table
-definitions your application uses.
+Use `--target mysql` for MySQL/MariaDB. SQLite and libSQL/Turso tasks also need
+`--allow-ffi`. `sisal init` creates `sisal.migrate.ts`; edit that config so
+`snapshot` is built from the same table definitions your application uses.
 
 ```ts
 import { createSchemaSnapshot } from "@sisal/orm";
@@ -253,8 +255,8 @@ database plan do not match.
 - Rich index DDL with `asc`/`desc`, partial `WHERE`, and expression keys.
 - Migration planning, checksums, rollback, history stores, drift checks, and a
   CLI workflow.
-- Adapter packages for PostgreSQL, Neon, SQLite, and libSQL/Turso.
-- Early MySQL render-path groundwork, without a published MySQL adapter yet.
+- Adapter packages for PostgreSQL, Neon, SQLite, libSQL/Turso, and
+  MySQL/MariaDB.
 - Structured `SisalError`, `OrmError`, and `MigrationError` classes plus small
   logger contracts.
 
@@ -275,6 +277,7 @@ Adapter packages:
 | `@sisal/neon`   | Neon serverless PostgreSQL adapter over `@neon/serverless`, reusing PostgreSQL SQL, DDL, and migrator behavior.  |
 | `@sisal/sqlite` | SQLite execution via `jsr:@db/sqlite`, migration history, migrator, and SQLite DDL generation.                   |
 | `@sisal/libsql` | libSQL/Turso execution via `npm:@libsql/client`, migration history, migrator, and SQLite-compatible DDL aliases. |
+| `@sisal/mysql`  | MySQL/MariaDB execution via `npm:mysql2` or the MariaDB connector, migration history, migrator, and MySQL DDL.   |
 
 Core packages stay driverless and adapter-neutral. Adapter packages are where
 database drivers and runtime-specific dependencies belong.
@@ -290,6 +293,8 @@ database drivers and runtime-specific dependencies belong.
   `--allow-ffi`.
 - libSQL/Turso follows the SQLite-compatible dialect through
   `npm:@libsql/client`.
+- MySQL/MariaDB use `@sisal/mysql` with `mysql2` by default; opt into the
+  MariaDB connector with `connect({ url, driver: "mariadb" })`.
 
 ## Development
 
@@ -316,6 +321,8 @@ NEON_DATABASE_URL=postgres://... deno test -A integration/neon_features_test.ts
 SISAL_SQLITE_IT=1 deno test --allow-ffi --allow-read --allow-write \
   --allow-env --allow-net integration/sqlite_features_test.ts
 SISAL_LIBSQL_IT=1 deno test -A integration/libsql_features_test.ts
+SISAL_MYSQL_IT=1 MYSQL_URL=mysql://... deno test -A integration/mysql_features_test.ts
+SISAL_MARIADB_IT=1 MARIADB_URL=mysql://... deno test -A integration/mariadb_features_test.ts
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
   integration/pg_migrate_apply_test.ts
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
@@ -323,8 +330,8 @@ DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
 ```
 
 The scheduled integration workflow covers PostgreSQL 16/17/18 through Docker,
-Neon through the bundled local WebSocket proxy, and local SQLite/libSQL
-execution.
+Neon through the bundled local WebSocket proxy, local SQLite/libSQL execution,
+and MySQL/MariaDB through Docker services.
 
 ## README Disclaimer
 

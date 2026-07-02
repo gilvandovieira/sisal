@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.6.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, and libSQL/Turso live at explicit package boundaries.
+Workspace package version: 0.7.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -24,14 +24,16 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [libSQL / Turso compatibility](https://gilvandovieira.github.io/sisal/libsql-compatibility.html): Sisal's libSQL adapter (@sisal/libsql) is verified end-to-end against a real libSQL database. libSQL is a SQLite fork, so the SQL surface matches SQLite; what differs is the **connection** — a local file:, an...
 - [Benchmarks](https://gilvandovieira.github.io/sisal/benchmarks.html): Sisal benchmarks measure the work the **library** does — building SQL, rendering it, and turning driver rows into typed results — in isolation from the database and the network. A query's wall-clock time is dominated...
 - [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
+- [Analytics Readiness](https://gilvandovieira.github.io/sisal/analytics-readiness.html): **Date:** 2026-07-01 · **Status:** A1-A4 🟢 · **Scope:** investigation and type prototype only. No @sisal/analytics package, renderer, runtime, dashboard helper, public export, or generated feature-matrix claim ships...
 - [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL, analytics,...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
+- [MySQL / MariaDB compatibility](https://gilvandovieira.github.io/sisal/mysql-compatibility.html): Sisal's MySQL adapter (@sisal/mysql) is verified end-to-end against real servers — **both** MySQL proper and MariaDB, which share one adapter but are distinct capability profiles. Each suite opens a pool with the...
 - [MySQL type & DDL mapping](https://gilvandovieira.github.io/sisal/mysql-ddl-mapping.html): **Date:** 2026-07-01 · **Probe:** perf/mysql_ddl_probe.ts (deno task perf:mysql:ddl) · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), decoded through the C6-chosen driver (npm:mysql2 with the...
 - [MySQL readiness](https://gilvandovieira.github.io/sisal/mysql-readiness.html): **Date:** 2026-07-01 · **Status:** all six C tasks 🟢 · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), Deno 2.9.0 (+ Node 26 dual-runtime check)
 - [npm Release Readiness](https://gilvandovieira.github.io/sisal/npm-release-readiness.html): This is a **standing readiness report**, not a scheduled deliverable. It records what must change for Sisal to publish to **npm** alongside JSR and run on **Node.js 24+**, so the work can be picked up cheaply **if...
 - [Roadmap Sequencing Audit (v0.6 → v0.14)](https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html): This is a **second-pass sequencing audit** of the forward plan (docs/roadmap.md, docs/architecture.md, docs/v0.6.0-roadmap.md → docs/v0.14.0-roadmap.md, and the twelve examples/advanced-sql-contracts/). It...
-- [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, and libSQL. It will not become an object-first ORM. This page is the index and...
+- [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, libSQL, and MySQL/MariaDB. It will not become an object-first ORM. This page is the...
 - [v0.10.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.10.0-roadmap.html): The investigations (v0.6) and substrate (v0.8, v0.9) are done; v0.10 ships the **first preview of Sisal ETL** as a separate package. The model is deliberately small: a **job definition + a single-run runner** that...
 - [v0.11.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.11.0-roadmap.html): With the analytical IR designed (v0.7) and the core IR stabilized (v0.8), v0.11 ships the first **Postgres-first analytical query layer** — a typed OLAP API that queries rollups and analytical tables using Sisal...
 - [v0.12.0 Roadmap](https://gilvandovieira.github.io/sisal/v0.12.0-roadmap.html): v0.12 introduces a **generic dashboard mapping layer** that turns analytics result sets into **semantic presentation models**. It is the last layer of the stack and the most easily misunderstood, so the boundary is...
@@ -51,6 +53,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL and Turso adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/mysql](https://jsr.io/@sisal/mysql): MySQL and MariaDB adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/neon](https://jsr.io/@sisal/neon): Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 
 ## Project Context
@@ -61,7 +64,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Package Manifests
 
-### @sisal/orm 0.6.0
+### @sisal/orm 0.7.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -74,7 +77,7 @@ Exports:
 - `./logger` -> `./logger.ts`
 - `./schema` -> `./schema.ts`
 
-### @sisal/migrate 0.6.0
+### @sisal/migrate 0.7.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -86,7 +89,7 @@ Exports:
 - `./core` -> `./core/mod.ts`
 - `./workflow` -> `./core/workflow.ts`
 
-### @sisal/pg 0.6.0
+### @sisal/pg 0.7.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -98,7 +101,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/sqlite 0.6.0
+### @sisal/sqlite 0.7.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -110,7 +113,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/libsql 0.6.0
+### @sisal/libsql 0.7.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -122,7 +125,19 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/neon 0.6.0
+### @sisal/mysql 0.7.0
+
+MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.
+
+Package path: `./packages/mysql`
+
+Exports:
+- `.` -> `./mod.ts`
+- `./ddl` -> `./migrate/ddl.ts`
+- `./migrate` -> `./migrate/mod.ts`
+- `./orm` -> `./orm/mod.ts`
+
+### @sisal/neon 0.7.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -166,6 +181,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `ColumnRuntimeType` (typeAlias): JavaScript runtime value types represented by ORM columns.
 - `columns` (variable): Column builder factory for table schemas.
 - `ColumnValueMode` (typeAlias): Runtime value mode for date/time-ish columns.
+- `compareServerVersions` (function): Compares two server version strings by their leading dotted numeric prefixes ("11.8.8-MariaDB-ubu2404" → 11.8.8; missing segments are 0). Returns a negative number, zero, or a positive number as a is lower than,...
 - `CompoundSelectBuilder` (interface): A combined query produced by a set operation. Trailing orderBy/limit/ offset apply to the whole compound, and further set operations may be chained.
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
@@ -199,6 +215,10 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DeleteBuilder` (interface): Fluent builder for DELETE queries.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
 - `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
+- `DialectGuardException` (interface): A refinement that lifts a {@link dialectGuard} for identities it matches: the identity's variant must equal variant (when set), and its version must be **known** and at least minVersion (when set) — an unknown...
+- `DialectGuardTarget` (typeAlias): One dialect a guarded construct is unsupported on. A bare {@link SqlDialect} matches any variant/version of that dialect; the object form narrows to one variant (an identity with **no** variant is the base engine and...
+- `DialectIdentity` (interface): Version-aware dialect identity — the (engine, variant, version) key the v0.6 readiness investigation decided on (see docs/mysql-readiness.md, decision 2). dialect remains the render key; variant names a...
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `diffSchemaSnapshots` (function): Computes the structural difference from one snapshot to another.
 - `emptySql` (function): Returns an empty SQL fragment.
@@ -392,6 +412,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `ColumnRuntimeType` (typeAlias): JavaScript runtime value types represented by ORM columns.
 - `columns` (variable): Column builder factory for table schemas.
 - `ColumnValueMode` (typeAlias): Runtime value mode for date/time-ish columns.
+- `compareServerVersions` (function): Compares two server version strings by their leading dotted numeric prefixes ("11.8.8-MariaDB-ubu2404" → 11.8.8; missing segments are 0). Returns a negative number, zero, or a positive number as a is lower than,...
 - `CompoundSelectBuilder` (interface): A combined query produced by a set operation. Trailing orderBy/limit/ offset apply to the whole compound, and further set operations may be chained.
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
@@ -422,6 +443,10 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `DefineTableOptions` (interface): Options accepted by {@link defineTable}.
 - `DeleteBuilder` (interface): Fluent builder for DELETE queries.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
+- `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
+- `DialectGuardException` (interface): A refinement that lifts a {@link dialectGuard} for identities it matches: the identity's variant must equal variant (when set), and its version must be **known** and at least minVersion (when set) — an unknown...
+- `DialectGuardTarget` (typeAlias): One dialect a guarded construct is unsupported on. A bare {@link SqlDialect} matches any variant/version of that dialect; the object form narrows to one variant (an identity with **no** variant is the base engine and...
+- `DialectIdentity` (interface): Version-aware dialect identity — the (engine, variant, version) key the v0.6 readiness investigation decided on (see docs/mysql-readiness.md, decision 2). dialect remains the render key; variant names a...
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
@@ -1154,6 +1179,136 @@ libSQL/Turso adapter for @sisal/orm.
 - `LibsqlValue` (typeAlias): Scalar value shape returned by libSQL rows.
 - `openLibsqlClient` (function): Opens a libSQL/Turso client for ORM use.
 
+### @sisal/mysql . (packages/mysql/mod.ts)
+
+MySQL/MariaDB adapter package for Sisal.
+
+- `adaptMariadbPool` (function): Adapts a MariaDB Connector/Node.js pool to the adapter's {@link MysqlPool} contract: query() results are re-shaped into mysql2's [rows, fields] tuple (an OkPacket-style affectedRows object becomes a {@link...
+- `connect` (function): Convenience alias for {@link createMysqlDb} — opens a MySQL-backed database.
+- `createMariadbPool` (function): Creates a {@link MysqlPool} backed by the MariaDB Connector/Node.js (npm:mariadb) — the fastest driver in the v0.6 C6 benchmarks and the opt-in alternative to the mysql2 default (connect({ driver: "mariadb" })). The...
+- `createMysqlDb` (function): Opens a MySQL/MariaDB-backed database facade.
+- `CreateMysqlDbOptions` (interface): Options for opening a MySQL/MariaDB-backed database facade.
+- `createMysqlExecutor` (function): Creates a MySQL SQL executor from an existing executor, pool, client, or URL.
+- `createMysqlMigrateExecutor` (function): Creates a MySQL SQL executor from an existing executor, pool, client, or URL. URL connections reuse the ORM adapter's source routing, so driver: "mariadb" and the mandated bigint-as-string options apply here too.
+- `createMysqlMigrationDriver` (function): Creates a core migration driver backed by MySQL SQL execution.
+- `createMysqlMigrationHistoryStore` (function): Creates a migration history store persisted in a MySQL table.
+- `createMysqlMigrator` (function): Creates a MySQL migration facade with a database-backed history store.
+- `CreateMysqlMigratorOptions` (interface): Options for creating a MySQL migration facade.
+- `createMysqlOrmDriver` (function): Creates an ORM driver backed by a MySQL executor, pool, client, or URL.
+- `createMysqlPool` (function): Creates a MySQL pool from a URL using mysql2/promise, imported **lazily** on first use so the npm driver stays a runtime-only dependency (the same discipline as @sisal/libsql's client and @sisal/pg's postgres.js opt-in).
+- `DEFAULT_MYSQL_MIGRATION_TABLE` (variable): Default MySQL table used to store applied migration history.
+- `generateMysqlAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
+- `generateMysqlColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
+- `generateMysqlColumnType` (function): Maps a snapshot column type to a MySQL type expression, per the probe-verified table in docs/mysql-ddl-mapping.md: real is an explicit FLOAT (MySQL's REAL means DOUBLE), timestamp is DATETIME(6) (no timezone...
+- `generateMysqlCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table. No ENGINE/CHARSET clause is emitted — both modern engines default to InnoDB + utf8mb4, and explicit collation names differ per engine (utf8mb4_0900_ai_ci is...
+- `generateMysqlForeignKeys` (function): Generates ALTER TABLE … ADD … FOREIGN KEY statements for a table. Foreign keys are emitted **after** every CREATE TABLE — never inline — because MySQL silently ignores an inline column REFERENCES clause while MariaDB...
+- `generateMysqlIndexes` (function): Generates CREATE [UNIQUE] INDEX statements for a table's indexes.
+- `generateMysqlUpStatements` (function): Generates the **non-destructive** MySQL/MariaDB up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns, then foreign keys (after every CREATE TABLE so forward...
+- `insertReturning` (function): Inserts rows and returns them, choosing the best strategy the connected server supports: real INSERT … RETURNING where the facade's detected identity lights it (MariaDB ≥ 10.5), otherwise a transactional fetch-by-key...
+- `MARIADB_VARIANT` (variable): The variant value a MariaDB server carries in its {@link https://jsr.io/@sisal/orm | DialectIdentity} — the axis that lets version-gated capabilities (e.g. INSERT … RETURNING on MariaDB 10.5+) light up through...
+- `MYSQL_DIALECT` (variable): SQL dialect name used by the MySQL/MariaDB ORM adapter.
+- `MysqlClient` (interface): Minimal MySQL client (one pooled connection) surface used by the adapter — structurally compatible with a mysql2/promise PoolConnection. The adapter executes through query() (the text protocol) rather than execute()...
+- `MysqlConnectionOptions` (interface): Connection options accepted by MySQL ORM adapter factories.
+- `MysqlDatabase` (interface): MySQL/MariaDB-specialized database facade.
+- `MysqlDriverKind` (typeAlias): Which underlying driver a @sisal/mysql URL connection uses.
+- `MysqlDriverRows` (typeAlias): Row payload of a mysql2 result: an array for reads, a header for writes.
+- `MysqlMigrateOptions` (interface): Options for applying pending MySQL migrations.
+- `MysqlMigrationDefinition` (interface): MySQL convenience migration definition with inferred programmatic kind.
+- `MysqlMigrationDriverOptions` (interface): Options for creating a MySQL-backed migration driver.
+- `MysqlMigrationHistoryStoreOptions` (interface): Options for creating a MySQL-backed migration history store.
+- `MysqlMigrationInput` (typeAlias): Migration input accepted by the MySQL migrator facade.
+- `MysqlMigrationPlanOptions` (interface): Options for planning MySQL migrations without executing them.
+- `MysqlMigrator` (interface): MySQL migration facade backed by the core migrator.
+- `MysqlOrmDriverOptions` (interface): Options for creating a MySQL-backed ORM driver.
+- `MysqlPool` (interface): Minimal MySQL pool surface used by the adapter (mysql2 Pool-shaped).
+- `mysqlQualifiedName` (function): Renders the qualified, quoted ` schema.table ` name. MySQL treats a schema qualifier as a database qualifier — the two concepts coincide.
+- `MysqlQueryResult` (interface): Rows and affected-row count returned by a MySQL executor.
+- `MysqlResultHeader` (interface): Affected-row header mysql2 returns for mutations (INSERT/UPDATE/ DELETE), in place of a row array.
+- `MysqlRollbackOptions` (interface): Options for rolling back MySQL migrations.
+- `MysqlServerIdentity` (interface): Parsed (variant, version) half of a MySQL-family dialect identity.
+- `MysqlSqlExecutor` (interface): Minimal SQL executor used by the MySQL ORM adapter.
+- `MysqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
+- `parseMysqlServerVersion` (function): Parses a MySQL-family select version() string into the variant/version half of a DialectIdentity. MariaDB self-identifies in the version string ("11.8.8-MariaDB-ubu2404"); anything else is treated as base MySQL. The...
+- `QueryResult` (interface): Rows and affected-row count returned by a MySQL migration executor.
+- `quoteMysqlIdent` (function): Quotes a MySQL identifier with backticks, escaping embedded backticks.
+- `SqlExecutor` (interface): Minimal SQL executor used by the MySQL migration adapter.
+- `SqlExecutorSession` (interface): Pinned MySQL execution session held across multiple executor calls.
+
+### @sisal/mysql ./ddl (packages/mysql/migrate/ddl.ts)
+
+Pure MySQL/MariaDB DDL generation from @sisal/orm snapshots.
+
+- `generateMysqlAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
+- `generateMysqlColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
+- `generateMysqlColumnType` (function): Maps a snapshot column type to a MySQL type expression, per the probe-verified table in docs/mysql-ddl-mapping.md: real is an explicit FLOAT (MySQL's REAL means DOUBLE), timestamp is DATETIME(6) (no timezone...
+- `generateMysqlCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table. No ENGINE/CHARSET clause is emitted — both modern engines default to InnoDB + utf8mb4, and explicit collation names differ per engine (utf8mb4_0900_ai_ci is...
+- `generateMysqlForeignKeys` (function): Generates ALTER TABLE … ADD … FOREIGN KEY statements for a table. Foreign keys are emitted **after** every CREATE TABLE — never inline — because MySQL silently ignores an inline column REFERENCES clause while MariaDB...
+- `generateMysqlIndexes` (function): Generates CREATE [UNIQUE] INDEX statements for a table's indexes.
+- `generateMysqlUpStatements` (function): Generates the **non-destructive** MySQL/MariaDB up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns, then foreign keys (after every CREATE TABLE so forward...
+- `mysqlQualifiedName` (function): Renders the qualified, quoted ` schema.table ` name. MySQL treats a schema qualifier as a database qualifier — the two concepts coincide.
+- `MysqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
+- `quoteMysqlIdent` (function): Quotes a MySQL identifier with backticks, escaping embedded backticks.
+
+### @sisal/mysql ./migrate (packages/mysql/migrate/mod.ts)
+
+MySQL/MariaDB adapter for @sisal/migrate.
+
+- `createMysqlMigrateExecutor` (function): Creates a MySQL SQL executor from an existing executor, pool, client, or URL. URL connections reuse the ORM adapter's source routing, so driver: "mariadb" and the mandated bigint-as-string options apply here too.
+- `createMysqlMigrationDriver` (function): Creates a core migration driver backed by MySQL SQL execution.
+- `createMysqlMigrationHistoryStore` (function): Creates a migration history store persisted in a MySQL table.
+- `createMysqlMigrator` (function): Creates a MySQL migration facade with a database-backed history store.
+- `CreateMysqlMigratorOptions` (interface): Options for creating a MySQL migration facade.
+- `DEFAULT_MYSQL_MIGRATION_TABLE` (variable): Default MySQL table used to store applied migration history.
+- `generateMysqlAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
+- `generateMysqlColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
+- `generateMysqlColumnType` (function): Maps a snapshot column type to a MySQL type expression, per the probe-verified table in docs/mysql-ddl-mapping.md: real is an explicit FLOAT (MySQL's REAL means DOUBLE), timestamp is DATETIME(6) (no timezone...
+- `generateMysqlCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table. No ENGINE/CHARSET clause is emitted — both modern engines default to InnoDB + utf8mb4, and explicit collation names differ per engine (utf8mb4_0900_ai_ci is...
+- `generateMysqlForeignKeys` (function): Generates ALTER TABLE … ADD … FOREIGN KEY statements for a table. Foreign keys are emitted **after** every CREATE TABLE — never inline — because MySQL silently ignores an inline column REFERENCES clause while MariaDB...
+- `generateMysqlIndexes` (function): Generates CREATE [UNIQUE] INDEX statements for a table's indexes.
+- `generateMysqlUpStatements` (function): Generates the **non-destructive** MySQL/MariaDB up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns, then foreign keys (after every CREATE TABLE so forward...
+- `MysqlMigrateOptions` (interface): Options for applying pending MySQL migrations.
+- `MysqlMigrationDefinition` (interface): MySQL convenience migration definition with inferred programmatic kind.
+- `MysqlMigrationDriverOptions` (interface): Options for creating a MySQL-backed migration driver.
+- `MysqlMigrationHistoryStoreOptions` (interface): Options for creating a MySQL-backed migration history store.
+- `MysqlMigrationInput` (typeAlias): Migration input accepted by the MySQL migrator facade.
+- `MysqlMigrationPlanOptions` (interface): Options for planning MySQL migrations without executing them.
+- `MysqlMigrator` (interface): MySQL migration facade backed by the core migrator.
+- `mysqlQualifiedName` (function): Renders the qualified, quoted ` schema.table ` name. MySQL treats a schema qualifier as a database qualifier — the two concepts coincide.
+- `MysqlRollbackOptions` (interface): Options for rolling back MySQL migrations.
+- `MysqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
+- `QueryResult` (interface): Rows and affected-row count returned by a MySQL migration executor.
+- `quoteMysqlIdent` (function): Quotes a MySQL identifier with backticks, escaping embedded backticks.
+- `SqlExecutor` (interface): Minimal SQL executor used by the MySQL migration adapter.
+- `SqlExecutorSession` (interface): Pinned MySQL execution session held across multiple executor calls.
+
+### @sisal/mysql ./orm (packages/mysql/orm/mod.ts)
+
+MySQL/MariaDB adapter for @sisal/orm.
+
+- `adaptMariadbPool` (function): Adapts a MariaDB Connector/Node.js pool to the adapter's {@link MysqlPool} contract: query() results are re-shaped into mysql2's [rows, fields] tuple (an OkPacket-style affectedRows object becomes a {@link...
+- `connect` (function): Convenience alias for {@link createMysqlDb} — opens a MySQL-backed database.
+- `createMariadbPool` (function): Creates a {@link MysqlPool} backed by the MariaDB Connector/Node.js (npm:mariadb) — the fastest driver in the v0.6 C6 benchmarks and the opt-in alternative to the mysql2 default (connect({ driver: "mariadb" })). The...
+- `createMysqlDb` (function): Opens a MySQL/MariaDB-backed database facade.
+- `CreateMysqlDbOptions` (interface): Options for opening a MySQL/MariaDB-backed database facade.
+- `createMysqlExecutor` (function): Creates a MySQL SQL executor from an existing executor, pool, client, or URL.
+- `createMysqlOrmDriver` (function): Creates an ORM driver backed by a MySQL executor, pool, client, or URL.
+- `createMysqlPool` (function): Creates a MySQL pool from a URL using mysql2/promise, imported **lazily** on first use so the npm driver stays a runtime-only dependency (the same discipline as @sisal/libsql's client and @sisal/pg's postgres.js opt-in).
+- `insertReturning` (function): Inserts rows and returns them, choosing the best strategy the connected server supports: real INSERT … RETURNING where the facade's detected identity lights it (MariaDB ≥ 10.5), otherwise a transactional fetch-by-key...
+- `MARIADB_VARIANT` (variable): The variant value a MariaDB server carries in its {@link https://jsr.io/@sisal/orm | DialectIdentity} — the axis that lets version-gated capabilities (e.g. INSERT … RETURNING on MariaDB 10.5+) light up through...
+- `MYSQL_DIALECT` (variable): SQL dialect name used by the MySQL/MariaDB ORM adapter.
+- `MysqlClient` (interface): Minimal MySQL client (one pooled connection) surface used by the adapter — structurally compatible with a mysql2/promise PoolConnection. The adapter executes through query() (the text protocol) rather than execute()...
+- `MysqlConnectionOptions` (interface): Connection options accepted by MySQL ORM adapter factories.
+- `MysqlDatabase` (interface): MySQL/MariaDB-specialized database facade.
+- `MysqlDriverKind` (typeAlias): Which underlying driver a @sisal/mysql URL connection uses.
+- `MysqlDriverRows` (typeAlias): Row payload of a mysql2 result: an array for reads, a header for writes.
+- `MysqlOrmDriverOptions` (interface): Options for creating a MySQL-backed ORM driver.
+- `MysqlPool` (interface): Minimal MySQL pool surface used by the adapter (mysql2 Pool-shaped).
+- `MysqlQueryResult` (interface): Rows and affected-row count returned by a MySQL executor.
+- `MysqlResultHeader` (interface): Affected-row header mysql2 returns for mutations (INSERT/UPDATE/ DELETE), in place of a row array.
+- `MysqlServerIdentity` (interface): Parsed (variant, version) half of a MySQL-family dialect identity.
+- `MysqlSqlExecutor` (interface): Minimal SQL executor used by the MySQL ORM adapter.
+- `parseMysqlServerVersion` (function): Parses a MySQL-family select version() string into the variant/version half of a DialectIdentity. MariaDB self-identifies in the version string ("11.8.8-MariaDB-ubu2404"); anything else is treated as base MySQL. The...
+
 ### @sisal/neon . (packages/neon/mod.ts)
 
 Neon serverless adapter package for Sisal.
@@ -1309,14 +1464,15 @@ safe SQL builders, schema snapshots, migration planning, and explicit database
 adapters.
 
 The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
-adapter-neutral. PostgreSQL, Neon, SQLite, and libSQL/Turso behavior lives in
-adapter packages, where database drivers and runtime-specific dependency edges
-belong.
+adapter-neutral. PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB
+behavior lives in adapter packages, where database drivers and runtime-specific
+dependency edges belong.
 
 Every Sisal package is published to JSR. The core packages stay pure JSR.
 Adapter packages own runtime-specific driver edges: `@sisal/pg` defaults to
 `jsr:@db/postgres` and can opt into `npm:postgres` with `driver: "postgres-js"`;
-libSQL/Turso uses `npm:@libsql/client`; Neon uses `@neon/serverless`.
+libSQL/Turso uses `npm:@libsql/client`; Neon uses `@neon/serverless`;
+MySQL/MariaDB uses `npm:mysql2` by default with a lazy MariaDB connector opt-in.
 
 Sisal is inspired by useful vocabulary from the TypeScript database ecosystem,
 including Drizzle's fluent SQL-builder style, but it is not a compatibility
@@ -1327,20 +1483,21 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.6.0 \
-  jsr:@sisal/migrate@0.6.0 \
-  jsr:@sisal/pg@0.6.0
+deno add jsr:@sisal/orm@0.7.0 \
+  jsr:@sisal/migrate@0.7.0 \
+  jsr:@sisal/pg@0.7.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
 and one adapter package. Swap only the adapter for the database runtime you use.
 
-| Target       | Install                                                                          |
-| ------------ | -------------------------------------------------------------------------------- |
-| PostgreSQL   | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/pg@0.6.0`     |
-| Neon         | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/neon@0.6.0`   |
-| SQLite       | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/sqlite@0.6.0` |
-| libSQL/Turso | `deno add jsr:@sisal/orm@0.6.0 jsr:@sisal/migrate@0.6.0 jsr:@sisal/libsql@0.6.0` |
+| Target        | Install                                                                          |
+| ------------- | -------------------------------------------------------------------------------- |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/pg@0.7.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/neon@0.7.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/sqlite@0.7.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/libsql@0.7.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.7.0 jsr:@sisal/migrate@0.7.0 jsr:@sisal/mysql@0.7.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -1474,7 +1631,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.6.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.7.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -1484,9 +1641,9 @@ work locally and in CI:
 }
 ```
 
-SQLite and libSQL/Turso tasks also need `--allow-ffi`. `sisal init` creates
-`sisal.migrate.ts`; edit that config so `snapshot` is built from the same table
-definitions your application uses.
+Use `--target mysql` for MySQL/MariaDB. SQLite and libSQL/Turso tasks also need
+`--allow-ffi`. `sisal init` creates `sisal.migrate.ts`; edit that config so
+`snapshot` is built from the same table definitions your application uses.
 
 ```ts
 import { createSchemaSnapshot } from "@sisal/orm";
@@ -1546,8 +1703,8 @@ database plan do not match.
 - Rich index DDL with `asc`/`desc`, partial `WHERE`, and expression keys.
 - Migration planning, checksums, rollback, history stores, drift checks, and a
   CLI workflow.
-- Adapter packages for PostgreSQL, Neon, SQLite, and libSQL/Turso.
-- Early MySQL render-path groundwork, without a published MySQL adapter yet.
+- Adapter packages for PostgreSQL, Neon, SQLite, libSQL/Turso, and
+  MySQL/MariaDB.
 - Structured `SisalError`, `OrmError`, and `MigrationError` classes plus small
   logger contracts.
 
@@ -1568,6 +1725,7 @@ Adapter packages:
 | `@sisal/neon`   | Neon serverless PostgreSQL adapter over `@neon/serverless`, reusing PostgreSQL SQL, DDL, and migrator behavior.  |
 | `@sisal/sqlite` | SQLite execution via `jsr:@db/sqlite`, migration history, migrator, and SQLite DDL generation.                   |
 | `@sisal/libsql` | libSQL/Turso execution via `npm:@libsql/client`, migration history, migrator, and SQLite-compatible DDL aliases. |
+| `@sisal/mysql`  | MySQL/MariaDB execution via `npm:mysql2` or the MariaDB connector, migration history, migrator, and MySQL DDL.   |
 
 Core packages stay driverless and adapter-neutral. Adapter packages are where
 database drivers and runtime-specific dependencies belong.
@@ -1583,6 +1741,8 @@ database drivers and runtime-specific dependencies belong.
   `--allow-ffi`.
 - libSQL/Turso follows the SQLite-compatible dialect through
   `npm:@libsql/client`.
+- MySQL/MariaDB use `@sisal/mysql` with `mysql2` by default; opt into the
+  MariaDB connector with `connect({ url, driver: "mariadb" })`.
 
 ## Development
 
@@ -1609,6 +1769,8 @@ NEON_DATABASE_URL=postgres://... deno test -A integration/neon_features_test.ts
 SISAL_SQLITE_IT=1 deno test --allow-ffi --allow-read --allow-write \
   --allow-env --allow-net integration/sqlite_features_test.ts
 SISAL_LIBSQL_IT=1 deno test -A integration/libsql_features_test.ts
+SISAL_MYSQL_IT=1 MYSQL_URL=mysql://... deno test -A integration/mysql_features_test.ts
+SISAL_MARIADB_IT=1 MARIADB_URL=mysql://... deno test -A integration/mariadb_features_test.ts
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
   integration/pg_migrate_apply_test.ts
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
@@ -1616,8 +1778,8 @@ DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
 ```
 
 The scheduled integration workflow covers PostgreSQL 16/17/18 through Docker,
-Neon through the bundled local WebSocket proxy, and local SQLite/libSQL
-execution.
+Neon through the bundled local WebSocket proxy, local SQLite/libSQL execution,
+and MySQL/MariaDB through Docker services.
 
 ## README Disclaimer
 
@@ -1642,6 +1804,271 @@ of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
+
+### Added
+
+- **MySQL/MariaDB CI integration jobs** — the scheduled `Integration` workflow
+  now runs the gated mysql-family suites against service containers:
+  `integration/mysql_features_test.ts` on `mysql:8.4` and
+  `integration/mariadb_features_test.ts` on `mariadb:11`, closing the v0.7 B8
+  `.github/workflows` deliverable so the MySQL/MariaDB feature-matrix columns
+  are CI-backed, not local-only.
+
+- **Advanced SQL contract graduation examples** - new runnable workspace
+  packages `examples/postgres-family-advanced-sql`,
+  `examples/mysql-family-advanced-sql`, and
+  `examples/sqlite-family-advanced-sql` turn the Markdown advanced-SQL contracts
+  into generation-first examples with focused render tests. They use Sisal
+  builders for ETL rollups and row locking where possible, safe parameterized
+  `sql` for engine-supported gaps such as windows, recursive CTEs, JSON-table
+  extraction, generated columns, and richer indexes, and explicit typed/skipped
+  cases for MySQL `RETURNING`, MySQL partial indexes, and conservative SQLite
+  coverage. The v0.8 roadmap now records every missing primitive and dialect
+  pain point exposed by the graduation.
+- **MySQL-family showcase + rising-feed examples (v0.7 follow-through)** —
+  `examples/mysql-family-showcase` and `examples/mysql-family-feed` complete the
+  MySQL-family side of the dialect-family example taxonomy. The showcase is
+  generation-first (zero database setup) and prints MySQL DDL, migration diffs,
+  MySQL-rendered builder SQL, `ON DUPLICATE KEY UPDATE`, and typed guards for
+  unsupported `RETURNING`; with `MYSQL_URL`/`MARIADB_URL`/`DATABASE_URL`, it
+  also runs a compact live tour over `mysql2` or the MariaDB connector. The feed
+  ports the `/rising` product example to MySQL/MariaDB with `varchar(36)` UUID
+  keys, UTC `DATETIME(6)` literals, row-value keyset pagination, TypeScript and
+  builder-CTE recompute paths, and gated MySQL/MariaDB live tests. The v0.8
+  roadmap now records the concrete IR/API pressure points this construction
+  exposed.
+- **MySQL CLI target + basic example (v0.7 B9)** — `sisal init --target mysql`
+  now scaffolds a `dialect: "mysql"` migration config with
+  `MYSQL_URL ?? DATABASE_URL` connection hints; `mariadb` is an alias for the
+  same adapter target. The CLI default adapter loader resolves
+  `@sisal/mysql/ddl` and `@sisal/mysql/migrate` for `generate`, `migrate`,
+  `status`, and `drift`. New runnable workspace example
+  `examples/mysql-family-basic` prints generated MySQL DDL without a database
+  and, when pointed at a URL, runs a tiny create/insert/count flow over either
+  `mysql2` or the MariaDB connector via `SISAL_ADAPTER`.
+- **MySQL multi-table mutation joins (v0.7 B10)** — existing portable builders
+  now render MySQL-family multi-table forms: `update(t).from(source)` maps to
+  `UPDATE t, source SET t.col = … WHERE …`, and `delete(t).using(source)` maps
+  to `DELETE FROM t USING t, source WHERE …`. PostgreSQL/SQLite `UPDATE … FROM`
+  rendering is unchanged; SQLite `DELETE … USING` stays a typed guard.
+  Multi-table mutation plus `.returning()` remains guarded for the MySQL family,
+  including MariaDB, because the proven B7 `RETURNING` support is
+  per-statement/single-table. The shared mysql-family integration scenario now
+  exercises `UPDATE FROM`, `DELETE USING`, and `INSERT SELECT`, and the feature
+  matrix marks MySQL/MariaDB mutation joins as fully tested.
+- **`@sisal/mysql` integration suite + feature-matrix columns (v0.7 B8)** — the
+  reserved `"mysql"` slot in the consolidated integration structure is filled:
+  **42 shared mysql-family scenarios**
+  (`integration/_shared/mysql_family_scenarios.ts`) run green against **both**
+  engines — `integration/mysql_features_test.ts` on MySQL 8.4.10,
+  `integration/mariadb_features_test.ts` on MariaDB 11.8.8 (also passing on the
+  opt-in mariadb driver), gated by `SISAL_MYSQL_IT=1` / `SISAL_MARIADB_IT=1`.
+  One adapter, two capability profiles: scenarios branch on the target's
+  declared capabilities, so each divergence is a tested fact (MySQL's
+  `.returning()` throws the typed guard and the B7 `insertReturning`
+  fetch-by-key strategy carries the insert; MariaDB's auto-detected identity
+  lights `INSERT`/`DELETE … RETURNING`; `UPDATE … RETURNING`, `FULL JOIN`,
+  `distinctOn`, dm-CTEs, and partial/expression indexes assert their typed
+  guards live). The cross-driver feature matrix gains **`MySQL` and `MariaDB`
+  columns** (MariaDB is a distinct profile, not a footnote — 36 features × 6
+  adapters, every ✅/⚠️ scenario- backed), `docs/mysql-compatibility.md` is the
+  new per-engine page, and the homepage `#compat` section gains both badges. The
+  row-value keyset path is confirmed working live (both keyset forms paginate
+  identically).
+
+### Changed
+
+- Bumped every workspace manifest (`packages/`, `examples/`, and `benchmarks`)
+  to `0.7.0`, and updated the migration CLI's default adapter imports plus
+  README install snippets to point at the v0.7 package line.
+- Future roadmap docs now consistently reflect `@sisal/mysql` as the fifth
+  adapter package and MySQL/MariaDB as distinct capability targets in the
+  six-column matrix.
+- Updated the agent/contributor guidance in `AGENTS.md` and `CLAUDE.md` to match
+  the current workspace packages, adapter matrix, validation tasks, integration
+  suites, and schema snapshot version.
+
+### Fixed
+
+- **CTE-prefixed mutations now fail typed on MariaDB (CI-caught).** MariaDB
+  parses a `WITH` prefix only on `SELECT` (verified on 11.8.8), while MySQL 8+
+  accepts it on mutations — so `db.with(cte).update(…)`/`.delete(…)`/
+  `.insert(…)` reached MariaDB as a raw syntax error. The core renderer now
+  guards the `WITH` prefix on all three mutation builders with a
+  variant-narrowed `dialectGuard` (`WITH … UPDATE`/`WITH … DELETE`/
+  `WITH … INSERT`, unsupported on `{ dialect: "mysql", variant: "mariadb" }`);
+  base MySQL renders unchanged and `WITH … SELECT` stays fine everywhere. The
+  shared mutation-joins integration scenario branches on a new `mutationCte`
+  target capability — MariaDB asserts the typed guard and runs the same mutation
+  through a derived-table source — and the mysql-family showcase example does
+  the same. Caught by the first CI run of the new MySQL/MariaDB integration
+  jobs.
+
+- **`@sisal/mysql` value round-trips (v0.7 B8, live-caught).** Three bugs the
+  network-free unit tests could not see, fixed and re-pinned: (1) plain
+  objects/arrays reached mysql2's text protocol un-serialized — an object became
+  invalid SQL and an **array expanded into one param per element**, silently
+  shifting every later placeholder; the executor now `JSON.stringify`s them (the
+  `JSON`-column value shape). (2) `DATETIME`/`TIMESTAMP` columns decoded to
+  client-local `Date`s, timezone-shifting server values; the pool now sets
+  `dateStrings: true` so temporal columns read back as exact server text. (3)
+  Instants (`Temporal.Instant`/`ZonedDateTime`) serialized with a trailing `Z`
+  that MySQL rejects in a datetime literal; the core renderer now tags instant
+  params and rewrites them to **naive UTC** under the `mysql` render dialect
+  only (shared by MySQL and MariaDB) — the `postgres`, `sqlite`, and `generic`
+  render paths are byte-for-byte unchanged.
+
+- **`@sisal/mysql` `RETURNING` execution strategy (v0.7 B7)** — the new
+  `insertReturning(db, table, values)` helper answers "give me back the rows I
+  just inserted" with the best strategy the connected server supports, rows in
+  input order under both: real `INSERT … RETURNING` where the facade's detected
+  identity lights it (MariaDB ≥ 10.5 — the helper catches exactly the core
+  guard's typed error, keeping the core the single source of truth for
+  variant/version floors), otherwise a transactional fetch-by-key fallback — one
+  `INSERT` + one `SELECT` when every row carries its full primary key, or **one
+  `INSERT` per row capturing each statement's own `LAST_INSERT_ID`** for a
+  single-column key. Deliberately no first-id-plus-offset arithmetic: MySQL
+  8.4's live-confirmed default `innodb_autoinc_lock_mode = 2` does not guarantee
+  a batch's generated ids are consecutive, so the shortcut can silently return
+  the wrong rows. Corners the fallback cannot answer honestly fail with a typed
+  `ORM_INVALID_QUERY` (no primary key, a partial composite key, a
+  `Sql`-expression key value, or a server-generated non-`AUTO_INCREMENT` key
+  like `DEFAULT (uuid())` — which the live probe shows returning real rows on
+  MariaDB and refusing typed on MySQL). Plumbing: `insertId` now flows executor
+  → driver → facade result (`MysqlQueryResult.insertId`, bigint normalized to a
+  precision-safe string), and key matching stringifies both sides to survive the
+  number/string/bigint id-shape differences between drivers and column types.
+  Pinned by 8 network-free unit tests; verified live on MySQL 8.4.10 and MariaDB
+  11.8.8 × both drivers.
+- **`@sisal/mysql` migrate wiring (v0.7 B6)** — the new `@sisal/mysql/migrate`
+  export completes the shared adapter shape (`driver` · `history` · `migrator` ·
+  `ddl`): `createMysqlMigrator`, `createMysqlMigrationHistoryStore`,
+  `createMysqlMigrationDriver`, and `createMysqlMigrateExecutor` (which reuses
+  the ORM adapter's connection-source routing, so `driver: "mariadb"` and the
+  mandated decode options apply to migrations for free). Concurrent migrators
+  are excluded with **`GET_LOCK`/`RELEASE_LOCK` named locks** — the
+  `pg_advisory_lock` analogue from the v0.6 C4 report — held on a pinned
+  executor session because MySQL named locks are connection-scoped; lock ids
+  pass through verbatim (validated ≤ 64 chars, the MySQL cap) and the BIGINT
+  lock result is coerced from the string `"1"` the bigint-as-string driver
+  options produce. The history ledger obeys the adapter's own B5 DDL rules
+  (`varchar(255)` key — a `TEXT` key is invalid MySQL — and `datetime(6)`).
+  **`useTransaction` defaults to `false`**, unlike pg: MySQL/MariaDB DDL
+  implicitly commits, so wrapping schema migrations in a transaction is a false
+  promise; opt in for DML-only migrations. Pinned by 7 network-free unit tests;
+  verified live on MySQL 8.4.10 and MariaDB 11.8.8 **× both drivers** (migrate →
+  idempotent re-run → rollback with B5-generated DDL, ledger `appliedAt` matched
+  true UTC, and real two-connection lock contention).
+- **`@sisal/mysql` DDL generator (v0.7 B5)** — the new `@sisal/mysql/ddl`
+  export: `generateMysqlUpStatements` and its per-piece helpers
+  (`generateMysqlCreateTable`/`Indexes`/`ForeignKeys`/`AddColumn`,
+  `quoteMysqlIdent`), a mechanical sibling of the pg generator implemented to
+  the probe-verified C4 spec (`docs/mysql-ddl-mapping.md`) and pinned by 12
+  network-free unit tests; the **generated** output was applied live to MySQL
+  8.4.10 and MariaDB 11.8.8 (kitchen-sink table, FK pair with the child sorting
+  first, incremental `ADD COLUMN` — defaults fired, FK/CHECK enforced). The full
+  C4 type table (`serial` → `AUTO_INCREMENT`, `timestamp` → `DATETIME(6)`,
+  `timestamptz` → `TIMESTAMP(6)` with explicit `NULL` when nullable, `uuid` →
+  `CHAR(36)`, `bytea` → `LONGBLOB`, `json`/`.array()` → `JSON`, length-less
+  `varchar` → `VARCHAR(255)`); foreign keys emit **table-level only, after every
+  `CREATE TABLE`** (MySQL silently ignores inline `REFERENCES`); expression
+  defaults always paren-wrap and literal defaults paren-wrap on
+  TEXT/BLOB/JSON-mapped columns (the portable form both engines accept); no
+  `ENGINE`/`CHARSET` clause. Three **fail-closed generation-time validations**
+  throw a typed `ORM_DIALECT_UNSUPPORTED` instead of shipping SQL that fails at
+  apply time: an `AUTO_INCREMENT` column must lead a key (the InnoDB rule), at
+  most one per table, never via `ADD COLUMN`; no `TEXT`/`BLOB`/`JSON` key
+  columns (use `varchar(n)`); no partial or functional indexes.
+- **`@sisal/mysql` drivers + executor hardening (v0.7 B4)** — verified live on
+  MySQL 8.4.10 and MariaDB 11.8.8 **× both drivers** (four combinations), pinned
+  by 6 new network-free unit tests. `connect()` now **auto-detects the server
+  identity**: one `select version()` fills the B1 `dialectIdentity` via the new
+  `parseMysqlServerVersion` (MariaDB self-identifies in the string) — against a
+  MariaDB container, `INSERT … RETURNING` returns rows with zero configuration
+  while MySQL keeps the typed guard; defaults are on for real sources, off for
+  injected executors, `detectVersion: false` for a fully lazy (fail-closed)
+  connect. `connect({ driver: "mariadb" })` opts into the MariaDB
+  Connector/Node.js (the C6 performance candidate) through `adaptMariadbPool` +
+  a **runtime-computed specifier**, keeping the LGPL connector a soft
+  run-time-only dependency; the mysql2-compatible bigint-as-string options hold
+  on it too. **Live-probe catch, fixed and pinned:** the MariaDB connector
+  JSON-serializes a plain `Uint8Array` parameter (silent BLOB corruption) — the
+  adapter now re-views binary params as Node `Buffer`s (no copy). Value
+  normalization: BLOB reads re-viewed as plain `Uint8Array`s; **`TINYINT(1)`
+  deliberately stays `0`/`1`** (the SQLite-family precedent — a display width
+  doesn't guarantee boolean semantics); JSON on MariaDB stays text (`LONGTEXT`
+  alias — the wire protocol can't distinguish it, so parse-on-read is
+  documented, not guessed).
+- **`@sisal/mysql` adapter scaffold (v0.7 B3)** — the fifth Sisal dialect
+  package exists at `packages/mysql/` with the shared adapter shape (`orm/` =
+  dialect · errors · pool · executor · driver), wired into the workspace,
+  `check`/`test`/docs gates, and JSR publish dry-run (`@sisal/mysql@0.7.0`,
+  exports `.` and `./orm`; `./migrate` + `./ddl` land with B5/B6).
+  `connect({ url | pool | client | executor })` opens a `MysqlDatabase` facade
+  under the `mysql` dialect with the injectable executor seam every adapter uses
+  (8 network-free unit tests against a recording fake). The default driver is
+  `mysql2/promise`, **imported lazily**, with the C6-mandated
+  `supportBigNumbers` + `bigNumberStrings` always set; statements run through
+  the **text protocol** (`query()`), sidestepping MySQL 8's binary-protocol
+  `LIMIT ?` rejection by construction. `connect({ variant, version })` fills the
+  B1 `dialectIdentity` (exported `MARIADB_VARIANT`) — smoke-tested against live
+  MySQL 8.4.10 and MariaDB 11.8.8: builder round trip, the C2
+  `ON DUPLICATE KEY UPDATE` upsert with `excluded()`, transaction rollback, and
+  MariaDB `INSERT … RETURNING` returning real rows through the identity.
+- **MySQL renderings for `filter()` and the portable date helpers (v0.7 B2)** —
+  the last two `ORM_DIALECT_UNSUPPORTED` throws under the `"mysql"` dialect are
+  lifted with real SQL, executed live on MySQL 8.4.10 and MariaDB 11.8.8 with
+  semantic checks before pinning in
+  [`packages/orm/mysql_dialect_test.ts`](packages/orm/mysql_dialect_test.ts).
+  `filter(agg, cond)` now rebuilds the exported aggregates as
+  `agg(CASE WHEN cond THEN operand END)` under `mysql` (neither engine has a
+  `FILTER` clause): the aggregate helpers stamp rebuild metadata into a WeakMap
+  so the frozen fragments and public surface stay untouched; `count(*)` counts a
+  literal `1`, `countDistinct` keeps `DISTINCT`, and a hand-written `` sql`…` ``
+  aggregate (no metadata) keeps the typed throw. The date helpers render
+  `DATE_FORMAT` (`dateTrunc`; string result like the SQLite family), `NOW(6)`,
+  nested `DATE_ADD(…, INTERVAL ? unit)` (`dateAdd`/`dateSub`, quantities bound),
+  and `FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(src)/N)*N)` (`dateBin`).
+  Postgres/SQLite renderings are byte-unchanged. Recorded for the B4 executor:
+  mysql2's binary protocol rejects a bound `LIMIT ?` on MySQL 8.4 (works on
+  MariaDB and via the text protocol on both).
+- **Analytics-readiness report + IR sketch (v0.7 A1-A4)** —
+  [`docs/analytics-readiness.md`](docs/analytics-readiness.md) and
+  [`packages/orm/analytics_result_inference_test.ts`](packages/orm/analytics_result_inference_test.ts).
+  The report records the future analytical IR (`source`/`joins`/`filters`/
+  `dimensions`/`metrics`/`windows`/`derivedFields`/`order`/`limit`/
+  `executionPreference`), the `/rising` rollup walkthrough, and a five-dialect
+  portability classification across PostgreSQL, Neon, SQLite, libSQL, and future
+  MySQL/MariaDB. A3 is decided as a documented seam only: a future minimal
+  `over()`/window expression belongs in core SQL expressions, while the rich
+  metric/dimension/window-domain API belongs in `@sisal/analytics`. The
+  prototype test proves dimension/metric/derived-field maps can infer an exact
+  readonly result row. No analytics package, public API/export, renderer, or
+  feature-matrix row ships with this investigation.
+
+- **`(engine, variant, version)` dialect identity (v0.7 B1)** — the v0.6
+  dialect-key decision is now core code, landed before the v0.8 IR freeze and
+  pinned by
+  [`packages/orm/dialect_identity_test.ts`](packages/orm/dialect_identity_test.ts).
+  New `@sisal/orm` exports: `DialectIdentity`
+  (`{ dialect, variant?,
+  version? }` — `SqlDialect` stays the render key;
+  accepted everywhere a bare dialect was: `renderSql`, `renderToPlan`,
+  `normalizeSqlInput`, all non-breaking), `dialectGuard` (now public)
+  generalized to **declarative** variant-narrowable targets plus `unless`
+  refinements (`{ variant?, minVersion? }`) so guard chunks stay serializable
+  data, `DialectGuardTarget`/`DialectGuardException`, and
+  `compareServerVersions` (dotted-numeric prefix, suffix-blind). **Fail
+  closed:** an unknown server version never lifts a version-gated guard. The
+  `Database` facade carries a `dialectIdentity`
+  (`createDatabase({ dialect, variant, version })`, inherited by transaction
+  facades), and `SisalSchemaSnapshot` gains optional additive
+  `dialectVariant`/`dialectVersion` fields. **First consumer:** the `RETURNING`
+  guard is split per statement kind with the probe-verified MariaDB floors
+  (`INSERT` 10.5+, `DELETE` 10.0.5+, `UPDATE` 13.0+) — a `mariadb` identity
+  renders `INSERT`/`DELETE … RETURNING` while plain `mysql` keeps the typed
+  guard, dormant until the `@sisal/mysql` adapter (v0.7 B4) fills the identity
+  from the server handshake.
 
 ## 0.6.0 - 2026-07-01
 
@@ -1854,6 +2281,16 @@ Sisal-specific history after that baseline through `1f05448`.
   postgres.js path; development checks include the feature-matrix gate; and the
   opt-in integration commands now include Neon, PostgreSQL migration apply, and
   cross-adapter decode parity.
+- **v0.7 roadmap reconciled with the v0.6 closeout.** Added the consolidated
+  priority-summary tracker (the v0.5/v0.6 pattern the doc lacked): four
+  analytics-readiness tasks and ten `@sisal/mysql` build tasks with the P1 spine
+  (`B1` dialect axis before the v0.8 IR freeze; `B2` `filter()`/date- helper
+  renderings gating the integration suite). Stale Workstream B prose was updated
+  to the v0.6 facts: the driver is chosen (C6), the upsert is implemented (C2),
+  the guard sweep is complete (C3/C5), the DDL/type mapping is probe-verified
+  (C4), and the split is decided (C5) — so v0.7's B-stream is build-to-spec; the
+  incorrect "MySQL 8.0.21+ `RETURNING`" claim was corrected (MySQL has none),
+  and the retired risks/open questions are marked answered.
 - **`examples/postgres-family-activity-vectors`: the fold, both retention
   rollups, and the event prune are now typed builder statements** (v0.6 A1
   verification). `app.fold_events_to_buckets`, `app.rollup_daily`,
@@ -3130,9 +3567,9 @@ await db.transaction(async (tx) => {
 - `InsertBuilder`: `values`, `onConflictDoNothing({ target? })`,
   `onConflictDoUpdate({ target, set, where? })`, `returning(projection?)`,
   `toSql`, `execute`.
-- `UpdateBuilder`: `set`, `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
-  `execute`.
-- `DeleteBuilder`: `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
+- `UpdateBuilder`: `set`, `from`, `where`, `unsafeAllowAllRows`, `returning`,
+  `toSql`, `execute`.
+- `DeleteBuilder`: `using`, `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
   `execute`.
 
 > **Safety rail:** `update`/`delete` without a `where` throw unless you call
@@ -4041,15 +4478,16 @@ projection) and consumed with `db.with(cte).select(...).from(cte)`. A `WITH`
 chain may also terminate in a mutation — `db.with(cte).update/insert/delete(t)`
 — and a mutation can read another relation via `update(t).from(source)`
 (`UPDATE … FROM`), `insert(t).select(query)` (`INSERT … SELECT`), or
-`delete(t).using(source)` (`DELETE … USING`, PostgreSQL-only), so one CTE's
-mutation can consume another's `RETURNING`. A CTE body may itself be a
-data-modifying `INSERT`/`UPDATE`/`DELETE … RETURNING` (PostgreSQL-only). Set
-operations are chainable methods on the select builder (`q1.union(q2)`,
-`.unionAll`, `.intersect`, `.intersectAll`, `.except`, `.exceptAll`) returning a
-compound builder that still accepts `.orderBy`/`.limit`/`.offset` for the whole
-compound. Operands are **not** parenthesized, so the same query renders
-correctly on both Postgres and SQLite (SQLite rejects parenthesized compound
-operands). Recursive CTEs are written with the `` sql`...` `` template.
+`delete(t).using(source)` (`DELETE … USING`, PostgreSQL and MySQL-family; typed
+guard on the SQLite family), so one CTE's mutation can consume another's
+`RETURNING`. A CTE body may itself be a data-modifying
+`INSERT`/`UPDATE`/`DELETE … RETURNING` (PostgreSQL-only). Set operations are
+chainable methods on the select builder (`q1.union(q2)`, `.unionAll`,
+`.intersect`, `.intersectAll`, `.except`, `.exceptAll`) returning a compound
+builder that still accepts `.orderBy`/`.limit`/`.offset` for the whole compound.
+Operands are **not** parenthesized, so the same query renders correctly on both
+Postgres and SQLite (SQLite rejects parenthesized compound operands). Recursive
+CTEs are written with the `` sql`...` `` template.
 
 Relational queries are enabled with `createDatabase({ schema, relations })`.
 `db.query` remains callable for raw SQL (``db.query(sql`...`)``) and gains
@@ -5307,6 +5745,360 @@ for the private disclosure channel. Report suspected vulnerabilities privately
 rather than opening a public issue, and allow time for a fix before disclosure.
 ```
 
+### docs/analytics-readiness.md
+
+URL: https://gilvandovieira.github.io/sisal/analytics-readiness.html
+
+```md
+---
+title: Analytics Readiness
+---
+
+# Analytics-readiness report — workstream A, complete (v0.7.0)
+
+**Date:** 2026-07-01 · **Status:** A1-A4 🟢 · **Scope:** investigation and type
+prototype only. No `@sisal/analytics` package, renderer, runtime, dashboard
+helper, public export, or generated feature-matrix claim ships in v0.7.
+
+## Baseline
+
+The current compile target for downstream packages is the existing core SQL
+fragment layer:
+
+- `Sql` / `SqlChunk` fragments render per dialect with bound parameters.
+- `SqlExpression<T>` carries result type information for select projections.
+- `Condition` and the predicate helpers already produce reusable filters.
+- `dialectSql(...)` selects a dialect rendering for one logical expression.
+- `dialectGuard(...)` fails typed when a dialect cannot express a construct.
+- Select projections already infer row keys from `{ alias: expression }`.
+
+There is **no transformable relational AST** today. Core exposes a renderable
+fragment/expression IR, not an optimizer or query-rewriting tree. Analytics can
+build parameterized SQL on top of that layer, but predicate pushdown, relational
+rewrites, and plan optimization remain v0.8+ core questions.
+
+There is also **no window-function builder today**: no `OVER`, `PARTITION BY`,
+frame builder, ranking helpers, `lag`/`lead`, or percentile helpers. The
+advanced SQL contracts preserve those target shapes until the surface ships.
+
+## Answers
+
+### Can analytics be a separate package?
+
+Yes. The future `@sisal/analytics` package can compile its own
+metric/dimension/window model into core fragments and ordinary select
+projections. It does not need the OLTP query builder to depend on analytics, and
+it should not put dashboard-oriented concepts into `@sisal/orm`.
+
+The dependency direction stays:
+
+```text
+@sisal/core fragments/types  <-  @sisal/analytics IR/API
+                              <-  adapters execute rendered SQL
+```
+
+In the current repository shape, that means building against the
+`@sisal/orm/core` subpath until the v0.8 `@sisal/core` extraction happens.
+
+### What analytical IR is needed?
+
+The minimal future IR is a small query description, not a grand relational
+algebra:
+
+```ts
+interface AnalyticalQueryIr {
+  source: AnalyticalSource;
+  joins: readonly AnalyticalJoin[];
+  filters: readonly Condition[];
+  dimensions: Readonly<Record<string, DimensionIr>>;
+  metrics: Readonly<Record<string, MetricIr>>;
+  windows: Readonly<Record<string, WindowIr>>;
+  derivedFields: Readonly<Record<string, DerivedFieldIr>>;
+  order: readonly AnalyticalOrderTerm[];
+  limit?: number;
+  executionPreference?: "primary" | "postgres" | "duckdb-later";
+}
+```
+
+Where:
+
+- `source` is a table, rollup table, or subquery.
+- `joins` are dimension joins.
+- `filters` reuse core predicates.
+- `dimensions` are group keys, including time buckets.
+- `metrics` are typed aggregate or window expressions.
+- `windows` are reusable partition/order/frame specs.
+- `derivedFields` are computed from dimensions or metrics.
+- `order` and `limit` are final result controls.
+- `executionPreference` is a pushdown hint, not a second renderer.
+
+The IR should stay close to the product-shaped examples: feeds, rollups,
+funnels, cohorts, and dashboards.
+
+### What belongs in core vs analytics?
+
+**Decision (A3):** a future minimal `over()` belongs in core because
+`OVER (...)` is generic SQL expression grammar. It should compose with
+`SqlExpression<T>` anywhere a normal expression can appear, including ordinary
+ORM select projections.
+
+v0.7 does **not** ship `over()` or any window helper. The decision is recorded
+now so v0.11 can add the analytics package without forcing the OLTP builder to
+learn analytics concepts.
+
+Future core-owned surface:
+
+```ts
+interface WindowSpec {
+  readonly partitionBy?: readonly unknown[];
+  readonly orderBy?: readonly unknown[];
+  readonly frame?: WindowFrame;
+}
+
+type WindowFrame =
+  | {
+    readonly unit: "rows";
+    readonly start: FrameBound;
+    readonly end: FrameBound;
+  }
+  | {
+    readonly unit: "range";
+    readonly start: FrameBound;
+    readonly end: FrameBound;
+  };
+
+function over<T>(
+  expression: SqlExpression<T>,
+  spec: WindowSpec,
+): SqlExpression<T>;
+```
+
+Future analytics-owned surface:
+
+- `metric(...)` and `dimension(...)` descriptors.
+- Named windows.
+- Moving-average helpers.
+- Ranking helpers.
+- `lag` / `lead` helpers.
+- Period comparison.
+- Percentile helpers.
+- Rollup-table querying.
+
+The ORM builders stay unaware beyond what they already do: accept typed SQL
+expressions in projections.
+
+### Can result types be inferred?
+
+Yes. A type-only prototype in
+[`packages/orm/analytics_result_inference_test.ts`](../packages/orm/analytics_result_inference_test.ts)
+shows that a map of dimensions, metrics, and derived fields can infer an exact
+readonly result row:
+
+```ts
+type Row = InferAnalyticsRow<typeof risingSpec>;
+// {
+//   readonly postId: string;
+//   readonly communityId: string;
+//   readonly bucket: string;
+//   readonly viewCount: number;
+//   readonly voteTotal: number | null;
+//   readonly voteMovingAverage6h: number | null;
+//   readonly hourRank: number;
+//   readonly risingScore: number;
+//   readonly voteDelta: number | null;
+// }
+```
+
+The important finding is that the row type can be derived from descriptor maps
+without a runtime package. The future package can preserve this shape while
+adding real validation and rendering.
+
+### Which features are portable?
+
+Portability must be explicit and capability-gated. Most basic analytics can be
+portable across PostgreSQL, Neon, modern SQLite, libSQL, and MySQL 8+/compatible
+MariaDB. Percentiles, array/vector projection, and some window frame semantics
+need stricter classification.
+
+Unsupported analytical features must fail with typed capability errors, not raw
+engine errors. The generated feature matrix is unchanged in v0.7 because none of
+these analytics features are shipped or integration-backed yet.
+
+## Compilation Sketch
+
+The future analytics compiler can lower an IR into the existing core shapes:
+
+1. Resolve `source` and `joins` into a select builder source.
+2. Convert `filters` into `where(and(...))`.
+3. Convert `dimensions` into projection entries and `groupBy(...)` entries.
+4. Convert aggregate `metrics` into projection entries.
+5. Convert windowed `metrics` into `over(metric.expression, windowSpec)` once
+   the core seam exists.
+6. Convert `derivedFields` into projection entries that reference projected
+   metric expressions or wrap a subquery if the dialect cannot reuse aliases in
+   the same projection.
+7. Attach `order` and `limit`.
+8. Render with the normal dialect renderer.
+
+Example lowering target:
+
+```ts
+db.select({
+  postId: stats.columns.postId,
+  bucket: stats.columns.bucket,
+  votes: sum(stats.columns.votes),
+  voteMa6h: over(avg(stats.columns.votes), {
+    partitionBy: [stats.columns.postId],
+    orderBy: [stats.columns.bucket],
+    frame: {
+      unit: "rows",
+      start: { preceding: 5 },
+      end: "currentRow",
+    },
+  }),
+}).from(stats)
+  .where(gte(stats.columns.bucket, from))
+  .groupBy(stats.columns.postId, stats.columns.bucket);
+```
+
+The fragment IR remains the renderer boundary. Analytics adds typed descriptors
+and capability checks above it.
+
+## Feed Boundaries
+
+- **`/new` feed:** ORM territory. It is a keyset `SELECT` over posts ordered by
+  creation time. No analytics IR needed.
+- **`/hot` feed:** reads a cached/stored score, as in the hot-feed example. It
+  should not recompute a live analytical score on every request.
+- **`/rising` feed:** canonical analytics target. It benefits from recent
+  rollups/events, moving-window scores, deltas, and per-community rank.
+- **Dashboard metrics:** should query prepared rollups from future `@sisal/etl`
+  output whenever possible, not repeatedly scan raw events.
+
+## `/rising` Walkthrough
+
+Assume an ETL job maintains a rollup table:
+
+```sql
+post_hourly_stats(
+  post_id,
+  community_id,
+  bucket,
+  views,
+  votes,
+  comments,
+  engagement_score
+)
+```
+
+Pseudo analytics IR:
+
+```ts
+analyticsQuery({
+  source: rollup("post_hourly_stats"),
+  filters: [gte("bucket", dateSub(now(), { hours: 24 }))],
+  dimensions: {
+    postId: dimension("post_id"),
+    communityId: dimension("community_id"),
+    bucket: dimension("bucket"),
+  },
+  metrics: {
+    votes: metric(sum("votes")),
+    comments: metric(sum("comments")),
+    voteMa6h: metric(movingAverage("votes", {
+      partitionBy: ["post_id"],
+      orderBy: ["bucket"],
+      rows: { preceding: 5, current: true },
+    })),
+    voteDelta: metric(delta("votes", {
+      partitionBy: ["post_id"],
+      orderBy: ["bucket"],
+    })),
+    hourRank: metric(rank({
+      partitionBy: ["community_id", "bucket"],
+      orderBy: [desc("engagement_score")],
+    })),
+  },
+  derivedFields: {
+    risingScore: derived("voteMa6h * 2 + voteDelta + comments * 0.5"),
+  },
+  order: [desc("risingScore")],
+  limit: 50,
+  executionPreference: "primary",
+});
+```
+
+Target SQL shape:
+
+```sql
+SELECT
+  post_id,
+  community_id,
+  bucket,
+  sum(votes) AS votes,
+  sum(comments) AS comments,
+  avg(votes) OVER (
+    PARTITION BY post_id
+    ORDER BY bucket
+    ROWS BETWEEN 5 PRECEDING AND CURRENT ROW
+  ) AS vote_ma_6h,
+  votes - lag(votes) OVER (
+    PARTITION BY post_id
+    ORDER BY bucket
+  ) AS vote_delta,
+  rank() OVER (
+    PARTITION BY community_id, bucket
+    ORDER BY engagement_score DESC
+  ) AS hour_rank
+FROM post_hourly_stats
+WHERE bucket >= ?
+GROUP BY post_id, community_id, bucket
+ORDER BY rising_score DESC
+LIMIT ?;
+```
+
+Two implementation details stay future work:
+
+- Some dialects require wrapping the projection before ordering by a derived
+  alias such as `rising_score`.
+- The windowed expressions need the future core `over()` seam.
+
+## Portability Classification
+
+Legend: **portable** = same concept renders cleanly; **degraded** = works with
+value-shape or syntax caveats; **emulated** = different SQL with equal
+semantics; **Postgres-first** = design around PostgreSQL first; **fail guarded**
+= no acceptable equivalent, so throw typed.
+
+| Feature                                      | PostgreSQL                                | Neon                    | SQLite                                    | libSQL                                    | MySQL/MariaDB future adapter                         |
+| -------------------------------------------- | ----------------------------------------- | ----------------------- | ----------------------------------------- | ----------------------------------------- | ---------------------------------------------------- |
+| Group-by dimensions                          | portable                                  | portable                | portable                                  | portable                                  | portable                                             |
+| Conditional aggregates                       | portable (`FILTER`)                       | portable (`FILTER`)     | portable (`FILTER`)                       | portable (`FILTER`)                       | emulated (`CASE WHEN`)                               |
+| Time buckets                                 | portable (`date_trunc`)                   | portable (`date_trunc`) | degraded (`strftime` text)                | degraded (`strftime` text)                | emulated (`DATE_FORMAT`/timestamp funcs)             |
+| Fixed-width buckets                          | portable                                  | portable                | degraded (`unixepoch` text result)        | degraded (`unixepoch` text result)        | emulated (`UNIX_TIMESTAMP`/`FROM_UNIXTIME`)          |
+| Basic `OVER (PARTITION BY ... ORDER BY ...)` | portable                                  | portable                | portable on modern SQLite                 | portable on modern libSQL                 | portable on MySQL 8+/MariaDB window-capable versions |
+| `ROWS BETWEEN` frames                        | portable                                  | portable                | portable on modern SQLite                 | portable on modern libSQL                 | portable on MySQL 8+/MariaDB window-capable versions |
+| `RANGE` frames                               | portable                                  | portable                | degraded; capability-check frame modes    | degraded; capability-check frame modes    | degraded; capability-check frame modes               |
+| `row_number` / `rank` / `dense_rank`         | portable                                  | portable                | portable on modern SQLite                 | portable on modern libSQL                 | portable on MySQL 8+/MariaDB window-capable versions |
+| `lag` / `lead`                               | portable                                  | portable                | portable on modern SQLite                 | portable on modern libSQL                 | portable on MySQL 8+/MariaDB window-capable versions |
+| Moving averages                              | portable via windowed aggregates          | portable                | portable with frame checks                | portable with frame checks                | portable with version/capability checks              |
+| Period comparisons                           | portable via self-join or `lag`           | portable                | emulated with date math differences       | emulated with date math differences       | emulated with `TIMESTAMPDIFF`/date funcs             |
+| `first_value` cohort normalization           | portable                                  | portable                | portable on modern SQLite                 | portable on modern libSQL                 | portable on MySQL 8+/MariaDB window-capable versions |
+| Percentiles                                  | Postgres-first (`percentile_cont`/`disc`) | Postgres-first          | fail guarded or approximated later        | fail guarded or approximated later        | degraded/variant-specific; guard until probed        |
+| Duration/gap thresholds                      | portable intervals                        | portable intervals      | emulated with seconds math                | emulated with seconds math                | emulated with `TIMESTAMPDIFF`                        |
+| Rollup-table querying                        | portable                                  | portable                | portable                                  | portable                                  | portable                                             |
+| Array/vector projection                      | Postgres-first (`ARRAY[...]`)             | Postgres-first          | emulated with JSON arrays or fail guarded | emulated with JSON arrays or fail guarded | emulated with JSON or fail guarded                   |
+
+## Non-Goals Confirmed
+
+- No `@sisal/analytics` package in v0.7.
+- No public analytics export from `@sisal/orm`.
+- No renderer integration for windows.
+- No dashboard helper.
+- No ETL runtime.
+- No generated feature-matrix rows for unshipped analytics features.
+```
+
 ### docs/architecture.md
 
 URL: https://gilvandovieira.github.io/sisal/architecture.html
@@ -5562,7 +6354,9 @@ title: Feature matrix
 # Cross-driver feature matrix
 
 One row per feature, one column per adapter, across `@sisal/pg`,
-`@sisal/neon`, `@sisal/sqlite`, and `@sisal/libsql`. Every ✅ and ⚠️ is
+`@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`, and `@sisal/mysql`
+(MySQL and MariaDB are distinct capability profiles of the one adapter, so
+each gets a test-backed column). Every ✅ and ⚠️ is
 backed by a registered shared integration scenario. The adapter entrypoints
 still render those scenarios as target-prefixed Deno tests in
 `integration/<adapter>_features_test.ts`; `deno task docs:matrix:check`
@@ -5572,55 +6366,59 @@ suites.
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
 
-| Feature                                                                  | Postgres | Neon | SQLite  | libSQL         |
-| :----------------------------------------------------------------------- | :------: | :--: | :-----: | :------------: |
-| Connection + raw parameterized SQL                                       |    ✅     |  ✅   |    ✅    |       ✅        |
-| Generated DDL (all column types)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
-| Insert / update / delete / returning                                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Filter / ordering / pagination                                           |    ✅     |  ✅   |    ✅    |       ✅        |
-| Joins (inner / left / right / full)                                      |    ✅     |  ✅   |    ✅    |       ✅        |
-| Aggregates / group / having                                              |    ✅     |  ✅   |    ✅    |       ✅        |
-| Conditional aggregate (`filter`)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
-| Portable `dateTrunc` (time bucketing)                                    |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Subqueries / exists / scalar                                             |    ✅     |  ✅   |    ✅    |       ✅        |
-| Upsert (`onConflict…`)                                                   |    ✅     |  ✅   |    ✅    |       ✅        |
-| `sql` in `SET` / `VALUES` / `onConflict`                                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Column naming (snake_case / `.named()` / preserve)                       |    ✅     |  ✅   |    ✅    |       ✅        |
-| Keyset pagination (expanded + row-value)                                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Prepared statements                                                      |    ✅     |  ✅   |    ✅    |       ✅        |
-| Transactions (commit + rollback)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
-| `db.batch` (non-interactive, atomic)                                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Atomic operation / transaction script (`defineAtomicOperation`)          |    ✅     |  ✅   |    ✅    |       ✅        |
-| Atomic op single-round-trip dispatch (CTE on PG / interactive on SQLite) |    ✅     |  ✅   |    ✅    |       ✅        |
-| Rich indexes (DESC / partial / expression)                               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Migrator (apply / plan / idempotent)                                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Stored schema objects (functions / triggers / views)                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Typed raw-query mapping (`db.query(...).as(table)`)                      |    ✅     |  ✅   |    ✅    |       ✅        |
-| Temporal date/time modes                                                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| `ilike` / `notIlike`                                                     |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
-| `json` / array round-trip                                                |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| `boolean` round-trip                                                     |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
-| `bytea` / BLOB round-trip                                                |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
-| Float (`float4`/`float8`) round-trip → `number`                          |    ✅     |  ✅   |    ✅    |       ✅        |
-| `distinctOn`                                                             |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Row locking (`.for(...)`)                                                |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Array operators (`@>` / `<@` / `&&`)                                     |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Typed function caller (`db.call`)                                        |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |
+| Feature                                                                  | Postgres | Neon | SQLite  | libSQL         | MySQL           | MariaDB          |
+| :----------------------------------------------------------------------- | :------: | :--: | :-----: | :------------: | :-------------: | :--------------: |
+| Connection + raw parameterized SQL                                       |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Generated DDL (all column types)                                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Insert / update / delete / returning                                     |    ✅     |  ✅   |    ✅    |       ✅        | [⚠️ fetch-by-key](#round-trip-differences) | [⚠️ per-statement](#round-trip-differences) |
+| Filter / ordering / pagination                                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Joins (inner / left / right / full)                                      |    ✅     |  ✅   |    ✅    |       ✅        |   [⚠️ no FULL](#round-trip-differences)    |    [⚠️ no FULL](#round-trip-differences)    |
+| Aggregates / group / having                                              |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Conditional aggregate (`filter`)                                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Portable `dateTrunc` (time bucketing)                                    |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |     [⚠️ text](#round-trip-differences)     |     [⚠️ text](#round-trip-differences)      |
+| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Subqueries / exists / scalar                                             |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Upsert (`onConflict…`)                                                   |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `sql` in `SET` / `VALUES` / `onConflict`                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Column naming (snake_case / `.named()` / preserve)                       |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Keyset pagination (expanded + row-value)                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Prepared statements                                                      |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Transactions (commit + rollback)                                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `db.batch` (non-interactive, atomic)                                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Atomic operation / transaction script (`defineAtomicOperation`)          |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Atomic op single-round-trip dispatch (CTE on PG / interactive on SQLite) |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Rich indexes (DESC / partial / expression)                               |    ✅     |  ✅   |    ✅    |       ✅        |  [⚠️ DESC only](#round-trip-differences)   |   [⚠️ DESC only](#round-trip-differences)   |
+| Migrator (apply / plan / idempotent)                                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Stored schema objects (functions / triggers / views)                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Typed raw-query mapping (`db.query(...).as(table)`)                      |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Temporal date/time modes                                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `ilike` / `notIlike`                                                     |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |     [⚠️ LIKE](#round-trip-differences)     |     [⚠️ LIKE](#round-trip-differences)      |
+| `json` / array round-trip                                                |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |     [⚠️ JSON](#round-trip-differences)     |     [⚠️ text](#round-trip-differences)      |
+| `boolean` round-trip                                                     |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |     [⚠️ 0/1](#round-trip-differences)      |      [⚠️ 0/1](#round-trip-differences)      |
+| `bytea` / BLOB round-trip                                                |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |        ✅        |        ✅         |
+| Float (`float4`/`float8`) round-trip → `number`                          |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `distinctOn`                                                             |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Row locking (`.for(...)`)                                                |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        ✅        |        ✅         |
+| Array operators (`@>` / `<@` / `&&`)                                     |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Typed function caller (`db.call`)                                        |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
-identically across the four adapters.
+identically across the six columns.
 
 ## Round-trip differences
 
 These ⚠️ cells work — the feature is exercised on every adapter — but a value
-comes back in a different JS shape on the SQLite family than on PostgreSQL:
+comes back in a different JS shape (or the statement takes a documented
+alternate form) off PostgreSQL:
 
+- **Insert / update / delete / returning** — MySQL 8/9 has no `RETURNING`; `.returning()` throws a typed `OrmError` at render time. The adapter's `insertReturning()` helper answers the common case with a transactional fetch-by-key fallback (per-row `LAST_INSERT_ID`, no consecutive-id arithmetic).
+- **Joins (inner / left / right / full)** — No `FULL JOIN` in MySQL/MariaDB; rendering it throws a typed `OrmError`. INNER/LEFT/RIGHT joins work.
 - **Portable `dateTrunc` (time bucketing)** — No `date_trunc`; `dateTrunc` renders via `strftime`, which returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL returns a `timestamp`). Both order and group identically.
+- **Rich indexes (DESC / partial / expression)** — `DESC` index keys apply; partial (`WHERE`) indexes are unsupported by both engines and expression indexes are MySQL-only (MariaDB rejects them), so the DDL generator throws a typed `OrmError` for either at generation time instead of shipping SQL one engine rejects.
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
@@ -5628,26 +6426,28 @@ comes back in a different JS shape on the SQLite family than on PostgreSQL:
 
 Value-shape summary (what a read yields, per adapter family):
 
-| Type | `@sisal/pg` / `@sisal/neon` | `@sisal/sqlite` / `@sisal/libsql` |
-| --- | --- | --- |
-| `numeric` / `bigint` | string (precision-preserving) | number |
-| `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) |
-| `boolean` | `boolean` | `INTEGER` `0`/`1` |
-| `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) |
-| `real` / `double precision` (float4/float8) | number | number |
+| Type | `@sisal/pg` / `@sisal/neon` | `@sisal/sqlite` / `@sisal/libsql` | `@sisal/mysql` (MySQL · MariaDB) |
+| --- | --- | --- | --- |
+| `numeric` / `bigint` | string (precision-preserving) | number | string (precision-preserving) |
+| `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) | parsed (MySQL) · JSON string (MariaDB) |
+| `boolean` | `boolean` | `INTEGER` `0`/`1` | `TINYINT(1)` `0`/`1` |
+| `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) | `Uint8Array` |
+| `real` / `double precision` (float4/float8) | number | number | number |
+| `date` / `timestamp` / `timestamptz` text | string | string | string (naive UTC convention for instants) |
 
 ## PostgreSQL-only limits
 
-The SQLite family has no equivalent for these PostgreSQL constructs. Rendering a
-builder that uses one for a SQLite-family dialect throws a typed `OrmError`
-(`ORM_DIALECT_UNSUPPORTED`) at render time (v0.5.0 item 4) — except the typed
-function caller (`db.call`), which has no SQLite-family API surface at all:
+The SQLite and MySQL families have no equivalent for these PostgreSQL
+constructs. Rendering a builder that uses one for those dialects throws a typed
+`OrmError` (`ORM_DIALECT_UNSUPPORTED`) at render time (v0.5.0 item 4) —
+except the typed function caller (`db.call`), which has no non-Postgres API
+surface at all:
 
-- **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; SQLite-family engines reject it. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
-- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
-- **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
-- **Typed function caller (`db.call`)** — No stored-function concept in the SQLite family; `defineFunction`/`db.call` target Postgres.
-- **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; the SQLite family's CTEs are `SELECT`-only. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
+- **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; the SQLite and MySQL families reject it. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite or MySQL families. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Typed function caller (`db.call`)** — No stored-function caller off Postgres; `defineFunction`/`db.call` render PostgreSQL `SELECT * FROM fn(args)`.
+- **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; SQLite-family and MySQL-family CTEs are `SELECT`-only. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 
 ## Reproduce
 
@@ -5659,11 +6459,205 @@ deno test --env-file=.env -A integration/pg_features_test.ts
 deno test --env-file=.env -A integration/neon_features_test.ts
 deno test --env-file=.env -A integration/sqlite_features_test.ts
 deno test --env-file=.env -A integration/libsql_features_test.ts
+SISAL_MYSQL_IT=1 MYSQL_URL=mysql://root:root@localhost:33084/sisal \
+  deno test -A integration/mysql_features_test.ts
+SISAL_MARIADB_IT=1 MARIADB_URL=mysql://root:root@localhost:33110/sisal \
+  deno test -A integration/mariadb_features_test.ts
 ```
 
 Per-engine behavior notes live on the
 [Postgres](pg-compatibility.md), [Neon](neon-compatibility.md),
-[SQLite](sqlite-compatibility.md), and [libSQL](libsql-compatibility.md) pages.
+[SQLite](sqlite-compatibility.md), [libSQL](libsql-compatibility.md), and
+[MySQL/MariaDB](mysql-compatibility.md) pages.
+```
+
+### docs/mysql-compatibility.md
+
+URL: https://gilvandovieira.github.io/sisal/mysql-compatibility.html
+
+```md
+---
+title: MySQL / MariaDB compatibility
+---
+
+# MySQL / MariaDB compatibility
+
+Sisal's MySQL adapter (`@sisal/mysql`) is verified end-to-end against real
+servers — **both** MySQL proper and MariaDB, which share one adapter but are
+distinct capability profiles. Each suite opens a pool with the default `mysql2`
+driver, applies generated DDL, and exercises every adapter feature through the
+public API.
+
+| Item          | MySQL                                 | MariaDB                                  |
+| ------------- | ------------------------------------- | ---------------------------------------- |
+| Engine tested | **MySQL 8.4.10** (Docker `mysql:8.4`) | **MariaDB 11.8.8** (Docker `mariadb:11`) |
+| Suite         | `integration/mysql_features_test.ts`  | `integration/mariadb_features_test.ts`   |
+| Scenarios     | 42 shared mysql-family scenarios      | the same 42, run against MariaDB         |
+| Last run      | 2026-07-01 — **42 / 42 passed**       | 2026-07-01 — **42 / 42 passed**          |
+
+Both suites also pass live against the opt-in MariaDB Connector/Node.js driver
+(`connect({ driver: "mariadb" })`); the default is `mysql2`.
+
+## Runnable examples
+
+- [`examples/mysql-family-basic`](../examples/mysql-family-basic/) — minimal
+  DDL + connect/CRUD over `mysql2` or the MariaDB connector.
+- [`examples/mysql-family-showcase`](../examples/mysql-family-showcase/) —
+  generation-first feature tour with an optional live run, including DDL,
+  upsert, `insertReturning`, ETL rollup SQL, and guarded `RETURNING` behavior.
+- [`examples/mysql-family-feed`](../examples/mysql-family-feed/) — the `/rising`
+  feed counterpart with MySQL-safe `DATETIME(6)` strings, row-value keyset
+  pagination, TypeScript and CTE recompute strategies, and gated live
+  MySQL/MariaDB tests.
+
+## One adapter, two capability profiles
+
+MySQL and MariaDB run the _same_ scenario list. The differences are pinned by
+each scenario branching on the target's declared capabilities, so a divergence
+is a tested fact, not a footnote:
+
+| Capability           | MySQL 8.4              | MariaDB 11.8                                           |
+| -------------------- | ---------------------- | ------------------------------------------------------ |
+| `INSERT … RETURNING` | **none** (typed guard) | **lit** (auto-detected identity; floor 10.5)           |
+| `DELETE … RETURNING` | **none** (typed guard) | **lit** (floor 10.0.5)                                 |
+| `UPDATE … RETURNING` | none (typed guard)     | none (typed guard; MariaDB floor is 13.0)              |
+| `WITH` on mutations  | **works** (MySQL 8+)   | **none** (typed guard; `WITH` parses on `SELECT` only) |
+| `JSON` decode        | parsed object/array    | **JSON string** (`JSON` is a `LONGTEXT` alias)         |
+
+The adapter's `dialectIdentity` (`{ dialect: "mysql", variant?, version? }`) is
+filled at `connect()` time from one `select version()`, so the version floors
+above are enforced by the core render guard — the adapter never duplicates them.
+
+## Feature coverage
+
+Every feature across all six adapter columns — each ✅/⚠️ backed by a named
+integration test — lives in the unified
+[cross-driver feature matrix](feature-matrix.md), verified by
+`deno task docs:matrix:check`. The MySQL-specific type mapping and behavior
+notes are below.
+
+## Column types via the DDL test
+
+Every generated type is executed live via `generateMysqlUpStatements`
+(probe-verified in the v0.6 C4 report,
+[mysql type & DDL mapping](mysql-ddl-mapping.md)):
+
+| Sisal column                  | MySQL DDL                              |
+| ----------------------------- | -------------------------------------- |
+| `integer` `smallint` `bigint` | `INT` `SMALLINT` `BIGINT`              |
+| `serial` `bigserial`          | `INT`/`BIGINT NOT NULL AUTO_INCREMENT` |
+| `numeric(p,s)` / `decimal`    | `DECIMAL(p,s)`                         |
+| `real`                        | `FLOAT`                                |
+| `double` / `float` / `number` | `DOUBLE`                               |
+| `boolean`                     | `BOOLEAN` (stored `TINYINT(1)`)        |
+| `text`                        | `TEXT`                                 |
+| `varchar(n)` / `char(n)`      | `VARCHAR(n)` (255 default) / `CHAR(n)` |
+| `uuid`                        | `CHAR(36)`                             |
+| `json` / `jsonb` / `.array()` | `JSON`                                 |
+| `date` / `time`               | `DATE` / `TIME(6)`                     |
+| `timestamp`                   | `DATETIME(6)`                          |
+| `timestamptz`                 | `TIMESTAMP(6) NULL`                    |
+| `bytea` / `blob`              | `LONGBLOB`                             |
+
+**Version floor:** MySQL ≥ 8.0.16, MariaDB ≥ 10.10. Three DDL rules fail closed
+at generation time with a typed `OrmError` rather than shipping SQL one engine
+rejects: an `AUTO_INCREMENT` column must lead a key (at most one per table,
+never via `ADD COLUMN`); a `TEXT`/`BLOB`/`JSON`-mapped column cannot be a key
+(use `varchar(n)`); partial (`WHERE`) and expression (functional) indexes are
+refused.
+
+## Behavior notes (MySQL/MariaDB vs PostgreSQL)
+
+> The cross-driver round-trip differences and PostgreSQL-only limits are
+> documented once in the
+> [feature-matrix reference](feature-matrix.md#round-trip-differences); the
+> notes below add MySQL-specific detail.
+
+- **`RETURNING` is uneven — the adapter answers it in the executor.** MySQL 8/9
+  has no `RETURNING`; `.returning()` throws a typed `OrmError` at render time.
+  The `insertReturning(db, table, values)` helper answers the common "give me
+  the rows I just inserted" case with the best strategy the connected server
+  supports: real `INSERT … RETURNING` on MariaDB, a transactional fetch-by-key
+  fallback on MySQL (one `INSERT` per row capturing each statement's own
+  `LAST_INSERT_ID` — no first-id-plus-offset arithmetic, which MySQL 8.4's
+  default `innodb_autoinc_lock_mode = 2` makes unsafe). It refuses typed for
+  cases it cannot answer honestly (no primary key, a partial composite key, a
+  `Sql`-expression key, or a DB-generated non-`AUTO_INCREMENT` key like
+  `DEFAULT (uuid())`).
+- **`ilike` / `notIlike` degrade to `LIKE` / `NOT LIKE`.** MySQL/MariaDB have no
+  `ILIKE` keyword, so Sisal renders `LIKE`, which the default `utf8mb4`
+  collations already compare case-insensitively.
+- **Binary** (`columns.bytea()` → `LONGBLOB`) round-trips as `Uint8Array`. Both
+  drivers decode BLOBs to Node `Buffer`s; the adapter re-views them as plain
+  `Uint8Array`s (a view, no copy) to match the other adapters — and re-views
+  binary _params_ as `Buffer`s before handing them to the MariaDB connector,
+  which otherwise JSON-serializes a plain `Uint8Array` (a live-probe catch, B4).
+- **JSON and arrays map to `JSON`, but read back differently per engine.** On
+  MySQL proper the driver parses `JSON` columns back to objects/arrays; on
+  MariaDB `JSON` is a `LONGTEXT` alias, so values read back as **strings**
+  (`JSON.parse` on read) — the same shape as the SQLite family. Objects and
+  arrays are auto-serialized to JSON text on insert.
+- **Date/time values are read as text.** The pool sets `dateStrings: true`, so
+  `date`/`time`/`timestamp`/`timestamptz` come back as the server's literal text
+  (never a client-local `Date`, which would silently timezone-shift). Enable
+  `temporal: { parse: true }` on the facade to decode ORM-built result columns
+  into `Temporal` values; raw SQL rows are untouched. **Instants** are written
+  as **naive UTC** literals (MySQL rejects a trailing `Z`/offset in a datetime
+  literal) — the "executor UTC convention"; a `mode: "string"` instant column
+  must therefore be given a MySQL-valid literal (no `Z`).
+- **Booleans are `TINYINT(1)` `0`/`1`.** MySQL/MariaDB have no boolean type;
+  `BOOLEAN` is an alias. Values round-trip as `0`/`1` (matching the SQLite
+  family). No auto-decode: a `TINYINT(1)` display width does not guarantee
+  boolean semantics.
+- **`numeric`/`bigint` are precision-preserving strings** — the pool sets the
+  mandated `supportBigNumbers` + `bigNumberStrings` (the C6 survey found
+  mysql2's default `BIGINT` decode silently truncates past 2⁵³). This matches
+  the PostgreSQL family, and diverges from the SQLite family (which returns
+  numbers). Normalize ids across adapters with `String(...)`.
+- **`FULL JOIN` throws a typed error.** MySQL/MariaDB have no `FULL JOIN`;
+  `INNER`/`LEFT`/`RIGHT` joins all work.
+- **Mutation joins work through MySQL's multi-table forms.** The portable
+  builders stay the same — `update(t).from(source)` and
+  `delete(t).using(source)` — while the MySQL-family renderer maps them to
+  `UPDATE t, source SET t.col = … WHERE …` and
+  `DELETE FROM t USING t, source WHERE …`. `INSERT … SELECT` works too.
+  Combining the multi-table mutation forms with `.returning()` remains a typed
+  guard, even on MariaDB, because the proven B7 `RETURNING` support is
+  per-statement and single-table. On MariaDB, a `SELECT` CTE prefixed to a
+  mutation (`db.with(cte).update(…)` / `.delete(…)` / `.insert(…)`) is also a
+  typed guard — MariaDB parses `WITH` only on `SELECT` (verified on 11.8.8) — so
+  feed a mutation join from a derived-table subquery
+  (`db.select(…).as("alias")`) instead; `WITH … SELECT` works normally.
+- **Row locking works.** `.for("update" | "share")` renders natively (unlike the
+  SQLite family).
+- **Migrations use `GET_LOCK`/`RELEASE_LOCK` named locks** — the
+  `pg_advisory_lock` analogue — held on a pinned connection (MySQL named locks
+  are connection-scoped). `useTransaction` defaults to **`false`**: MySQL/
+  MariaDB DDL implicitly commits, so wrapping schema migrations in a transaction
+  is a false promise.
+- **Postgres-only constructs throw a typed error here.** `.distinctOn(...)`, the
+  array operators, data-modifying CTEs, and the typed function caller
+  (`db.call`) are PostgreSQL-only; using one against MySQL throws an `OrmError`
+  at render time (v0.5.0 item 4). See the
+  [PostgreSQL-only limits](feature-matrix.md#postgresql-only-limits) reference.
+
+## Reproduce
+
+```sh
+docker run -d --rm --name sisal-mysql84 -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=sisal -p 33084:3306 mysql:8.4
+docker run -d --rm --name sisal-mariadb11 -e MARIADB_ROOT_PASSWORD=root \
+  -e MARIADB_DATABASE=sisal -p 33110:3306 mariadb:11
+
+SISAL_MYSQL_IT=1 MYSQL_URL=mysql://root:root@localhost:33084/sisal \
+  deno test -A integration/mysql_features_test.ts
+SISAL_MARIADB_IT=1 MARIADB_URL=mysql://root:root@localhost:33110/sisal \
+  deno test -A integration/mariadb_features_test.ts
+```
+
+Each suite is **skipped unless its `SISAL_MYSQL_IT=1` / `SISAL_MARIADB_IT=1`
+gate is set**, so neither runs (or needs the network) during the ordinary
+`deno task test`.
 ```
 
 ### docs/mysql-ddl-mapping.md
@@ -6219,16 +7213,16 @@ that fail.
 
 ## The audit matrix
 
-| Gate               | Gate-crossing item (first deliverable that crosses it)                                                                                | True (capability-level) prerequisite                                                                                                                                                                                      | Scoping status                                                                                                                                                                                                                         | Risk if dropped/reordered                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GI-1 / G6** 🟥   | v0.9 "capability descriptor — authoritative & machine-checked" (built on the v0.8 descriptor extracted into the frozen `@sisal/core`) | A descriptor **key space** that (i) distinguishes the adapters — 4 today, 5 once MySQL lands (neon≠pg, libsql≠sqlite) — and (ii) carries a **version axis** (MySQL 8.0.21, MariaDB 10.5/11.7, SQLite 3.31, Postgres 14 …) | **(c)** not scoped — every doc says "per-dialect descriptor" and the primitive it is "generalized from" (`dialectGuard` over `SqlDialect`) is whole-dialect, 4-value, no version                                                       | The authoritative matrix structurally cannot express the very distinctions v0.9's own scope hardens (neon-vs-pg serverless caveats, libsql-vs-sqlite, MySQL-vs-MariaDB). It freezes into the public `@sisal/core` at v0.8 → adding the axis later breaks the exported `dialectGuard` signature and render contract (the snapshot is versioned via `SCHEMA_SNAPSHOT_VERSION` and can migrate; the guard/IR surface cannot) |
-| **G4** 🟥          | v0.7 ships `@sisal/mysql` as a real published package                                                                                 | A variant/version primitive to express the MySQL 8 / 5.7 / MariaDB 10.2 / 10.5 splits the adapter's own contract tabulates (`RETURNING`, `WITH RECURSIVE`, `JSON_TABLE`, partial indexes)                                 | **(b)** v0.6 C3/C5 + v0.7 open questions scope only "design dialect/version handling" and "decide one adapter with feature flags vs documented divergences"; the primitive itself is **(c)**                                           | v0.7 publishes a `"mysql"` dialect that cannot carry the split `12-mysql-compatibility.md:91-99` requires. The split lands ad-hoc in the executor or is dropped; the later correct fix breaks both the published adapter **and** the frozen `@sisal/core` dialect type. v0.7 closes **before** v0.8 — the fix window shuts at the wrong time                                                                              |
-| **GI-3 / G7** 🟧   | v0.13 DuckDB investigation (DuckDB as a **compiler target** for the IR)                                                               | An introspectable/transformable IR seam for predicate pushdown / plan rewriting                                                                                                                                           | **(b)** v0.8 defers it behind a "documented extension point," but the v0.8 acceptance criterion only requires documenting the **decision** (build/defer/reject) — **not delivering the extension point**                               | If DuckDB pushdown needs the AST (v0.13's own open question, `v0.13:66-67`) and only the decision-to-defer was delivered, v0.13 forces a breaking change to the frozen public IR. Conditional, but the load-bearing mitigation is not acceptance-gated                                                                                                                                                                    |
-| **GI-2 / G5** 🟧   | v0.10 ships `@sisal/etl` with `run`/`backfill`/`replay` + checkpoint + lock                                                           | (a) portable lock abstraction; (b) checkpoint-table contract **and** its ownership decision; (c) idempotency + atomic load+advance                                                                                        | **(b)** v0.6 A2/A3/A4 are all P2/🔴 "design/document only"; v0.9 "formalize the lock strategy" is in _hardening items_, **not** v0.9 acceptance criteria; checkpoint ownership is an **open question in v0.6, contract 09, and v0.10** | v0.10's acceptance **hard-requires** "concurrent runs are serialized by the lock strategy" and idempotent/resumable runs. If A2/A3/A4 stay design-only or drop, the runner ships on a correctness substrate that was never built or tested → "concurrent runs corrupt rollups" (v0.10's own risk wording, `v0.10:78-79`)                                                                                                  |
-| **G1** 🟧          | v0.10/v0.11 (first packages that compile into core)                                                                                   | `@sisal/core` exposes enough (statement-assembler decision) that ETL/analytics need not reach into `@sisal/orm`; checkpoint ownership must not silently add an `etl → migrate` edge                                       | **(b)** v0.8 open question "expose the statement assembler, or compile fragments + a thin helper?" is unresolved; the checkpoint "managed system table" branch implies an edge absent from `architecture.md`'s graph                   | If the assembler stays private and ETL needs SELECT/CTE assembly, v0.10 is pushed to depend on `@sisal/orm` (G1 violation) or reimplement it. The checkpoint "migrate system table" resolution adds an `etl → migrate` dependency the architecture diagram does not show                                                                                                                                                  |
-| **G2** 🟩 (mostly) | v0.8 extract `@sisal/core` + versioned IR                                                                                             | Clean lower-tier DAG with no upward edges                                                                                                                                                                                 | **(a)** real and **already true** in source (`errors ← sql ← {operators,columns} ← table ← {builders,relations} ← database`; the one cross-cut is inverted behind `QUERY_BUILDER_BRAND`)                                               | Extraction itself is low-risk (file-moves). The risk is **what gets frozen** at extraction — see GI-1 and GI-3, which ride on this same release                                                                                                                                                                                                                                                                           |
-| **G3** 🟩/🟧       | v0.10/v0.11 packages                                                                                                                  | v0.6/v0.7 investigations produce **usable artifacts**, not just reports                                                                                                                                                   | Mixed — the ETL _rollup_ spine is real and probed (v0.5 builder); the _runner_ substrate (GI-2) is design-only                                                                                                                         | The investigation-vs-artifact gap is concentrated in GI-2; the rest of G3 is sound                                                                                                                                                                                                                                                                                                                                        |
-| **G8** 🟩          | v0.14 native investigation                                                                                                            | A reproducible benchmark harness that localizes a hot path                                                                                                                                                                | **(a)** self-protecting: "the first deliverable of this milestone is the benchmark, not the binary" (`v0.14:29`), and acceptance requires the benchmark report                                                                         | Well-sequenced. The only nuance: the candidate hot paths (Parquet/Arrow/ingestion) belong to ETL/analytics, which don't exist until v0.10/v0.11 — so the harness _cannot_ predate them, which the gate already assumes                                                                                                                                                                                                    |
+| Gate               | Gate-crossing item (first deliverable that crosses it)                                                                                | True (capability-level) prerequisite                                                                                                                                                                                                                          | Scoping status                                                                                                                                                                                                                         | Risk if dropped/reordered                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GI-1 / G6** 🟥   | v0.9 "capability descriptor — authoritative & machine-checked" (built on the v0.8 descriptor extracted into the frozen `@sisal/core`) | A descriptor **key space** that (i) distinguishes the five adapter packages and six matrix targets — `pg`, `neon`, `sqlite`, `libsql`, `mysql`, `mariadb` — and (ii) carries a **version axis** (MySQL 8.0.21, MariaDB 10.5/11.7, SQLite 3.31, Postgres 14 …) | **(c)** not scoped — every doc says "per-dialect descriptor" and the primitive it is "generalized from" (`dialectGuard` over `SqlDialect`) is whole-dialect, 4-value, no version                                                       | The authoritative matrix structurally cannot express the very distinctions v0.9's own scope hardens (neon-vs-pg serverless caveats, libsql-vs-sqlite, MySQL-vs-MariaDB). It freezes into the public `@sisal/core` at v0.8 → adding the axis later breaks the exported `dialectGuard` signature and render contract (the snapshot is versioned via `SCHEMA_SNAPSHOT_VERSION` and can migrate; the guard/IR surface cannot) |
+| **G4** 🟥          | v0.7 ships `@sisal/mysql` as a real published package                                                                                 | A variant/version primitive to express the MySQL 8 / 5.7 / MariaDB 10.2 / 10.5 splits the adapter's own contract tabulates (`RETURNING`, `WITH RECURSIVE`, `JSON_TABLE`, partial indexes)                                                                     | **(b)** v0.6 C3/C5 + v0.7 open questions scope only "design dialect/version handling" and "decide one adapter with feature flags vs documented divergences"; the primitive itself is **(c)**                                           | v0.7 publishes a `"mysql"` dialect that cannot carry the split `12-mysql-compatibility.md:91-99` requires. The split lands ad-hoc in the executor or is dropped; the later correct fix breaks both the published adapter **and** the frozen `@sisal/core` dialect type. v0.7 closes **before** v0.8 — the fix window shuts at the wrong time                                                                              |
+| **GI-3 / G7** 🟧   | v0.13 DuckDB investigation (DuckDB as a **compiler target** for the IR)                                                               | An introspectable/transformable IR seam for predicate pushdown / plan rewriting                                                                                                                                                                               | **(b)** v0.8 defers it behind a "documented extension point," but the v0.8 acceptance criterion only requires documenting the **decision** (build/defer/reject) — **not delivering the extension point**                               | If DuckDB pushdown needs the AST (v0.13's own open question, `v0.13:66-67`) and only the decision-to-defer was delivered, v0.13 forces a breaking change to the frozen public IR. Conditional, but the load-bearing mitigation is not acceptance-gated                                                                                                                                                                    |
+| **GI-2 / G5** 🟧   | v0.10 ships `@sisal/etl` with `run`/`backfill`/`replay` + checkpoint + lock                                                           | (a) portable lock abstraction; (b) checkpoint-table contract **and** its ownership decision; (c) idempotency + atomic load+advance                                                                                                                            | **(b)** v0.6 A2/A3/A4 are all P2/🔴 "design/document only"; v0.9 "formalize the lock strategy" is in _hardening items_, **not** v0.9 acceptance criteria; checkpoint ownership is an **open question in v0.6, contract 09, and v0.10** | v0.10's acceptance **hard-requires** "concurrent runs are serialized by the lock strategy" and idempotent/resumable runs. If A2/A3/A4 stay design-only or drop, the runner ships on a correctness substrate that was never built or tested → "concurrent runs corrupt rollups" (v0.10's own risk wording, `v0.10:78-79`)                                                                                                  |
+| **G1** 🟧          | v0.10/v0.11 (first packages that compile into core)                                                                                   | `@sisal/core` exposes enough (statement-assembler decision) that ETL/analytics need not reach into `@sisal/orm`; checkpoint ownership must not silently add an `etl → migrate` edge                                                                           | **(b)** v0.8 open question "expose the statement assembler, or compile fragments + a thin helper?" is unresolved; the checkpoint "managed system table" branch implies an edge absent from `architecture.md`'s graph                   | If the assembler stays private and ETL needs SELECT/CTE assembly, v0.10 is pushed to depend on `@sisal/orm` (G1 violation) or reimplement it. The checkpoint "migrate system table" resolution adds an `etl → migrate` dependency the architecture diagram does not show                                                                                                                                                  |
+| **G2** 🟩 (mostly) | v0.8 extract `@sisal/core` + versioned IR                                                                                             | Clean lower-tier DAG with no upward edges                                                                                                                                                                                                                     | **(a)** real and **already true** in source (`errors ← sql ← {operators,columns} ← table ← {builders,relations} ← database`; the one cross-cut is inverted behind `QUERY_BUILDER_BRAND`)                                               | Extraction itself is low-risk (file-moves). The risk is **what gets frozen** at extraction — see GI-1 and GI-3, which ride on this same release                                                                                                                                                                                                                                                                           |
+| **G3** 🟩/🟧       | v0.10/v0.11 packages                                                                                                                  | v0.6/v0.7 investigations produce **usable artifacts**, not just reports                                                                                                                                                                                       | Mixed — the ETL _rollup_ spine is real and probed (v0.5 builder); the _runner_ substrate (GI-2) is design-only                                                                                                                         | The investigation-vs-artifact gap is concentrated in GI-2; the rest of G3 is sound                                                                                                                                                                                                                                                                                                                                        |
+| **G8** 🟩          | v0.14 native investigation                                                                                                            | A reproducible benchmark harness that localizes a hot path                                                                                                                                                                                                    | **(a)** self-protecting: "the first deliverable of this milestone is the benchmark, not the binary" (`v0.14:29`), and acceptance requires the benchmark report                                                                         | Well-sequenced. The only nuance: the candidate hot paths (Parquet/Arrow/ingestion) belong to ETL/analytics, which don't exist until v0.10/v0.11 — so the harness _cannot_ predate them, which the gate already assumes                                                                                                                                                                                                    |
 
 ---
 
@@ -6245,9 +7239,10 @@ This is the central finding and it subsumes the first seed.
 - The schema-snapshot dialect is a _second_ closed 4-value union,
   `SisalDialectName = "generic" | "postgres" | "sqlite" | "mysql"`
   (`schema.ts:13-17`).
-- **Both collapse the five real adapters into four render dialects:**
-  `LIBSQL_DIALECT = "sqlite"` (`libsql/orm/dialect.ts:4`); Neon renders as
-  `"postgres"`. There is no `"neon"` or `"libsql"` value anywhere.
+- **The render dialects collapse six capability targets into four render
+  dialects:** `LIBSQL_DIALECT = "sqlite"` (`libsql/orm/dialect.ts:4`); Neon
+  renders as `"postgres"`; MySQL and MariaDB both render through `"mysql"`.
+  There is no `"neon"`, `"libsql"`, or `"mariadb"` render-dialect value.
 - The capability mechanisms operate at **whole-dialect** granularity only:
   `dialectGuard(construct, unsupported: readonly SqlDialect[])` (`sql.ts:625`),
   the `guard` chunk's `unsupported: readonly SqlDialect[]` (`sql.ts:64-68`), and
@@ -6256,11 +7251,11 @@ This is the central finding and it subsumes the first seed.
   (`operators.ts:150`, `builders.ts:982,1038`). The guard even hardcodes the
   string `"it is PostgreSQL-only"` (`sql.ts:564`).
 - **The two key spaces already diverge in the repo today.** The feature matrix
-  keys on `ADAPTERS = ["pg", "neon", "sqlite", "libsql"]`
-  (`tools/feature_matrix.ts:15`) — it _does_ distinguish neon-from-pg and
-  libsql-from-sqlite. The IR `dialectGuard` does not. They are reconciled today
-  only by `docs:matrix:check` (every ✅/⚠️ backed by a named test), **not** by a
-  shared descriptor.
+  keys on `ADAPTERS = ["pg", "neon", "sqlite", "libsql", "mysql", "mariadb"]`
+  (`tools/feature_matrix.ts:15`) — it _does_ distinguish neon-from-pg,
+  libsql-from-sqlite, and MySQL-from-MariaDB. The IR `dialectGuard` does not.
+  They are reconciled today only by `docs:matrix:check` (every ✅/⚠️ backed by a
+  named test), **not** by a shared descriptor.
 
 **Why this is a sequencing defect, not just a missing feature.** v0.8's
 deliverable is "capability gates become declarative — a per-dialect capability
@@ -6268,9 +7263,9 @@ descriptor… **the single source the v0.9 matrix and the `dialectGuard` both
 read**" (`v0.8:128-129`), and v0.9 makes that descriptor "authoritative and
 machine-checked." But:
 
-1. The matrix is 5-way (soon 6 with MariaDB); `dialectGuard` is 4-way. "One
-   source both read" requires reconciling key spaces that **do not match**, and
-   no doc names that reconciliation as work.
+1. The matrix is six-way; `dialectGuard` is 4-way. "One source both read"
+   requires reconciling key spaces that **do not match**, and no doc names that
+   reconciliation as work.
 2. The contracts require a **version axis** that neither key space has — and not
    just for MySQL. Verified across the corpus:
    - `12-mysql-compatibility.md:91-99`: `RETURNING` MySQL 8 ❌ vs MariaDB ✅
@@ -6296,11 +7291,12 @@ machine-checked." But:
    proves the version axis is needed, the primitive is a public contract and the
    axis is a breaking change.
 
-The `12-mysql-compatibility.md` framing makes the erasure visible: it calls for
-"a **fifth column**" while its own table (`:91-99`) shows **six** distinct
-profiles (pg/neon, sqlite/libsql, MySQL 8, MariaDB). The single-`"mysql"`-token
-framing erases the variant split at the level of the document, before any code
-is written.
+The historical `12-mysql-compatibility.md` pressure-contract framing makes the
+erasure visible: it called for "a **fifth column**" while its own table
+(`:91-99`) showed **six** distinct profiles (pg/neon, sqlite/libsql, MySQL 8,
+MariaDB). The current six-column matrix fixes the document-level count, but the
+single-`"mysql"` render token still erases the variant split unless the
+capability descriptor carries it.
 
 ### Defect 2 — the ETL-runner correctness substrate is "design-only," but the runner's acceptance criteria hard-require it (GI-2)
 
@@ -6370,14 +7366,14 @@ change.
 **Seed #1 (`SqlDialect` closed union, no version axis; MySQL version splits at
 v0.7): AGREE, verified, and generalize.** The source is exactly as described
 (`sql.ts:25,625,64-74,564`). Two amendments: (1) there are **two** such unions
-(`SqlDialect` _and_ `SisalDialectName`), and both also collapse neon/libsql, so
-the primitive can't even express the **4 adapters the matrix already uses** (5
-once MySQL lands) — the version axis is the second missing axis, not the only
-one; (2) the version-gating requirement is **pervasive, not MySQL-specific** —
-Postgres 14 `CYCLE`, SQLite 3.9/3.31, MySQL 8.0.13/8.0.20/8.0.21, MariaDB
-10.2/10.5 all appear across contracts 07/10/11/12. The right framing is GI-1
-(the capability descriptor's granularity), with seed #1 as its sharpest
-instance.
+(`SqlDialect` _and_ `SisalDialectName`), and both also collapse neon/libsql and
+the MySQL/MariaDB split, so the primitive cannot express the **six capability
+targets the matrix already uses** — the version axis is the second missing axis,
+not the only one; (2) the version-gating requirement is **pervasive, not
+MySQL-specific** — Postgres 14 `CYCLE`, SQLite 3.9/3.31, MySQL
+8.0.13/8.0.20/8.0.21, MariaDB 10.2/10.5 all appear across contracts 07/10/11/12.
+The right framing is GI-1 (the capability descriptor's granularity), with seed
+#1 as its sharpest instance.
 
 **Seed #2 (compose-only fragment IR shipped public at v0.8 while
 introspection/rewriting is deferred; v0.13 anticipates needing it): AGREE on the
@@ -6401,9 +7397,9 @@ Add to **v0.8 acceptance criteria** (the IR-freeze release — this is the last
 non-breaking opportunity):
 
 - The capability descriptor's key is **`(adapter, optional version-range)`**,
-  not `SqlDialect`. It distinguishes `pg`/`neon`/`sqlite`/`libsql` (the current
-  `tools/feature_matrix.ts` `ADAPTERS`, four today) plus `mysql`/`mariadb` once
-  they land, and admits a version predicate per capability.
+  not `SqlDialect`. It distinguishes the current `tools/feature_matrix.ts`
+  `ADAPTERS` values (`pg`/`neon`/`sqlite`/`libsql`/`mysql`/`mariadb`) and admits
+  a version predicate per capability.
 - `dialectGuard(construct, unsupported: SqlDialect[])` is generalized to a
   **capability predicate** the descriptor evaluates, so a guard can express
   "requires MySQL ≥ 8.0.21," "Postgres ≥ 14 for `CYCLE`," "SQLite ≥ 3.31" — and
@@ -6570,9 +7566,9 @@ title: Roadmap Overview
 # Sisal roadmap — from OLTP correctness to a typed analytics stack
 
 Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for
-**relational** data across PostgreSQL, Neon, SQLite, and libSQL. It will not
-become an object-first ORM. This page is the index and narrative spine for the
-release line; each release has its own roadmap doc with full
+**relational** data across PostgreSQL, Neon, SQLite, libSQL, and MySQL/MariaDB.
+It will not become an object-first ORM. This page is the index and narrative
+spine for the release line; each release has its own roadmap doc with full
 goal/scope/deliverables/non-goals/risks/open-questions/acceptance-criteria.
 
 ## The arc
@@ -7163,7 +8159,8 @@ Investigation against `@sisal/core`/`@sisal/analytics` (a potential future
 ## Dialect compatibility notes
 
 DuckDB would be a **new dialect/execution target** behind the analytics IR's
-`executionPreference`, not a replacement for the pg/neon/sqlite/libsql adapters.
+`executionPreference`, not a replacement for the existing
+pg/neon/sqlite/libsql/mysql adapter packages or their six capability targets.
 The Postgres-first analytics path remains the default.
 ```
 
@@ -7258,7 +8255,8 @@ Investigation only; potentially a future optional native helper consumed by
 Out of scope — native acceleration concerns local data processing
 (Parquet/Arrow/ ingestion), not the SQL dialects. Any native path must not
 regress the portability guarantees established in v0.6 (Deno + Node) or the
-four-dialect support.
+established multi-adapter SQL support, including the MySQL/MariaDB capability
+profiles.
 ```
 
 ### docs/v0.4.0-roadmap.md
@@ -9533,6 +10531,52 @@ not by theme; either could move to its own release if scope demands.)
 | ------ | ---------------------------------------------------------- |
 | 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
 
+## Priority summary — everything to track
+
+All v0.7 tasks, consolidated. **Stream:** A = Analytics readiness (investigate,
+don't ship) · B = MySQL adapter (ships code). Each ID has a detail section in
+the matching workstream below.
+
+**What v0.6 already delivered** (so this table is smaller than the workstream
+prose suggests): the driver is **chosen and benchmarked** (`mysql2` default with
+mandatory `supportBigNumbers`+`bigNumberStrings`, `mariadb` opt-in — C6); the
+**upsert is already dialect-mapped and implemented** in core (`onConflict*` →
+`ON DUPLICATE KEY UPDATE`, `excluded()` → `values(col)` — C2); the **guard sweep
+is complete** — no construct renders wrong SQL under `mysql` (C3/C5); the
+**DDL/type mapping is probe-verified** on MySQL 8.4.10 + MariaDB 11.8.8 with a
+version floor and generation rules ([mysql-ddl-mapping.md](mysql-ddl-mapping.md)
+— C4); and the **MySQL-vs-MariaDB split is decided** (one adapter, variant-aware
+capability flags — [mysql-readiness.md](mysql-readiness.md), C5). v0.7's
+B-stream is therefore **build-to-spec**, not design.
+
+| ID  | Task                                                                                    | Stream    | Priority | Effort | Status |
+| --- | --------------------------------------------------------------------------------------- | --------- | -------- | ------ | ------ |
+| A1  | Analytics-readiness report + analytical IR sketch (compiles to the fragment IR)         | A · OLAP  | P1       | M      | 🟢     |
+| A2  | Typed result-inference prototype (metrics/dimensions → row type; types only)            | A · OLAP  | P1       | M      | 🟢     |
+| A3  | Core-vs-package seam decision for window primitives (minimal `over()` in core?)         | A · OLAP  | P1       | S      | 🟢     |
+| A4  | Portability classification per analytical feature — **five** dialects incl. mysql       | A · OLAP  | P2       | S      | 🟢     |
+| B1  | Core: `(engine, variant, version)` dialect axis + `dialectGuard` → capability predicate | B · MySQL | P1       | M      | 🟢     |
+| B2  | Core: mysql renderings for `filter()` (`CASE WHEN`) + the date helpers (lift throws)    | B · MySQL | P1       | M      | 🟢     |
+| B3  | Scaffold `@sisal/mysql` (orm/ + migrate/ mirroring the shared adapter shape)            | B · MySQL | P1       | M      | 🟢     |
+| B4  | Drivers + executor per C6/C4: mysql2 default, mariadb opt-in, value normalization       | B · MySQL | P1       | M      | 🟢     |
+| B5  | `generateMysqlUpStatements` per mysql-ddl-mapping.md (+ generation-time validations)    | B · MySQL | P1       | M      | 🟢     |
+| B6  | Migrate wiring: history store + `GET_LOCK` named-lock migrator locking                  | B · MySQL | P1       | S      | 🟢     |
+| B7  | `RETURNING` adapter strategy: fetch-by-key fallback; MariaDB lighting via descriptor    | B · MySQL | P2       | M      | 🟢     |
+| B8  | Integration: mysql target + family scenarios (reserved slot), compat doc, matrix col    | B · MySQL | P1       | L      | 🟢     |
+| B9  | CLI `INIT_TARGETS` entry + `examples/mysql-family-basic`                                | B · MySQL | P2       | S      | 🟢     |
+| B10 | Stretch: multi-table `UPDATE … FROM` / `DELETE … USING` mapping (lift the C3 guards)    | B · MySQL | P3       | M      | 🟢     |
+
+**P1 spine.** A1/A2/A3 (the readiness report v0.11 builds on) · **B1→B2 first
+(core)** — B1 must land **before the v0.8 IR freeze** (the C5 dialect-identity
+decision), and B2 gates B8 because the shared integration scenario bodies lean
+on `filter()` and the date helpers, which currently throw typed guards under
+`mysql` · then B3/B4/B5/B6 (the adapter) → B8 (the proof: suite + fifth
+test-backed matrix column). The integration consolidation already reserved the
+`"mysql"` slot (`IntegrationAdapterId`/`IntegrationFamily` plus an empty
+`featureScenariosForAdapter("mysql")`), and `perf/` carries the mysql probes
+(`perf:mysql`, `perf:mysql:ddl`, `perf:mysql:variant`) to re-run against the
+built adapter.
+
 ---
 
 # Workstream A — Analytics Readiness Investigation
@@ -9557,8 +10601,8 @@ the result types can be inferred cleanly.
 - What **analytical IR** is needed (source/dimensions/metrics/windows/…)?
 - What belongs in **core expressions** vs. a future `@sisal/analytics`?
 - Can analytical **result types** be inferred from metric/dimension definitions?
-- Which features are **portable** across pg/neon/sqlite/libsql, and which are
-  **Postgres-first**?
+- Which features are **portable** across pg/neon/sqlite/libsql/future mysql, and
+  which are **Postgres-first**?
 
 ## Scope — investigate / prototype the API concepts
 
@@ -9616,14 +10660,40 @@ helper; no DuckDB-first implementation; no ETL runtime.
 - **IR over-design** — risk of a grand relational algebra. Keep it a compile
   sketch tied to real feed examples.
 
+## Status (2026-07-01)
+
+Workstream A is complete. The committed
+[analytics-readiness report](analytics-readiness.md) answers the five readiness
+questions, records the analytical IR sketch, includes the `/rising` rollup
+walkthrough, and classifies analytical features across PostgreSQL, Neon, SQLite,
+libSQL, and future MySQL/MariaDB. The network-free
+[`analytics_result_inference_test.ts`](../packages/orm/analytics_result_inference_test.ts)
+prototype proves a dimensions/metrics/derived-fields map can infer an exact
+readonly result row.
+
+A3 chose the **documented future core seam**: a minimal `over()`/window
+expression primitive belongs in core SQL expressions because `OVER (...)` is
+generic SQL grammar, while the rich metric/dimension/window-domain API belongs
+in the future `@sisal/analytics` package. v0.7 does **not** ship `over()` or any
+window helper.
+
+No `@sisal/analytics` package exists, no public API/export was added, and
+`docs/feature-matrix.md` remains unchanged until analytics features are
+implemented and backed by integration scenarios.
+
 ## Open questions
 
 - Does analytics need the introspectable AST flagged in
-  [v0.8](v0.8.0-roadmap.md), or can it compile straight to fragments?
+  [v0.8](v0.8.0-roadmap.md), or can it compile straight to fragments? **Answered
+  for v0.7:** compile straight to fragments for the preview IR; a transformable
+  AST stays v0.8+ work only if later packages need rewriting.
 - Are window functions a **core** primitive (shared with the ORM builder) or an
-  **analytics-package** construct? (Leaning: minimal `over()`/window expression
-  in core; the rich metric/dimension API in the package.)
-- Percentiles: portable abstraction or Postgres-first?
+  **analytics-package** construct? **Answered by A3:** a minimal `over()`/window
+  expression belongs in core; the rich metric/dimension API belongs in the
+  analytics package.
+- Percentiles: portable abstraction or Postgres-first? **Classified by A4:**
+  Postgres-first until other engines have probe-backed semantics or an explicit
+  approximation policy.
 
 ## Acceptance criteria
 
@@ -9631,13 +10701,15 @@ helper; no DuckDB-first implementation; no ETL runtime.
   questions, with the per-feed examples.
 - A typed-result-inference **prototype** (types only, no package) showing a
   metric set → row type.
-- A portability classification per analytical feature across the four dialects.
+- A portability classification per analytical feature across five dialects,
+  including the future MySQL/MariaDB adapter.
 - No `@sisal/analytics` package, renderer, or dashboard helper exists.
 
 ## Affected packages
 
 `@sisal/orm`/core (candidate minimal window/expression primitives; IR seam),
-investigation against all four adapters. No new package created.
+investigation against the four shipped adapters plus the future MySQL/MariaDB
+adapter. No new package created.
 
 ## Required examples / tests
 
@@ -9671,9 +10743,14 @@ MySQL column from the start.
 Build the `@sisal/mysql` adapter from the
 [v0.6 Workstream C](v0.6.0-roadmap.md#workstream-c--mysql-support-investigation)
 findings — Sisal's fifth dialect and first new adapter since libSQL. The
-renderer already carries a latent `"mysql"` dialect (backtick quoting, `?`
-placeholders, `ilike`→`LIKE`, row-locking awareness); v0.7 turns that into a
-real, tested adapter.
+`"mysql"` dialect is no longer merely latent: after v0.6 it **renders correct
+SQL or throws a typed guard for every construct** (quoting, placeholders,
+`ilike`→`LIKE`, locking, the dialect-mapped upsert + `excluded()`; guards on
+`RETURNING`, `UPDATE … FROM`, `DELETE … USING`, data-modifying CTEs,
+`distinctOn`, array operators, `FULL JOIN`, `filter()`, the date helpers). v0.7
+turns that correct dialect into a real, tested adapter — and lifts the guards
+with real mysql renderings (`filter()`/date helpers in B2, multi-table mutation
+joins in B10).
 
 ## Goal
 
@@ -9696,32 +10773,332 @@ unit tests stay network-free), and the CLI's `sisal init` targets are a single
 - **`@sisal/mysql` package** mirroring `@sisal/pg`/`@sisal/sqlite`:
   `MYSQL_DIALECT = "mysql"`, executor, lazy driver + pool, errors; and
   `migrate/` (driver, history, migrator, `ddl`).
-- **Driver integration** — wire the driver chosen in v0.6 (Deno + Node per the
-  packaging workstream), behind the injectable-executor seam.
-- **Correct/extend the latent `"mysql"` render path** — verify backtick
-  quoting/escaping, `?` placeholders, `LIMIT/OFFSET`, `FOR UPDATE`/`FOR SHARE`,
-  `ilike`→`LIKE`; fix the `dialectGuard` sets so MySQL-supported constructs (row
-  locking) are allowed and unsupported ones (`distinctOn`, array operators)
-  throw.
-- **Upsert** — a MySQL `ON DUPLICATE KEY UPDATE` path (mapped from `onConflict*`
-  or a dedicated surface, per the v0.6 decision), including
-  `VALUES()`/`new.col`.
-- **`RETURNING`** — emit it where supported (MySQL 8.0.21+/MariaDB), else
-  emulate (`INSERT` + `SELECT` of affected keys) or document the gap.
-- **`generateMysqlUpStatements`** — additive-only DDL
-  (`CREATE TABLE`/`ADD
-  COLUMN`), engine/charset/collation, `AUTO_INCREMENT`,
-  index/`CHECK` quirks; destructive diffs detected and withheld like the other
-  generators.
-- **Type mapping & round-trips** — `BOOLEAN`=`TINYINT(1)`, `JSON`,
-  `DATETIME`/`TIMESTAMP`/timezone, `DECIMAL`/`BIGINT` string-vs-number.
-- **Advisory-lock equivalent** — `GET_LOCK`/`RELEASE_LOCK` (named locks) for the
-  migration history store (parity with pg's `pg_advisory_lock`).
-- **CLI** — one `INIT_TARGETS` entry (id/aliases/dialect/connection hints).
-- **Tests, docs, matrix** — a gated integration suite (`SISAL_MYSQL_IT=1`,
-  Docker `mysql:8` and — if in scope — MariaDB), `docs/mysql-compatibility.md`,
-  and a **fifth column in the feature matrix** (test-backed, per the existing
-  guard).
+- **Driver integration (B4)** — wire the drivers **chosen and benchmarked in
+  v0.6 C6**: `npm:mysql2` as the lazily-imported default with
+  `supportBigNumbers` + `bigNumberStrings` **mandatory** (its default `BIGINT`
+  decode is silently lossy past 2⁵³), `npm:mariadb` as the lazy opt-in (the
+  postgres.js pattern), behind the injectable-executor seam. Executor value
+  normalization per C4: JSON parse-on-read (MariaDB returns text — its `JSON` is
+  a `LONGTEXT` alias), the `TINYINT(1)` → boolean decision, `Buffer` →
+  `Uint8Array`.
+- ~~**Correct/extend the latent `"mysql"` render path**~~ — **done in v0.6**: C1
+  pinned quoting/placeholders/`ilike`/locking, C2 mapped the upsert, and the
+  C3/C5 guard sweep corrected every `dialectGuard` set — **no construct renders
+  wrong SQL under `mysql`**. ~~What remains is **lifting** two typed throws with
+  real renderings (B2).~~ **Done — B2 (2026-07-01)**: `filter()` renders the
+  `CASE WHEN` fallback and the date helpers render their mysql variants; see the
+  task detail.
+- ~~**Upsert**~~ — **decided and implemented in v0.6 C2**: `onConflict*`
+  dialect-maps to `ON DUPLICATE KEY UPDATE` in core, with `excluded()` →
+  `values(col)` (target validated-not-rendered; conflict `where` throws; DO
+  NOTHING → no-op self-assignment). The adapter **consumes** this; the 8.0.19+
+  `AS new` row alias is variant/version work on the B1 axis.
+- **`RETURNING` (B7)** — the render path already throws a typed guard (v0.6 C3;
+  MySQL 8/9 has **no** `RETURNING`, and MariaDB's is per-statement and
+  per-version). The adapter work is the execution strategy: a fetch-by-key
+  fallback in the executor, and/or lighting MariaDB
+  `INSERT`/`DELETE …
+  RETURNING` per-statement through the B1 capability
+  descriptor.
+- **`generateMysqlUpStatements` (B5)** — additive-only DDL implemented **to the
+  probe-verified C4 spec** ([mysql-ddl-mapping.md](mysql-ddl-mapping.md)):
+  table-level FKs only (inline `REFERENCES` is silently ignored by MySQL),
+  paren-wrapped expression defaults, **no** `ENGINE`/`CHARSET` clause, no
+  `CREATE INDEX IF NOT EXISTS`, and the three generation-time validations
+  (`AUTO_INCREMENT` placement, no bare `TEXT` keys, partial/functional-index
+  rejection); destructive diffs withheld like the other generators. Version
+  floor: MySQL ≥ 8.0.16, MariaDB ≥ 10.10.
+- ~~**Type mapping & round-trips**~~ — **designed and probe-verified in v0.6
+  C4** (the full kind→type table incl. `BOOLEAN`=`TINYINT(1)`, `timestamp` →
+  `DATETIME(6)`, `timestamptz` → `TIMESTAMP(6)` with the 2038 caveat, `.array()`
+  → `JSON`, `bytea` → `LONGBLOB`); v0.7 implements it in B4/B5.
+- **Advisory-lock equivalent (B6)** — `GET_LOCK`/`RELEASE_LOCK` (named locks)
+  for the migration history store (parity with pg's `pg_advisory_lock`), as
+  recorded in C4 — also the lock the v0.6 A2 ETL contract expects.
+- **CLI (B9)** — one `INIT_TARGETS` entry (id/aliases/dialect/connection hints).
+- **Tests, docs, matrix (B8)** — fill the reserved `"mysql"` slot in the
+  consolidated integration structure: an `IntegrationTarget` descriptor
+  (capabilities/value shapes fall straight out of the C4/C5 probes) + a
+  `mysql_family_scenarios.ts` list, gated `SISAL_MYSQL_IT=1` (Docker
+  `mysql:8.4` + `mariadb:11`, the C-series probe servers),
+  `docs/mysql-compatibility.md`, and a **fifth column in the feature matrix**
+  (test-backed, per the existing guard).
+
+## Task detail (Workstream B)
+
+- **B1 — the `(engine, variant, version)` dialect axis. ✅ Done (2026-07-01).**
+  The C5 dialect-identity decision is now core code, landed **before the v0.8 IR
+  freeze** as required, pinned by `packages/orm/dialect_identity_test.ts`:
+  - **`DialectIdentity`** (`{ dialect, variant?, version? }`) — `SqlDialect`
+    stays the render key; a bare dialect means "base engine, version unknown".
+    Accepted everywhere a dialect was
+    (`renderSql`/`renderToPlan`/`normalizeSqlInput`, non-breaking), carried by
+    the `Database` facade as `dialectIdentity`
+    (`createDatabase({ dialect, variant, version })`, inherited by transaction
+    facades) — the adapter (B4) fills it from the server handshake.
+  - **`dialectGuard` generalized, declaratively** — guard chunks stay
+    serializable data (the IR-freeze constraint): targets may narrow to one
+    `variant`, and `unless` refinements (`{ variant?, minVersion? }`) lift a
+    guard per identity. **Fail closed:** an unknown version never satisfies
+    `minVersion` — capabilities light up only when the adapter has identified
+    the server. `compareServerVersions` (dotted-numeric prefix, suffix-blind:
+    `"11.8.8-MariaDB-ubu2404"`) is exported for adapters.
+  - **First real consumer:** the `RETURNING` guard split per statement kind with
+    the probe-verified MariaDB floors — `INSERT` 10.5+, `DELETE` 10.0.5+,
+    `UPDATE` 13.0+ — so a `mariadb` identity renders
+    `INSERT`/`DELETE …
+    RETURNING` while `UPDATE … RETURNING` stays guarded
+    until 13.0, and plain `mysql` keeps the C3 behavior unchanged (dormant until
+    B4 wires the identity).
+  - **Snapshot half:** `SisalSchemaSnapshot` gains optional
+    `dialectVariant`/`dialectVersion` (additive — older snapshots unchanged,
+    `SCHEMA_SNAPSHOT_VERSION` stays 2), accepted by `createSchemaSnapshot` for
+    B5's variant-aware DDL decisions.
+  - Open for B4: the identity is static at facade construction, but adapters
+    connect lazily — the connect path needs a resolve-then-build step (or a
+    re-identify hook) to fill variant/version from `select version()`.
+- **B2 — mysql renderings for `filter()` + the date helpers. ✅ Done
+  (2026-07-01).** The last two typed throws are lifted with real renderings,
+  **executed live on MySQL 8.4.10 and MariaDB 11.8.8 with semantic checks**
+  (identical values to the pg/sqlite behavior) before pinning in
+  `packages/orm/mysql_dialect_test.ts`:
+  - **`filter()` → `agg(CASE WHEN cond THEN operand END)`.** The compose-only
+    fragment IR cannot introspect an opaque `sum("col")`, so the exported
+    aggregates (`count`/`countDistinct`/`sum`/`avg`/`min`/`max`) now stamp
+    rebuild metadata into a WeakMap (the `RESULT_METADATA` precedent — frozen
+    fragments and the public surface untouched); `filter()` rebuilds the mysql
+    variant from it (`count(*)` counts a literal `1`; `countDistinct` keeps
+    `DISTINCT`; NULLs from non-matching rows are skipped by every aggregate,
+    matching `FILTER` semantics — verified with live sums/counts/ averages). A
+    hand-written `` sql`…` `` aggregate has no metadata and keeps the typed
+    throw — an honest bound, and a data point for the v0.8 introspectable-IR
+    question.
+  - **Date helpers**: `dateTrunc` → `DATE_FORMAT` (string result like the SQLite
+    family; MySQL minutes are `%i`), `now()` → `NOW(6)` (microseconds, matching
+    pg), `dateAdd`/`dateSub` → nested `DATE_ADD(…, INTERVAL ? unit)` with bound
+    quantities, `dateBin` → `FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(src)/N)*N)`.
+    Live checks covered hour-bucket grouping, 30-minute binning, ±shifts, and
+    the moving-window predicate (`gte(col, dateSub(now(), {...}))`) on both
+    engines.
+  - **B4 finding (recorded):** mysql2's binary protocol rejects a bound
+    `LIMIT ?` on MySQL 8.4 (`Incorrect arguments to mysqld_stmt_execute`) but
+    accepts it on MariaDB 11.8; identical SQL passes via the text protocol on
+    both. The B4 executor must handle LIMIT/OFFSET binding (coerce, inline
+    validated integers, or route through `query()`).
+- **B3 — scaffold `@sisal/mysql`. ✅ Done (2026-07-01).** `packages/mysql/`
+  exists with the shared adapter shape (`orm/` = dialect · errors · pool ·
+  executor · driver · mod), wired into the workspace, `check`, `test`, and docs
+  gates, and **smoke-tested against live MySQL 8.4.10 and MariaDB 11.8.8**
+  (builder round trip through the real lazy `mysql2` pool, the C2 ODKU upsert,
+  transaction rollback, and MariaDB `INSERT … RETURNING` returning real rows
+  through the B1 identity):
+  - **Injectable executor seam**
+    (`connect({ executor | pool | client |
+    url })`) — the 8 unit tests run
+    network-free against a recording fake, covering result mapping (row arrays
+    vs mysql2's affected-rows header), transaction isolation/rollback, Temporal
+    param normalization, batch atomicity, pool ownership on close, and
+    end-to-end facade rendering.
+  - **`mysql2/promise` imported lazily** on first connection (the
+    `@sisal/libsql` discipline); the pool always sets the C6-mandated
+    `supportBigNumbers` + `bigNumberStrings`.
+  - **Text protocol (`query()`) is the execution path**, sidestepping the B2
+    `LIMIT ?` binary-protocol finding by construction; a prepared-statement mode
+    can arrive as a B4 opt-in.
+  - **Identity plumbing:** `connect({ variant, version })` fills the B1
+    `dialectIdentity` (exported `MARIADB_VARIANT`); adapter-side auto-detection
+    from the handshake is B4/B9 work.
+  - Exports are `.` and `./orm` only; `./migrate` and `./ddl` land with B5/B6.
+    JSR publish dry-run passes for `@sisal/mysql@0.7.0`.
+- **B4 — drivers + executor hardening. ✅ Done (2026-07-01).** Verified live on
+  both engines **× both drivers** (four combinations); pinned by 6 new
+  network-free unit tests (14 total in the package):
+  - **Identity auto-detection resolves B1's lazy-connect question:** `connect()`
+    runs `select version()` once (through the executor, so it works for
+    `url`/`pool`/`client` sources alike), parses it with the new
+    `parseMysqlServerVersion` (MariaDB self-identifies in the string), and
+    builds the facade with the filled identity. Defaults: **on** for real
+    sources without an explicit `variant`/`version`, **off** for injected
+    executors (the test seam); `detectVersion: false` restores a fully lazy
+    connect (identity stays base — fail closed, everything version-gated stays
+    guarded). Live proof: against the MariaDB container, `INSERT … RETURNING`
+    returns rows **with zero configuration**; against MySQL 8.4 it stays a typed
+    guard.
+  - **`connect({ driver: "mariadb" })` opt-in** — the C6 performance candidate,
+    adapted to the shared `MysqlPool` contract (`adaptMariadbPool`) and resolved
+    through a **runtime-computed specifier**, so the LGPL connector stays a
+    soft, run-time-only dependency (the postgres.js pattern; the publish
+    dry-run's `unanalyzable-dynamic-import` warning is that pattern's
+    signature). The mysql2-compatible `supportBigNumbers`+`bigNumberStrings`
+    options hold on it too (live: bigint → `"9007199254740993"` on both
+    drivers).
+  - **Live-probe catch:** the MariaDB connector **JSON-serializes a plain
+    `Uint8Array` parameter** (`{"0":7,…}` — silent BLOB corruption); the adapter
+    now re-views binary params as Node `Buffer`s (no copy) before handing them
+    over. Pinned in the unit tests; both drivers now round-trip `[7,8,9]`
+    byte-identically.
+  - **Value normalization:** BLOB reads are re-viewed as plain `Uint8Array`s
+    (matching `columns.bytea()`'s inferred type across adapters). **`TINYINT(1)`
+    stays `0`/`1`** — decision recorded below. JSON on MariaDB stays text (its
+    `JSON` is a `LONGTEXT` alias and the wire protocol cannot distinguish it
+    from `TEXT`, so a mechanical executor-level parse is impossible without
+    guessing) — a documented variant value-shape for the B8 compat doc, exactly
+    like the SQLite family's json-as-text row.
+- **B5 — `generateMysqlUpStatements`. ✅ Done (2026-07-01).**
+  `packages/mysql/migrate/ddl.ts` (the new `@sisal/mysql/ddl` export),
+  implemented to the probe-verified C4 spec and pinned by 12 network-free unit
+  tests; the **generated** output was applied live to MySQL 8.4.10 and MariaDB
+  11.8.8 (kitchen-sink table + FK pair + incremental `ADD COLUMN`, with firing
+  defaults and enforced FK/CHECK) — closing the loop the C4 probe opened with
+  hand-written DDL:
+  - **The full C4 type table** (`serial`/`bigserial` → `AUTO_INCREMENT`, `real`
+    → `FLOAT`, `timestamp` → `DATETIME(6)`, `timestamptz` → `TIMESTAMP(6)` with
+    explicit `NULL` when nullable, `uuid` → `CHAR(36)`, `bytea` → `LONGBLOB`,
+    `json`/`jsonb`/`.array()` → `JSON`, length-less `varchar` → `VARCHAR(255)`,
+    `dialectType` verbatim); unknown kinds map to `TEXT`, where the TEXT rules
+    below make them fail closed.
+  - **The portable-defaults rule live-verified:** expression defaults always
+    paren-wrap (`DEFAULT (uuid())`, `DEFAULT (CURRENT_TIMESTAMP(6))` — both
+    fired on both engines), literals paren-wrap only on TEXT/BLOB/JSON-mapped
+    columns (which MySQL otherwise rejects), booleans render `1`/`0`.
+  - **Foreign keys table-level only, after every `CREATE TABLE`** (inline
+    `REFERENCES` is silently ignored by MySQL) — the probe's child table
+    deliberately sorts before its parent, proving the ordering. No
+    `ENGINE`/`CHARSET` clause; `CHECK` emitted as-is (enforced live on both).
+  - **Three fail-closed generation-time validations** (typed
+    `ORM_DIALECT_UNSUPPORTED`): an `AUTO_INCREMENT` column must **lead** a key
+    (the InnoDB rule — first column of a PK/unique/index, not mere membership),
+    at most one per table, and never via `ADD COLUMN` (the additive generator
+    emits no key changes); no `TEXT`/`BLOB`/`JSON`-mapped key columns (MySQL
+    needs a prefix length the snapshot cannot express — the error points at
+    `varchar(n)`); no partial (`WHERE`, rejected by both engines) or functional
+    (MySQL-only, MariaDB rejects) indexes.
+  - Same module shape as pg's generator: additive/destructive split via
+    `planSchemaChangesFromDiff`, `mysql`-dialect schema objects after tables,
+    schema qualifiers emitted as database qualifiers (backticked).
+- **B6 — migrate wiring. ✅ Done (2026-07-01).** `packages/mysql/migrate/` now
+  has the full shared shape (`driver` · `history` · `migrator` · `ddl`);
+  `@sisal/mysql/migrate` is exported. Pinned by 7 network-free unit tests;
+  verified live on **both engines × both drivers** (four combinations): migrate
+  → idempotent re-run → rollback with B5-**generated** DDL as the migration
+  bodies, ledger round-trip (`appliedAt` matched true UTC against the wall clock
+  — the Date-param local-serialize/local-parse pair cancels symmetrically), and
+  real two-connection lock contention (`A=true B=false` → release → `B=true`).
+  - **`GET_LOCK`/`RELEASE_LOCK` named locks** — the `pg_advisory_lock` analogue
+    the C4 report called for. Names pass through verbatim (no hashing, unlike
+    pg's FNV-hashed bigint keys), validated non-empty and ≤ 64 chars (the MySQL
+    cap) before any session is acquired. `GET_LOCK` is **connection-scoped**, so
+    the store holds it on a pinned executor session (`acquireSession`, the pg
+    design) — the lock dies with the connection, which is the crash-safety
+    property advisory locking wants. The store coerces the lock result robustly:
+    the mandated bigint-as-string driver options decode `GET_LOCK`'s BIGINT as
+    the _string_ `"1"` on mysql2 (number on the mariadb connector) — both
+    pinned.
+  - **The history ledger obeys the adapter's own B5 rules:**
+    `id varchar(255) primary key` (a `TEXT` key is invalid MySQL) and
+    `applied_at datetime(6)` (no timezone conversion, no 2038 cliff);
+    `appliedAt` is written as a `Date` param because an ISO string's trailing
+    `Z` is rejected by `DATETIME`.
+  - **`useTransaction` defaults to `false`** — unlike pg: MySQL/MariaDB have no
+    transactional DDL (every `CREATE`/`ALTER` implicitly commits), so a wrap
+    around schema migrations is a false promise. Opt-in remains for DML-only
+    migrations, where it also makes the history mark atomic.
+  - The migrate executor reuses the ORM adapter's connection-source routing, so
+    `driver: "mariadb"` (and its B4 Buffer fix + decode options) applies to
+    migrations for free.
+- **B7 — `RETURNING` execution strategy. ✅ Done (2026-07-01).** The new
+  `insertReturning(db, table, values)` helper
+  (`packages/mysql/orm/returning.ts`), pinned by 8 network-free unit tests and
+  verified live on **both engines × both drivers**. Strategy selection is
+  automatic and rows come back in input order under both:
+  - **Attempt real `INSERT … RETURNING` first** — on a facade whose detected
+    identity lights it (MariaDB ≥ 10.5) this is one statement with true
+    semantics. The helper catches exactly the core guard's typed error
+    (`ORM_DIALECT_UNSUPPORTED` + `details.construct`) and falls back — the core
+    stays the **single source of truth** for variant/version floors; no
+    duplicated version logic in the adapter.
+  - **Fetch-by-key fallback** in a transaction: all-explicit primary keys → one
+    `INSERT` + one `SELECT` back; a single-column key with missing values →
+    **one `INSERT` per row capturing each statement's own `LAST_INSERT_ID`**.
+    Deliberately no first-id-plus-offset arithmetic: MySQL 8.4's live-confirmed
+    default `innodb_autoinc_lock_mode = 2` (interleaved; MariaDB 11.8 ships `1`)
+    does not guarantee a batch's ids are consecutive, so the arithmetic shortcut
+    (Drizzle's `$returningId` approach) can silently return someone else's rows.
+  - **Honest corners fail typed** (`ORM_INVALID_QUERY`), never wrong: no primary
+    key, a composite key not fully provided, a `Sql`-expression key value, or a
+    server-generated non-`AUTO_INCREMENT` key (`DEFAULT (uuid())` is invisible
+    to `LAST_INSERT_ID`) — the live probe shows the same call returning real
+    rows on MariaDB (`RETURNING` sees the generated uuid) and refusing typed on
+    MySQL.
+  - Plumbing: `insertId` now flows executor → driver → facade result
+    (`MysqlQueryResult.insertId`; 0 normalized to absent; the mariadb
+    connector's `bigint` re-viewed as a precision-safe string), and key matching
+    stringifies both sides — the same id can surface as number 7
+    (`LAST_INSERT_ID`), string `"7"` (bigint-as-string column decode), or
+    `bigint` depending on driver and column type.
+- **B8 — the integration proof. ✅ Done (2026-07-01).** The reserved `"mysql"`
+  slot is filled and the fifth/sixth feature-matrix columns are live and
+  test-backed. **42 shared mysql-family scenarios** run green against **both**
+  engines (`integration/mysql_features_test.ts` on MySQL 8.4.10,
+  `integration/mariadb_features_test.ts` on MariaDB 11.8.8), and also pass on
+  the opt-in mariadb driver:
+  - **One scenario list, two capability profiles.** MySQL and MariaDB are one
+    adapter but distinct profiles (`IntegrationAdapterId` gained `"mariadb"`);
+    `makeMysqlFamilyTarget` builds both from a shared factory that differs only
+    in `returning`, `json`/`array` value shape, and env gate. Scenarios branch
+    on the target's declared capabilities, so each divergence is a **tested
+    fact**: MySQL's `.returning()` throws the typed guard (and the B7
+    `insertReturning` fetch-by-key strategy carries the insert scenario), while
+    MariaDB's auto-detected identity lights `INSERT`/`DELETE … RETURNING`;
+    `UPDATE … RETURNING`, `FULL JOIN`, `distinctOn`, dm-CTEs, and
+    partial/expression indexes all assert their typed guards live. B10 later
+    moves `UPDATE … FROM`/`DELETE … USING` from that guard set into tested MySQL
+    multi-table mutation support.
+  - **Matrix and docs.** `tools/feature_matrix.ts` gained `mysql`+`mariadb`
+    columns (36 features × 6 adapters = 216 cells; 198 ✅/⚠️ each backed by a
+    named scenario, enforced by `docs:matrix:check`); MariaDB is its own column,
+    not a footnote (`RETURNING` and JSON-as-text prove it).
+    `docs/mysql-compatibility.md` is the per-engine page, and the homepage
+    `#compat` section gained MySQL/MariaDB badges + link.
+  - **Three real bugs the live suite caught** (invisible to the network-free
+    unit tests, all fixed in core/adapter and re-pinned): JSON/array params
+    reached mysql2's text protocol un-serialized (an object became invalid SQL,
+    an array **expanded** into N params, silently shifting later placeholders) —
+    the executor now `JSON.stringify`s plain objects/arrays; `DATETIME` columns
+    decoded to client-local `Date`s (timezone-shifting server values) — the pool
+    now sets `dateStrings: true`; and instants serialized with a trailing `Z`
+    that MySQL rejects in datetime literals — the core renderer now tags instant
+    params and rewrites them to **naive UTC** under the `mysql` render dialect
+    (the "executor UTC convention"), leaving the `postgres`, `sqlite`, and
+    `generic` render paths untouched.
+- **B9 — CLI target + basic example. ✅ Done (2026-07-01).**
+  `sisal init --target mysql` now scaffolds a `dialect: "mysql"` migration
+  config with `MYSQL_URL ?? DATABASE_URL` connection hints; `mariadb` is an
+  alias for the same adapter target. The CLI default adapter loader resolves
+  `@sisal/mysql/ddl` and `@sisal/mysql/migrate` for `generate`, `migrate`,
+  `status`, and `drift`. `examples/mysql-family-basic` joins the runnable
+  workspace examples: it prints MySQL DDL without a database, and runs a tiny
+  connect/create/insert/count flow against `mysql2` or the MariaDB connector via
+  `SISAL_ADAPTER`.
+- **B10 — multi-table mutation mapping. ✅ Done (2026-07-01).** The existing
+  portable builders are unchanged, but the mysql renderer now maps
+  `update(t).from(source)` to `UPDATE t, source SET t.col = … WHERE …` and
+  `delete(t).using(source)` to `DELETE FROM t USING t, source WHERE …`.
+  PostgreSQL/SQLite `UPDATE … FROM` rendering is unchanged; SQLite
+  `DELETE … USING` remains a typed guard. Multi-table mutation plus
+  `.returning()` remains guarded for the MySQL family, including MariaDB,
+  because the proven B7 `RETURNING` support is per-statement/single-table. The
+  shared mysql-family integration scenario now exercises `UPDATE FROM`,
+  `DELETE USING`, and `INSERT SELECT`, and the matrix marks the MySQL/MariaDB
+  mutation-joins cells as ✅.
+  - **Follow-up (2026-07-02, CI-caught):** MariaDB parses a `WITH` prefix only
+    on `SELECT`, so the CTE-prefixed forms of these mutations were a raw 1064
+    there. The `WITH` prefix on `INSERT`/`UPDATE`/`DELETE` is now a
+    variant-narrowed typed guard (`{ dialect: "mysql", variant: "mariadb" }`),
+    the scenario branches on a `mutationCte` capability (MariaDB asserts the
+    guard and runs the same mutation via a derived-table source), and the
+    divergence is a row in [mysql-compatibility.md](mysql-compatibility.md).
+    Mutation joins themselves stay ✅ on both engines.
 
 ## Deliverables
 
@@ -9737,32 +11114,56 @@ MariaDB parity only if the v0.6 investigation scoped it in.
 
 ## Risks
 
-- **Upsert / `RETURNING` divergence** — the most likely source of a leaky
-  abstraction; the v0.6 report must have pinned the mapping.
-- **Driver maturity on Deno** — a weak MySQL driver could force more work or a
-  different choice than v0.6 assumed.
-- **Type round-trip surprises** — `TINYINT(1)` booleans, `DATETIME` timezones,
-  `DECIMAL` precision — mirror the pg `numeric`/float8 lessons (v0.5 item 11).
-- **Test infrastructure** — Docker `mysql:8` (+ MariaDB) services in CI, gated
-  like the existing suites.
+- ~~**Upsert / `RETURNING` divergence** — the most likely source of a leaky
+  abstraction.~~ **Retired by v0.6 C2/C3:** the mapping is implemented and
+  pinned (upsert renders correct MySQL; `RETURNING` throws a typed guard); what
+  remains is B7's execution-side strategy, a bounded design.
+- ~~**Driver maturity on Deno**~~ — **retired by v0.6 C6:** both drivers were
+  benchmarked from Deno 2.9 against real MySQL 8.4.10 and MariaDB 11.8.8 and
+  dual-runtime-verified on Node 26; no Nagle-class stall exists in any
+  candidate.
+- **Type round-trip surprises** — mostly de-risked by the C4 probe
+  (`TINYINT(1)`, `DATETIME(6)`, JSON-as-text on MariaDB, the lossy-bigint
+  default are all known and specced), but the executor implementation can still
+  get them wrong — the value-shape scenario assertions in B8 are the guard.
+- **Test infrastructure** — Docker `mysql:8.4` + `mariadb:11` services in CI,
+  gated like the existing suites (the C-series probes already run against
+  exactly these images locally).
+- ~~**Sequencing** — B1 (the dialect axis) must land before the v0.8 IR freeze,
+  and B2 gates B8 (the shared scenario bodies use `filter()`/date helpers).~~
+  **Retired (2026-07-01):** B1 and B2 both landed first, in order — the freeze
+  deadline is met and B8 is unblocked.
 
 ## Open questions
 
 - MySQL 8 only, or MySQL + MariaDB (affects `RETURNING`, sequences, JSON funcs)?
-  **Resolved by the v0.6 dialect-key decision:** the dialect is
-  `(engine,
-  version)` with `mysql` and `mariadb` as distinct variants, so the
-  adapter ships MySQL-8-first while keeping MariaDB / older-MySQL handling
+  **Resolved by v0.6 C5:** one adapter, **both** — MySQL ≥ 8.0.16 baseline,
+  MariaDB ≥ 10.10 via the variant-aware capability descriptor; the dialect key
+  is `(engine, variant, version)`, so MariaDB / older-MySQL handling stays
   **additive**.
-- Is `onDuplicateKeyUpdate` a MySQL-only builder method, or does `onConflict*`
-  dialect-map onto it?
-- Does the latent `"mysql"` row-value/keyset path actually work, or need fixes?
+- ~~Is `onDuplicateKeyUpdate` a MySQL-only builder method, or does `onConflict*`
+  dialect-map onto it?~~ **Answered by v0.6 C2:** `onConflict*` dialect-maps (no
+  separate surface), with the typed `excluded()` helper.
+- ~~Does the latent `"mysql"` row-value/keyset path actually work, or need
+  fixes?~~ **Answered by B8 (2026-07-01): it works.** Both keyset forms —
+  expanded and row-value `(a, b) < (x, y)` — paginate identically live on MySQL
+  8.4 and MariaDB 11.8 (the "keyset pagination" scenario runs both forms and
+  asserts the same id order).
+- ~~Where does the `TINYINT(1)` → `boolean` decode decision land (executor
+  default vs opt-in), given the SQLite family's `0`/`1` precedent?~~ **Decided
+  (B4, 2026-07-01): no auto-decode** — `BOOLEAN` round-trips as `0`/`1`,
+  matching the SQLite family's documented value shape. A `TINYINT(1)` display
+  width does not guarantee boolean semantics (users store 0–127), so
+  auto-decoding would corrupt legitimate tiny integers; the matrix marks it ⚠
+  like sqlite/libsql. Revisit only if a reliable signal appears.
 
 ## Acceptance criteria
 
-- `@sisal/mysql` passes the shared OLTP feature suite (CRUD, joins, tx,
-  prepared, CTEs, window functions, upsert, migrations) against `mysql:8`, gated
-  by `SISAL_MYSQL_IT=1`.
+- `@sisal/mysql` passes a mysql-family scenario suite covering the shared OLTP
+  surface (CRUD, joins incl. the `FULL JOIN` guard, tx, prepared, `SELECT` CTEs,
+  upsert via the C2 mapping, `filter()`/date helpers once B2 lifts their guards,
+  migrations) against `mysql:8.4` **and** `mariadb:11`, gated by
+  `SISAL_MYSQL_IT=1`.
 - The feature matrix gains **test-backed MySQL (and, where they diverge,
   MariaDB) columns**; divergences are `⚠️` with documented round-trip notes,
   genuine limits are `❌`. (MariaDB is a distinct capability profile, not a
@@ -9773,7 +11174,8 @@ MariaDB parity only if the v0.6 investigation scoped it in.
   (`RETURNING`, `WITH RECURSIVE`, `JSON_TABLE`) is gated on it and fails
   **typed**, not as a raw engine error. This is the adapter-level seed of the
   v0.8 capability descriptor.
-- `@sisal/orm`/core render output for the other four dialects is unchanged.
+- `@sisal/orm`/core render output for the other four adapters (pg, neon, sqlite,
+  libsql) is unchanged.
 
 ## Affected packages
 
@@ -9784,19 +11186,32 @@ MariaDB parity only if the v0.6 investigation scoped it in.
 
 ## Required examples / tests
 
-- A gated `integration/mysql_features_test.ts` mirroring the pg/sqlite suites.
-- Network-free render tests for the MySQL dialect (quoting, placeholders,
-  upsert, DDL).
-- A basic `examples/basic-mysql` mirroring the other `basic-*` examples.
+- A gated `integration/mysql_features_test.ts` entrypoint filling the reserved
+  `"mysql"` slot of the consolidated integration structure (an
+  `IntegrationTarget` in `integration/_targets/` + a `mysql_family_scenarios.ts`
+  in `integration/_shared/`).
+- Network-free render tests for the MySQL dialect — **the v0.6 baseline already
+  exists** (`packages/orm/mysql_dialect_test.ts`, `etl_rollup_test.ts`); extend
+  rather than start.
+- MySQL-family runnable examples following the dialect-family taxonomy:
+  `examples/mysql-family-basic`, `examples/mysql-family-showcase`, and
+  `examples/mysql-family-feed`. The feed is intentionally product-shaped, not a
+  thin smoke test: it uses MySQL-safe `DATETIME(6)` literals, `varchar(36)`
+  keys, row-value keyset pagination, affected-row actor dedupe, and both
+  TypeScript and builder-CTE rising-score recompute paths.
 
 ## Dialect compatibility notes
 
 MySQL 8 supports CTEs, window functions, and row locking (much of the surface is
-portable); the principled divergences are **upsert** (`ON DUPLICATE KEY UPDATE`
-≠ `ON CONFLICT`), **uneven `RETURNING`**, **`BOOLEAN`=`TINYINT(1)`**, and
-**MySQL-vs-MariaDB**. `distinctOn` and the Postgres array operators stay `❌`
-(guarded). This column feeds the v0.9 hardening and the ETL/analytics dialect
-matrices.
+portable — the v0.6 C5 probe verified windows/CTEs/`INTERSECT`/`EXCEPT` on both
+engines). The upsert divergence is **already mapped** (C2); the remaining
+principled divergences are **uneven `RETURNING`** (guard today, B7 strategy),
+**`BOOLEAN`=`TINYINT(1)`**, **JSON decoding** (parsed on MySQL, text on
+MariaDB), and **MySQL-vs-MariaDB** (`LATERAL`/`->>`/functional indexes
+MySQL-only; `SEQUENCE`/native `UUID`/extended `TIMESTAMP` MariaDB-only — carried
+by the B1 capability descriptor). `distinctOn`, the Postgres array operators,
+`FULL JOIN`, and data-modifying CTEs stay `❌` (guarded). This column feeds the
+v0.9 hardening and the ETL/analytics dialect matrices.
 
 ---
 
@@ -9906,6 +11321,84 @@ no breaking change to the public ORM builder API beyond import paths.
   by the clean DAG but still broad.
 - **Window/data-modifying-CTE rendering divergence** across dialects.
 
+## Findings from MySQL-family examples
+
+Building `examples/mysql-family-showcase` and `examples/mysql-family-feed` made
+these v0.8 pressure points concrete:
+
+- **DDL rollback is not portable.** The PostgreSQL showcase can run inside a
+  rollback transaction; MySQL/MariaDB DDL implicitly commits, so the MySQL
+  showcase must create namespaced tables and drop them in cleanup.
+- **Write-result shape matters.** MySQL proper lacks general `.returning()`, so
+  flows need `insertReturning` or fetch-after-write. MariaDB lights only some
+  `RETURNING` forms by variant/version, proving the capability descriptor must
+  be declarative and version-aware.
+- **Actor dedupe exposes a missing abstraction.** The feed detects first touch
+  in a bucket by pre-checking the actor row and then reading
+  `onConflictDoNothing().execute().rowCount` on the insert path; rowCount alone
+  was not reliable with the portable MySQL no-op update rendering. Sisal has no
+  higher-level "inserted vs conflicted" result, so application code must know
+  affected-row semantics.
+- **MySQL upsert assignment order leaks through.** The bucket upsert must assign
+  the derived `activity_score` before incrementing the counters, because MySQL
+  evaluates `ON DUPLICATE KEY UPDATE` assignments left-to-right. A future
+  expression/assignment abstraction should make that hazard harder to miss.
+- **Expression reuse is still awkward.** The builder-native CTE recompute
+  repeats filtered aggregate fragments and derived metric expressions; it also
+  uses raw `sql` for `coalesce`, `greatest`, and the final rising-score formula.
+  This strengthens the case for expression aliases and computed fields in the
+  public compile target.
+- **Statement assembly is a real boundary.** The feed wants a stable
+  statement-assembly or `@sisal/core` compile target for chained SELECT CTEs,
+  multi-table update, MariaDB's CTE-update fallback, and fetch-after-write
+  orchestration, but today that composition depends on ORM builders.
+- **Time handling must be explicit.** MySQL `DATETIME(6)` paths need a
+  documented UTC literal policy (`YYYY-MM-DD HH:mm:ss.SSS000`), and helpers such
+  as `dateTrunc`/`dateBin` return string-like values on MySQL/SQLite instead of
+  PostgreSQL timestamp values.
+
+## Findings from advanced SQL example graduation
+
+Building `examples/postgres-family-advanced-sql`,
+`examples/mysql-family-advanced-sql`, and `examples/sqlite-family-advanced-sql`
+graduated the Markdown contracts into workspace-checked examples while keeping
+every missing primitive visible.
+
+| Contract                         | Families                                          | Current implementation                                                                                                    | v0.8 analysis / fix target                                                                                                    |
+| -------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 01 ETL rollup                    | pg/neon, mysql/mariadb, sqlite/libsql             | Builder-native `insert().select()` + `filter()` + `dateTrunc()` + upsert.                                                 | Add expression aliases so repeated filtered aggregates and derived metrics are named once and reused safely.                  |
+| 02 Window analytics              | pg/neon, mysql/mariadb; sqlite/libsql when probed | Parameterized raw SQL with `avg(...) over`, `rank()`, partitions, and frames.                                             | Add core `over()`, window specs, frame builders, ranking helpers, and capability gates.                                       |
+| 03 Sessionization                | pg/neon, mysql/mariadb                            | Parameterized raw SQL with `lag()` and per-dialect gap math; SQLite skipped.                                              | Add `lag`/`lead`, portable date-diff/gap helpers, and SQLite semantics before claiming portability.                           |
+| 04 Top-N per group               | pg/neon, mysql/mariadb; sqlite/libsql when probed | Parameterized raw SQL with `row_number()` in a derived table.                                                             | Add row-number/ranking helpers and a clean CTE/derived-table assembly seam.                                                   |
+| 05 Cohort retention              | pg/neon, mysql/mariadb                            | Parameterized raw SQL with first-seen/activity CTEs; SQLite skipped.                                                      | Normalize cohort/date-bucket/date-diff semantics and alias reuse.                                                             |
+| 06 Funnel analysis               | pg/neon, mysql/mariadb                            | Parameterized raw SQL over first-event CTEs; SQLite skipped.                                                              | Add first-event/funnel helpers or enough expression/alias primitives to build them without raw SQL.                           |
+| 07 Recursive comments            | pg/neon, mysql/mariadb; sqlite/libsql when probed | Parameterized raw `WITH RECURSIVE`; dialect-specific path construction.                                                   | Add a recursive CTE builder plus depth/cycle guards and version-aware capability checks.                                      |
+| 08 Job queue locking             | pg/neon, mysql/mariadb; sqlite/libsql CAS path    | Builder `.for("update", { skipLocked: true })` on row-locking engines; SQLite uses probed raw CAS `UPDATE ... RETURNING`. | Design a portable queue-claim/advisory-lock abstraction instead of making apps branch on locking style.                       |
+| 09 Idempotent backfill           | pg/neon, mysql/mariadb                            | Builder rollup plus raw checkpoint upsert; SQLite skipped.                                                                | Define checkpoint/watermark contracts and failure-direction tests before `@sisal/etl`.                                        |
+| 10 JSON table extraction         | pg/neon, mysql/mariadb; sqlite/libsql when probed | Parameterized raw `jsonb_to_recordset`, `JSON_TABLE`, or `json_each`.                                                     | Add JSON-table/set-returning function IR with typed projected columns and version gates.                                      |
+| 11 Generated columns and indexes | pg/neon, mysql/mariadb, sqlite/libsql when probed | Raw DDL; MySQL partial indexes intentionally omitted as impossible.                                                       | Add generated columns, expression indexes, partial indexes, and typed unsupported-combination errors to schema snapshots/DDL. |
+| 12 MySQL compatibility           | mysql/mariadb                                     | ODKU renders builder-native; base MySQL `RETURNING` renders a typed guard.                                                | Move version/variant capabilities into one descriptor consumed by `dialectGuard`, matrix generation, examples, and adapters.  |
+
+Cross-cutting pain points from the graduation:
+
+- **Raw SQL is safe but too necessary.** The examples use parameterized `sql`
+  for windows, recursive CTEs, JSON-table projection, and richer DDL. v0.8
+  should reduce these to small escape hatches, not make downstream packages
+  assemble whole statements by hand.
+- **Capability probing is duplicated.** SQLite/libSQL optional paths need local
+  probes for JSON/window/generated/`RETURNING` support. v0.8's capability
+  descriptor should make examples, guards, and the feature matrix read the same
+  source of truth.
+- **Generated DDL is still table-column-only.** Generated columns, partial
+  indexes, expression indexes, and MySQL's lack of partial indexes are outside
+  schema snapshots, so examples must issue raw DDL.
+- **Write-result semantics remain leaky.** MySQL `RETURNING`, ODKU affected-row
+  behavior, and SQLite CAS `UPDATE ... RETURNING` all point to a future
+  "inserted/claimed/conflicted" result abstraction.
+- **Statement assembly is the key package-boundary decision.** The examples can
+  render advanced SQL today, but ETL/analytics packages need a stable assembler
+  or core compile target that does not depend on ORM internals.
+
 ## Open questions
 
 - **Compose-only fragment IR, or add an introspectable expression AST?**
@@ -9934,16 +11427,18 @@ no breaking change to the public ORM builder API beyond import paths.
   that round-trips a fragment through the seam — so v0.13 cannot be blocked by a
   frozen IR.
 - The capability descriptor's key is **`(engine, version-range)`** — it
-  distinguishes the five adapters (neon ≠ pg, libsql ≠ sqlite) and admits a
-  version predicate, and `dialectGuard` is generalized to a version-aware
-  capability check (e.g. MySQL ≥ 8.0.21 for `RETURNING`, Postgres ≥ 14 for
-  `CYCLE`, SQLite ≥ 3.31). It is the single source the matrix, `dialectGuard`,
-  and ETL/analytics read.
+  distinguishes the five adapter packages (neon ≠ pg, libsql ≠ sqlite) and the
+  six matrix/integration capability targets (`mysql` and `mariadb` split under
+  `@sisal/mysql`), admits a version predicate, and `dialectGuard` is generalized
+  to a version-aware capability check (e.g. MySQL ≥ 8.0.21 for `RETURNING`,
+  Postgres ≥ 14 for `CYCLE`, SQLite ≥ 3.31). It is the single source the matrix,
+  `dialectGuard`, and ETL/analytics read.
 
 ## Affected packages
 
 New `@sisal/core`; `@sisal/orm`, `@sisal/migrate`, `@sisal/pg`, `@sisal/neon`,
-`@sisal/sqlite`, `@sisal/libsql` (re-point imports). No app-visible API break.
+`@sisal/sqlite`, `@sisal/libsql`, `@sisal/mysql` (re-point imports). No
+app-visible API break.
 
 ## Required examples / tests
 
@@ -9955,11 +11450,12 @@ New `@sisal/core`; `@sisal/orm`, `@sisal/migrate`, `@sisal/pg`, `@sisal/neon`,
 ## Dialect compatibility notes
 
 Capability gates become **declarative** (an `(engine, version)` capability
-descriptor — keyed to the five adapters plus a version axis, **not** the 4-value
-render dialect, which collapses neon→postgres and libsql→sqlite) rather than
-scattered render branches. It is the single source the v0.9 matrix and the
-`dialectGuard` both read. Window/data-modifying-CTE/insert-from-select rendering
-is Postgres-first with explicit gates for the SQLite family.
+descriptor — keyed to the five adapter packages and six matrix targets plus a
+version axis, **not** the 4-value render dialect, which still collapses
+neon→postgres and libsql→sqlite) rather than scattered render branches. It is
+the single source the v0.9 matrix and the `dialectGuard` both read.
+Window/data-modifying-CTE/insert-from-select rendering is Postgres-first with
+explicit gates for the SQLite and MySQL families.
 ```
 
 ### docs/v0.9.0-roadmap.md
@@ -10020,11 +11516,11 @@ an engine can't match Postgres.
   one source of truth the feature matrix, the `dialectGuard`, and ETL/analytics
   read. It must distinguish **neon ≠ pg, libsql ≠ sqlite, and mysql ≠ mariadb ≠
   by-version** — the 4-value render dialect cannot (it collapses neon→pg,
-  libsql→sqlite), so the matrix's existing 5-adapter key plus a version axis is
+  libsql→sqlite), so the matrix's six capability targets plus a version axis are
   authoritative.
 - **CTE per-engine execution tests** — CTEs render dialect-agnostically today
   but have **no per-engine integration test**; add them for
-  pg/neon/sqlite/libsql.
+  pg/neon/sqlite/libsql/mysql/mariadb.
 - **Recursive CTE** support decision (`WITH RECURSIVE`) — currently unsupported;
   decide build vs document-as-unsupported.
 - **`@sisal/pg` float8 → number** (v0.5 item 11) — the only adapter returning
@@ -10054,7 +11550,8 @@ an engine can't match Postgres.
   matrix.
 - Integration tests for every ETL/analytics-relevant shape on every supporting
   adapter (extending the existing gated `integration/` suites).
-- Updated `docs/{pg,neon,sqlite,libsql}-compatibility.md` + the unified matrix.
+- Updated `docs/{pg,neon,sqlite,libsql,mysql}-compatibility.md` + the unified
+  matrix.
 
 ## Non-goals
 
@@ -10063,8 +11560,8 @@ no DuckDB.
 
 ## Risks
 
-- **Combinatorial test growth** — every shape × four adapters × fallbacks. Lean
-  on the existing matrix coverage-guard to keep claims honest.
+- **Combinatorial test growth** — every shape × six capability targets ×
+  fallbacks. Lean on the existing matrix coverage-guard to keep claims honest.
 - **Serverless flakiness** — Neon WebSocket tests need the `wsproxy` image; keep
   them gated and deterministic.
 - **Hidden runtime type lies** (like float8) elsewhere — audit numeric/date
@@ -10098,24 +11595,27 @@ no DuckDB.
   reverses it with the resulting dependency edge reflected in `architecture.md`,
   so v0.10 consumes a settled boundary — not an open question restated at ship
   time.
-- The four compatibility docs and the unified matrix reflect the hardened
-  reality.
+- The five compatibility docs and the six-column unified matrix reflect the
+  hardened reality.
 
 ## Affected packages
 
-`@sisal/pg`, `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`, `@sisal/core`
-(capability descriptors), `tools/feature_matrix.ts` + docs.
+`@sisal/pg`, `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`, `@sisal/mysql`,
+`@sisal/core` (capability descriptors), `tools/feature_matrix.ts` + docs.
 
 ## Required examples / tests
 
 - Per-engine integration tests for each ETL/analytics shape and fallback.
-- A numeric round-trip suite (float/numeric/bigint) across all four adapters.
+- A numeric round-trip suite (float/numeric/bigint) across all five adapter
+  packages and six capability targets.
 
 ## Dialect compatibility notes
 
 This release _is_ the dialect compatibility note: it makes the capability matrix
 authoritative and machine-checked. PostgreSQL is the reference; Neon mirrors it
 with serverless caveats; SQLite/libSQL expose only the subset they support
-correctly, with every degradation tested and documented.
+correctly, with every degradation tested and documented. MySQL/MariaDB share the
+`@sisal/mysql` package but keep separate capability rows for named-lock
+behavior, the uneven `RETURNING` surface, and MySQL-family typed gaps.
 ```
 

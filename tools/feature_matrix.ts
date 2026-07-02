@@ -11,8 +11,15 @@
  * @module
  */
 
-/** The four adapters, in matrix-column order. */
-export const ADAPTERS = ["pg", "neon", "sqlite", "libsql"] as const;
+/** The six adapters, in matrix-column order. */
+export const ADAPTERS = [
+  "pg",
+  "neon",
+  "sqlite",
+  "libsql",
+  "mysql",
+  "mariadb",
+] as const;
 export type Adapter = (typeof ADAPTERS)[number];
 
 /** Display labels for the adapter columns. */
@@ -21,6 +28,8 @@ export const ADAPTER_LABELS: Record<Adapter, string> = {
   neon: "Neon",
   sqlite: "SQLite",
   libsql: "libSQL",
+  mysql: "MySQL",
+  mariadb: "MariaDB",
 };
 
 /**
@@ -71,38 +80,103 @@ const TEXT = "No `json`/array type; values auto-serialize to `TEXT` and read " +
 const BOOL = "No native boolean; stored as `INTEGER` `0`/`1`.";
 const BLOB = "`@libsql/client` returns BLOBs as `ArrayBuffer` (wrap with " +
   "`new Uint8Array(value)`); SQLite and Postgres return `Uint8Array`.";
-const PG_ONLY = " Rendering it for a SQLite-family dialect throws a typed " +
-  "`OrmError` at render time, before execution.";
-const DISTINCT_ON = "`DISTINCT ON` is PostgreSQL-only; SQLite-family engines " +
-  "reject it." + PG_ONLY;
+const PG_ONLY = " Rendering it for a SQLite-family or MySQL-family dialect " +
+  "throws a typed `OrmError` at render time, before execution.";
+const DISTINCT_ON = "`DISTINCT ON` is PostgreSQL-only; the SQLite and MySQL " +
+  "families reject it." + PG_ONLY;
 const LOCKING = "No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the " +
   "SQLite family." + PG_ONLY;
 const ARRAY_OPS = "No array type or operators (`@>`/`<@`/`&&`) in the SQLite " +
-  "family." + PG_ONLY;
-const DB_CALL = "No stored-function concept in the SQLite family; " +
-  "`defineFunction`/`db.call` target Postgres.";
+  "or MySQL families." + PG_ONLY;
+const DB_CALL = "No stored-function caller off Postgres; " +
+  "`defineFunction`/`db.call` render PostgreSQL `SELECT * FROM fn(args)`.";
 const DM_CTE =
   "Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) " +
-  "are PostgreSQL-only; the SQLite family's CTEs are `SELECT`-only." + PG_ONLY;
+  "are PostgreSQL-only; SQLite-family and MySQL-family CTEs are " +
+  "`SELECT`-only." + PG_ONLY;
 const DATE_TRUNC =
   "No `date_trunc`; `dateTrunc` renders via `strftime`, which " +
   "returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL " +
   "returns a `timestamp`). Both order and group identically.";
 
+// Shared reasons for the principled MySQL-family divergences (v0.7 B8).
+const MYSQL_RETURNING =
+  "MySQL 8/9 has no `RETURNING`; `.returning()` throws a typed `OrmError` " +
+  "at render time. The adapter's `insertReturning()` helper answers the " +
+  "common case with a transactional fetch-by-key fallback (per-row " +
+  "`LAST_INSERT_ID`, no consecutive-id arithmetic).";
+const MARIADB_RETURNING =
+  "MariaDB `RETURNING` is per-statement: the auto-detected identity lights " +
+  "`INSERT`/`DELETE … RETURNING` (floors 10.5 / 10.0.5); " +
+  "`UPDATE … RETURNING` stays a typed guard (13.0 floor). " +
+  "`insertReturning()` uses the real clause here.";
+const MYSQL_FULL_JOIN =
+  "No `FULL JOIN` in MySQL/MariaDB; rendering it throws a typed `OrmError`. " +
+  "INNER/LEFT/RIGHT joins work.";
+const MYSQL_LIKE =
+  "No `ILIKE` keyword in MySQL/MariaDB; `ilike`/`notIlike` render as " +
+  "`LIKE`/`NOT LIKE`, which the default utf8mb4 collations already compare " +
+  "case-insensitively.";
+const MYSQL_JSON =
+  "No array type; `json`/`jsonb`/`.array()` columns map to `JSON`. MySQL " +
+  "parses values back to objects/arrays on read.";
+const MARIADB_JSON =
+  "MariaDB's `JSON` is a `LONGTEXT` alias, so JSON/array values read back " +
+  "as JSON strings (`JSON.parse` on read) — the same shape as the SQLite " +
+  "family.";
+const MYSQL_BOOL = "No native boolean; stored as `TINYINT(1)` `0`/`1`.";
+const MYSQL_DATE_TRUNC =
+  "No `date_trunc`; `dateTrunc` renders via `DATE_FORMAT`, which returns " +
+  "the truncated bucket as `TEXT`. Both order and group identically.";
+const MYSQL_INDEXES =
+  "`DESC` index keys apply; partial (`WHERE`) indexes are unsupported by " +
+  "both engines and expression indexes are MySQL-only (MariaDB rejects " +
+  "them), so the DDL generator throws a typed `OrmError` for either at " +
+  "generation time instead of shipping SQL one engine rejects.";
+
 /** A row where every adapter is `tested` against the same scenario. */
 const allTested = (feature: string, scenario: string): FeatureRow => ({
   feature,
   scenario,
-  cells: { pg: ok(), neon: ok(), sqlite: ok(), libsql: ok() },
+  cells: {
+    pg: ok(),
+    neon: ok(),
+    sqlite: ok(),
+    libsql: ok(),
+    mysql: ok(),
+    mariadb: ok(),
+  },
 });
 
 /** The unified feature matrix. */
 export const FEATURE_MATRIX: FeatureRow[] = [
   allTested("Connection + raw parameterized SQL", "connect + raw"),
   allTested("Generated DDL (all column types)", "generated DDL applies"),
-  allTested("Insert / update / delete / returning", "insert + returning"),
+  {
+    feature: "Insert / update / delete / returning",
+    scenario: "insert + returning",
+    cells: {
+      pg: ok(),
+      neon: ok(),
+      sqlite: ok(),
+      libsql: ok(),
+      mysql: warn("fetch-by-key", MYSQL_RETURNING),
+      mariadb: warn("per-statement", MARIADB_RETURNING),
+    },
+  },
   allTested("Filter / ordering / pagination", "filter operators"),
-  allTested("Joins (inner / left / right / full)", "joins"),
+  {
+    feature: "Joins (inner / left / right / full)",
+    scenario: "joins",
+    cells: {
+      pg: ok(),
+      neon: ok(),
+      sqlite: ok(),
+      libsql: ok(),
+      mysql: warn("no FULL", MYSQL_FULL_JOIN, "inner / left / right joins"),
+      mariadb: warn("no FULL", MYSQL_FULL_JOIN, "inner / left / right joins"),
+    },
+  },
   allTested("Aggregates / group / having", "aggregates"),
   allTested("Conditional aggregate (`filter`)", "filter aggregate"),
   {
@@ -113,6 +187,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok(),
       sqlite: warn("text", DATE_TRUNC),
       libsql: warn("text", DATE_TRUNC),
+      mysql: warn("text", MYSQL_DATE_TRUNC),
+      mariadb: warn("text", MYSQL_DATE_TRUNC),
     },
   },
   allTested(
@@ -144,7 +220,18 @@ export const FEATURE_MATRIX: FeatureRow[] = [
     "Atomic op single-round-trip dispatch (CTE on PG / interactive on SQLite)",
     "single-round-trip dispatch",
   ),
-  allTested("Rich indexes (DESC / partial / expression)", "rich indexes"),
+  {
+    feature: "Rich indexes (DESC / partial / expression)",
+    scenario: "rich indexes",
+    cells: {
+      pg: ok(),
+      neon: ok(),
+      sqlite: ok(),
+      libsql: ok(),
+      mysql: warn("DESC only", MYSQL_INDEXES),
+      mariadb: warn("DESC only", MYSQL_INDEXES),
+    },
+  },
   allTested("Migrator (apply / plan / idempotent)", "migrator applies"),
   allTested(
     "Stored schema objects (functions / triggers / views)",
@@ -162,6 +249,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("filter operators"),
       sqlite: warn("LIKE", LIKE, "ilike works"),
       libsql: warn("LIKE", LIKE, "ilike works"),
+      mysql: warn("LIKE", MYSQL_LIKE, "ilike works"),
+      mariadb: warn("LIKE", MYSQL_LIKE, "ilike works"),
     },
   },
   {
@@ -171,6 +260,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("jsonb round-trip"),
       sqlite: warn("text", TEXT, "JSON object round-trips"),
       libsql: warn("text", TEXT, "JSON object round-trips"),
+      mysql: warn("JSON", MYSQL_JSON, "JSON object round-trips"),
+      mariadb: warn("text", MARIADB_JSON, "JSON object round-trips"),
     },
   },
   {
@@ -180,6 +271,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("filter operators"),
       sqlite: warn("0/1", BOOL, "boolean stored as INTEGER"),
       libsql: warn("0/1", BOOL, "boolean stored as INTEGER"),
+      mysql: warn("0/1", MYSQL_BOOL, "boolean stored as TINYINT"),
+      mariadb: warn("0/1", MYSQL_BOOL, "boolean stored as TINYINT"),
     },
   },
   {
@@ -190,6 +283,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok(),
       sqlite: ok(),
       libsql: warn("ArrayBuffer", BLOB),
+      mysql: ok(),
+      mariadb: ok(),
     },
   },
   allTested("Float (`float4`/`float8`) round-trip → `number`", "float"),
@@ -200,6 +295,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("distinctOn"),
       sqlite: no(DISTINCT_ON),
       libsql: no(DISTINCT_ON),
+      mysql: no(DISTINCT_ON),
+      mariadb: no(DISTINCT_ON),
     },
   },
   {
@@ -209,6 +306,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("for update"),
       sqlite: no(LOCKING),
       libsql: no(LOCKING),
+      mysql: ok("for update"),
+      mariadb: ok("for update"),
     },
   },
   {
@@ -218,6 +317,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("array operators"),
       sqlite: no(ARRAY_OPS),
       libsql: no(ARRAY_OPS),
+      mysql: no(ARRAY_OPS),
+      mariadb: no(ARRAY_OPS),
     },
   },
   {
@@ -227,6 +328,8 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("typed function caller"),
       sqlite: no(DB_CALL),
       libsql: no(DB_CALL),
+      mysql: no(DB_CALL),
+      mariadb: no(DB_CALL),
     },
   },
   {
@@ -236,12 +339,22 @@ export const FEATURE_MATRIX: FeatureRow[] = [
       neon: ok("data-modifying CTE"),
       sqlite: no(DM_CTE),
       libsql: no(DM_CTE),
+      mysql: no(DM_CTE),
+      mariadb: no(DM_CTE),
     },
   },
-  allTested(
-    "Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)",
-    "mutation joins",
-  ),
+  {
+    feature: "Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)",
+    scenario: "mutation joins",
+    cells: {
+      pg: ok(),
+      neon: ok(),
+      sqlite: ok(),
+      libsql: ok(),
+      mysql: ok(),
+      mariadb: ok(),
+    },
+  },
   allTested(
     "ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)",
     "ETL rollup",

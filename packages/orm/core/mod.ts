@@ -7,6 +7,8 @@
 export { OrmError } from "./errors.ts";
 export type { OrmErrorCode, OrmErrorOptions } from "./errors.ts";
 export {
+  compareServerVersions,
+  dialectGuard,
   dialectSql,
   emptySql,
   identifier,
@@ -29,6 +31,9 @@ export {
 export type {
   ColumnName,
   Condition,
+  DialectGuardException,
+  DialectGuardTarget,
+  DialectIdentity,
   InferProjection,
   OrderTerm,
   PlaceholderValues,

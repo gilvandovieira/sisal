@@ -36,6 +36,7 @@ export const pgTarget: IntegrationTarget = {
     nativeArrays: true,
     typedFunctions: true,
     dataModifyingCte: true,
+    mutationCte: true,
     schemaFunctions: true,
     schemaTriggers: true,
     richIndexes: true,

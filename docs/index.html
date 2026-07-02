@@ -810,6 +810,10 @@
       color: var(--raffia);
     }
 
+    .pg-badge--mysql b {
+      color: var(--olive);
+    }
+
     .compat__note {
       margin: 0;
       color: var(--paper-dim);
@@ -1401,7 +1405,13 @@
                 <b>libSQL / Turso</b><small>3.45 · 39/39 green</small>
               </div>
               <div class="pg-badge pg-badge--neon">
-                <b>Neon</b><small>serverless · 40/40 green</small>
+                <b>Neon</b><small>serverless · 41/41 green</small>
+              </div>
+              <div class="pg-badge pg-badge--mysql">
+                <b>MySQL&nbsp;8.4</b><small>8.4.10 · 42/42 green</small>
+              </div>
+              <div class="pg-badge pg-badge--mysql">
+                <b>MariaDB&nbsp;11</b><small>11.8.8 · 42/42 green</small>
               </div>
             </div>
 
@@ -1437,8 +1447,9 @@
               test — lives in the unified
               <a href="feature-matrix.html">cross-driver feature matrix</a>.
               Most features behave identically across engines; the few
-              per-engine differences (e.g. SQLite/libSQL return JSON &amp;
-              arrays as text) are noted on each engine page.
+              per-engine differences (e.g. SQLite/libSQL and MariaDB return
+              JSON &amp; arrays as text; MySQL has no `RETURNING`) are noted on
+              each engine page.
             </p>
 
             <div class="compat__links">
@@ -1452,6 +1463,8 @@
               >libSQL / Turso matrix&nbsp;→</a>
               <a class="compat__more" href="neon-compatibility.html"
               >Neon matrix&nbsp;→</a>
+              <a class="compat__more" href="mysql-compatibility.html"
+              >MySQL / MariaDB matrix&nbsp;→</a>
             </div>
           </div>
         </div>

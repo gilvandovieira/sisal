@@ -413,6 +413,10 @@ export type TableColumn<TTable extends TableDefinition> =
 /** Options applied when building a schema snapshot from ORM tables. */
 export interface CreateSchemaSnapshotOptions {
   readonly dialect?: SisalDialectName;
+  /** Engine variant behind the dialect (e.g. `"mariadb"`); see the snapshot field. */
+  readonly dialectVariant?: string;
+  /** Minimum server version the DDL targets; see the snapshot field. */
+  readonly dialectVersion?: string;
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -514,6 +518,12 @@ export function createSchemaSnapshot(
   return defineSchemaSnapshot({
     version: SCHEMA_SNAPSHOT_VERSION,
     ...(input.dialect === undefined ? {} : { dialect: input.dialect }),
+    ...(input.dialectVariant === undefined
+      ? {}
+      : { dialectVariant: input.dialectVariant }),
+    ...(input.dialectVersion === undefined
+      ? {}
+      : { dialectVersion: input.dialectVersion }),
     tables: tables.map(tableToSnapshot),
     ...(input.schemaObjects === undefined
       ? {}

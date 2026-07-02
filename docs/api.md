@@ -357,9 +357,9 @@ await db.transaction(async (tx) => {
 - `InsertBuilder`: `values`, `onConflictDoNothing({ target? })`,
   `onConflictDoUpdate({ target, set, where? })`, `returning(projection?)`,
   `toSql`, `execute`.
-- `UpdateBuilder`: `set`, `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
-  `execute`.
-- `DeleteBuilder`: `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
+- `UpdateBuilder`: `set`, `from`, `where`, `unsafeAllowAllRows`, `returning`,
+  `toSql`, `execute`.
+- `DeleteBuilder`: `using`, `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
   `execute`.
 
 > **Safety rail:** `update`/`delete` without a `where` throw unless you call

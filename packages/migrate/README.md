@@ -52,9 +52,11 @@ By default it loads `sisal.migrate.ts`, which should export `default` or
 `config` from `defineConfig({ dir, dialect, snapshot, ... })`. SQLite uses
 `databasePath`; PostgreSQL uses `databaseUrl`; Turso/libSQL uses
 `dialect: "sqlite"` with a libSQL `databaseUrl` and optional
-`databaseAuthToken`. **Neon** (serverless PostgreSQL) uses `dialect: "postgres"`
-with `provider: "neon"` (scaffold it with `sisal init --neon`); `sisal migrate`
-then applies through `@sisal/neon` over HTTP, one statement per call.
+`databaseAuthToken`. **MySQL/MariaDB** uses `dialect: "mysql"` with
+`databaseUrl` (scaffold it with `sisal init --target mysql`). **Neon**
+(serverless PostgreSQL) uses `dialect: "postgres"` with `provider: "neon"`
+(scaffold it with `sisal init --neon`); `sisal migrate` then applies through
+`@sisal/neon` over HTTP, one statement per call.
 
 ## Serverless / single-statement apply
 

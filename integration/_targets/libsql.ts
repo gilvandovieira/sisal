@@ -39,6 +39,7 @@ export const libsqlTarget: IntegrationTarget = {
     nativeArrays: false,
     typedFunctions: false,
     dataModifyingCte: false,
+    mutationCte: true,
     schemaFunctions: false,
     schemaTriggers: true,
     richIndexes: true,

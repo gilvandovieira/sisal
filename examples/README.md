@@ -19,11 +19,17 @@ Each is a workspace package; see its own `README` (where present) and
 | -------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [`postgres-family-basic`](postgres-family-basic/)                                | PostgreSQL family | Minimal DDL + connect/CRUD over `@sisal/pg` (`@db/postgres` or postgres.js) or `@sisal/neon` via `SISAL_ADAPTER`. Consolidates `basic-postgres`.                                                                                                             |
 | [`sqlite-family-basic`](sqlite-family-basic/)                                    | SQLite family     | Minimal DDL + connect/CRUD over embedded `@sisal/sqlite` or `@sisal/libsql` via `SISAL_ADAPTER`. Consolidates `basic-sqlite` + `basic-libsql`.                                                                                                               |
+| [`mysql-family-basic`](mysql-family-basic/)                                      | MySQL family      | Minimal DDL + connect/CRUD over `@sisal/mysql` on `mysql2` or the MariaDB connector via `SISAL_ADAPTER`.                                                                                                                                                     |
 | [`postgres-family-showcase`](postgres-family-showcase/)                          | PostgreSQL family | Full feature tour; generation-first, plus a live run over `pg` / `pg-postgres-js` / `neon` via `SISAL_ADAPTER`.                                                                                                                                              |
 | [`sqlite-family-showcase`](sqlite-family-showcase/)                              | SQLite family     | Full feature tour, executed over embedded `@sisal/sqlite` or `@sisal/libsql` via `SISAL_ADAPTER`.                                                                                                                                                            |
+| [`mysql-family-showcase`](mysql-family-showcase/)                                | MySQL family      | Generation-first MySQL/MariaDB feature tour; optional live run over `mysql2` or the MariaDB connector via `SISAL_ADAPTER`, with explicit `RETURNING`, DDL, and timestamp caveats.                                                                            |
+| [`postgres-family-advanced-sql`](postgres-family-advanced-sql/)                  | PostgreSQL family | Runnable advanced-SQL contract graduation over `@sisal/pg` / `@sisal/neon`: builder ETL + locking, raw parameterized windows, recursive CTEs, JSON-table extraction, and richer DDL pressure cases.                                                          |
+| [`mysql-family-advanced-sql`](mysql-family-advanced-sql/)                        | MySQL family      | MySQL/MariaDB advanced-SQL contract graduation: builder ETL + locking, raw parameterized windows/recursive CTEs/`JSON_TABLE`, generated columns, ODKU upsert pressure cases, and typed `RETURNING` guards.                                                   |
+| [`sqlite-family-advanced-sql`](sqlite-family-advanced-sql/)                      | SQLite family     | Conservative SQLite/libSQL advanced-SQL subset with capability-probed windows, recursive CTEs, CAS queue claims, `json_each`, generated columns, and explicit skipped first-pass contracts.                                                                  |
 | [`postgres-family-hot-feed`](postgres-family-hot-feed/README.md)                 | PostgreSQL family | Stored, indexed `hot_score`; atomic vote; keyset — over `pg` / `pg-postgres-js` / `neon` via `SISAL_ADAPTER`.                                                                                                                                                |
 | [`postgres-family-feed`](postgres-family-feed/README.md)                         | PostgreSQL family | `/rising` feed over `@sisal/pg` (`@db/postgres` or postgres.js) or `@sisal/neon` via `SISAL_ADAPTER`; two recompute strategies (DB functions + builder CTEs). Consolidates the former `postgres-rising-feed` + `neon-rising-feed` + `neon-rising-feed-ctes`. |
 | [`sqlite-family-feed`](sqlite-family-feed/README.md)                             | SQLite family     | The `/rising` counterpart over `@sisal/libsql` or embedded `@sisal/sqlite` via `SISAL_ADAPTER`.                                                                                                                                                              |
+| [`mysql-family-feed`](mysql-family-feed/README.md)                               | MySQL family      | The `/rising` counterpart over `@sisal/mysql` on MySQL or MariaDB via `SISAL_ADAPTER`; TypeScript and builder-CTE recompute paths expose MySQL/MariaDB v0.8 IR pressure points.                                                                              |
 | [`postgres-family-activity-vectors`](postgres-family-activity-vectors/README.md) | PostgreSQL family | Advanced-SQL analytics: events → buckets → stats → activity vector + similarity (the v0.6 ETL-readiness PoC); over `pg` / `pg-postgres-js` / `neon`.                                                                                                         |
 
 These are the source of truth for "what Sisal can do today." If you change one,
@@ -31,12 +37,11 @@ keep it runnable and keep its row in the root `deno.json` workspace.
 
 ## Documentation-only future contracts
 
-[`advanced-sql-contracts/`](advanced-sql-contracts/README.md) — **not runnable,
-not in the workspace.** Twelve Markdown contracts that preserve advanced-SQL
-example ideas (ETL rollups, window analytics, sessionization, top-N, cohort
-retention, funnels, recursive comments, job-queue locking, idempotent backfill,
-JSON→table extraction, generated columns/indexes, and MySQL compatibility) and
-map each to the roadmap release that must build the missing primitive first.
+[`advanced-sql-contracts/`](advanced-sql-contracts/README.md) — Markdown specs,
+not runnable themselves and not in the workspace. Their first runnable
+graduation is now the `*-family-advanced-sql` trio above. The specs still
+preserve the original product-shaped target and map each missing primitive to
+the roadmap release that must build it properly.
 
 They exist so future planning can point at a concrete, product-shaped target
 without pretending the feature already ships. When one becomes buildable, it
