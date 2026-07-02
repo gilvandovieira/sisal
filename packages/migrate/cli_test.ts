@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { SisalSchemaSnapshot } from "@sisal/core";
 import {
   buildMigrationFile,
@@ -355,6 +355,245 @@ Deno.test("sisal cli - passes database auth token to adapters", async () => {
 
   assertEquals(code, 0);
   assertEquals(seenToken, "secret");
+});
+
+Deno.test("sisal cli - log-level creates formatted runtime logger", async () => {
+  const fs = fakeFs();
+  const out: string[] = [];
+  let seenLevel: string | undefined;
+  const adapter: SisalCliAdapter = {
+    generateUpStatements() {
+      return { statements: [], destructive: [] };
+    },
+    createMigrator(options) {
+      seenLevel = options.logging?.level;
+      options.logging?.logger?.debug(
+        { level: "debug", category: "migrate.plan", pending: 1 },
+        "migration plan completed",
+      );
+      return Promise.resolve({
+        migrate(migrateOptions) {
+          return Promise.resolve({
+            direction: "up",
+            dryRun: migrateOptions.dryRun ?? false,
+            executed: [],
+            skipped: [],
+            executionMs: 0,
+          });
+        },
+        plan() {
+          return Promise.resolve(createMigrationPlan([], []));
+        },
+      });
+    },
+  };
+
+  const code = await runSisalCli(["migrate", "--log-level", "debug"], {
+    config: { dir: "migrations", dialect: "sqlite", snapshot: snapshotV1 },
+    fs,
+    adapters: { sqlite: adapter },
+    stdout: (line) => out.push(line),
+  });
+
+  assertEquals(code, 0);
+  assertEquals(seenLevel, "debug");
+  assertEquals(
+    out[0],
+    '[debug] migrate.plan: migration plan completed {"pending":1}',
+  );
+});
+
+Deno.test("sisal cli - verbose flags map to debug and trace levels", async () => {
+  const levels: Array<string | undefined> = [];
+  const adapter: SisalCliAdapter = {
+    generateUpStatements() {
+      return { statements: [], destructive: [] };
+    },
+    createMigrator(options) {
+      levels.push(options.logging?.level);
+      return Promise.resolve({
+        migrate(migrateOptions) {
+          return Promise.resolve({
+            direction: "up",
+            dryRun: migrateOptions.dryRun ?? false,
+            executed: [],
+            skipped: [],
+            executionMs: 0,
+          });
+        },
+        plan() {
+          return Promise.resolve(createMigrationPlan([], []));
+        },
+      });
+    },
+  };
+  const config: MigrateConfig = {
+    dir: "migrations",
+    dialect: "sqlite",
+    snapshot: snapshotV1,
+  };
+
+  await runSisalCli(["migrate", "-v"], {
+    config,
+    fs: fakeFs(),
+    adapters: { sqlite: adapter },
+    stdout() {},
+  });
+  await runSisalCli(["migrate", "-vv"], {
+    config,
+    fs: fakeFs(),
+    adapters: { sqlite: adapter },
+    stdout() {},
+  });
+  await runSisalCli(["migrate", "--verbose", "--verbose"], {
+    config,
+    fs: fakeFs(),
+    adapters: { sqlite: adapter },
+    stdout() {},
+  });
+
+  assertEquals(levels, ["debug", "trace", "trace"]);
+});
+
+Deno.test("sisal cli - quiet suppresses non-error output", async () => {
+  const fs = fakeFs();
+  const out: string[] = [];
+  const err: string[] = [];
+
+  const code = await runSisalCli(["init", "--quiet"], {
+    fs,
+    stdout: (line) => out.push(line),
+    stderr: (line) => err.push(line),
+  });
+
+  assertEquals(code, 0);
+  assertEquals(out, []);
+  assertEquals(err, []);
+});
+
+Deno.test("sisal cli - logging flags conflict clearly", async () => {
+  const err: string[] = [];
+  const code = await runSisalCli([
+    "status",
+    "--quiet",
+    "--log-level",
+    "debug",
+  ], {
+    stdout() {},
+    stderr: (line) => err.push(line),
+  });
+
+  assertEquals(code, 1);
+  assertStringIncludes(err.join("\n"), "Use only one of");
+});
+
+Deno.test("sisal cli - config logging is accepted and flags override it", async () => {
+  assertEquals(
+    defineConfig({
+      dir: "migrations",
+      dialect: "sqlite",
+      logging: { level: "error", categories: { "migrate.sql": true } },
+    }).logging?.level,
+    "error",
+  );
+
+  let seenLevel: string | undefined;
+  const adapter: SisalCliAdapter = {
+    generateUpStatements() {
+      return { statements: [], destructive: [] };
+    },
+    createMigrator(options) {
+      seenLevel = options.logging?.level;
+      return Promise.resolve({
+        migrate(migrateOptions) {
+          return Promise.resolve({
+            direction: "up",
+            dryRun: migrateOptions.dryRun ?? false,
+            executed: [],
+            skipped: [],
+            executionMs: 0,
+          });
+        },
+        plan() {
+          return Promise.resolve(createMigrationPlan([], []));
+        },
+      });
+    },
+  };
+
+  const code = await runSisalCli(["migrate", "--log-level", "debug"], {
+    config: {
+      dir: "migrations",
+      dialect: "sqlite",
+      snapshot: snapshotV1,
+      logging: { level: "error" },
+    },
+    fs: fakeFs(),
+    adapters: { sqlite: adapter },
+    stdout() {},
+  });
+
+  assertEquals(code, 0);
+  assertEquals(seenLevel, "debug");
+});
+
+Deno.test("sisal cli - secrets never appear in logged output", async () => {
+  const out: string[] = [];
+  const errs: string[] = [];
+  const adapter: SisalCliAdapter = {
+    generateUpStatements() {
+      return { statements: [], destructive: [] };
+    },
+    createMigrator(options) {
+      // Drive the CLI's log formatter with a normal event; nothing it prints
+      // may carry the connection URL password or the auth token.
+      options.logging?.logger?.debug(
+        { level: "debug", category: "migrate.step", id: "0001" },
+        "migration completed",
+      );
+      return Promise.resolve({
+        migrate(migrateOptions) {
+          return Promise.resolve({
+            direction: "up",
+            dryRun: migrateOptions.dryRun ?? false,
+            executed: [],
+            skipped: [],
+            executionMs: 0,
+          });
+        },
+        plan() {
+          return Promise.resolve(createMigrationPlan([], []));
+        },
+      });
+    },
+  };
+
+  const code = await runSisalCli([
+    "migrate",
+    "--log-level",
+    "trace",
+    "--database-auth-token",
+    "tok-SECRET",
+  ], {
+    config: {
+      dir: "migrations",
+      dialect: "sqlite",
+      snapshot: snapshotV1,
+      databaseUrl: "libsql://user:pw-SECRET@example.turso.io",
+    },
+    fs: fakeFs(),
+    adapters: { sqlite: adapter },
+    stdout: (line) => out.push(line),
+    stderr: (line) => errs.push(line),
+  });
+
+  assertEquals(code, 0);
+  const combined = [...out, ...errs].join("\n");
+  assert(
+    !combined.includes("pw-SECRET"),
+    "connection password must not be logged",
+  );
+  assert(!combined.includes("tok-SECRET"), "auth token must not be logged");
 });
 
 Deno.test("sisal cli - init scaffolds config and refuses overwrite", async () => {

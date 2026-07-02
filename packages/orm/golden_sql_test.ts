@@ -425,7 +425,7 @@ const CATALOG: ReadonlyArray<readonly [string, () => Sql]> = [
       db.select({ id: p.id, depth: sql`1` }).from(posts)
         .where(eq(p.id, 1))
         .unionAll(
-          db.select({ id: p.id, depth: sql`${self.depth} + 1` }).from(posts)
+          db.select({ id: p.id, depth: sql`${self.depth} + 1` }).from(self)
             .innerJoin(posts, eq(p.authorId, self.id))
             .where(lt(self.depth, 5)),
         )

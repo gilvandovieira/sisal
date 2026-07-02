@@ -1223,35 +1223,35 @@ snapshot[`golden: every IR construct renders identically per dialect > cte: WITH
       1,
       5,
     ],
-    text: "with recursive \`tree\` (\`id\`, \`depth\`) as (select \`posts\`.\`id\` as \`id\`, 1 as \`depth\` from \`posts\` where \`posts\`.\`id\` = ? union all select \`posts\`.\`id\` as \`id\`, \`tree\`.\`depth\` + 1 as \`depth\` from \`posts\` inner join \`posts\` on \`posts\`.\`author_id\` = \`tree\`.\`id\` where \`tree\`.\`depth\` < ?) select \`tree\`.\`id\` as \`id\` from \`tree\`",
+    text: "with recursive \`tree\` (\`id\`, \`depth\`) as (select \`posts\`.\`id\` as \`id\`, 1 as \`depth\` from \`posts\` where \`posts\`.\`id\` = ? union all select \`posts\`.\`id\` as \`id\`, \`tree\`.\`depth\` + 1 as \`depth\` from \`tree\` inner join \`posts\` on \`posts\`.\`author_id\` = \`tree\`.\`id\` where \`tree\`.\`depth\` < ?) select \`tree\`.\`id\` as \`id\` from \`tree\`",
   },
   generic: {
     params: [
       1,
       5,
     ],
-    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = ? union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "posts" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < ?) select "tree"."id" as "id" from "tree"',
+    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = ? union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "tree" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < ?) select "tree"."id" as "id" from "tree"',
   },
   mysql: {
     params: [
       1,
       5,
     ],
-    text: "with recursive \`tree\` (\`id\`, \`depth\`) as (select \`posts\`.\`id\` as \`id\`, 1 as \`depth\` from \`posts\` where \`posts\`.\`id\` = ? union all select \`posts\`.\`id\` as \`id\`, \`tree\`.\`depth\` + 1 as \`depth\` from \`posts\` inner join \`posts\` on \`posts\`.\`author_id\` = \`tree\`.\`id\` where \`tree\`.\`depth\` < ?) select \`tree\`.\`id\` as \`id\` from \`tree\`",
+    text: "with recursive \`tree\` (\`id\`, \`depth\`) as (select \`posts\`.\`id\` as \`id\`, 1 as \`depth\` from \`posts\` where \`posts\`.\`id\` = ? union all select \`posts\`.\`id\` as \`id\`, \`tree\`.\`depth\` + 1 as \`depth\` from \`tree\` inner join \`posts\` on \`posts\`.\`author_id\` = \`tree\`.\`id\` where \`tree\`.\`depth\` < ?) select \`tree\`.\`id\` as \`id\` from \`tree\`",
   },
   postgres: {
     params: [
       1,
       5,
     ],
-    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = \$1 union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "posts" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < \$2) select "tree"."id" as "id" from "tree"',
+    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = \$1 union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "tree" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < \$2) select "tree"."id" as "id" from "tree"',
   },
   sqlite: {
     params: [
       1,
       5,
     ],
-    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = ? union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "posts" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < ?) select "tree"."id" as "id" from "tree"',
+    text: 'with recursive "tree" ("id", "depth") as (select "posts"."id" as "id", 1 as "depth" from "posts" where "posts"."id" = ? union all select "posts"."id" as "id", "tree"."depth" + 1 as "depth" from "tree" inner join "posts" on "posts"."author_id" = "tree"."id" where "tree"."depth" < ?) select "tree"."id" as "id" from "tree"',
   },
 }
 `;

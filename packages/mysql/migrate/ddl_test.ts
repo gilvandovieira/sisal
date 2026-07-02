@@ -320,6 +320,7 @@ Deno.test("@sisal/mysql - indexes: DESC renders, partial and expression indexes 
     "partial indexes",
   );
 
+  // Version-unknown (default identity) fails closed on functional indexes.
   assertThrows(
     () =>
       generateMysqlIndexes({
@@ -327,8 +328,44 @@ Deno.test("@sisal/mysql - indexes: DESC renders, partial and expression indexes 
         indexes: [{ columns: [{ value: "lower(name)", expression: true }] }],
       }),
     OrmError,
-    "functional indexes",
+    "functional (expression) index",
   );
+});
+
+Deno.test("@sisal/mysql - functional index lights on MySQL ≥ 8.0.13, rejected below + on MariaDB", () => {
+  const table: TableSnapshot = {
+    name: "posts",
+    columns: [
+      { name: "id", type: { kind: "integer" }, nullable: false },
+      { name: "name", type: { kind: "text" } },
+    ],
+    primaryKey: { columns: ["id"] },
+    indexes: [{
+      name: "posts_lower_name_idx",
+      columns: [{ value: "lower(name)", expression: true }],
+    }],
+  };
+
+  // Base MySQL ≥ 8.0.13: emitted as a functional key part (double parens).
+  assertEquals(
+    generateMysqlIndexes(table, { dialect: "mysql", version: "8.0.16" }),
+    ["CREATE INDEX `posts_lower_name_idx` ON `posts` ((lower(name)));"],
+  );
+
+  // Below the floor, MariaDB (any version), and unknown version fail closed.
+  for (
+    const identity of [
+      { dialect: "mysql", version: "8.0.10" },
+      { dialect: "mysql", variant: "mariadb", version: "11.8.8" },
+      { dialect: "mysql" },
+    ] as const
+  ) {
+    assertThrows(
+      () => generateMysqlIndexes(table, identity),
+      OrmError,
+      "functional (expression) index",
+    );
+  }
 });
 
 Deno.test("@sisal/mysql - foreign keys emit table-level after every CREATE TABLE", () => {

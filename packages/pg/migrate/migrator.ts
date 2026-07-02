@@ -1,4 +1,4 @@
-import type { Logger } from "@sisal/orm";
+import type { Logger, SisalLoggingOptions } from "@sisal/orm";
 
 import {
   type AppliedMigration,
@@ -51,12 +51,16 @@ export interface PgMigrator {
   plan(options: PgMigrationPlanOptions): Promise<MigrationPlan>;
   applied(): Promise<AppliedMigration[]>;
   close(): Promise<void>;
+
+  /** Async-disposal alias for {@link close} — enables `await using`. */
+  [Symbol.asyncDispose](): Promise<void>;
 }
 
 /** Options for creating a PostgreSQL migration facade. */
 export interface CreatePgMigratorOptions extends PgConnectionOptions {
   readonly executor?: SqlExecutor;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly historyTable?: string;
   readonly useTransaction?: boolean;
   /**
@@ -90,6 +94,7 @@ export function createPgMigrator(
       driver,
       store,
       logger: options.logger,
+      logging: options.logging,
       useTransaction: options.useTransaction ?? true,
       splitStatements: options.splitStatements ?? false,
     }),
@@ -100,6 +105,7 @@ class SisalPgMigrator implements PgMigrator {
   readonly #driver: ReturnType<typeof createPgMigrationDriver>;
   readonly #store: ReturnType<typeof createPgMigrationHistoryStore>;
   readonly #logger?: Logger;
+  readonly #logging?: SisalLoggingOptions;
   readonly #useTransaction: boolean;
   readonly #splitStatements: boolean;
 
@@ -107,12 +113,14 @@ class SisalPgMigrator implements PgMigrator {
     readonly driver: ReturnType<typeof createPgMigrationDriver>;
     readonly store: ReturnType<typeof createPgMigrationHistoryStore>;
     readonly logger?: Logger;
+    readonly logging?: SisalLoggingOptions;
     readonly useTransaction: boolean;
     readonly splitStatements: boolean;
   }) {
     this.#driver = options.driver;
     this.#store = options.store;
     this.#logger = options.logger;
+    this.#logging = options.logging;
     this.#useTransaction = options.useTransaction;
     this.#splitStatements = options.splitStatements;
   }
@@ -138,12 +146,17 @@ class SisalPgMigrator implements PgMigrator {
     await this.#driver.close?.();
   }
 
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
+  }
+
   #createCoreMigrator(migrations: readonly PgMigrationInput[]) {
     return createMigrator({
       migrations: normalizePgMigrations(migrations),
       store: this.#store,
       driver: this.#driver,
       logger: this.#logger,
+      ...(this.#logging === undefined ? {} : { logging: this.#logging }),
       useTransaction: this.#useTransaction,
       splitStatements: this.#splitStatements,
     });

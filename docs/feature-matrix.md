@@ -59,6 +59,12 @@ genuine dialect limit · — not applicable.
 | Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
 | Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 | ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Advisory run lock (portable lock-row lease)                              |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Atomic load+advance (ETL checkpoint watermark)                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Retention horizon + replay refusal (ETL)                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Write outcome (inserted vs conflicted/claimed)                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Read CTE (WITH on SELECT)                                                |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Recursive CTE (WITH RECURSIVE; MySQL 8+/MariaDB)                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -73,7 +79,7 @@ alternate form) off PostgreSQL:
 - **Insert / update / delete / returning** — MySQL 8/9 has no `RETURNING`; `.returning()` throws a typed `OrmError` at render time. The adapter's `insertReturning()` helper answers the common case with a transactional fetch-by-key fallback (per-row `LAST_INSERT_ID`, no consecutive-id arithmetic).
 - **Joins (inner / left / right / full)** — No `FULL JOIN` in MySQL/MariaDB; rendering it throws a typed `OrmError`. INNER/LEFT/RIGHT joins work.
 - **Portable `dateTrunc` (time bucketing)** — No `date_trunc`; `dateTrunc` renders via `strftime`, which returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL returns a `timestamp`). Both order and group identically.
-- **Rich indexes (DESC / partial / expression)** — `DESC` index keys apply; partial (`WHERE`) indexes are unsupported by both engines and expression indexes are MySQL-only (MariaDB rejects them), so the DDL generator throws a typed `OrmError` for either at generation time instead of shipping SQL one engine rejects.
+- **Rich indexes (DESC / partial / expression)** — `DESC` index keys apply; partial (`WHERE`) indexes are unsupported by both engines, so the DDL generator throws a typed `OrmError`. Functional (expression) indexes are emitted on a detected base MySQL ≥ 8.0.13 and throw below that, on MariaDB (which has none — use a generated column), or when the version is unknown. Sisal emits plain `CREATE INDEX` for every dialect (no `IF NOT EXISTS`, which MySQL proper lacks).
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
@@ -99,7 +105,7 @@ except the typed function caller (`db.call`), which has no non-Postgres API
 surface at all:
 
 - **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; the SQLite and MySQL families reject it. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
-- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family; rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution. The MySQL family renders it natively.
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite or MySQL families. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 - **Typed function caller (`db.call`)** — No stored-function caller off Postgres; `defineFunction`/`db.call` render PostgreSQL `SELECT * FROM fn(args)`.
 - **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; SQLite-family and MySQL-family CTEs are `SELECT`-only. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.

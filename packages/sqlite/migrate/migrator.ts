@@ -1,4 +1,4 @@
-import type { Logger } from "@sisal/orm";
+import type { Logger, SisalLoggingOptions } from "@sisal/orm";
 
 import {
   type AppliedMigration,
@@ -52,12 +52,16 @@ export interface SqliteMigrator {
   plan(options: SqliteMigrationPlanOptions): Promise<MigrationPlan>;
   applied(): Promise<AppliedMigration[]>;
   close(): Promise<void>;
+
+  /** Async-disposal alias for {@link close} — enables `await using`. */
+  [Symbol.asyncDispose](): Promise<void>;
 }
 
 /** Options for creating a SQLite migration facade. */
 export interface CreateSqliteMigratorOptions extends SqliteConnectionOptions {
   readonly executor?: SqlExecutor;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly historyTable?: string;
   readonly useTransaction?: boolean;
 }
@@ -91,6 +95,7 @@ export async function createSqliteMigrator(
     driver,
     store,
     logger: options.logger,
+    logging: options.logging,
     useTransaction: options.useTransaction ?? true,
   });
 }
@@ -99,17 +104,20 @@ class SisalSqliteMigrator implements SqliteMigrator {
   readonly #driver: ReturnType<typeof createSqliteMigrationDriver>;
   readonly #store: ReturnType<typeof createSqliteMigrationHistoryStore>;
   readonly #logger?: Logger;
+  readonly #logging?: SisalLoggingOptions;
   readonly #useTransaction: boolean;
 
   constructor(options: {
     readonly driver: ReturnType<typeof createSqliteMigrationDriver>;
     readonly store: ReturnType<typeof createSqliteMigrationHistoryStore>;
     readonly logger?: Logger;
+    readonly logging?: SisalLoggingOptions;
     readonly useTransaction: boolean;
   }) {
     this.#driver = options.driver;
     this.#store = options.store;
     this.#logger = options.logger;
+    this.#logging = options.logging;
     this.#useTransaction = options.useTransaction;
   }
 
@@ -134,12 +142,17 @@ class SisalSqliteMigrator implements SqliteMigrator {
     await this.#driver.close?.();
   }
 
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
+  }
+
   #createCoreMigrator(migrations: readonly SqliteMigrationInput[]) {
     return createMigrator({
       migrations: normalizeSqliteMigrations(migrations),
       store: this.#store,
       driver: this.#driver,
       logger: this.#logger,
+      ...(this.#logging === undefined ? {} : { logging: this.#logging }),
       useTransaction: this.#useTransaction,
     });
   }

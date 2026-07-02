@@ -6,4 +6,27 @@
  * @module
  */
 
-export type { Logger, LoggerMethod } from "@sisal/core";
+export {
+  createSisalLogEmitter,
+  emitSisalLogEvent,
+  isSisalLogCategory,
+  isSisalLogLevel,
+  logEnabled,
+  normalizeSisalLogSettings,
+  redactSqlParameter,
+  redactSqlParameters,
+} from "@sisal/core";
+export type {
+  CreateSisalLogEmitterOptions,
+  Logger,
+  LoggerMethod,
+  NormalizedSisalLogging,
+  SisalLogCategory,
+  SisalLogCategorySettings,
+  SisalLogEmitter,
+  SisalLogEvent,
+  SisalLoggingOptions,
+  SisalLogLevel,
+  SisalLogSettings,
+  SisalSqlLogSettings,
+} from "@sisal/core";

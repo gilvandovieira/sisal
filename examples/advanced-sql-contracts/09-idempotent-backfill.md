@@ -144,6 +144,40 @@ the mirror-image reason (see the replay-vs-retention invariant). **Backfill** =
 run step 2 for an explicit `[from, until)` that predates the watermark **and**
 starts at or after `pruned_before`; idempotence makes it safe.
 
+### v0.9 implementation note (T12)
+
+v0.9 shipped the checkpoint substrate as `etlCheckpoint(db, job, options?)`
+(steps 1–3): `read()` returns the last committed `window_end`, and
+`advance(until, load)` runs the caller's idempotent load and the `window_end`
+upsert as **one `db.batch`** — the atomic load+advance invariant. Two decisions
+deviate from the sketch above and are deliberate: **watermarks are opaque TEXT**
+(`window_end`/`pruned_before` are `varchar`, ISO-8601 by convention but the
+caller owns the meaning) rather than per-adapter physical timestamp types — this
+keeps the checkpoint uniform across every engine with no timestamp-decode
+divergence; and the load+advance uses `db.batch` (non-interactive, which forbids
+cross-statement reads — fine here, as the load never reads the watermark write).
+The table's `CREATE TABLE IF NOT EXISTS` runs **outside** the atomic batch
+because MySQL auto-commits DDL. The `pruned_before` retention horizon and the
+`replay`/`backfill` refusal (step 4) remain **T14**; the run/replay/backfill
+loop is the v0.10 runner.
+
+**T13** validated this contract per engine and confirmed the A3 ownership
+decision held (the substrate lives in `@sisal/orm`, not `@sisal/migrate` — no
+`etl → migrate` edge; recorded in `architecture.md`). It added `readState()`
+(the full `{ windowEnd, prunedBefore, updatedAt }` row) and per-engine scenarios
+asserting exact TEXT round-trip fidelity, multi-job independence, `updated_at`
+population, and resume across a fresh handle. Because watermarks are TEXT, the
+"adapter-specific timestamp type" reconciliation the contract anticipated is not
+needed — there is no per-engine timestamp surface.
+
+**T14** shipped step 4 as the mirror of `advance`: `prune(before, deletes)`
+upserts `pruned_before` in the **same `db.batch`** as the source delete (the
+horizon never lags the delete), and `assertReplayable(from, options?)` throws a
+typed `ORM_REPLAY_PRUNED` error when `from < pruned_before` — with the explicit
+`unsafeAllowPrunedReplay` override this contract calls for. The
+`run`/`replay`/`backfill` loop that drives these remains the v0.10 runner; T14
+provides the substrate it composes.
+
 ## Required future Sisal primitives
 
 - **The idempotent load** — `insert().select() … onConflictDoUpdate` — **shipped

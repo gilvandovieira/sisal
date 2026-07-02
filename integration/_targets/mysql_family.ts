@@ -63,6 +63,7 @@ export function makeMysqlFamilyTarget(options: {
       array: options.array,
       binary: "uint8array",
       numeric: "string",
+      bigint: "string",
       dateTrunc: "text",
     },
     sql: {

@@ -13,9 +13,12 @@
 import {
   deserializeSchemaSnapshot,
   equalSchemaSnapshots,
+  isSisalLogCategory,
+  isSisalLogLevel,
   normalizeSchemaSnapshot,
   serializeSchemaSnapshot,
   type SisalDialectName,
+  type SisalLogSettings,
   type SisalSchemaSnapshot,
 } from "@sisal/core";
 import { formatMigrationFilename, MigrationError } from "./mod.ts";
@@ -166,6 +169,8 @@ export interface MigrateConfig {
   /** SQLite database file path (`:memory:` is accepted for tests/scaffolds). */
   readonly databasePath?: string;
   readonly historyTable?: string;
+  /** Default migration CLI logging settings; runtime flags may override them. */
+  readonly logging?: SisalLogSettings;
 }
 
 /** Validates and normalizes a migration config (pure). */
@@ -183,6 +188,8 @@ export function defineConfig(config: MigrateConfig): MigrateConfig {
       details: { provider: config.provider },
     });
   }
+
+  const logging = normalizeConfigLogging(config.logging);
 
   return Object.freeze({
     dir: config.dir.trim(),
@@ -203,7 +210,113 @@ export function defineConfig(config: MigrateConfig): MigrateConfig {
     ...(config.historyTable === undefined
       ? {}
       : { historyTable: config.historyTable }),
+    ...(logging === undefined ? {} : { logging }),
   });
+}
+
+function normalizeConfigLogging(
+  logging: SisalLogSettings | undefined,
+): SisalLogSettings | undefined {
+  if (logging === undefined) {
+    return undefined;
+  }
+
+  if (typeof logging !== "object" || logging === null) {
+    throw new MigrationError("Migration config logging must be an object", {
+      code: "MIGRATION_INVALID",
+      details: { field: "logging" },
+    });
+  }
+
+  if (logging.level !== undefined && !isSisalLogLevel(logging.level)) {
+    throw new MigrationError("Unknown logging level", {
+      code: "MIGRATION_INVALID",
+      details: { level: logging.level },
+    });
+  }
+
+  const categories = normalizeConfigLogCategories(logging.categories);
+  const sql = normalizeConfigSqlLogging(logging.sql);
+
+  return {
+    ...(logging.level === undefined ? {} : { level: logging.level }),
+    ...(categories === undefined ? {} : { categories }),
+    ...(sql === undefined ? {} : { sql }),
+  };
+}
+
+function normalizeConfigLogCategories(
+  categories: SisalLogSettings["categories"],
+): SisalLogSettings["categories"] {
+  if (categories === undefined) {
+    return undefined;
+  }
+
+  if (typeof categories !== "object" || categories === null) {
+    throw new MigrationError(
+      "Migration config logging categories must be an object",
+      {
+        code: "MIGRATION_INVALID",
+        details: { field: "logging.categories" },
+      },
+    );
+  }
+
+  const normalized: NonNullable<SisalLogSettings["categories"]> = {};
+  for (const [category, value] of Object.entries(categories)) {
+    if (!isSisalLogCategory(category)) {
+      throw new MigrationError("Unknown logging category", {
+        code: "MIGRATION_INVALID",
+        details: { category },
+      });
+    }
+
+    if (typeof value === "boolean") {
+      normalized[category] = value;
+      continue;
+    }
+
+    if (!isSisalLogLevel(value)) {
+      throw new MigrationError("Unknown logging category level", {
+        code: "MIGRATION_INVALID",
+        details: { category, level: value },
+      });
+    }
+
+    normalized[category] = value;
+  }
+
+  return normalized;
+}
+
+function normalizeConfigSqlLogging(
+  sql: SisalLogSettings["sql"],
+): SisalLogSettings["sql"] {
+  if (sql === undefined) {
+    return undefined;
+  }
+
+  if (typeof sql !== "object" || sql === null) {
+    throw new MigrationError("Migration config logging.sql must be an object", {
+      code: "MIGRATION_INVALID",
+      details: { field: "logging.sql" },
+    });
+  }
+
+  if (
+    sql.parameters !== undefined &&
+    sql.parameters !== "off" &&
+    sql.parameters !== "redacted"
+  ) {
+    throw new MigrationError("Unknown SQL parameter logging mode", {
+      code: "MIGRATION_INVALID",
+      details: { parameters: sql.parameters },
+    });
+  }
+
+  return {
+    ...(sql.parameters === undefined ? {} : { parameters: sql.parameters }),
+  };
 }
 
 /** Drift categories reported by {@link checkDrift}. */

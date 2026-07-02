@@ -49,6 +49,7 @@ export const pgTarget: IntegrationTarget = {
     array: "native",
     binary: "uint8array",
     numeric: "string",
+    bigint: "string",
     dateTrunc: "timestamp",
   },
   sql: { supportsCascadeDrops: true, metadataFlavor: "information_schema" },

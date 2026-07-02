@@ -23,10 +23,16 @@ Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
-every Postgres-family ✅ applies. The 41-test suite is verified through the
+every Postgres-family ✅ applies. The feature suite is verified through the
 Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
 additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
 secure WebSocket, no proxy) — all green.
+
+**v0.9 additions.** As a Postgres-family adapter Neon inherits the portable ETL
+substrate (`db.tryAdvisoryLock`, `etlCheckpoint`, `tryInsert` — reliable via
+`RETURNING`), read/`WITH RECURSIVE`/data-modifying CTEs, and `bigint`/`numeric`
+decoding as precision-preserving strings (aligned with `@sisal/pg` in v0.9); all
+in the [feature matrix](feature-matrix.md).
 
 The generated DDL test exercises the full Postgres type set (`text`,
 `varchar(n)`, `char(n)`, `integer`, `smallint`, `bigint`, `serial`, `bigserial`,

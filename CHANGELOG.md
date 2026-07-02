@@ -9,6 +9,287 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+## 0.9.0 - 2026-07-02
+
+### Added
+
+- **Portable write-outcome — `tryInsert` / `WriteOutcome` (v0.9 T15).** A
+  reliable **inserted-vs-conflicted/claimed** signal for a conflict-guarded
+  insert (`tryInsert(db, insert)` where you supply `.onConflictDoNothing()`),
+  since `rowCount` alone can't distinguish across engines under the portable
+  MySQL no-op `ON DUPLICATE KEY UPDATE`. It reads the signal per dialect:
+  `RETURNING` on the Postgres and SQLite families (a row comes back iff the
+  insert won), the affected-row count on the MySQL family (no usable `RETURNING`
+  on a no-op upsert; 1 on insert, 0 on conflict). Fails closed on `generic`. The
+  advisory-lock claim (T11) now consumes it, so claimed-vs-not is reliable
+  across engines rather than the previously ambiguous `rowCount >= 1`. Backed by
+  5 network-free unit tests, a per-engine integration scenario, and a
+  `docs/feature-matrix.md` row. Completes the v0.9 ETL correctness substrate.
+- **Retention horizon + replay refusal on the checkpoint (v0.9 T14).** Extended
+  the `etlCheckpoint` handle with the mirror of `advance`:
+  `prune(before,
+  deletes)` upserts the per-job `pruned_before` **retention
+  horizon** in the **same `db.batch`** as the source-delete statements, so the
+  horizon advances atomically with the delete and never lags it (a crash rolls
+  both back together). `assertReplayable(from, options?)` throws a typed
+  `ORM_REPLAY_PRUNED` error when a replay window begins before the horizon
+  (`from < pruned_before`) — replaying over pruned source rows would silently
+  overwrite the rollup with missing data — with an explicit
+  `unsafeAllowPrunedReplay` override mirroring `.unsafeAllowAllRows()`. TEXT
+  watermarks compare lexicographically, so `from >=
+  pruned_before` is the
+  replayable boundary. Backed by 13 network-free unit tests and a per-engine
+  integration scenario proving both directions (a refused replay leaves the
+  rollup untouched; a failing prune rolls delete + horizon back together), plus
+  a `docs/feature-matrix.md` row.
+- **Checkpoint contract validation + `Checkpoint.readState()` (v0.9 T13).**
+  Added `readState()` to the `etlCheckpoint` handle — the full
+  `{ windowEnd, prunedBefore, updatedAt }` contract row (the `window_end`-only
+  `read()` stays the shortcut; `readState()` also feeds the T14 retention
+  horizon). Per-engine integration scenarios validate the checkpoint contract on
+  every ETL target: exact TEXT round-trip fidelity (a precise ISO watermark
+  reads back byte-identical, no timestamp coercion), multi-job independence,
+  that `updated_at` is written, and resume from a fresh handle.
+  `docs/architecture.md` records that the A3 ownership decision held — the
+  checkpoint (and advisory lock) substrate ships in `@sisal/orm`, its system
+  tables are runtime-managed, and there is **no `etl → migrate` edge**. Because
+  watermarks are TEXT, the contract's anticipated "adapter-specific timestamp
+  type" reconciliation is not needed.
+- **ETL checkpoint substrate — `etlCheckpoint(db, job, options?)` (v0.9 T12).**
+  A standalone factory (mirroring `defineAtomicOperation`) for the resumable
+  watermark table `sisal_etl_checkpoints` (the v0.6 A3/A4 / contract-09
+  substrate a future ETL runner consumes). `read()` returns the last committed
+  `window_end` watermark (or `null` on a fresh job); `advance(until, load)` runs
+  the caller's idempotent load and the watermark upsert as **one `db.batch`**,
+  so they commit together — the **atomic load+advance invariant**: a crash never
+  advances the watermark past data that was not written. Watermarks are stored
+  as **opaque TEXT** (ISO-8601 by convention; the caller owns the meaning),
+  which keeps the checkpoint uniform across all six engines with no per-adapter
+  timestamp-decode divergence; the table (override the name with `{ table }`,
+  created on first use) already carries the nullable `pruned_before` column for
+  the retention horizon. `CREATE TABLE IF NOT EXISTS` runs outside the atomic
+  batch (MySQL auto-commits DDL). Backed by 7 network-free unit tests and a
+  per-engine idempotent-resume + crash-safety integration scenario, plus a new
+  `docs/feature-matrix.md` row. See
+  `examples/advanced-sql-contracts/09-idempotent-backfill.md`.
+- **Portable advisory lock — `Database.tryAdvisoryLock(name, options?)` (v0.9
+  T11).** A coarse, whole-job mutual-exclusion primitive (the v0.6 A2 /
+  contract-08 substrate a future ETL runner consumes so two runs never process
+  the same window twice), implemented as a **lightweight lock-row lease**: the
+  claim is one row in `sisal_advisory_locks` (default table name; override with
+  `{ table }` — Sisal never forces its name into your schema) carrying an
+  ISO-8601 lease, so **no connection or server-side lock is held** between
+  acquire and release and work proceeds on the normal pool.
+  `await using lock =
+  await db.tryAdvisoryLock(...)` releases on scope exit
+  (including on a throw); `lock.acquired` reports whether the claim won;
+  `lock.renew()` extends the lease and returns `false` when it was lost/stolen.
+  Uniform across all six engines (plain, dialect-rendered DML — no driver or
+  adapter changes); fails closed on the `generic` dialect
+  (`ORM_DIALECT_UNSUPPORTED`). A crashed holder's lease expires after `ttlMs`
+  (default 30s) and may then be stolen, so long runs should `renew()` and stop
+  on a `false`. Backed by 10 network-free unit tests, a per-engine contention
+  integration scenario on every ETL target, and a new `docs/feature-matrix.md`
+  row. Chosen over per-dialect session-scoped native locks (`pg_advisory_lock` /
+  `GET_LOCK` / `BEGIN IMMEDIATE`) so a held lock does not pin a session for the
+  whole run; see `examples/advanced-sql-contracts/08-job-queue-locking.md`.
+- **Concrete logging integration example.** Added `examples/logging`, a
+  driverless runnable example showing separate `@std/log` and Pino adapters for
+  Sisal's `Logger` contract, including structured logging at `trace` with
+  redacted bind-parameter summaries.
+- **Hibernate-style logging verbosity controls.** Added shared
+  `SisalLoggingOptions` / `SisalLogSettings` with severity thresholds, category
+  overrides, optional `trace`, and safe redacted SQL bind summaries. ORM and
+  migration facades now accept `logging` beside the legacy `logger`; `logger`
+  alone keeps the previous behavior without bind logs. The migration CLI accepts
+  `--log-level`, `--quiet`, and repeatable `-v`/`--verbose`, and
+  `defineConfig({ logging })` can provide default CLI logging settings. The work
+  is recorded as a v0.9 hardening/observability lane in
+  `docs/v0.9.0-roadmap.md`.
+- **`await using` support on `Database` and `Migrator`.** Both now implement
+  `Symbol.asyncDispose` as an alias for `close()`, so
+  `await using db = await connect(...)` (and `createMigrator(...)`) release the
+  connection/pool and store at scope exit — including on an early throw — with
+  no `try/finally`. Additive and non-breaking; `close()` stays the source of
+  truth. Adapter databases inherit it through `extends Database`, and the
+  adapter migrator facades (`createPgMigrator` / `createSqliteMigrator` /
+  `createLibsqlMigrator` / `createMysqlMigrator`; Neon inherits via
+  `NeonMigrator = PgMigrator`) expose the same alias, each with an `await using`
+  disposal test. The README PostgreSQL walkthrough uses the `await using` form.
+  Recorded as a v0.9 lane in `docs/v0.9.0-roadmap.md`.
+- **MySQL functional (expression) indexes light up on MySQL 8.0.13+ (v0.9 T8).**
+  Added a `functionalIndex` `DialectCapability`
+  (`unsupported: ["mysql"],
+  unless: [{ baseEngine: true, minVersion: "8.0.13" }]`)
+  and threaded a `DialectIdentity` (built from the snapshot's
+  `dialectVariant`/`dialectVersion`) through the `@sisal/mysql` DDL generator.
+  An expression index now emits `((expr))` on base MySQL ≥ 8.0.13 and throws a
+  typed `ORM_DIALECT_UNSUPPORTED` guard below that version, on MariaDB, and when
+  the version is unknown (fail-closed); partial (`WHERE`) indexes stay
+  unsupported family-wide. Covered by new `ddl_test.ts` render/throw cases; the
+  feature-matrix reason is updated.
+- **Typed `numeric`/`bigint` round-trip integration scenarios (v0.9 T6).** The
+  shared integration harness gains a `valueShape.bigint` descriptor (`"string"`
+  on the Postgres + MySQL/MariaDB families, `"number"` on the SQLite family),
+  and each of the three family scenario files gains a `numeric + bigint`
+  round-trip that asserts the decoded `typeof` against the descriptor. The
+  string families use an int8 above 2^53 (`9007199254740993`) to prove no
+  lossy-float path; the SQLite family stays under 2^53 and documents the
+  precision limit. DB-gated (type-checked across all six suites; runtime
+  assertions await a live run).
+
+### Fixed
+
+- **Recursive CTEs (`db.$withRecursive`) rendered invalid SQL for the common
+  tree-walk shape (v0.9 T17).** Writing the recursive step as
+  `.from(base).innerJoin(base, … self …)` — the form shown in the docs and
+  pinned by the render tests/golden snapshot — rendered the recursive term
+  **absent from the FROM** (`from "posts" inner join "posts" … "tree"."id"`),
+  which every engine rejects (`table name specified more than once` /
+  `missing FROM-clause entry`). The correct form puts the self-reference in the
+  FROM: `.from(self)`. This shipped because there was **no recursive-CTE
+  integration coverage** (added in v0.9). A new **build-time guard** now throws
+  `ORM_INVALID_QUERY` when a recursive step never uses its self-reference as a
+  FROM source, so the mistake fails loudly at build time instead of producing
+  broken SQL. The render tests, golden snapshot, and examples now use
+  `.from(self)`.
+- **Prepared queries now render with the full dialect identity.**
+  `Select/Insert/Update/Delete.prepare()` baked the plan with the bare
+  `database.dialect`, dropping the `variant`/`version` the normal execute path
+  threads through. On a detected MariaDB (or any version-gated) connection a
+  prepared statement rendered as plain MySQL, so variant/version-gated
+  constructs failed closed — e.g. `insert(...).returning().prepare()` threw
+  "INSERT … RETURNING is not supported by the mysql dialect" even though the
+  same query executes fine via `.execute()`. Both `prepareRows`/`prepareResult`
+  now pass `database.dialectIdentity`; regression-guarded by a new
+  prepared-query test in `packages/orm/dialect_identity_test.ts`.
+
+### Changed
+
+- **Advanced-SQL example families migrated to builder-native (v0.9 T19).** All
+  three families — `examples/{postgres,mysql,sqlite}-family-advanced-sql` — now
+  express their graduated contracts through the query builder instead of raw
+  `sql` templates, each statement render-verified against its original raw SQL
+  for equivalence. The classification below is the PostgreSQL family; MySQL and
+  SQLite mirror it, differing only in the inline fragments kept for dialect
+  divergences (MySQL `timestampdiff`/date math; SQLite `julianday`/`date()` and
+  `json_each`/`json_extract` for JSON), and SQLite un-skips contracts 03/05/06
+  (previously `skipped` in that conservative file). Contracts 02 (window
+  analytics) and 04 (top-N per group) are fully **builder** —
+  `over()`/`rank()`/`rowNumber()` windows with a ROWS frame and a `.as()`
+  derived table. Contracts 03 (sessionization), 05 (cohort retention), 06
+  (funnel analysis), 07 (recursive comments), and 10 (JSON table extraction) are
+  **hybrid**: `$with()`/`$withRecursive()` CTEs, `lag()`/`sum()` windows,
+  `min()`/`countDistinct()`/`filter()` aggregates, `dateTrunc()`, and
+  `jsonTable()` supply the structure, with inline fragments kept only for the
+  un-expressible bits (PostgreSQL `::interval` gap/deadline math whose exact
+  boundary `dateDiff()`'s whole-unit truncation cannot reproduce, the CTE-to-CTE
+  join, the lateral cross-join composition, and `lpad`/`||`/`::text` path
+  expressions). Contract 11 (generated columns + indexes) now emits its DDL from
+  a `defineTable()` snapshot — a stored generated column plus a partial
+  expression index — through the PostgreSQL DDL generator rather than
+  hand-written SQL (still `raw-ddl`). Stale `v08PainPoint` notes were rewritten
+  to describe the now-shipping builder behavior; render-test assertions were
+  updated to the equivalent builder-rendered SQL. Contracts 01/08/09 stay as-is.
+- **Compatibility docs + unified matrix refreshed to the v0.9 reality (T20).**
+  `docs/feature-matrix.md` (generated) now carries the v0.9 rows — advisory
+  lock, ETL checkpoint watermark, retention/replay refusal, write outcome, and
+  read/recursive CTE — each scenario-backed. Each of the five
+  `docs/*-compatibility.md` gained a **v0.9 additions** note covering the
+  portable ETL substrate (`tryAdvisoryLock`/`etlCheckpoint`/`tryInsert`, with
+  the per-engine write-outcome mechanism), read/`WITH RECURSIVE` CTE coverage,
+  and the PostgreSQL/Neon-only data-modifying CTE. The dated "last live run"
+  attestation tables are unchanged — the v0.9-added integration scenarios are
+  DB-gated and await the next live run.
+- **Refreshed the API reference for the current workspace.** `docs/api.md` now
+  reflects the v0.8 package split (`@sisal/core` as the driverless compile
+  target), the MySQL/MariaDB adapter package, current subpath exports, query
+  builder additions, logging controls, async disposal aliases, schema-object
+  snapshots, and adapter DDL/migration boundaries.
+- **v0.9 roadmap priority summary** — `docs/v0.9.0-roadmap.md` gains the
+  consolidated T1–T20 task table in the v0.5–v0.8 style, separating active v0.9
+  scope from the detailed phased execution tasklist and explicitly marking the
+  v0.10-critical capability/ETL substrate path.
+- **Corrected the row-locking row in the feature matrix.** The generated
+  "PostgreSQL-only limits" prose for `.for(...)` reused the shared pg-only tail
+  and wrongly claimed the MySQL family throws; row locking is unsupported on the
+  SQLite family only (MySQL/MariaDB render `FOR UPDATE`/`FOR SHARE` natively, as
+  the table already showed). Fixed the `LOCKING` reason in
+  `tools/feature_matrix.ts` and regenerated `docs/feature-matrix.md`.
+- **Feature-matrix cells derive from the capability registry (v0.9 T3).** The
+  pure supported/unsupported rows (`distinctOn`, row locking, array operators,
+  data-modifying CTE) now compute their ✅/❌ cells from
+  `capabilitySupported(...)` over `DIALECT_CAPABILITIES` via a `capabilityRow`
+  helper, so they cannot drift from the render-time guards. Output is
+  byte-identical (`docs:matrix:check` unchanged); value-shape ⚠️ and fallback
+  rows stay hand-authored.
+- **Dialect key spaces reconciled + machine-checked (v0.9 T4).** Added a runtime
+  `SQL_DIALECTS` companion to the `SqlDialect` type and a reconciliation test
+  that pins the render dialect, the snapshot `SisalDialectName`, and the six
+  `CAPABILITY_TARGETS` as projections of the one `(engine, variant, version)`
+  descriptor: the 4-way unions are asserted identical at compile time, the 6→4
+  collapse (neon→pg, libsql→sqlite, mariadb→mysql) is verified, and capability
+  declarations naming an unknown dialect/variant are rejected. No behavior
+  change.
+- **Network-free regression test for `@sisal/pg` float decoding (v0.9 T5).** The
+  float4/float8 → `number` coercion shipped in v0.5.0 but was covered only by
+  the DB-gated integration suite; added a fast unit test (`packages/pg/orm/`)
+  that drives the coercion through a fake client and asserts `numeric` stays a
+  string. No behavior change.
+- **Partial-index limit promoted to a registry capability (v0.9 T9).** Added a
+  `partialIndex` `DialectCapability` (`unsupported: ["mysql"]`); the
+  `@sisal/mysql` DDL generator now sources its partial-index (`WHERE`) rejection
+  from `capabilitySupported(...)` instead of a hard-coded throw, so the fact is
+  single-sourced with the render guards. The matrix note records that Sisal
+  emits plain `CREATE INDEX` for every dialect (no `IF NOT EXISTS`). No behavior
+  change; the MySQL/MariaDB `RETURNING` capability rows were already complete.
+- **Base-engine-scoped version predicates in dialect guards (v0.9, unblocks
+  T8).** `DialectGuardException` gains `baseEngine?: boolean`; when set, the
+  `unless` lift applies only to an identity with **no variant** (the base
+  engine). This makes "supported on base MySQL ≥ 8.0.13 but never MariaDB"
+  expressible — previously a variant-less `unless` lifted every variant, so
+  MariaDB 11.x (numerically ≥ 8.0.13) would wrongly clear a MySQL version floor.
+  Covered by the render guard and `capabilitySupported` in
+  `packages/orm/dialect_identity_test.ts`.
+- **`@sisal/pg` decodes `bigint`/int8 as a string, aligning the Postgres family
+  (v0.9 T7).** int8 previously decoded to a JS `BigInt` on `@sisal/pg` but a
+  `string` on `@sisal/neon`, so an `id === "2"` check silently diverged between
+  the two Postgres-family adapters. The pg executor now coerces int8 columns
+  (OID 20) to strings — matching neon and preserving 64-bit precision — via
+  `coercePgColumns` (renamed from `coerceFloatColumns`; float4/float8 → `number`
+  coercion is unchanged). Pinned by a network-free executor unit test (proven to
+  bite) and the cross-adapter parity test (both adapters assert
+  `typeof === "string"` and equal values). **Migration note:** code that relied
+  on pg returning a `BigInt` (e.g. `row.id === 2n`) must compare as strings.
+- **Clarified `db.batch` round-trip wording.** The `OrmDriver.batch` contract
+  and the `#runBatch` comment implied single-round-trip execution; the built-in
+  pg/mysql/sqlite/libsql adapters run the statements sequentially inside one
+  atomic transaction. Reworded so a single round trip is described as an
+  optional driver capability, not a guarantee. (libSQL's native one-round-trip
+  `batch()` remains an available future optimization.)
+
+- **Overhauled the benchmark suite to track only Sisal's own hot paths.** The
+  `temporal` scenarios drop the `Date`-vs-`Temporal` runtime-API microbenchmarks
+  (`date api parse` / `date api format`) and the raw-JS mapping baselines — none
+  of them exercise Sisal code, so they carried no regression signal — keeping
+  the Sisal serialization (`sisal temporal params`) and parse-cost
+  (`sisal temporal row parsing`) groups. The migration scenarios drop the
+  `deno eval` subprocess smoke bench (it timed Deno process startup, not Sisal),
+  so `deno task bench` no longer needs `--allow-run` and its group is renamed
+  `cli + migrations` → `migrations`. `docs/benchmarks.md` is updated to match.
+  The SQL-generation, advanced-SQL, and fake-driver dispatch scenarios are
+  unchanged.
+
+### Removed
+
+- **Dropped the Sisal-vs-Drizzle comparison benchmarks.** Removed the
+  `vs_drizzle`, `vs_drizzle_execute`, and `drizzle_proxy` benchmark scenarios,
+  the `drizzle-orm` import map entries in `benchmarks/deno.json`, and the fake
+  proxy's Drizzle adapter (`asDrizzlePgProxy` and its helpers/tests). Benchmarks
+  now measure Sisal's own SQL generation, dispatch, and result mapping in
+  isolation. `docs/benchmarks.md` drops the head-to-head sections accordingly.
+  The Drizzle **parity** matrix and its tests are unaffected.
+
 ## 0.8.0 - 2026-07-02
 
 ### Added

@@ -35,9 +35,9 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.8.0 \
-  jsr:@sisal/migrate@0.8.0 \
-  jsr:@sisal/pg@0.8.0
+deno add jsr:@sisal/orm@0.9.0 \
+  jsr:@sisal/migrate@0.9.0 \
+  jsr:@sisal/pg@0.9.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -45,11 +45,11 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target        | Install                                                                          |
 | ------------- | -------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/pg@0.8.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/neon@0.8.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/sqlite@0.8.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/libsql@0.8.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/mysql@0.8.0`  |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/pg@0.9.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/neon@0.9.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/sqlite@0.9.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/libsql@0.9.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/mysql@0.9.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -57,8 +57,9 @@ import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
 ## PostgreSQL Walkthrough
 
 This example defines a small feed schema, generates additive PostgreSQL DDL,
-connects through the PostgreSQL adapter, writes with a batched transaction,
-updates with a SQL expression, and reads a keyset-paginated page.
+connects through the PostgreSQL adapter with `await using` for automatic
+cleanup, writes with a batched transaction, updates with a SQL expression, and
+reads a keyset-paginated page.
 
 ```ts
 import {
@@ -104,70 +105,69 @@ const snapshot = createSchemaSnapshot({
   tables: [users, posts],
 });
 
-const db = await connect({
+// `await using` closes the connection pool when the scope exits — including on
+// an early throw — so no try/finally is needed. (Call `await db.close()`
+// manually if you need to release it sooner.)
+await using db = await connect({
   url: Deno.env.get("DATABASE_URL"),
 });
 
-try {
-  const { statements, destructive } = generatePostgresUpStatements(snapshot);
+const { statements, destructive } = generatePostgresUpStatements(snapshot);
 
-  if (destructive.length > 0) {
-    throw new Error("Refusing to apply destructive generated changes.");
-  }
-
-  for (const statement of statements) {
-    await db.execute(statement);
-  }
-
-  const userId = crypto.randomUUID();
-  const postId = crypto.randomUUID();
-
-  await db.batch([
-    db.insert(users).values({
-      id: userId,
-      email: "ada@example.com",
-      displayName: "Ada",
-      createdAt: Temporal.Now.instant(),
-    }),
-    db.insert(posts).values({
-      id: postId,
-      authorId: userId,
-      title: "Portable database tooling",
-      status: "published",
-      score: 0,
-      upvotes: 3,
-      downvotes: 1,
-      createdAt: Temporal.Now.instant(),
-    }),
-  ]);
-
-  await db.update(posts).set({
-    score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
-  }).where(eq(posts.columns.id, postId)).execute();
-
-  const page = await db.select({
-    id: posts.columns.id,
-    title: posts.columns.title,
-    author: users.columns.displayName,
-    score: posts.columns.score,
-    createdAt: posts.columns.createdAt,
-  }).from(posts)
-    .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
-    .where(eq(posts.columns.status, "published"))
-    .keyset({
-      orderBy: [
-        desc(posts.columns.score),
-        desc(posts.columns.createdAt),
-        desc(posts.columns.id),
-      ],
-    })
-    .limit(20)
-    .execute();
-
-  console.log(page.rows, page.nextCursor);
-} finally {
-  await db.close();
+if (destructive.length > 0) {
+  throw new Error("Refusing to apply destructive generated changes.");
 }
+
+for (const statement of statements) {
+  await db.execute(statement);
+}
+
+const userId = crypto.randomUUID();
+const postId = crypto.randomUUID();
+
+await db.batch([
+  db.insert(users).values({
+    id: userId,
+    email: "ada@example.com",
+    displayName: "Ada",
+    createdAt: Temporal.Now.instant(),
+  }),
+  db.insert(posts).values({
+    id: postId,
+    authorId: userId,
+    title: "Portable database tooling",
+    status: "published",
+    score: 0,
+    upvotes: 3,
+    downvotes: 1,
+    createdAt: Temporal.Now.instant(),
+  }),
+]);
+
+await db.update(posts).set({
+  score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
+}).where(eq(posts.columns.id, postId)).execute();
+
+const page = await db.select({
+  id: posts.columns.id,
+  title: posts.columns.title,
+  author: users.columns.displayName,
+  score: posts.columns.score,
+  createdAt: posts.columns.createdAt,
+}).from(posts)
+  .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
+  .where(eq(posts.columns.status, "published"))
+  .keyset({
+    orderBy: [
+      desc(posts.columns.score),
+      desc(posts.columns.createdAt),
+      desc(posts.columns.id),
+    ],
+  })
+  .limit(20)
+  .execute();
+
+console.log(page.rows, page.nextCursor);
 ```
 
 `generatePostgresUpStatements` is intentionally additive: destructive changes
@@ -183,7 +183,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.8.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.9.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -257,17 +257,17 @@ database plan do not match.
   CLI workflow.
 - Adapter packages for PostgreSQL, Neon, SQLite, libSQL/Turso, and
   MySQL/MariaDB.
-- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus small
-  logger contracts.
+- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus
+  configurable logger contracts.
 
 ## Packages
 
 Core packages:
 
-| Package          | Purpose                                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and logger contracts.    |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config. |
+| Package          | Purpose                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging. |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.  |
 
 Adapter packages:
 

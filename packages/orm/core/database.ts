@@ -10,6 +10,7 @@ import {
   type ColumnValueMode,
   type Condition,
   count,
+  createSisalLogEmitter,
   type DialectIdentity,
   emptySql,
   type InferProjection,
@@ -18,8 +19,12 @@ import {
   type Logger,
   normalizeSqlInput,
   OrmError,
+  redactSqlParameters,
   type SelectColumnRef,
   type SelectProjection,
+  type SisalLogCategory,
+  type SisalLogEmitter,
+  type SisalLoggingOptions,
   type Sql,
   type SqlDialect,
   type SqlInput,
@@ -39,6 +44,7 @@ import {
 import {
   type Cte,
   CTE_DEFINITIONS,
+  CTE_FROM_SOURCES,
   cteBodySql,
   type CteBuilder,
   cteColumnKeys,
@@ -66,6 +72,13 @@ import {
   type RelationRegistry,
   type RelationsList,
 } from "./relations.ts";
+import {
+  type AdvisoryLock,
+  type AdvisoryLockOptions,
+  tryAcquireAdvisoryLock,
+} from "./advisory_lock.ts";
+
+export type { AdvisoryLock, AdvisoryLockOptions };
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
@@ -89,8 +102,10 @@ export interface OrmDriver {
 
   /**
    * Runs several pre-rendered statements as one atomic, non-interactive unit
-   * (`begin; …; commit`), ideally in a single round trip. Optional: when a
-   * driver omits it, {@link Database.batch} falls back to {@link transaction}.
+   * (`begin; …; commit`). A driver may collapse this into a single round trip
+   * where its client supports one; the built-in adapters run the statements
+   * sequentially inside one transaction. Optional: when a driver omits it,
+   * {@link Database.batch} falls back to {@link transaction}.
    */
   batch?(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]>;
 
@@ -253,7 +268,41 @@ export interface Database<
    */
   batch(statements: readonly BatchStatement[]): Promise<OrmQueryResult[]>;
 
+  /**
+   * Tries to claim a portable, **lightweight** advisory lock named `name` — a
+   * coarse whole-job mutual-exclusion primitive (the v0.6 A2 / contract-08
+   * substrate a future ETL runner uses so two runs never process the same
+   * window twice). Non-blocking: it returns immediately whether or not the lock
+   * was won. Backed by a `sisal_advisory_locks` lease row, so **no connection
+   * or server-side lock is held** between acquire and release — work proceeds on
+   * the normal pool. Always `await using` the result so the lease is released on
+   * scope exit, including on an early return or a throw:
+   *
+   * ```ts
+   * await using lock = await db.tryAdvisoryLock(`sisal:etl:${job}`);
+   * if (!lock.acquired) return; // another runner holds it
+   * await runWindow(db);
+   * ```
+   *
+   * A crashed holder's lease expires after `ttlMs` (default 30s), after which
+   * another claimant may steal it; long runs should call `lock.renew()` and stop
+   * on a `false`. The lease rows live in `sisal_advisory_locks` by default;
+   * pass `{ table }` to place them under your own name. Throws
+   * `ORM_DIALECT_UNSUPPORTED` on the `generic` dialect.
+   */
+  tryAdvisoryLock(
+    name: string,
+    options?: AdvisoryLockOptions,
+  ): Promise<AdvisoryLock>;
+
   close(): Promise<void>;
+
+  /**
+   * Async-disposal alias for {@link close}, so
+   * `await using db = await connect(...)` releases the driver's connection or
+   * pool when the scope exits — including on an early return or a throw.
+   */
+  [Symbol.asyncDispose](): Promise<void>;
 }
 
 /** Options for creating a {@link Database}. */
@@ -268,6 +317,7 @@ export interface DatabaseOptions<
   /** Server version string; see {@link DialectIdentity}. */
   readonly version?: string;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   /** Optional schema map that enables `db.query.<schemaKey>`. */
   readonly schema?: TSchema;
   /** Relation definitions created with {@link relations}. */
@@ -294,6 +344,7 @@ export function createDatabase<
     ...(options.variant === undefined ? {} : { variant: options.variant }),
     ...(options.version === undefined ? {} : { version: options.version }),
     logger: options.logger,
+    ...(options.logging === undefined ? {} : { logging: options.logging }),
     ...(options.schema === undefined ? {} : { schema: options.schema }),
     ...(options.relations === undefined
       ? {}
@@ -368,6 +419,8 @@ interface SisalDatabaseOptions<
   readonly variant?: string;
   readonly version?: string;
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
+  readonly log?: SisalLogEmitter;
   readonly schema?: TSchema;
   readonly relations?: TRelations;
   readonly temporal?: TemporalParsingOptions;
@@ -381,7 +434,7 @@ class SisalDatabase<
   readonly dialectIdentity: DialectIdentity;
   readonly query: DatabaseQuery<TSchema, TRelations>;
   readonly #driver: OrmDriver;
-  readonly #logger?: Logger;
+  readonly #log: SisalLogEmitter;
   readonly #schema?: TSchema;
   readonly #relations?: TRelations;
   readonly #temporal: TemporalParsingOptions;
@@ -395,7 +448,12 @@ class SisalDatabase<
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       ...(options.version === undefined ? {} : { version: options.version }),
     };
-    this.#logger = options.logger;
+    this.#log = options.log ?? createSisalLogEmitter({
+      logger: options.logger,
+      logging: options.logging,
+      defaultLevel: "debug",
+      metadata: options.logging !== undefined,
+    });
     this.#schema = options.schema;
     this.#relations = options.relations;
     this.#temporal = options.temporal ?? {};
@@ -557,9 +615,22 @@ class SisalDatabase<
         const self = columns as Cte<
           { readonly [K in TColumn]: SelectColumnRef }
         >;
+        const body = build(self);
+        // Guard: the recursive step must reference the self-reference in its
+        // FROM (via `from(self)`). Referencing it only in SELECT/WHERE renders a
+        // step whose FROM omits the CTE — invalid recursive SQL on every engine.
+        if (!CTE_FROM_SOURCES.has(columns)) {
+          throw new OrmError(
+            `recursive CTE "${name}" never uses its self-reference as a FROM ` +
+              `source — call \`from(self)\` in the recursive step (referencing ` +
+              `\`self\` only in SELECT/WHERE renders SQL where the CTE is ` +
+              `absent from the FROM clause)`,
+            { code: "ORM_INVALID_QUERY" },
+          );
+        }
         CTE_DEFINITIONS.set(columns, {
           name,
-          query: cteBodySql(build(self)),
+          query: cteBodySql(body),
           recursive: true,
           columnNames,
         });
@@ -676,32 +747,50 @@ class SisalDatabase<
   async transaction<T>(
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T> {
+    const startedAt = performance.now();
+    if (this.#log.settings.metadata) {
+      this.#debug("orm.transaction", undefined, "orm transaction started");
+    }
+
     try {
+      let result: T;
       if (this.#driver.transaction === undefined) {
-        return await fn(this);
+        result = await fn(this);
+      } else {
+        result = await this.#driver.transaction(async (tx) => {
+          const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
+            driver: transactionToDriver(tx),
+            dialect: this.dialect,
+            ...(this.dialectIdentity.variant === undefined
+              ? {}
+              : { variant: this.dialectIdentity.variant }),
+            ...(this.dialectIdentity.version === undefined
+              ? {}
+              : { version: this.dialectIdentity.version }),
+            log: this.#log,
+            ...(this.#schema === undefined ? {} : { schema: this.#schema }),
+            ...(this.#relations === undefined
+              ? {}
+              : { relations: this.#relations }),
+            temporal: this.#temporal,
+          });
+
+          return await fn(transactionDatabase);
+        });
       }
 
-      return await this.#driver.transaction(async (tx) => {
-        const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
-          driver: transactionToDriver(tx),
-          dialect: this.dialect,
-          ...(this.dialectIdentity.variant === undefined
-            ? {}
-            : { variant: this.dialectIdentity.variant }),
-          ...(this.dialectIdentity.version === undefined
-            ? {}
-            : { version: this.dialectIdentity.version }),
-          logger: this.#logger,
-          ...(this.#schema === undefined ? {} : { schema: this.#schema }),
-          ...(this.#relations === undefined
-            ? {}
-            : { relations: this.#relations }),
-          temporal: this.#temporal,
-        });
-
-        return await fn(transactionDatabase);
-      });
+      if (this.#log.settings.metadata) {
+        this.#debug(
+          "orm.transaction",
+          { durationMs: elapsedMs(startedAt) },
+          "orm transaction completed",
+        );
+      }
+      return result;
     } catch (error) {
+      if (this.#log.settings.metadata) {
+        this.#error("orm.transaction", undefined, "orm transaction failed");
+      }
       throw new OrmError("ORM transaction failed", {
         code: "ORM_TRANSACTION_FAILED",
         cause: error,
@@ -722,17 +811,26 @@ class SisalDatabase<
     }
 
     const startedAt = performance.now();
-    this.#debug({ statements: queries.length }, "orm batch started");
+    this.#debug(
+      "orm.batch",
+      { statements: queries.length },
+      "orm batch started",
+    );
 
     try {
       const results = await this.#runBatch(queries);
       this.#debug(
+        "orm.batch",
         { statements: queries.length, durationMs: elapsedMs(startedAt) },
         "orm batch completed",
       );
       return results;
     } catch (error) {
-      this.#error({ statements: queries.length }, "orm batch failed");
+      this.#error(
+        "orm.batch",
+        { statements: queries.length },
+        "orm batch failed",
+      );
       if (error instanceof OrmError) {
         throw error;
       }
@@ -751,7 +849,9 @@ class SisalDatabase<
   }
 
   async #runBatch(queries: SqlQuery[]): Promise<OrmQueryResult[]> {
-    // Prefer a driver's native batch (one round trip where supported).
+    // Prefer a driver's own batch: it may collapse the statements into a single
+    // round trip where the client supports one, though the built-in adapters run
+    // them sequentially inside one transaction.
     if (this.#driver.batch !== undefined) {
       return await this.#driver.batch(queries);
     }
@@ -773,8 +873,19 @@ class SisalDatabase<
     return results;
   }
 
+  tryAdvisoryLock(
+    name: string,
+    options?: AdvisoryLockOptions,
+  ): Promise<AdvisoryLock> {
+    return tryAcquireAdvisoryLock(this, name, options);
+  }
+
   async close(): Promise<void> {
     await this.#driver.close?.();
+  }
+
+  [Symbol.asyncDispose](): Promise<void> {
+    return this.close();
   }
 
   async #run<T>(
@@ -786,11 +897,28 @@ class SisalDatabase<
     const rendered = normalizeSqlInput(query, params, this.dialectIdentity);
     const startedAt = performance.now();
 
-    this.#debug({ sql: rendered.text }, "orm query started");
+    this.#debug("orm.sql", { sql: rendered.text }, "orm query started");
+    // `metadata` gates the bind category behind opting into the new logging
+    // config (legacy bare-`logger` callers never get it); `enabled(...)` adds
+    // the level/category short-circuit so the per-parameter redaction never
+    // runs below trace only to be discarded by `emit`.
+    if (
+      rendered.params.length > 0 &&
+      this.#log.settings.sql.parameters === "redacted" &&
+      this.#log.settings.metadata &&
+      this.#log.enabled("trace", "orm.bind")
+    ) {
+      this.#trace(
+        "orm.bind",
+        { params: redactSqlParameters(rendered.params) },
+        "orm query parameters",
+      );
+    }
 
     try {
       const result = await run(rendered);
       this.#debug(
+        "orm.result",
         {
           rowCount: result.rowCount ?? result.rows.length,
           durationMs: elapsedMs(startedAt),
@@ -799,7 +927,7 @@ class SisalDatabase<
       );
       return this.#decodeResult(rendered, result);
     } catch (error) {
-      this.#error({ sql: rendered.text }, "orm query failed");
+      this.#error("orm.query", { sql: rendered.text }, "orm query failed");
 
       if (error instanceof OrmError) {
         throw error;
@@ -813,20 +941,28 @@ class SisalDatabase<
     }
   }
 
-  #debug(record: Record<string, unknown>, message: string): void {
-    try {
-      this.#logger?.debug(record, message);
-    } catch {
-      // Logging must not break queries.
-    }
+  #trace(
+    category: SisalLogCategory,
+    record: Record<string, unknown>,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "trace", category, record, message });
   }
 
-  #error(record: Record<string, unknown>, message: string): void {
-    try {
-      this.#logger?.error(record, message);
-    } catch {
-      // Logging must not break queries.
-    }
+  #debug(
+    category: SisalLogCategory,
+    record: Record<string, unknown> | undefined,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "debug", category, record, message });
+  }
+
+  #error(
+    category: SisalLogCategory,
+    record: Record<string, unknown> | undefined,
+    message: string,
+  ): void {
+    this.#log.emit({ level: "error", category, record, message });
   }
 
   #decodeResult<T>(

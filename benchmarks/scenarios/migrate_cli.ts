@@ -1,5 +1,9 @@
 /**
- * CLI/process-boundary and migration workflow benchmark scenario.
+ * Migration workflow benchmark scenarios.
+ *
+ * These exercise Sisal's migration file/drift workflow and the core migrator's
+ * apply/rollback path against in-memory stores and a noop driver — no database
+ * and no subprocess, so the numbers stay focused on Sisal's own work.
  *
  * @module
  */
@@ -22,9 +26,8 @@ import {
 } from "@sisal/migrate";
 import type { BenchmarkScenario } from "../harness.ts";
 
-const GROUP = "cli + migrations";
+const GROUP = "migrations";
 const MIGRATION_COUNT = 24;
-const WORKSPACE_ROOT = new URL("../../", import.meta.url);
 
 const snapshotV1: SisalSchemaSnapshot = {
   version: 2,
@@ -108,16 +111,6 @@ export const migrateCliScenarios: readonly BenchmarkScenario[] = [
       await runCoreMigratorScenario();
     },
   },
-  {
-    group: GROUP,
-    name: "deno cli eval migration smoke",
-    n: 5,
-    warmup: 1,
-    permissions: { run: ["deno"] },
-    async fn() {
-      await runCliMigrationBoundaryScenario();
-    },
-  },
 ];
 
 async function runMigrationWorkflowScenario(): Promise<void> {
@@ -169,24 +162,6 @@ async function runCoreMigratorScenario(): Promise<MigrationResult> {
   return await migrator.down({ steps: Math.floor(MIGRATION_COUNT / 2) });
 }
 
-async function runCliMigrationBoundaryScenario(): Promise<void> {
-  const command = new Deno.Command("deno", {
-    args: ["eval", CLI_MIGRATION_SMOKE_SCRIPT],
-    cwd: WORKSPACE_ROOT,
-    clearEnv: true,
-    stdout: "null",
-    stderr: "piped",
-  });
-  const output = await command.output();
-
-  if (!output.success) {
-    const stderr = new TextDecoder().decode(output.stderr).trim();
-    throw new Error(
-      `CLI migration smoke failed with status ${output.code}: ${stderr}`,
-    );
-  }
-}
-
 function memoryMigrationFileSystem(): MigrationFileSystem {
   const files = new Map<string, string>();
 
@@ -220,79 +195,3 @@ function memoryMigrationFileSystem(): MigrationFileSystem {
     },
   };
 }
-
-const CLI_MIGRATION_SMOKE_SCRIPT = `
-import {
-  buildMigrationFile,
-  checkDrift,
-  createMigrator,
-  defineSqlMigration,
-  memoryMigrationStore,
-  noopMigrationDriver,
-  readMigrationsDir,
-  writeMigrationFile,
-} from "@sisal/migrate";
-
-const snapshot = {
-  version: 2,
-  dialect: "sqlite",
-  tables: [{
-    name: "users",
-    columns: [
-      { name: "id", type: { kind: "uuid" }, nullable: false },
-      { name: "email", type: { kind: "text" }, nullable: false },
-    ],
-    primaryKey: { columns: ["id"] },
-  }],
-};
-const files = new Map();
-const fs = {
-  readDir(path) {
-    const prefix = path.endsWith("/") ? path : path + "/";
-    return Promise.resolve([...files.keys()]
-      .filter((key) => key.startsWith(prefix))
-      .map((key) => key.slice(prefix.length))
-      .filter((name) => !name.includes("/")));
-  },
-  readFile(path) {
-    return Promise.resolve(files.get(path));
-  },
-  writeFile(path, content) {
-    files.set(path, content);
-    return Promise.resolve();
-  },
-  mkdir() {
-    return Promise.resolve();
-  },
-};
-const file = buildMigrationFile({
-  sequence: 1,
-  name: "initial",
-  statements: ['CREATE TABLE "users" ("id" TEXT NOT NULL, "email" TEXT NOT NULL);'],
-  snapshot,
-});
-
-await writeMigrationFile(fs, "migrations", file);
-const discovered = await readMigrationsDir(fs, "migrations");
-const migrations = discovered.map((migration) => defineSqlMigration({
-  id: migration.id,
-  up: migration.sql,
-  down: 'DROP TABLE "users";',
-}));
-const migrator = createMigrator({
-  migrations,
-  store: memoryMigrationStore(),
-  driver: noopMigrationDriver(),
-});
-
-await migrator.up();
-const report = checkDrift({
-  currentSnapshot: snapshot,
-  latestSnapshot: discovered.at(-1)?.snapshot,
-  pending: (await migrator.pending()).map((migration) => migration.id),
-});
-
-if (!report.clean) {
-  throw new Error(JSON.stringify(report.findings));
-}
-`;

@@ -52,6 +52,11 @@ Deno.test("capabilities: the six-target truth table", () => {
     windowGroupsFrame: ["pg", "neon"],
     // MariaDB's parser rejects lag/lead's third argument (live, 11.8.8).
     windowOffsetDefault: ["pg", "neon", "sqlite", "libsql", "mysql"],
+    // Partial (WHERE) indexes: the MySQL family rejects them (DDL-level).
+    partialIndex: ["pg", "neon", "sqlite", "libsql"],
+    // Functional (expression) indexes: base MySQL ≥ 8.0.13 only; version-gated,
+    // so the bare (version-less) mysql/mariadb targets fail closed.
+    functionalIndex: ["pg", "neon", "sqlite", "libsql"],
   };
   for (const [id, capability] of Object.entries(DIALECT_CAPABILITIES)) {
     for (const [target, identity] of Object.entries(CAPABILITY_TARGETS)) {

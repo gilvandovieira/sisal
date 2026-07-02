@@ -27,6 +27,13 @@ SQL (`LIBSQL_DIALECT = "sqlite"`), so its column-naming, keyset, prepared,
 `db.batch`, and `sql`-in-`SET`/`VALUES` rows match SQLite; the libSQL-specific
 round-trip differences and connection notes are below.
 
+**v0.9 additions.** libSQL inherits the SQLite-family behavior for the portable
+ETL substrate — the advisory lock is a **lock-row lease**
+(`db.tryAdvisoryLock`), plus `etlCheckpoint` (watermark/retention) and
+`tryInsert` (write-outcome via `RETURNING`); read/`WITH RECURSIVE` CTEs are
+covered per-engine and data-modifying CTEs are guarded off. All are in the
+[feature matrix](feature-matrix.md).
+
 ## Behavior notes
 
 > The cross-driver round-trip differences and PostgreSQL-only limits are

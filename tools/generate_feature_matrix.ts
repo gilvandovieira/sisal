@@ -198,7 +198,10 @@ function validate(): { backed: number; errors: string[] } {
   // The feature matrix and the core capability registry must key on the same
   // six-way target space (the GI-1 reconciliation): the registry is the
   // single source of truth, so the matrix's `ADAPTERS` are checked against
-  // its `CAPABILITY_TARGETS` here (per-cell capability wiring lands in v0.9).
+  // its `CAPABILITY_TARGETS` here. Per-cell wiring (v0.9 T3): the pure
+  // supported/unsupported rows derive their cells from `capabilitySupported`
+  // via `capabilityRow` in `feature_matrix.ts`, so they cannot drift from the
+  // registry; ⚠️ fallback rows (e.g. MySQL `RETURNING`) stay hand-authored.
   const registryTargets = Object.keys(CAPABILITY_TARGETS).sort();
   const matrixTargets = [...ADAPTERS].sort();
   if (registryTargets.join(",") !== matrixTargets.join(",")) {

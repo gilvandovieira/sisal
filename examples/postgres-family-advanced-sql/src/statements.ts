@@ -1,8 +1,11 @@
 import {
   and,
   asc,
+  avg,
   count,
+  countDistinct,
   createDatabase,
+  createSchemaSnapshot,
   type Database,
   dateTrunc,
   desc,
@@ -11,14 +14,25 @@ import {
   excluded,
   filter,
   gte,
+  identifier,
+  isNotNull,
+  jsonTable,
+  lag,
   lt,
+  lte,
+  min,
+  over,
+  rank,
   raw,
   renderSql,
+  rowNumber,
   type Sql,
   sql,
+  sum,
 } from "@sisal/orm";
+import { generatePostgresUpStatements } from "@sisal/pg/ddl";
 
-import { events, hourlyStats, jobs } from "./schema.ts";
+import { comments, documents, events, hourlyStats, jobs } from "./schema.ts";
 
 export type AdvancedImplementation =
   | "builder"
@@ -68,36 +82,48 @@ export function advancedSqlCases(
       id: "02",
       title: "Window analytics",
       contract: "02-window-analytics",
-      implementation: "raw",
-      statements: [windowAnalytics()],
-      v08PainPoint: "Needs core over(), frame, ranking, and window helpers.",
+      implementation: "builder",
+      statements: [windowAnalytics(db)],
+      v08PainPoint:
+        "Now builder-native: over() with a ROWS frame drives the moving " +
+        "average and rank() the ranking window; the ranking expression is " +
+        "reused in ORDER BY instead of an output-alias reference.",
       live: true,
     },
     {
       id: "03",
       title: "Sessionization",
       contract: "03-sessionization",
-      implementation: "raw",
-      statements: [sessionization()],
-      v08PainPoint: "Needs lag(), window aliasing, and portable date-diff.",
+      implementation: "hybrid",
+      statements: [sessionization(db)],
+      v08PainPoint:
+        "Now builder-native: $with() CTEs, lag() over() for the previous " +
+        "event, and sum() over() for the running session count. The gap test " +
+        "stays an inline `x - y > '30 minutes'::interval` fragment — dateDiff() " +
+        "truncates to whole units and would shift the 30-31 minute boundary.",
       live: true,
     },
     {
       id: "04",
       title: "Top-N per group",
       contract: "04-top-n-per-group",
-      implementation: "raw",
-      statements: [topNPerGroup()],
-      v08PainPoint: "Needs row_number() plus a CTE/window expression builder.",
+      implementation: "builder",
+      statements: [topNPerGroup(db)],
+      v08PainPoint:
+        "Now builder-native: row_number() over() inside a subquery aliased " +
+        "with .as(), then an outer filter on the ranked derived table.",
       live: true,
     },
     {
       id: "05",
       title: "Cohort retention",
       contract: "05-cohort-retention",
-      implementation: "raw",
-      statements: [cohortRetention()],
-      v08PainPoint: "Needs date-diff, reusable CTE assembly, and aliases.",
+      implementation: "hybrid",
+      statements: [cohortRetention(db)],
+      v08PainPoint:
+        "Now builder-native: $with() CTEs, dateTrunc() day buckets, min() and " +
+        "countDistinct() aggregates. The CTE-to-CTE join is still an inline " +
+        "FROM fragment — the builder joins tables, not two CTEs.",
       live: true,
     },
     {
@@ -105,17 +131,23 @@ export function advancedSqlCases(
       title: "Funnel analysis",
       contract: "06-funnel-analysis",
       implementation: "hybrid",
-      statements: [funnelAnalysis()],
-      v08PainPoint: "Needs typed first-event helpers and alias reuse.",
+      statements: [funnelAnalysis(db)],
+      v08PainPoint:
+        "Now builder-native: filter() supplies the typed first-event helpers " +
+        "(min() filtered per kind) and count() filter() the funnel counts. The " +
+        "`viewed_at + '1 day'::interval` windows stay inline interval fragments.",
       live: true,
     },
     {
       id: "07",
       title: "Recursive comments",
       contract: "07-recursive-comments",
-      implementation: "raw",
-      statements: [recursiveComments()],
-      v08PainPoint: "Needs a WITH RECURSIVE builder and depth/cycle guards.",
+      implementation: "hybrid",
+      statements: [recursiveComments(db)],
+      v08PainPoint:
+        "Now builder-native: $withRecursive() drives the base UNION ALL step " +
+        "with the self-reference in from(self) and the depth guard in WHERE. " +
+        "The path/depth expressions (lpad, ||, ::text) stay inline fragments.",
       live: true,
     },
     {
@@ -140,9 +172,12 @@ export function advancedSqlCases(
       id: "10",
       title: "JSON table extraction",
       contract: "10-json-table-extraction",
-      implementation: "raw",
-      statements: [jsonTableExtraction()],
-      v08PainPoint: "Needs JSON set-returning function/table projection IR.",
+      implementation: "hybrid",
+      statements: [jsonTableExtraction(db)],
+      v08PainPoint:
+        "Now builder-native: jsonTable() is the set-returning projection IR " +
+        "(jsonb_to_recordset with a typed column list). The lateral cross-join " +
+        "of the base table and the function stays an inline FROM fragment.",
       live: true,
     },
     {
@@ -152,7 +187,10 @@ export function advancedSqlCases(
       implementation: "raw-ddl",
       statements: generatedColumnDdl(),
       v08PainPoint:
-        "Needs generated columns, partial indexes, and expression indexes in schema snapshots.",
+        "Now expressible in the schema snapshot: the DDL is generated from a " +
+        "defineTable() with a stored generated column plus a partial expression " +
+        "index, then emitted by the PostgreSQL DDL generator (still raw DDL " +
+        "because it comes from a snapshot, not a query builder).",
       live: true,
     },
     {
@@ -213,163 +251,175 @@ function etlRollup(db: Database): Sql {
   }).toSql();
 }
 
-function windowAnalytics(): Sql {
-  return sql`
-    select
-      post_id,
-      bucket,
-      votes,
-      avg(votes) over (
-        partition by post_id
-        order by bucket
-        rows between 5 preceding and current row
-      ) as vote_ma_6h,
-      rank() over (
-        partition by bucket
-        order by engagement_score desc
-      ) as engagement_rank
-    from sisal_adv_hourly_stats
-    where bucket >= ${FROM}
-    order by bucket, engagement_rank
-  `;
+function windowAnalytics(db: Database): Sql {
+  const h = hourlyStats.columns;
+  // Reuse the ranking window so ORDER BY sorts by the same expression the
+  // `engagement_rank` column exposes (no output-alias reference needed).
+  const engagementRank = over(rank(), {
+    partitionBy: [h.bucket],
+    orderBy: [desc(h.engagement_score)],
+  });
+  return db.select({
+    post_id: h.post_id,
+    bucket: h.bucket,
+    votes: h.votes,
+    vote_ma_6h: over(avg(h.votes), {
+      partitionBy: [h.post_id],
+      orderBy: [asc(h.bucket)],
+      frame: { unit: "rows", start: { preceding: 5 }, end: "currentRow" },
+    }),
+    engagement_rank: engagementRank,
+  }).from(hourlyStats)
+    .where(gte(h.bucket, FROM))
+    .orderBy(asc(h.bucket), engagementRank)
+    .toSql();
 }
 
-function sessionization(): Sql {
-  return sql`
-    with ordered as (
-      select
-        actor_id,
-        occurred_at,
-        lag(occurred_at) over (
-          partition by actor_id
-          order by occurred_at
-        ) as previous_at
-      from sisal_adv_events
-      where occurred_at >= ${FROM}
-    ),
-    flagged as (
-      select
-        actor_id,
-        occurred_at,
-        case
-          when previous_at is null
-            or occurred_at - previous_at > ${"30 minutes"}::interval
-          then 1
-          else 0
-        end as starts_new_session
-      from ordered
-    )
-    select
-      actor_id,
-      occurred_at,
-      sum(starts_new_session) over (
-        partition by actor_id
-        order by occurred_at
-      ) as session_number
-    from flagged
-  `;
+function sessionization(db: Database): Sql {
+  const e = events.columns;
+  const ordered = db.$with("ordered").as(
+    db.select({
+      actor_id: e.actor_id,
+      occurred_at: e.occurred_at,
+      previous_at: over(lag(e.occurred_at), {
+        partitionBy: [e.actor_id],
+        orderBy: [asc(e.occurred_at)],
+      }),
+    }).from(events).where(gte(e.occurred_at, FROM)),
+  );
+  const flagged = db.$with("flagged").as(
+    db.select({
+      actor_id: ordered.actor_id,
+      occurred_at: ordered.occurred_at,
+      // The gap test is PostgreSQL interval arithmetic with an exact boundary
+      // (`> 30:00`), which dateDiff()'s whole-unit truncation cannot reproduce,
+      // so it stays an inline fragment; the "30 minutes" literal still binds.
+      starts_new_session: sql`case
+        when ${ordered.previous_at} is null
+          or ${ordered.occurred_at} - ${ordered.previous_at} > ${"30 minutes"}::interval
+        then 1
+        else 0
+      end`,
+    }).from(ordered),
+  );
+  return db.with(ordered, flagged).select({
+    actor_id: flagged.actor_id,
+    occurred_at: flagged.occurred_at,
+    session_number: over(sum(flagged.starts_new_session), {
+      partitionBy: [flagged.actor_id],
+      orderBy: [asc(flagged.occurred_at)],
+    }),
+  }).from(flagged).toSql();
 }
 
-function topNPerGroup(): Sql {
-  return sql`
-    select post_id, bucket, engagement_score, rn
-    from (
-      select
-        post_id,
-        bucket,
-        engagement_score,
-        row_number() over (
-          partition by post_id
-          order by engagement_score desc, bucket desc
-        ) as rn
-      from sisal_adv_hourly_stats
-      where bucket >= ${FROM}
-    ) ranked
-    where rn <= ${3}
-  `;
+function topNPerGroup(db: Database): Sql {
+  const h = hourlyStats.columns;
+  const ranked = db.select({
+    post_id: h.post_id,
+    bucket: h.bucket,
+    engagement_score: h.engagement_score,
+    rn: over(rowNumber(), {
+      partitionBy: [h.post_id],
+      orderBy: [desc(h.engagement_score), desc(h.bucket)],
+    }),
+  }).from(hourlyStats).where(gte(h.bucket, FROM)).as("ranked");
+  return db.select({
+    post_id: ranked.post_id,
+    bucket: ranked.bucket,
+    engagement_score: ranked.engagement_score,
+    rn: ranked.rn,
+  }).from(ranked).where(lte(ranked.rn, 3)).toSql();
 }
 
-function cohortRetention(): Sql {
-  return sql`
-    with first_seen as (
-      select
-        actor_id,
-        date_trunc('day', min(occurred_at)) as cohort_day
-      from sisal_adv_events
-      group by actor_id
-    ),
-    activity as (
-      select
-        e.actor_id,
-        date_trunc('day', e.occurred_at) as activity_day
-      from sisal_adv_events e
-      where e.occurred_at >= ${FROM}
-    )
-    select
-      f.cohort_day,
-      a.activity_day,
-      count(distinct a.actor_id) as retained_actors
-    from first_seen f
-    join activity a on a.actor_id = f.actor_id
-    group by f.cohort_day, a.activity_day
-    order by f.cohort_day, a.activity_day
-  `;
+function cohortRetention(db: Database): Sql {
+  const e = events.columns;
+  const firstSeen = db.$with("first_seen").as(
+    db.select({
+      actor_id: e.actor_id,
+      cohort_day: dateTrunc("day", min(e.occurred_at)),
+    }).from(events).groupBy(e.actor_id),
+  );
+  const activity = db.$with("activity").as(
+    db.select({
+      actor_id: e.actor_id,
+      activity_day: dateTrunc("day", e.occurred_at),
+    }).from(events).where(gte(e.occurred_at, FROM)),
+  );
+  // The builder joins tables, not two CTEs, so the CTE-to-CTE join is an inline
+  // FROM fragment; everything else (aggregates, GROUP BY, ORDER BY) is builder.
+  return db.with(firstSeen, activity).select({
+    cohort_day: firstSeen.cohort_day,
+    activity_day: activity.activity_day,
+    retained_actors: countDistinct(activity.actor_id),
+  }).from(
+    sql`${identifier(firstSeen.actor_id.tableName)} inner join ${
+      identifier(activity.actor_id.tableName)
+    } on ${activity.actor_id} = ${firstSeen.actor_id}`,
+  ).groupBy(firstSeen.cohort_day, activity.activity_day)
+    .orderBy(asc(firstSeen.cohort_day), asc(activity.activity_day))
+    .toSql();
 }
 
-function funnelAnalysis(): Sql {
-  return sql`
-    with first_events as (
-      select
-        actor_id,
-        min(occurred_at) filter (where kind = ${"view"}) as viewed_at,
-        min(occurred_at) filter (where kind = ${"vote"}) as voted_at,
-        min(occurred_at) filter (where kind = ${"comment"}) as commented_at
-      from sisal_adv_events
-      where occurred_at >= ${FROM}
-      group by actor_id
-    )
-    select
-      count(*) filter (where viewed_at is not null) as viewed,
-      count(*) filter (
-        where voted_at is not null
-          and voted_at <= viewed_at + ${"1 day"}::interval
-      ) as voted_within_day,
-      count(*) filter (
-        where commented_at is not null
-          and commented_at <= viewed_at + ${"1 day"}::interval
-      ) as commented_within_day
-    from first_events
-  `;
+function funnelAnalysis(db: Database): Sql {
+  const e = events.columns;
+  const firstEvents = db.$with("first_events").as(
+    db.select({
+      actor_id: e.actor_id,
+      viewed_at: filter(min(e.occurred_at), eq(e.kind, "view")),
+      voted_at: filter(min(e.occurred_at), eq(e.kind, "vote")),
+      commented_at: filter(min(e.occurred_at), eq(e.kind, "comment")),
+    }).from(events).where(gte(e.occurred_at, FROM)).groupBy(e.actor_id),
+  );
+  const fe = firstEvents;
+  return db.with(firstEvents).select({
+    viewed: filter(count(), isNotNull(fe.viewed_at)),
+    // The `+ '1 day'::interval` deadline is PostgreSQL interval arithmetic, so
+    // these two funnel steps stay inline count() filters; the literal binds.
+    voted_within_day: sql`count(*) filter (
+      where ${fe.voted_at} is not null
+        and ${fe.voted_at} <= ${fe.viewed_at} + ${"1 day"}::interval
+    )`,
+    commented_within_day: sql`count(*) filter (
+      where ${fe.commented_at} is not null
+        and ${fe.commented_at} <= ${fe.viewed_at} + ${"1 day"}::interval
+    )`,
+  }).from(firstEvents).toSql();
 }
 
-function recursiveComments(): Sql {
-  return sql`
-    with recursive thread as (
-      select
-        id,
-        parent_id,
-        body,
-        0 as depth,
-        lpad(id::text, 8, '0') as path
-      from sisal_adv_comments
-      where id = ${1}
-
-      union all
-
-      select
-        c.id,
-        c.parent_id,
-        c.body,
-        thread.depth + 1 as depth,
-        thread.path || '.' || lpad(c.id::text, 8, '0') as path
-      from sisal_adv_comments c
-      join thread on c.parent_id = thread.id
-      where thread.depth < ${8}
-    )
-    select id, parent_id, body, depth
-    from thread
-    order by path
-  `;
+function recursiveComments(db: Database): Sql {
+  const c = comments.columns;
+  const thread = db.$withRecursive("thread", [
+    "id",
+    "parent_id",
+    "body",
+    "depth",
+    "path",
+  ]).as((self) =>
+    db.select({
+      id: c.id,
+      parent_id: c.parent_id,
+      body: c.body,
+      depth: sql`0`,
+      path: sql`lpad(${c.id}::text, 8, '0')`,
+    }).from(comments).where(eq(c.id, 1))
+      .unionAll(
+        db.select({
+          id: c.id,
+          parent_id: c.parent_id,
+          body: c.body,
+          depth: sql`${self.depth} + 1`,
+          path: sql`${self.path} || '.' || lpad(${c.id}::text, 8, '0')`,
+        }).from(self)
+          .innerJoin(comments, eq(c.parent_id, self.id))
+          .where(lt(self.depth, 8)),
+      )
+  );
+  return db.with(thread).select({
+    id: thread.id,
+    parent_id: thread.parent_id,
+    body: thread.body,
+    depth: thread.depth,
+  }).from(thread).orderBy(asc(thread.path)).toSql();
 }
 
 function claimJob(db: Database): Sql {
@@ -395,34 +445,36 @@ function checkpoint(): Sql {
   `;
 }
 
-function jsonTableExtraction(): Sql {
-  return sql`
-    select
-      d.id as document_id,
-      item.sku,
-      item.qty
-    from sisal_adv_documents d
-    cross join lateral jsonb_to_recordset(d.payload -> 'items')
-      as item(sku text, qty integer)
-    where d.id = ${1}
-  `;
+function jsonTableExtraction(db: Database): Sql {
+  const d = documents.columns;
+  const items = jsonTable(d.payload, {
+    sku: { type: "text", path: "$.sku" },
+    qty: { type: "integer", path: "$.qty" },
+  }, { as: "item", path: "$.items" });
+  // jsonTable() is the set-returning projection IR; the base table joins the
+  // function through an inline FROM (PostgreSQL applies LATERAL to functions
+  // implicitly, so this is the documented lateral cross-join composition).
+  return db.select({
+    document_id: d.id,
+    sku: items.columns.sku,
+    qty: items.columns.qty,
+  }).from(sql`${identifier(documents.name)}, ${items.from}`)
+    .where(eq(d.id, 1))
+    .toSql();
 }
 
 function generatedColumnDdl(): readonly Sql[] {
-  return [
-    sql`
-      create table if not exists sisal_adv_documents (
-        id integer primary key,
-        payload jsonb not null,
-        title_text text generated always as (payload ->> 'title') stored
-      )
-    `,
-    sql`
-      create index if not exists sisal_adv_documents_title_idx
-        on sisal_adv_documents (lower(title_text))
-        where title_text is not null
-    `,
-  ];
+  // Generated from the schema snapshot rather than hand-written: the stored
+  // generated column and the partial expression index both live on the
+  // `documents` table definition and are emitted by the PostgreSQL DDL
+  // generator (additive CREATE TABLE + CREATE INDEX only).
+  const snapshot = createSchemaSnapshot({
+    dialect: "postgres",
+    tables: [documents],
+  });
+  return generatePostgresUpStatements(snapshot).statements.map((statement) =>
+    raw(statement)
+  );
 }
 
 export const seedStatements: readonly Sql[] = [

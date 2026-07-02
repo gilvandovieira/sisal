@@ -25,6 +25,7 @@ import {
   defineTable,
   desc,
   eq,
+  etlCheckpoint,
   excluded,
   exists,
   filter,
@@ -49,6 +50,7 @@ import {
   notLike,
   now,
   or,
+  OrmError,
   placeholder,
   primaryKey,
   raw,
@@ -56,6 +58,7 @@ import {
   type SisalSchemaSnapshot,
   sql,
   sum,
+  tryInsert,
   uniqueIndex,
 } from "@sisal/orm";
 import { defineSqlMigration } from "@sisal/migrate";
@@ -849,6 +852,284 @@ export function postgresFamilyScenarios(): IntegrationScenario[] {
       sql`select 306.25::numeric as n`,
     );
     assertEquals(typeof numeric.rows[0].n, "string");
+  });
+
+  pgTest(
+    "pg: numeric + bigint decode as precision-safe strings",
+    async (db) => {
+      const shape = currentTarget().valueShape;
+      const nums = defineTable("it_numbers", {
+        id: columns.integer().primaryKey(),
+        amount: columns.numeric(20, 2),
+        big: columns.bigint(),
+      });
+      await db.execute(raw("drop table if exists it_numbers cascade"));
+      await db.execute(
+        generatePostgresUpStatements(
+          createSchemaSnapshot({ dialect: "postgres", tables: [nums] }),
+        ).statements[0],
+      );
+      // `big` sits above 2^53: proves int8 is never routed through a lossy float.
+      await db.insert(nums).values({
+        id: 1,
+        amount: "12345678901234.56",
+        big: "9007199254740993",
+      }).execute();
+
+      const [row] = await db.select().from(nums)
+        .where(eq(nums.columns.id, 1)).execute();
+      // pg coerces int8 → string to match neon (v0.9 T7); numeric is already
+      // string-typed on both. `valueShape` pins the whole family to "string".
+      assertEquals(typeof row.amount, shape.numeric);
+      assertEquals(typeof row.big, shape.bigint);
+      assertEquals(row.amount, "12345678901234.56");
+      assertEquals(row.big, "9007199254740993");
+    },
+  );
+
+  pgTest("pg: advisory lock — coarse run mutual exclusion", async (db) => {
+    await db.execute(raw("drop table if exists it_run_locks"));
+    const name = "sisal:etl:it-run";
+
+    await using held = await db.tryAdvisoryLock(name, {
+      table: "it_run_locks",
+    });
+    assertEquals(held.acquired, true);
+    assertEquals(typeof held.owner, "string");
+
+    // A second claim on the same name is refused while the first is held.
+    const contended = await db.tryAdvisoryLock(name, { table: "it_run_locks" });
+    assertEquals(contended.acquired, false);
+
+    // Renewing a live lease keeps it; the refused claim cannot renew.
+    assertEquals(await held.renew(), true);
+    assertEquals(await contended.renew(), false);
+
+    // After release the name is immediately claimable again.
+    await held.release();
+    await using reacquired = await db.tryAdvisoryLock(name, {
+      table: "it_run_locks",
+    });
+    assertEquals(reacquired.acquired, true);
+
+    await reacquired.release();
+    await db.execute(raw("drop table if exists it_run_locks"));
+  });
+
+  pgTest(
+    "pg: checkpoint — atomic load+advance + idempotent resume",
+    async (db) => {
+      await db.execute(raw("drop table if exists it_rollup"));
+      await db.execute(raw("drop table if exists sisal_etl_checkpoints"));
+      await db.execute(
+        raw(
+          "create table it_rollup (k integer primary key, v integer not null)",
+        ),
+      );
+      const rollup = defineTable("it_rollup", {
+        k: columns.integer().primaryKey(),
+        v: columns.integer().notNull(),
+      });
+      const load = (v: number) =>
+        db.insert(rollup).values({ k: 1, v }).onConflictDoUpdate({
+          target: rollup.columns.k,
+          set: { v: excluded(rollup.columns.v) },
+        });
+
+      const cp = etlCheckpoint(db, "it-rollup");
+      assertEquals(await cp.read(), null);
+
+      // Window 1: idempotent load + watermark advance, atomically.
+      await cp.advance("w1", [load(10)]);
+      assertEquals(await cp.read(), "w1");
+      assertEquals((await db.select().from(rollup).execute()).length, 1);
+
+      // Re-running the same window replaces (no duplicate row) and holds w1.
+      await cp.advance("w1", [load(11)]);
+      assertEquals((await db.select().from(rollup).execute()).length, 1);
+      assertEquals(await cp.read(), "w1");
+
+      // Crash safety: a failing load rolls the whole batch back — the watermark
+      // never advances past data that was not written (never ahead of the load).
+      const badLoad = raw("insert into it_rollup (k, v) values (2, null)");
+      await assertRejects(() => cp.advance("w2", [badLoad]));
+      assertEquals(await cp.read(), "w1");
+      assertEquals((await db.select().from(rollup).execute()).length, 1);
+
+      await db.execute(raw("drop table if exists it_rollup"));
+      await db.execute(raw("drop table if exists sisal_etl_checkpoints"));
+    },
+  );
+
+  pgTest(
+    "pg: checkpoint contract — round-trip, multi-job, persistence",
+    async (db) => {
+      await db.execute(raw("drop table if exists sisal_etl_checkpoints"));
+      const exact = "2026-03-01T04:05:06.789Z";
+      const cpA = etlCheckpoint(db, "job-a");
+      const cpB = etlCheckpoint(db, "job-b");
+
+      assertEquals(await cpA.readState(), null);
+
+      await cpA.advance(exact);
+      // Exact TEXT fidelity: the watermark reads back byte-identical (no
+      // per-engine timestamp coercion — the point of the TEXT-watermark decision).
+      assertEquals(await cpA.read(), exact);
+      const state = await cpA.readState();
+      assertEquals(state?.windowEnd, exact);
+      assertEquals(state?.prunedBefore, null); // horizon unset until a prune (T14)
+      assert(
+        typeof state?.updatedAt === "string" && state.updatedAt.length > 0,
+        "updated_at must be written",
+      );
+
+      // Jobs are independent — `job` is the primary key.
+      await cpB.advance("2020-01-01T00:00:00.000Z");
+      assertEquals(await cpA.read(), exact);
+      assertEquals(await cpB.read(), "2020-01-01T00:00:00.000Z");
+
+      // Persistence: a fresh handle resumes from the committed watermark.
+      assertEquals(await etlCheckpoint(db, "job-a").read(), exact);
+
+      await db.execute(raw("drop table if exists sisal_etl_checkpoints"));
+    },
+  );
+
+  pgTest(
+    "pg: checkpoint retention — prune horizon + replay refusal",
+    async (db) => {
+      await db.execute(raw("drop table if exists it_src"));
+      await db.execute(raw("drop table if exists sisal_etl_checkpoints"));
+      await db.execute(
+        raw(
+          "create table it_src (id integer primary key, ts varchar(32) not null)",
+        ),
+      );
+      const src = defineTable("it_src", {
+        id: columns.integer().primaryKey(),
+        ts: columns.varchar(32).notNull(),
+      });
+      await db.insert(src).values([
+        { id: 1, ts: "2026-01-01" },
+        { id: 2, ts: "2026-02-01" },
+        { id: 3, ts: "2026-03-01" },
+      ]).execute();
+
+      const cp = etlCheckpoint(db, "it-retention");
+      await cp.advance("2026-03-01"); // a load consolidated up to 2026-03-01
+
+      // Prune consolidated source rows, advancing the horizon atomically.
+      await cp.prune("2026-02-01", [
+        raw("delete from it_src where ts < '2026-02-01'"),
+      ]);
+      assertEquals((await cp.readState())?.prunedBefore, "2026-02-01");
+      assertEquals((await db.select().from(src).execute()).length, 2); // row 1 gone
+
+      // A replay behind the horizon is refused — the rollup is never touched.
+      await assertRejects(
+        () => cp.assertReplayable("2026-01-15"),
+        OrmError,
+        "retention horizon",
+      );
+      // At / after the horizon is allowed; the explicit override bypasses.
+      await cp.assertReplayable("2026-02-01");
+      await cp.assertReplayable("2026-01-15", {
+        unsafeAllowPrunedReplay: true,
+      });
+
+      // Mirror crash safety: a failing prune rolls the delete AND the horizon back
+      // together, so the horizon never lags the delete.
+      await assertRejects(() =>
+        cp.prune("2026-03-01", [raw("delete from it_src where bad_col = 1")])
+      );
+      assertEquals((await cp.readState())?.prunedBefore, "2026-02-01"); // unchanged
+      assertEquals((await db.select().from(src).execute()).length, 2); // no delete
+
+      await db.execute(raw("drop table if exists it_src"));
+      await db.execute(raw("drop table if exists sisal_etl_checkpoints"));
+    },
+  );
+
+  pgTest("pg: write outcome — inserted vs conflicted", async (db) => {
+    await db.execute(raw("drop table if exists it_wo"));
+    await db.execute(raw("create table it_wo (k integer primary key)"));
+    const t = defineTable("it_wo", { k: columns.integer().primaryKey() });
+
+    // First claim wins; the second hits the existing key → conflict (via
+    // RETURNING on pg — `rowCount` alone would not distinguish everywhere).
+    const first = await tryInsert(
+      db,
+      db.insert(t).values({ k: 1 }).onConflictDoNothing(),
+    );
+    assertEquals(first.inserted, true);
+    const second = await tryInsert(
+      db,
+      db.insert(t).values({ k: 1 }).onConflictDoNothing(),
+    );
+    assertEquals(second.inserted, false);
+    assertEquals((await db.select().from(t).execute()).length, 1);
+
+    await db.execute(raw("drop table if exists it_wo"));
+  });
+
+  pgTest("pg: read cte — WITH on SELECT", async (db) => {
+    await db.execute(raw("drop table if exists it_cte"));
+    await db.execute(
+      raw("create table it_cte (id integer primary key, n integer not null)"),
+    );
+    const t = defineTable("it_cte", {
+      id: columns.integer().primaryKey(),
+      n: columns.integer().notNull(),
+    });
+    await db.insert(t).values([
+      { id: 1, n: 5 },
+      { id: 2, n: 15 },
+      { id: 3, n: 25 },
+    ]).execute();
+
+    const big = db.$with("big").as(
+      db.select({ id: t.columns.id }).from(t).where(gt(t.columns.n, 10)),
+    );
+    const rows = await db.with(big).select({ id: big.id }).from(big)
+      .orderBy(asc(big.id)).execute();
+    assertEquals(rows.map((r) => r.id), [2, 3]);
+
+    await db.execute(raw("drop table if exists it_cte"));
+  });
+
+  pgTest("pg: recursive cte — WITH RECURSIVE walk", async (db) => {
+    await db.execute(raw("drop table if exists it_tree"));
+    await db.execute(
+      raw("create table it_tree (id integer primary key, parent_id integer)"),
+    );
+    const tree = defineTable("it_tree", {
+      id: columns.integer().primaryKey(),
+      parentId: columns.integer(),
+    });
+    await db.insert(tree).values([
+      { id: 1, parentId: null },
+      { id: 2, parentId: 1 },
+      { id: 3, parentId: 2 },
+      { id: 4, parentId: 1 },
+    ]).execute();
+
+    // Walk the tree from root 1; `from(self)` puts the recursive term in the
+    // FROM (the shape the T17 bug fix corrected), joined to the base table.
+    const walk = db.$withRecursive("walk", ["id", "depth"]).as((self) =>
+      db.select({ id: tree.columns.id, depth: sql`0` }).from(tree)
+        .where(eq(tree.columns.id, 1))
+        .unionAll(
+          db.select({ id: tree.columns.id, depth: sql`${self.depth} + 1` })
+            .from(self)
+            .innerJoin(tree, eq(tree.columns.parentId, self.id))
+            .where(lt(self.depth, 10)), // portable depth guard
+        )
+    );
+    const rows = await db.with(walk).select({ id: walk.id }).from(walk)
+      .execute();
+    assertEquals(rows.map((r) => Number(r.id)).sort(), [1, 2, 3, 4]);
+
+    await db.execute(raw("drop table if exists it_tree"));
   });
 
   // ---- v0.4.0 features ------------------------------------------------------

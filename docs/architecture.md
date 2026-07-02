@@ -71,6 +71,24 @@ Each is a thin, typed layer over the same core primitives.
   models that D3 / Recharts / ECharts / Vega / custom renderers consume. The
   motto: _analytics computes, dashboard maps, renderer renders._
 
+### v0.9 ETL substrate lives in `@sisal/orm` (A3 decision held)
+
+The v0.9 correctness substrate a future `@sisal/etl` runner consumes — the
+portable advisory run lock (`Database.tryAdvisoryLock`, T11) and the
+checkpoint/watermark helper (`etlCheckpoint`, T12/T13) — ships in
+**`@sisal/orm`**, not `@sisal/migrate`. Both need the `Database` facade
+(`execute`/`insert`/`batch`) that lives in `@sisal/orm`, and neither reaches
+into migrate, so the v0.6 **A3 decision holds: there is no `etl → migrate`
+edge.** The `sisal_etl_checkpoints` and `sisal_advisory_locks` system tables are
+created and managed by these ORM helpers at runtime
+(`CREATE TABLE IF NOT EXISTS` on first use) — not by the migration snapshot/DDL
+pipeline, so a job's checkpoint is not part of the user's migrated schema and
+never appears as drift the migrator owns. When `@sisal/etl` is built (v0.10) it
+consumes these primitives from `@sisal/orm` (adding an `etl → orm` runtime edge
+alongside `etl → core`); the substrate does not move. Watermarks are stored as
+opaque TEXT, so the checkpoint carries no per-adapter timestamp-type surface to
+reconcile.
+
 ## Where we are today (the honest baseline)
 
 As of v0.8, **`@sisal/core` exists** as the extracted lower tier. It owns the

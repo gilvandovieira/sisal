@@ -8,14 +8,14 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.8.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.9.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
 ## Primary Documentation
 
 - [Full LLM Context](https://gilvandovieira.github.io/sisal/llms-full.txt): Generated combined context from Sisal docs, package manifests, and exported API docs.
-- [API Reference](https://gilvandovieira.github.io/sisal/api.html): Complete reference for the public API of every Sisal package, generated from a full read of the source. Sisal is a Deno-first database toolkit, published to JSR, made of six packages with strict boundaries:
+- [API Reference](https://gilvandovieira.github.io/sisal/api.html): This reference is verified against the current workspace package exports and source layout. Sisal is a Deno-first database toolkit, published to JSR, with a driverless core, a driverless ORM facade, adapter-neutral...
 - [Migration Notes](https://gilvandovieira.github.io/sisal/migration-notes.html): Sisal replaces the earlier ORM and migration package direction with a focused database toolkit.
 - [Drizzle Parity](https://gilvandovieira.github.io/sisal/drizzle-parity.html): This is the guiding document for how Sisal's API evolves. It maps every relevant part of the Drizzle ORM 0.45.2 surface to Sisal, records where we intentionally diverge, and lays out the roadmap to close the gaps...
 - [PostgreSQL compatibility](https://gilvandovieira.github.io/sisal/pg-compatibility.html): Sisal's PostgreSQL adapter (@sisal/pg) is verified end-to-end against a real server on every supported major version. The suite connects with the bundled jsr:@db/postgres@0.19.5 driver, applies generated DDL, and...
@@ -68,7 +68,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Package Manifests
 
-### @sisal/core 0.8.0
+### @sisal/core 0.9.0
 
 Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer.
 
@@ -79,7 +79,7 @@ Exports:
 - `./schema` -> `./schema.ts`
 - `./unstable-internal` -> `./internal.ts`
 
-### @sisal/orm 0.8.0
+### @sisal/orm 0.9.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -92,7 +92,7 @@ Exports:
 - `./logger` -> `./logger.ts`
 - `./schema` -> `./schema.ts`
 
-### @sisal/migrate 0.8.0
+### @sisal/migrate 0.9.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -104,7 +104,7 @@ Exports:
 - `./core` -> `./core/mod.ts`
 - `./workflow` -> `./core/workflow.ts`
 
-### @sisal/pg 0.8.0
+### @sisal/pg 0.9.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -116,7 +116,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/sqlite 0.8.0
+### @sisal/sqlite 0.9.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -128,7 +128,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/libsql 0.8.0
+### @sisal/libsql 0.9.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -140,7 +140,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/mysql 0.8.0
+### @sisal/mysql 0.9.0
 
 MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.
 
@@ -152,7 +152,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/neon 0.8.0
+### @sisal/neon 0.9.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -209,6 +209,8 @@ Exports:
 - `createSchemaSnapshot` (function): Creates a stable Sisal schema snapshot from ORM table metadata.
 - `CreateSchemaSnapshotInput` (interface): Input accepted by {@link createSchemaSnapshot}.
 - `CreateSchemaSnapshotOptions` (interface): Options applied when building a schema snapshot from ORM tables.
+- `createSisalLogEmitter` (function): Creates a level/category-aware logger wrapper for Sisal internals.
+- `CreateSisalLogEmitterOptions` (interface): Options for {@link createSisalLogEmitter}.
 - `CustomColumnTypeOptions` (interface): Trusted custom column type metadata for {@link columns.customType}.
 - `dateAdd` (function): source + duration, rendered per dialect (src + interval '…' on PostgreSQL; chained datetime(src, '+…') modifiers on the SQLite family). source is a timestamp column or SQL expression — pass {@link now} for the...
 - `dateBin` (function): Floors source to the start of its every-wide time bucket — the portable arbitrary-interval bucket (e.g. 5-minute buckets) that dateTrunc's fixed calendar fields can't express. Renders to_timestamp(floor(extract(epoch...
@@ -235,6 +237,7 @@ Exports:
 - `DialectIdentity` (interface): Version-aware dialect identity — the (engine, variant, version) key the v0.6 readiness investigation decided on (see docs/mysql-readiness.md, decision 2). dialect remains the render key; variant names a...
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `diffSchemaSnapshots` (function): Computes the structural difference from one snapshot to another.
+- `emitSisalLogEvent` (function): Emits one structured event, swallowing logger failures.
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
 - `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
@@ -263,6 +266,8 @@ Exports:
 - `isNotNull` (function): column IS NOT NULL SQL condition.
 - `isNull` (function): column IS NULL SQL condition.
 - `isOrderTerm` (function): Returns true when a value is an asc()/desc() {@link OrderTerm}.
+- `isSisalLogCategory` (function): Returns true when a value is one of Sisal's supported log categories.
+- `isSisalLogLevel` (function): Returns true when a value is one of Sisal's supported log levels.
 - `isSql` (function): Returns true when a value is a Sisal SQL fragment.
 - `isSqlQuery` (function): Returns true when a value is driver-ready SQL text and parameters.
 - `isTable` (function): Returns true when a value has the public table definition shape.
@@ -276,15 +281,18 @@ Exports:
 - `lead` (function): lead(column, offset = 1, default?) — the value offset rows after the current row in the window order. Window-only: wrap in {@link over}.
 - `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
+- `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
 - `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Minimal logger contracts accepted by Sisal packages.
+- `LoggerMethod` (interface): Public API.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
 - `max` (function): max(column) aggregate expression.
 - `min` (function): min(column) aggregate expression.
 - `ne` (function): column <> value SQL condition.
 - `normalizeColumnName` (function): Normalizes a simple column name.
+- `NormalizedSisalLogging` (interface): Normalized logging controls used by Sisal internals.
 - `normalizeSchemaSnapshot` (function): Returns a deterministic clone of a schema snapshot.
+- `normalizeSisalLogSettings` (function): Normalizes logging settings with conservative defaults.
 - `normalizeSqlInput` (function): Normalizes manual or builder SQL into the driver query contract.
 - `normalizeTableName` (function): Normalizes a table name.
 - `normalizeTemporalSqlValue` (function): Normalizes Temporal values nested inside arrays before driver execution.
@@ -309,6 +317,8 @@ Exports:
 - `raw` (function): Creates an unsafe raw SQL fragment.
 - `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
 - `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
+- `redactSqlParameter` (function): Builds a safe, non-raw summary for one SQL bind parameter.
+- `redactSqlParameters` (function): Builds safe, non-raw summaries for SQL bind parameters.
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
 - `ReferentialOptions` (interface): Options accepted by {@link ColumnBuilder.references}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
@@ -335,18 +345,27 @@ Exports:
 - `SisalForeignKeySnapshot` (interface): Serializable foreign-key constraint descriptor.
 - `SisalIndexColumnSnapshot` (interface): A single key in an index: a column or a raw SQL expression, with an optional sort direction.
 - `SisalIndexSnapshot` (interface): Serializable index descriptor.
+- `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
+- `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
+- `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
+- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
+- `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
 - `SisalSchemaIssueCode` (typeAlias): Validation issue codes emitted by schema snapshot helpers.
 - `SisalSchemaObjectSnapshot` (interface): A raw, dialect-specific DDL fragment attached to a snapshot — a stored function, trigger, extension, view, or any verbatim CREATE …. Emitted after table creation, gated by {@link SisalSchemaObjectSnapshot.dialect},...
 - `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
 - `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
+- `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
 - `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
 - `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
 - `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
 - `SisalUniqueConstraintSnapshot` (interface): Serializable unique-constraint descriptor.
 - `sql` (function): SQL tagged template that keeps interpolated values as parameters.
 - `Sql` (interface): SQL fragment made from safe chunks and separate parameters.
+- `SQL_DIALECTS` (variable): Runtime companion of {@link SqlDialect}: the render dialects a {@link DialectIdentity}'s dialect key collapses to (the 6 capability targets project onto these 4). satisfies keeps every entry a valid SqlDialect; the...
 - `SQL_IR_VERSION` (variable): Version of the public SQL fragment IR contract — the Sql/SqlChunk shapes, their render semantics, and the guard/dialect chunk data formats (see docs/core-ir.md for the full contract and compatibility policy)....
 - `SqlChunk` (typeAlias): Internal chunk representation used by parameterized SQL fragments.
 - `sqlChunkMeta` (function): Reads a chunk's opaque annotations — see {@link SqlChunkMeta}.
@@ -442,6 +461,8 @@ Unstable plumbing consumed by @sisal/orm's query-builder tier — **not** part o
 
 Small typed SQL and ORM primitives for Sisal database tooling.
 
+- `AdvisoryLock` (interface): A held — or refused — advisory lock from {@link Database.tryAdvisoryLock}. Always await using it so the lease is deleted on scope exit, including on an early return or a throw. When {@link AdvisoryLock.acquired} is...
+- `AdvisoryLockOptions` (interface): Options for {@link Database.tryAdvisoryLock}.
 - `and` (function): Combines conditions with SQL AND, ignoring nullish values.
 - `AnyTableDefinition` (typeAlias): Any Sisal table definition, regardless of its column map.
 - `arrayContained` (function): Postgres array <@ — true when column is contained by value.
@@ -466,6 +487,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `capabilitySupported` (function): True when identity supports capability — the non-rendering form of the render-time guard, with identical fail-closed semantics: a bare engine identity matches engine-wide targets, a variant identity also matches its...
 - `CapabilityTargetId` (typeAlias): A key of {@link CAPABILITY_TARGETS}.
 - `check` (function): A named CHECK constraint from a sql expression.
+- `Checkpoint` (interface): A checkpoint handle bound to one job. Reads the last committed watermark and advances it atomically with an idempotent load. Create it with {@link etlCheckpoint}.
+- `CheckpointOptions` (interface): Options for {@link etlCheckpoint}.
+- `CheckpointState` (interface): The full checkpoint row for a job — the A3 contract shape (window_end, pruned_before, updated_at). Returned by {@link Checkpoint.readState}.
 - `coalesce` (function): coalesce(a, b, …) — the first non-null operand. Portable across all four dialects; columns and expressions render as SQL, plain values bind as parameters. Retires the last raw seam in the composed ETL rollups (v0.8...
 - `ColumnArray` (typeAlias): Array element/column type produced by {@link ColumnBuilder.array}.
 - `ColumnBuilder` (interface): Immutable column builder used to define table schemas.
@@ -489,6 +513,8 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `createSchemaSnapshot` (function): Creates a stable Sisal schema snapshot from ORM table metadata.
 - `CreateSchemaSnapshotInput` (interface): Input accepted by {@link createSchemaSnapshot}.
 - `CreateSchemaSnapshotOptions` (interface): Options applied when building a schema snapshot from ORM tables.
+- `createSisalLogEmitter` (function): Creates a level/category-aware logger wrapper for Sisal internals.
+- `CreateSisalLogEmitterOptions` (interface): Options for {@link createSisalLogEmitter}.
 - `Cte` (typeAlias): A named common table expression. Its keys are the projected columns of the inner query, each usable as a column reference in select, where, etc. Create one with {@link Database.$with} and reference it via {@link...
 - `CteBuilder` (interface): Intermediate returned by {@link Database.$with}; complete it with .as.
 - `CteOperand` (typeAlias): A query usable as a CTE body: a SELECT/compound, or — **PostgreSQL-only** — a data-modifying INSERT/UPDATE/DELETE with .returning(). A data-modifying body lets a WITH chain perform a mutation and expose its RETURNING...
@@ -525,9 +551,11 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `DialectIdentity` (interface): Version-aware dialect identity — the (engine, variant, version) key the v0.6 readiness investigation decided on (see docs/mysql-readiness.md, decision 2). dialect remains the render key; variant names a...
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `diffSchemaSnapshots` (function): Computes the structural difference from one snapshot to another.
+- `emitSisalLogEvent` (function): Emits one structured event, swallowing logger failures.
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
 - `equalSchemaSnapshots` (function): Returns true when two snapshots are structurally equal after normalization.
+- `etlCheckpoint` (function): Creates a {@link Checkpoint} for job on db — the portable watermark substrate a future ETL runner resumes from. Reads/advances the sisal_etl_checkpoints table (override the name with options.table), which is created...
 - `excluded` (function): The upsert "proposed row" reference for onConflictDoUpdate set values, rendered per dialect: excluded."col" on PostgreSQL and the SQLite family, values( ` col ) on MySQL — the one spelling every MySQL 5.7→9.x and...
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
 - `expr` (function): Types a fragment as a {@link SqlExpression} of T — the name-once handle for computed/metric expressions (v0.8 item 7). Assign it once and reuse it across a projection, groupBy, having, orderBy, and other expressions;...
@@ -563,6 +591,8 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `isNotNull` (function): column IS NOT NULL SQL condition.
 - `isNull` (function): column IS NULL SQL condition.
 - `isOrderTerm` (function): Returns true when a value is an asc()/desc() {@link OrderTerm}.
+- `isSisalLogCategory` (function): Returns true when a value is one of Sisal's supported log categories.
+- `isSisalLogLevel` (function): Returns true when a value is one of Sisal's supported log levels.
 - `isSql` (function): Returns true when a value is a Sisal SQL fragment.
 - `isSqlQuery` (function): Returns true when a value is driver-ready SQL text and parameters.
 - `isTable` (function): Returns true when a value has the public table definition shape.
@@ -578,8 +608,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `lead` (function): lead(column, offset = 1, default?) — the value offset rows after the current row in the window order. Window-only: wrap in {@link over}.
 - `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
+- `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
 - `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Minimal logger contracts accepted by Sisal packages.
+- `LoggerMethod` (interface): Public API.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
 - `MappableQueryResult` (interface): The awaitable result of a raw db.query(...) call: a normal query-result promise that also exposes .as(...), which decodes the raw driver rows — physical→JS column naming plus the same opt-in Temporal decoding the...
@@ -590,7 +621,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `ne` (function): column <> value SQL condition.
 - `noopOrmDriver` (function): Creates a driver that never touches a real database.
 - `normalizeColumnName` (function): Normalizes a simple column name.
+- `NormalizedSisalLogging` (interface): Normalized logging controls used by Sisal internals.
 - `normalizeSchemaSnapshot` (function): Returns a deterministic clone of a schema snapshot.
+- `normalizeSisalLogSettings` (function): Normalizes logging settings with conservative defaults.
 - `normalizeSqlInput` (function): Normalizes manual or builder SQL into the driver query contract.
 - `normalizeTableName` (function): Normalizes a table name.
 - `normalizeTemporalSqlValue` (function): Normalizes Temporal values nested inside arrays before driver execution.
@@ -621,6 +654,8 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `RecursiveCteBuilder` (interface): Intermediate returned by {@link Database.$withRecursive}; complete it with .as((self) => …). The declared column list types self, the CTE's own reference inside its body.
 - `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
 - `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
+- `redactSqlParameter` (function): Builds a safe, non-raw summary for one SQL bind parameter.
+- `redactSqlParameters` (function): Builds safe, non-raw summaries for SQL bind parameters.
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
 - `ReferentialOptions` (interface): Options accepted by {@link ColumnBuilder.references}.
 - `RelationalColumnSelection` (typeAlias): Column selection accepted by relational queries.
@@ -635,6 +670,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `relations` (function): Defines named relations for a table, Drizzle-style.
 - `RelationsList` (typeAlias): Relational metadata list accepted by {@link createDatabase}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `ReplayGuardOptions` (interface): Options for {@link Checkpoint.assertReplayable}.
 - `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
 - `schemaObjectDropStatements` (function): The down drop statements for a snapshot's dialect schema objects, in reverse declared order (so dependents drop before their dependencies).
@@ -660,12 +696,20 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SisalForeignKeySnapshot` (interface): Serializable foreign-key constraint descriptor.
 - `SisalIndexColumnSnapshot` (interface): A single key in an index: a column or a raw SQL expression, with an optional sort direction.
 - `SisalIndexSnapshot` (interface): Serializable index descriptor.
+- `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
+- `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
+- `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
+- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
+- `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
 - `SisalSchemaIssueCode` (typeAlias): Validation issue codes emitted by schema snapshot helpers.
 - `SisalSchemaObjectSnapshot` (interface): A raw, dialect-specific DDL fragment attached to a snapshot — a stored function, trigger, extension, view, or any verbatim CREATE …. Emitted after table creation, gated by {@link SisalSchemaObjectSnapshot.dialect},...
 - `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
 - `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
+- `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
 - `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
 - `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
 - `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
@@ -695,6 +739,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `TimeColumnMode` (typeAlias): Runtime modes for SQL time columns.
 - `TimestampColumnMode` (typeAlias): Runtime modes for SQL timestamp / timestamptz columns.
 - `toSql` (function): Converts a SQL fragment or condition into SQL.
+- `tryInsert` (function): Runs a **conflict-guarded** insert (you supply .onConflictDoNothing()) and reports whether it wrote a new row — the portable "inserted vs conflicted/claimed" outcome. On the Postgres/SQLite families it appends...
 - `unique` (function): A named/composite UNIQUE constraint; complete it with .on(...columns).
 - `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
 - `uniqueIndex` (function): A unique table index (CREATE UNIQUE INDEX); complete with .on(...).
@@ -705,11 +750,14 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `WindowSpec` (interface): The window specification over() renders: partition keys, ordering terms (asc()/desc() or bare columns/expressions), and an optional frame.
 - `WithQueryBuilder` (interface): Query root seeded with CTEs, returned by {@link Database.with}.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
+- `WriteOutcome` (interface): The outcome of a conflict-guarded insert — did it write a new row?
 
 ### @sisal/orm ./core (packages/orm/core/mod.ts)
 
 Typed SQL builders and ORM driver contracts for @sisal/orm.
 
+- `AdvisoryLock` (interface): A held — or refused — advisory lock from {@link Database.tryAdvisoryLock}. Always await using it so the lease is deleted on scope exit, including on an early return or a throw. When {@link AdvisoryLock.acquired} is...
+- `AdvisoryLockOptions` (interface): Options for {@link Database.tryAdvisoryLock}.
 - `and` (function): Combines conditions with SQL AND, ignoring nullish values.
 - `AnyTableDefinition` (typeAlias): Any Sisal table definition, regardless of its column map.
 - `arrayContained` (function): Postgres array <@ — true when column is contained by value.
@@ -733,6 +781,9 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `capabilitySupported` (function): True when identity supports capability — the non-rendering form of the render-time guard, with identical fail-closed semantics: a bare engine identity matches engine-wide targets, a variant identity also matches its...
 - `CapabilityTargetId` (typeAlias): A key of {@link CAPABILITY_TARGETS}.
 - `check` (function): A named CHECK constraint from a sql expression.
+- `Checkpoint` (interface): A checkpoint handle bound to one job. Reads the last committed watermark and advances it atomically with an idempotent load. Create it with {@link etlCheckpoint}.
+- `CheckpointOptions` (interface): Options for {@link etlCheckpoint}.
+- `CheckpointState` (interface): The full checkpoint row for a job — the A3 contract shape (window_end, pruned_before, updated_at). Returned by {@link Checkpoint.readState}.
 - `coalesce` (function): coalesce(a, b, …) — the first non-null operand. Portable across all four dialects; columns and expressions render as SQL, plain values bind as parameters. Retires the last raw seam in the composed ETL rollups (v0.8...
 - `ColumnArray` (typeAlias): Array element/column type produced by {@link ColumnBuilder.array}.
 - `ColumnBuilder` (interface): Immutable column builder used to define table schemas.
@@ -790,6 +841,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `dialectSql` (function): A SQL fragment that renders differently per dialect: at render time the variants entry for the active dialect is emitted, falling back to fallback when the dialect has no entry. If neither matches, rendering throws a...
 - `emptySql` (function): Returns an empty SQL fragment.
 - `eq` (function): column = value SQL condition.
+- `etlCheckpoint` (function): Creates a {@link Checkpoint} for job on db — the portable watermark substrate a future ETL runner resumes from. Reads/advances the sisal_etl_checkpoints table (override the name with options.table), which is created...
 - `excluded` (function): The upsert "proposed row" reference for onConflictDoUpdate set values, rendered per dialect: excluded."col" on PostgreSQL and the SQLite family, values( ` col ) on MySQL — the one spelling every MySQL 5.7→9.x and...
 - `exists` (function): EXISTS (subquery) — true when the subquery returns any row.
 - `expr` (function): Types a fragment as a {@link SqlExpression} of T — the name-once handle for computed/metric expressions (v0.8 item 7). Assign it once and reuse it across a projection, groupBy, having, orderBy, and other expressions;...
@@ -891,6 +943,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `relations` (function): Defines named relations for a table, Drizzle-style.
 - `RelationsList` (typeAlias): Relational metadata list accepted by {@link createDatabase}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `ReplayGuardOptions` (interface): Options for {@link Checkpoint.assertReplayable}.
 - `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SelectBuilder` (interface): Fluent builder for SELECT queries.
 - `SelectColumnRef` (interface): A column reference usable in a select projection.
@@ -925,6 +978,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `TimeColumnMode` (typeAlias): Runtime modes for SQL time columns.
 - `TimestampColumnMode` (typeAlias): Runtime modes for SQL timestamp / timestamptz columns.
 - `toSql` (function): Converts a SQL fragment or condition into SQL.
+- `tryInsert` (function): Runs a **conflict-guarded** insert (you supply .onConflictDoNothing()) and reports whether it wrote a new row — the portable "inserted vs conflicted/claimed" outcome. On the Postgres/SQLite families it appends...
 - `unique` (function): A named/composite UNIQUE constraint; complete it with .on(...columns).
 - `UniqueConstraintBuilder` (interface): Fluent builder returned by {@link unique}.
 - `uniqueIndex` (function): A unique table index (CREATE UNIQUE INDEX); complete with .on(...).
@@ -934,6 +988,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `WindowSpec` (interface): The window specification over() renders: partition keys, ordering terms (asc()/desc() or bare columns/expressions), and an optional frame.
 - `WithQueryBuilder` (interface): Query root seeded with CTEs, returned by {@link Database.with}.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
+- `WriteOutcome` (interface): The outcome of a conflict-guarded insert — did it write a new row?
 
 ### @sisal/orm ./error (packages/orm/error.ts)
 
@@ -949,8 +1004,26 @@ Structured error primitives shared by Sisal packages — compatibility re-export
 
 Minimal logging contract accepted by Sisal facades — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
+- `createSisalLogEmitter` (function): Creates a level/category-aware logger wrapper for Sisal internals.
+- `CreateSisalLogEmitterOptions` (interface): Options for {@link createSisalLogEmitter}.
+- `emitSisalLogEvent` (function): Emits one structured event, swallowing logger failures.
+- `isSisalLogCategory` (function): Returns true when a value is one of Sisal's supported log categories.
+- `isSisalLogLevel` (function): Returns true when a value is one of Sisal's supported log levels.
+- `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
 - `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Minimal logger contracts accepted by Sisal packages.
+- `LoggerMethod` (interface): Public API.
+- `NormalizedSisalLogging` (interface): Normalized logging controls used by Sisal internals.
+- `normalizeSisalLogSettings` (function): Normalizes logging settings with conservative defaults.
+- `redactSqlParameter` (function): Builds a safe, non-raw summary for one SQL bind parameter.
+- `redactSqlParameters` (function): Builds safe, non-raw summaries for SQL bind parameters.
+- `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
+- `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
+- `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
+- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
+- `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
+- `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
 
 ### @sisal/orm ./schema (packages/orm/schema.ts)
 
@@ -1842,9 +1915,9 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.8.0 \
-  jsr:@sisal/migrate@0.8.0 \
-  jsr:@sisal/pg@0.8.0
+deno add jsr:@sisal/orm@0.9.0 \
+  jsr:@sisal/migrate@0.9.0 \
+  jsr:@sisal/pg@0.9.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -1852,11 +1925,11 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target        | Install                                                                          |
 | ------------- | -------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/pg@0.8.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/neon@0.8.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/sqlite@0.8.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/libsql@0.8.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.8.0 jsr:@sisal/migrate@0.8.0 jsr:@sisal/mysql@0.8.0`  |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/pg@0.9.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/neon@0.9.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/sqlite@0.9.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/libsql@0.9.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/mysql@0.9.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -1864,8 +1937,9 @@ import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
 ## PostgreSQL Walkthrough
 
 This example defines a small feed schema, generates additive PostgreSQL DDL,
-connects through the PostgreSQL adapter, writes with a batched transaction,
-updates with a SQL expression, and reads a keyset-paginated page.
+connects through the PostgreSQL adapter with `await using` for automatic
+cleanup, writes with a batched transaction, updates with a SQL expression, and
+reads a keyset-paginated page.
 
 ```ts
 import {
@@ -1911,70 +1985,69 @@ const snapshot = createSchemaSnapshot({
   tables: [users, posts],
 });
 
-const db = await connect({
+// `await using` closes the connection pool when the scope exits — including on
+// an early throw — so no try/finally is needed. (Call `await db.close()`
+// manually if you need to release it sooner.)
+await using db = await connect({
   url: Deno.env.get("DATABASE_URL"),
 });
 
-try {
-  const { statements, destructive } = generatePostgresUpStatements(snapshot);
+const { statements, destructive } = generatePostgresUpStatements(snapshot);
 
-  if (destructive.length > 0) {
-    throw new Error("Refusing to apply destructive generated changes.");
-  }
-
-  for (const statement of statements) {
-    await db.execute(statement);
-  }
-
-  const userId = crypto.randomUUID();
-  const postId = crypto.randomUUID();
-
-  await db.batch([
-    db.insert(users).values({
-      id: userId,
-      email: "ada@example.com",
-      displayName: "Ada",
-      createdAt: Temporal.Now.instant(),
-    }),
-    db.insert(posts).values({
-      id: postId,
-      authorId: userId,
-      title: "Portable database tooling",
-      status: "published",
-      score: 0,
-      upvotes: 3,
-      downvotes: 1,
-      createdAt: Temporal.Now.instant(),
-    }),
-  ]);
-
-  await db.update(posts).set({
-    score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
-  }).where(eq(posts.columns.id, postId)).execute();
-
-  const page = await db.select({
-    id: posts.columns.id,
-    title: posts.columns.title,
-    author: users.columns.displayName,
-    score: posts.columns.score,
-    createdAt: posts.columns.createdAt,
-  }).from(posts)
-    .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
-    .where(eq(posts.columns.status, "published"))
-    .keyset({
-      orderBy: [
-        desc(posts.columns.score),
-        desc(posts.columns.createdAt),
-        desc(posts.columns.id),
-      ],
-    })
-    .limit(20)
-    .execute();
-
-  console.log(page.rows, page.nextCursor);
-} finally {
-  await db.close();
+if (destructive.length > 0) {
+  throw new Error("Refusing to apply destructive generated changes.");
 }
+
+for (const statement of statements) {
+  await db.execute(statement);
+}
+
+const userId = crypto.randomUUID();
+const postId = crypto.randomUUID();
+
+await db.batch([
+  db.insert(users).values({
+    id: userId,
+    email: "ada@example.com",
+    displayName: "Ada",
+    createdAt: Temporal.Now.instant(),
+  }),
+  db.insert(posts).values({
+    id: postId,
+    authorId: userId,
+    title: "Portable database tooling",
+    status: "published",
+    score: 0,
+    upvotes: 3,
+    downvotes: 1,
+    createdAt: Temporal.Now.instant(),
+  }),
+]);
+
+await db.update(posts).set({
+  score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
+}).where(eq(posts.columns.id, postId)).execute();
+
+const page = await db.select({
+  id: posts.columns.id,
+  title: posts.columns.title,
+  author: users.columns.displayName,
+  score: posts.columns.score,
+  createdAt: posts.columns.createdAt,
+}).from(posts)
+  .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
+  .where(eq(posts.columns.status, "published"))
+  .keyset({
+    orderBy: [
+      desc(posts.columns.score),
+      desc(posts.columns.createdAt),
+      desc(posts.columns.id),
+    ],
+  })
+  .limit(20)
+  .execute();
+
+console.log(page.rows, page.nextCursor);
 ```
 
 `generatePostgresUpStatements` is intentionally additive: destructive changes
@@ -1990,7 +2063,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.8.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.9.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -2064,17 +2137,17 @@ database plan do not match.
   CLI workflow.
 - Adapter packages for PostgreSQL, Neon, SQLite, libSQL/Turso, and
   MySQL/MariaDB.
-- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus small
-  logger contracts.
+- Structured `SisalError`, `OrmError`, and `MigrationError` classes plus
+  configurable logger contracts.
 
 ## Packages
 
 Core packages:
 
-| Package          | Purpose                                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and logger contracts.    |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config. |
+| Package          | Purpose                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging. |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.  |
 
 Adapter packages:
 
@@ -2163,6 +2236,287 @@ of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
+
+## 0.9.0 - 2026-07-02
+
+### Added
+
+- **Portable write-outcome — `tryInsert` / `WriteOutcome` (v0.9 T15).** A
+  reliable **inserted-vs-conflicted/claimed** signal for a conflict-guarded
+  insert (`tryInsert(db, insert)` where you supply `.onConflictDoNothing()`),
+  since `rowCount` alone can't distinguish across engines under the portable
+  MySQL no-op `ON DUPLICATE KEY UPDATE`. It reads the signal per dialect:
+  `RETURNING` on the Postgres and SQLite families (a row comes back iff the
+  insert won), the affected-row count on the MySQL family (no usable `RETURNING`
+  on a no-op upsert; 1 on insert, 0 on conflict). Fails closed on `generic`. The
+  advisory-lock claim (T11) now consumes it, so claimed-vs-not is reliable
+  across engines rather than the previously ambiguous `rowCount >= 1`. Backed by
+  5 network-free unit tests, a per-engine integration scenario, and a
+  `docs/feature-matrix.md` row. Completes the v0.9 ETL correctness substrate.
+- **Retention horizon + replay refusal on the checkpoint (v0.9 T14).** Extended
+  the `etlCheckpoint` handle with the mirror of `advance`:
+  `prune(before,
+  deletes)` upserts the per-job `pruned_before` **retention
+  horizon** in the **same `db.batch`** as the source-delete statements, so the
+  horizon advances atomically with the delete and never lags it (a crash rolls
+  both back together). `assertReplayable(from, options?)` throws a typed
+  `ORM_REPLAY_PRUNED` error when a replay window begins before the horizon
+  (`from < pruned_before`) — replaying over pruned source rows would silently
+  overwrite the rollup with missing data — with an explicit
+  `unsafeAllowPrunedReplay` override mirroring `.unsafeAllowAllRows()`. TEXT
+  watermarks compare lexicographically, so `from >=
+  pruned_before` is the
+  replayable boundary. Backed by 13 network-free unit tests and a per-engine
+  integration scenario proving both directions (a refused replay leaves the
+  rollup untouched; a failing prune rolls delete + horizon back together), plus
+  a `docs/feature-matrix.md` row.
+- **Checkpoint contract validation + `Checkpoint.readState()` (v0.9 T13).**
+  Added `readState()` to the `etlCheckpoint` handle — the full
+  `{ windowEnd, prunedBefore, updatedAt }` contract row (the `window_end`-only
+  `read()` stays the shortcut; `readState()` also feeds the T14 retention
+  horizon). Per-engine integration scenarios validate the checkpoint contract on
+  every ETL target: exact TEXT round-trip fidelity (a precise ISO watermark
+  reads back byte-identical, no timestamp coercion), multi-job independence,
+  that `updated_at` is written, and resume from a fresh handle.
+  `docs/architecture.md` records that the A3 ownership decision held — the
+  checkpoint (and advisory lock) substrate ships in `@sisal/orm`, its system
+  tables are runtime-managed, and there is **no `etl → migrate` edge**. Because
+  watermarks are TEXT, the contract's anticipated "adapter-specific timestamp
+  type" reconciliation is not needed.
+- **ETL checkpoint substrate — `etlCheckpoint(db, job, options?)` (v0.9 T12).**
+  A standalone factory (mirroring `defineAtomicOperation`) for the resumable
+  watermark table `sisal_etl_checkpoints` (the v0.6 A3/A4 / contract-09
+  substrate a future ETL runner consumes). `read()` returns the last committed
+  `window_end` watermark (or `null` on a fresh job); `advance(until, load)` runs
+  the caller's idempotent load and the watermark upsert as **one `db.batch`**,
+  so they commit together — the **atomic load+advance invariant**: a crash never
+  advances the watermark past data that was not written. Watermarks are stored
+  as **opaque TEXT** (ISO-8601 by convention; the caller owns the meaning),
+  which keeps the checkpoint uniform across all six engines with no per-adapter
+  timestamp-decode divergence; the table (override the name with `{ table }`,
+  created on first use) already carries the nullable `pruned_before` column for
+  the retention horizon. `CREATE TABLE IF NOT EXISTS` runs outside the atomic
+  batch (MySQL auto-commits DDL). Backed by 7 network-free unit tests and a
+  per-engine idempotent-resume + crash-safety integration scenario, plus a new
+  `docs/feature-matrix.md` row. See
+  `examples/advanced-sql-contracts/09-idempotent-backfill.md`.
+- **Portable advisory lock — `Database.tryAdvisoryLock(name, options?)` (v0.9
+  T11).** A coarse, whole-job mutual-exclusion primitive (the v0.6 A2 /
+  contract-08 substrate a future ETL runner consumes so two runs never process
+  the same window twice), implemented as a **lightweight lock-row lease**: the
+  claim is one row in `sisal_advisory_locks` (default table name; override with
+  `{ table }` — Sisal never forces its name into your schema) carrying an
+  ISO-8601 lease, so **no connection or server-side lock is held** between
+  acquire and release and work proceeds on the normal pool.
+  `await using lock =
+  await db.tryAdvisoryLock(...)` releases on scope exit
+  (including on a throw); `lock.acquired` reports whether the claim won;
+  `lock.renew()` extends the lease and returns `false` when it was lost/stolen.
+  Uniform across all six engines (plain, dialect-rendered DML — no driver or
+  adapter changes); fails closed on the `generic` dialect
+  (`ORM_DIALECT_UNSUPPORTED`). A crashed holder's lease expires after `ttlMs`
+  (default 30s) and may then be stolen, so long runs should `renew()` and stop
+  on a `false`. Backed by 10 network-free unit tests, a per-engine contention
+  integration scenario on every ETL target, and a new `docs/feature-matrix.md`
+  row. Chosen over per-dialect session-scoped native locks (`pg_advisory_lock` /
+  `GET_LOCK` / `BEGIN IMMEDIATE`) so a held lock does not pin a session for the
+  whole run; see `examples/advanced-sql-contracts/08-job-queue-locking.md`.
+- **Concrete logging integration example.** Added `examples/logging`, a
+  driverless runnable example showing separate `@std/log` and Pino adapters for
+  Sisal's `Logger` contract, including structured logging at `trace` with
+  redacted bind-parameter summaries.
+- **Hibernate-style logging verbosity controls.** Added shared
+  `SisalLoggingOptions` / `SisalLogSettings` with severity thresholds, category
+  overrides, optional `trace`, and safe redacted SQL bind summaries. ORM and
+  migration facades now accept `logging` beside the legacy `logger`; `logger`
+  alone keeps the previous behavior without bind logs. The migration CLI accepts
+  `--log-level`, `--quiet`, and repeatable `-v`/`--verbose`, and
+  `defineConfig({ logging })` can provide default CLI logging settings. The work
+  is recorded as a v0.9 hardening/observability lane in
+  `docs/v0.9.0-roadmap.md`.
+- **`await using` support on `Database` and `Migrator`.** Both now implement
+  `Symbol.asyncDispose` as an alias for `close()`, so
+  `await using db = await connect(...)` (and `createMigrator(...)`) release the
+  connection/pool and store at scope exit — including on an early throw — with
+  no `try/finally`. Additive and non-breaking; `close()` stays the source of
+  truth. Adapter databases inherit it through `extends Database`, and the
+  adapter migrator facades (`createPgMigrator` / `createSqliteMigrator` /
+  `createLibsqlMigrator` / `createMysqlMigrator`; Neon inherits via
+  `NeonMigrator = PgMigrator`) expose the same alias, each with an `await using`
+  disposal test. The README PostgreSQL walkthrough uses the `await using` form.
+  Recorded as a v0.9 lane in `docs/v0.9.0-roadmap.md`.
+- **MySQL functional (expression) indexes light up on MySQL 8.0.13+ (v0.9 T8).**
+  Added a `functionalIndex` `DialectCapability`
+  (`unsupported: ["mysql"],
+  unless: [{ baseEngine: true, minVersion: "8.0.13" }]`)
+  and threaded a `DialectIdentity` (built from the snapshot's
+  `dialectVariant`/`dialectVersion`) through the `@sisal/mysql` DDL generator.
+  An expression index now emits `((expr))` on base MySQL ≥ 8.0.13 and throws a
+  typed `ORM_DIALECT_UNSUPPORTED` guard below that version, on MariaDB, and when
+  the version is unknown (fail-closed); partial (`WHERE`) indexes stay
+  unsupported family-wide. Covered by new `ddl_test.ts` render/throw cases; the
+  feature-matrix reason is updated.
+- **Typed `numeric`/`bigint` round-trip integration scenarios (v0.9 T6).** The
+  shared integration harness gains a `valueShape.bigint` descriptor (`"string"`
+  on the Postgres + MySQL/MariaDB families, `"number"` on the SQLite family),
+  and each of the three family scenario files gains a `numeric + bigint`
+  round-trip that asserts the decoded `typeof` against the descriptor. The
+  string families use an int8 above 2^53 (`9007199254740993`) to prove no
+  lossy-float path; the SQLite family stays under 2^53 and documents the
+  precision limit. DB-gated (type-checked across all six suites; runtime
+  assertions await a live run).
+
+### Fixed
+
+- **Recursive CTEs (`db.$withRecursive`) rendered invalid SQL for the common
+  tree-walk shape (v0.9 T17).** Writing the recursive step as
+  `.from(base).innerJoin(base, … self …)` — the form shown in the docs and
+  pinned by the render tests/golden snapshot — rendered the recursive term
+  **absent from the FROM** (`from "posts" inner join "posts" … "tree"."id"`),
+  which every engine rejects (`table name specified more than once` /
+  `missing FROM-clause entry`). The correct form puts the self-reference in the
+  FROM: `.from(self)`. This shipped because there was **no recursive-CTE
+  integration coverage** (added in v0.9). A new **build-time guard** now throws
+  `ORM_INVALID_QUERY` when a recursive step never uses its self-reference as a
+  FROM source, so the mistake fails loudly at build time instead of producing
+  broken SQL. The render tests, golden snapshot, and examples now use
+  `.from(self)`.
+- **Prepared queries now render with the full dialect identity.**
+  `Select/Insert/Update/Delete.prepare()` baked the plan with the bare
+  `database.dialect`, dropping the `variant`/`version` the normal execute path
+  threads through. On a detected MariaDB (or any version-gated) connection a
+  prepared statement rendered as plain MySQL, so variant/version-gated
+  constructs failed closed — e.g. `insert(...).returning().prepare()` threw
+  "INSERT … RETURNING is not supported by the mysql dialect" even though the
+  same query executes fine via `.execute()`. Both `prepareRows`/`prepareResult`
+  now pass `database.dialectIdentity`; regression-guarded by a new
+  prepared-query test in `packages/orm/dialect_identity_test.ts`.
+
+### Changed
+
+- **Advanced-SQL example families migrated to builder-native (v0.9 T19).** All
+  three families — `examples/{postgres,mysql,sqlite}-family-advanced-sql` — now
+  express their graduated contracts through the query builder instead of raw
+  `sql` templates, each statement render-verified against its original raw SQL
+  for equivalence. The classification below is the PostgreSQL family; MySQL and
+  SQLite mirror it, differing only in the inline fragments kept for dialect
+  divergences (MySQL `timestampdiff`/date math; SQLite `julianday`/`date()` and
+  `json_each`/`json_extract` for JSON), and SQLite un-skips contracts 03/05/06
+  (previously `skipped` in that conservative file). Contracts 02 (window
+  analytics) and 04 (top-N per group) are fully **builder** —
+  `over()`/`rank()`/`rowNumber()` windows with a ROWS frame and a `.as()`
+  derived table. Contracts 03 (sessionization), 05 (cohort retention), 06
+  (funnel analysis), 07 (recursive comments), and 10 (JSON table extraction) are
+  **hybrid**: `$with()`/`$withRecursive()` CTEs, `lag()`/`sum()` windows,
+  `min()`/`countDistinct()`/`filter()` aggregates, `dateTrunc()`, and
+  `jsonTable()` supply the structure, with inline fragments kept only for the
+  un-expressible bits (PostgreSQL `::interval` gap/deadline math whose exact
+  boundary `dateDiff()`'s whole-unit truncation cannot reproduce, the CTE-to-CTE
+  join, the lateral cross-join composition, and `lpad`/`||`/`::text` path
+  expressions). Contract 11 (generated columns + indexes) now emits its DDL from
+  a `defineTable()` snapshot — a stored generated column plus a partial
+  expression index — through the PostgreSQL DDL generator rather than
+  hand-written SQL (still `raw-ddl`). Stale `v08PainPoint` notes were rewritten
+  to describe the now-shipping builder behavior; render-test assertions were
+  updated to the equivalent builder-rendered SQL. Contracts 01/08/09 stay as-is.
+- **Compatibility docs + unified matrix refreshed to the v0.9 reality (T20).**
+  `docs/feature-matrix.md` (generated) now carries the v0.9 rows — advisory
+  lock, ETL checkpoint watermark, retention/replay refusal, write outcome, and
+  read/recursive CTE — each scenario-backed. Each of the five
+  `docs/*-compatibility.md` gained a **v0.9 additions** note covering the
+  portable ETL substrate (`tryAdvisoryLock`/`etlCheckpoint`/`tryInsert`, with
+  the per-engine write-outcome mechanism), read/`WITH RECURSIVE` CTE coverage,
+  and the PostgreSQL/Neon-only data-modifying CTE. The dated "last live run"
+  attestation tables are unchanged — the v0.9-added integration scenarios are
+  DB-gated and await the next live run.
+- **Refreshed the API reference for the current workspace.** `docs/api.md` now
+  reflects the v0.8 package split (`@sisal/core` as the driverless compile
+  target), the MySQL/MariaDB adapter package, current subpath exports, query
+  builder additions, logging controls, async disposal aliases, schema-object
+  snapshots, and adapter DDL/migration boundaries.
+- **v0.9 roadmap priority summary** — `docs/v0.9.0-roadmap.md` gains the
+  consolidated T1–T20 task table in the v0.5–v0.8 style, separating active v0.9
+  scope from the detailed phased execution tasklist and explicitly marking the
+  v0.10-critical capability/ETL substrate path.
+- **Corrected the row-locking row in the feature matrix.** The generated
+  "PostgreSQL-only limits" prose for `.for(...)` reused the shared pg-only tail
+  and wrongly claimed the MySQL family throws; row locking is unsupported on the
+  SQLite family only (MySQL/MariaDB render `FOR UPDATE`/`FOR SHARE` natively, as
+  the table already showed). Fixed the `LOCKING` reason in
+  `tools/feature_matrix.ts` and regenerated `docs/feature-matrix.md`.
+- **Feature-matrix cells derive from the capability registry (v0.9 T3).** The
+  pure supported/unsupported rows (`distinctOn`, row locking, array operators,
+  data-modifying CTE) now compute their ✅/❌ cells from
+  `capabilitySupported(...)` over `DIALECT_CAPABILITIES` via a `capabilityRow`
+  helper, so they cannot drift from the render-time guards. Output is
+  byte-identical (`docs:matrix:check` unchanged); value-shape ⚠️ and fallback
+  rows stay hand-authored.
+- **Dialect key spaces reconciled + machine-checked (v0.9 T4).** Added a runtime
+  `SQL_DIALECTS` companion to the `SqlDialect` type and a reconciliation test
+  that pins the render dialect, the snapshot `SisalDialectName`, and the six
+  `CAPABILITY_TARGETS` as projections of the one `(engine, variant, version)`
+  descriptor: the 4-way unions are asserted identical at compile time, the 6→4
+  collapse (neon→pg, libsql→sqlite, mariadb→mysql) is verified, and capability
+  declarations naming an unknown dialect/variant are rejected. No behavior
+  change.
+- **Network-free regression test for `@sisal/pg` float decoding (v0.9 T5).** The
+  float4/float8 → `number` coercion shipped in v0.5.0 but was covered only by
+  the DB-gated integration suite; added a fast unit test (`packages/pg/orm/`)
+  that drives the coercion through a fake client and asserts `numeric` stays a
+  string. No behavior change.
+- **Partial-index limit promoted to a registry capability (v0.9 T9).** Added a
+  `partialIndex` `DialectCapability` (`unsupported: ["mysql"]`); the
+  `@sisal/mysql` DDL generator now sources its partial-index (`WHERE`) rejection
+  from `capabilitySupported(...)` instead of a hard-coded throw, so the fact is
+  single-sourced with the render guards. The matrix note records that Sisal
+  emits plain `CREATE INDEX` for every dialect (no `IF NOT EXISTS`). No behavior
+  change; the MySQL/MariaDB `RETURNING` capability rows were already complete.
+- **Base-engine-scoped version predicates in dialect guards (v0.9, unblocks
+  T8).** `DialectGuardException` gains `baseEngine?: boolean`; when set, the
+  `unless` lift applies only to an identity with **no variant** (the base
+  engine). This makes "supported on base MySQL ≥ 8.0.13 but never MariaDB"
+  expressible — previously a variant-less `unless` lifted every variant, so
+  MariaDB 11.x (numerically ≥ 8.0.13) would wrongly clear a MySQL version floor.
+  Covered by the render guard and `capabilitySupported` in
+  `packages/orm/dialect_identity_test.ts`.
+- **`@sisal/pg` decodes `bigint`/int8 as a string, aligning the Postgres family
+  (v0.9 T7).** int8 previously decoded to a JS `BigInt` on `@sisal/pg` but a
+  `string` on `@sisal/neon`, so an `id === "2"` check silently diverged between
+  the two Postgres-family adapters. The pg executor now coerces int8 columns
+  (OID 20) to strings — matching neon and preserving 64-bit precision — via
+  `coercePgColumns` (renamed from `coerceFloatColumns`; float4/float8 → `number`
+  coercion is unchanged). Pinned by a network-free executor unit test (proven to
+  bite) and the cross-adapter parity test (both adapters assert
+  `typeof === "string"` and equal values). **Migration note:** code that relied
+  on pg returning a `BigInt` (e.g. `row.id === 2n`) must compare as strings.
+- **Clarified `db.batch` round-trip wording.** The `OrmDriver.batch` contract
+  and the `#runBatch` comment implied single-round-trip execution; the built-in
+  pg/mysql/sqlite/libsql adapters run the statements sequentially inside one
+  atomic transaction. Reworded so a single round trip is described as an
+  optional driver capability, not a guarantee. (libSQL's native one-round-trip
+  `batch()` remains an available future optimization.)
+
+- **Overhauled the benchmark suite to track only Sisal's own hot paths.** The
+  `temporal` scenarios drop the `Date`-vs-`Temporal` runtime-API microbenchmarks
+  (`date api parse` / `date api format`) and the raw-JS mapping baselines — none
+  of them exercise Sisal code, so they carried no regression signal — keeping
+  the Sisal serialization (`sisal temporal params`) and parse-cost
+  (`sisal temporal row parsing`) groups. The migration scenarios drop the
+  `deno eval` subprocess smoke bench (it timed Deno process startup, not Sisal),
+  so `deno task bench` no longer needs `--allow-run` and its group is renamed
+  `cli + migrations` → `migrations`. `docs/benchmarks.md` is updated to match.
+  The SQL-generation, advanced-SQL, and fake-driver dispatch scenarios are
+  unchanged.
+
+### Removed
+
+- **Dropped the Sisal-vs-Drizzle comparison benchmarks.** Removed the
+  `vs_drizzle`, `vs_drizzle_execute`, and `drizzle_proxy` benchmark scenarios,
+  the `drizzle-orm` import map entries in `benchmarks/deno.json`, and the fake
+  proxy's Drizzle adapter (`asDrizzlePgProxy` and its helpers/tests). Benchmarks
+  now measure Sisal's own SQL generation, dispatch, and result mapping in
+  isolation. `docs/benchmarks.md` drops the head-to-head sections accordingly.
+  The Drizzle **parity** matrix and its tests are unaffected.
 
 ## 0.8.0 - 2026-07-02
 
@@ -3770,380 +4124,390 @@ title: API Reference
 
 # Sisal API Reference
 
-Complete reference for the public API of every Sisal package, generated from a
-full read of the source. Sisal is a Deno-first database toolkit, published to
-JSR, made of six packages with strict boundaries:
+This reference is verified against the current workspace package exports and
+source layout. Sisal is a Deno-first database toolkit, published to JSR, with a
+driverless core, a driverless ORM facade, adapter-neutral migration tooling, and
+explicit database adapters.
 
-| Package          | Import root      | Responsibility                                          |
-| ---------------- | ---------------- | ------------------------------------------------------- |
-| `@sisal/orm`     | `@sisal/orm`     | Driverless schema, typed SQL, query builders, snapshots |
-| `@sisal/migrate` | `@sisal/migrate` | Adapter-neutral migration planning, running, workflow   |
-| `@sisal/pg`      | `@sisal/pg`      | PostgreSQL execution, history, migrator, DDL            |
-| `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL execution and migrations     |
-| `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite execution, history, migrator, DDL                |
-| `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso execution, history, migrator, SQLite DDL   |
+| Package          | Import root      | Responsibility                                     |
+| ---------------- | ---------------- | -------------------------------------------------- |
+| `@sisal/core`    | `@sisal/core`    | Schema primitives, SQL IR, operators, capabilities |
+| `@sisal/orm`     | `@sisal/orm`     | Database facade, fluent builders, relations, calls |
+| `@sisal/migrate` | `@sisal/migrate` | Migration definitions, planning, workflow, CLI     |
+| `@sisal/pg`      | `@sisal/pg`      | PostgreSQL ORM, migration adapter, DDL             |
+| `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL ORM/migrations          |
+| `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite ORM, migration adapter, DDL                 |
+| `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
+| `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
 
-The ORM never imports an adapter; adapters depend on `@sisal/orm`. See
-[`drizzle-parity`](./drizzle-parity.html) for how this surface maps to Drizzle
-ORM 0.45.2 and where it diverges on purpose.
+The manifests in this workspace are currently `0.9.0`; this page reflects the
+current tree, including v0.9 API additions such as structured logging controls
+and `await using` disposal aliases.
 
-> **Stability:** all packages are `0.6.0` (pre-1.0). The surface below is
-> current but may change before 1.0.
+## Subpath Exports
 
----
+Each package exposes smaller import boundaries:
 
-## Subpath exports
+| Package          | Subpaths                                         |
+| ---------------- | ------------------------------------------------ |
+| `@sisal/core`    | `.`, `./schema`, `./unstable-internal`           |
+| `@sisal/orm`     | `.`, `./core`, `./schema`, `./error`, `./logger` |
+| `@sisal/migrate` | `.`, `./core`, `./workflow`, `./cli`             |
+| `@sisal/pg`      | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/neon`    | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/sqlite`  | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/libsql`  | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/mysql`   | `.`, `./orm`, `./migrate`, `./ddl`               |
 
-Each package exposes narrower entry points so an app can import the smallest
-boundary it needs.
-
-```text
-@sisal/orm            @sisal/migrate          @sisal/pg               @sisal/neon
-  .   -> mod.ts         .        -> mod.ts       .       -> mod.ts       .       -> mod.ts
-  ./core                ./cli                    ./orm                   ./orm
-  ./error               ./core                   ./migrate               ./migrate
-  ./logger                                       ./ddl                   ./ddl
-  ./schema              ./workflow
-
-@sisal/sqlite         @sisal/libsql
-  .       -> mod.ts     .       -> mod.ts
-  ./orm                ./orm
-  ./migrate            ./migrate
-  ./ddl                ./ddl
-```
+`@sisal/core/unstable-internal` is exported for Sisal packages. Application code
+should treat it as internal plumbing.
 
 ---
 
-# @sisal/orm
+# `@sisal/core`
 
-Driverless. Owns schema definitions, typed SQL fragments, predicates, query
-builders, the database facade, and serializable schema snapshots.
+`@sisal/core` is the driverless compile target: table/column metadata,
+serializable schema snapshots, the SQL fragment IR, expression helpers, dialect
+capability declarations, structured errors, and logging contracts. `@sisal/orm`
+re-exports the stable core surface for compatibility.
 
-## Schema definition
+## Tables And Columns
 
 ### `defineTable(name, columns, extrasOrOptions?, options?)`
 
-```ts
-function defineTable<TColumns extends TableColumns>(
-  name: string,
-  columns: TColumns,
-  extrasOrOptions?:
-    | ((columns: TableDefinition<TColumns>["columns"]) => TableConstraint[])
-    | { schema?: string },
-  options?: { schema?: string },
-): TableDefinition<TColumns>;
-```
-
-Defines a typed, frozen table. Column DB names default to the property key (or
-`.named(...)` override). The optional extras callback defines table-level
-indexes and constraints. Returns a `TableDefinition` whose `.columns[key]`
-entries carry `name`, `tableName`, `propertyName`, and the resolved flags.
+Defines a frozen typed table. Column DB names default to the table's naming
+strategy, whose global default is `"snake_case"` (`createdAt` -> `created_at`).
+Use `.named(...)` for an explicit physical column name, or pass
+`{ naming: "preserve" | "camelCase" | "snake_case" | fn }` per table.
 
 ```ts
-import { check, columns, defineTable, index, sql, unique } from "@sisal/orm";
+import { check, columns, defineTable, desc, index, sql } from "@sisal/core";
 
-const users = defineTable(
-  "users",
+const posts = defineTable(
+  "posts",
   {
     id: columns.uuid().primaryKey(),
-    email: columns.text().notNull().unique(),
-    name: columns.text().notNull(),
-    age: columns.integer().optional(),
-    createdAt: columns.timestamp({ withTimezone: true }).default(() =>
-      Temporal.Now.instant()
-    ),
-    orgId: columns.uuid().references("organizations", "id", {
-      onDelete: "cascade",
-    }),
+    title: columns.text().notNull(),
+    body: columns.text(),
+    score: columns.integer().notNull().default(0),
+    createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+    search: columns.customType<string>({
+      kind: "tsvector",
+      dialectType: "tsvector",
+    }).generatedAs(sql`to_tsvector('simple', title)`, { stored: true }),
   },
   (t) => [
-    index("users_org_idx").on(t.orgId),
-    unique("users_org_email_unique").on(t.orgId, t.email),
-    check("users_age_check", sql`${t.age} >= ${0}`),
+    index("posts_feed_idx")
+      .where(sql`${t.score} > 0`)
+      .on(desc(t.score), desc(t.createdAt), t.id),
+    check("posts_score_check", sql`${t.score} >= ${0}`),
   ],
 );
-
-// Column references are reached through `.columns`:
-users.columns.id; // { name: "id", tableName: "users", dataType: "uuid", ... }
 ```
 
 Table-level helpers:
 
-| Helper                         | Purpose                                   |
-| ------------------------------ | ----------------------------------------- |
-| `index(name?).on(...cols)`     | Non-unique index                          |
-| `uniqueIndex(name?).on(...c)`  | Unique index                              |
-| `primaryKey({ columns })`      | Composite/table-level primary key         |
-| `unique(name?).on(...columns)` | Composite/table-level unique constraint   |
-| `check(name, sql\`...\`)`      | Named check constraint from a SQL literal |
+| Helper                         | Purpose                                      |
+| ------------------------------ | -------------------------------------------- |
+| `index(name?).where(sql).on()` | Non-unique index; supports partial indexes   |
+| `uniqueIndex(name?).on(...)`   | Unique index                                 |
+| `primaryKey({ columns })`      | Composite/table-level primary key            |
+| `unique(name?).on(...cols)`    | Composite/table-level unique constraint      |
+| `check(name, sql)`             | Named check constraint from trusted SQL text |
 
-### `columns` — column builder factory
+Index keys accept column refs, physical column names, `asc()`/`desc()` terms,
+and `sql` expressions. Expression indexes, partial-index predicates, check
+expressions, generated-column expressions, custom `dialectType`, and SQL
+defaults are trusted schema inputs emitted into DDL verbatim.
 
-`columns` is a frozen object of constructors. Each returns an immutable
-`ColumnBuilder`.
+### `columns`
 
-| Factory                               | Value type               | Notes                                                                      |
-| ------------------------------------- | ------------------------ | -------------------------------------------------------------------------- |
-| `columns.text()`                      | `string`                 |                                                                            |
-| `columns.varchar(length?)`            | `string`                 | `varchar(n)` when `length` given                                           |
-| `columns.char(length?)`               | `string`                 | `char(n)` when `length` given                                              |
-| `columns.integer()`                   | `number`                 |                                                                            |
-| `columns.smallint()`                  | `number`                 |                                                                            |
-| `columns.bigint()`                    | `string`                 | string-typed to preserve 64-bit precision                                  |
-| `columns.serial()`                    | `number`                 | auto-increment; optional on insert                                         |
-| `columns.bigserial()`                 | `string`                 | auto-increment; optional on insert                                         |
-| `columns.numeric(precision?, scale?)` | `string`                 | string-typed to preserve precision                                         |
-| `columns.decimal(precision?, scale?)` | `string`                 | alias of `numeric`                                                         |
-| `columns.real()`                      | `number`                 |                                                                            |
-| `columns.doublePrecision()`           | `number`                 | Postgres `double precision`                                                |
-| `columns.number()`                    | `number`                 | generic numeric                                                            |
-| `columns.boolean()`                   | `boolean`                |                                                                            |
-| `columns.json<T>()`                   | `T`                      | defaults `T = Record<string, unknown>`                                     |
-| `columns.jsonb<T>()`                  | `T`                      | Postgres `jsonb`                                                           |
-| `columns.date(options?)`              | `Temporal.PlainDate`     | `{ mode: "date" }` → `Date`; `{ mode: "string" }` → `string`               |
-| `columns.time(options?)`              | `Temporal.PlainTime`     | `{ mode: "string" }` → `string`                                            |
-| `columns.timestamp(options?)`         | `Temporal.PlainDateTime` | `{ withTimezone: true }` → `Temporal.Instant` / `timestamptz`; modes below |
-| `columns.uuid()`                      | `string`                 |                                                                            |
-| `columns.bytea()`                     | `Uint8Array`             | Postgres `bytea`; SQLite/libSQL `BLOB`                                     |
-| `columns.customType<T>(options)`      | `T`                      | trusted dialect type escape hatch                                          |
+`columns` is a frozen factory of immutable `ColumnBuilder`s:
 
-Date/time columns use semantic Temporal types by default:
+| Factory                               | Value type               | Notes                                      |
+| ------------------------------------- | ------------------------ | ------------------------------------------ |
+| `text()` / `varchar(n?)` / `char(n?)` | `string`                 | Text-like columns                          |
+| `integer()` / `smallint()`            | `number`                 | Integer columns                            |
+| `bigint()`                            | `string`                 | Preserves 64-bit precision                 |
+| `serial()` / `bigserial()`            | `number` / `string`      | Auto-increment, insert-optional            |
+| `numeric(p?, s?)` / `decimal(p?, s?)` | `string`                 | Preserves decimal precision                |
+| `real()` / `doublePrecision()`        | `number`                 | Floating-point columns                     |
+| `number()`                            | `number`                 | Generic numeric                            |
+| `boolean()`                           | `boolean`                | Boolean column                             |
+| `json<T>()` / `jsonb<T>()`            | `T`                      | `jsonb` is PostgreSQL-oriented             |
+| `date(options?)`                      | `Temporal.PlainDate`     | `mode: "date"` -> `Date`, `"string"`       |
+| `time(options?)`                      | `Temporal.PlainTime`     | `mode: "string"` available                 |
+| `timestamp(options?)`                 | `Temporal.PlainDateTime` | `withTimezone: true` -> `Temporal.Instant` |
+| `uuid()`                              | `string`                 | UUID text value                            |
+| `bytea()`                             | `Uint8Array`             | SQLite/libSQL map this to `BLOB`           |
+| `customType<T>(options)`              | `T`                      | Trusted dialect type escape hatch          |
 
-| SQL concept                   | Sisal column                                | Default JS type          |
-| ----------------------------- | ------------------------------------------- | ------------------------ |
-| `date`                        | `columns.date()`                            | `Temporal.PlainDate`     |
-| `time`                        | `columns.time()`                            | `Temporal.PlainTime`     |
-| `timestamp without time zone` | `columns.timestamp()`                       | `Temporal.PlainDateTime` |
-| `timestamp with time zone`    | `columns.timestamp({ withTimezone: true })` | `Temporal.Instant`       |
+Columns are nullable by default. `InferSelect` reads `T | null` until a column
+is narrowed by `.notNull()` or `.primaryKey()`.
 
-Use `mode: "date"` to keep JS `Date` values where supported:
-`columns.date({ mode: "date" })` or
-`columns.timestamp({ withTimezone: true, mode: "date" })`. Use `mode: "string"`
-when you want raw database/driver text. Temporal values are serialized to ISO
-strings before adapters receive params; arrays are normalized recursively.
-Result parsing is opt-in with `createDatabase({ temporal:
-{ parse: true } })`;
-without it, rows keep the driver-returned shape. The reusable mode types are
-exported as `DateColumnMode`, `TimeColumnMode`, `TimestampColumnMode`, and
-`ColumnValueMode`.
+Column modifiers:
 
-Migration notes for v0.4.0:
+| Modifier                         | Effect                                             |
+| -------------------------------- | -------------------------------------------------- |
+| `.named(name)`                   | Override the physical column name                  |
+| `.notNull()` / `.nullable()`     | Set read nullability                               |
+| `.optional()`                    | Omit key on insert without changing nullability    |
+| `.default(value                  | fn                                                 |
+| `.primaryKey()`                  | Primary key; implies `.notNull()`                  |
+| `.unique()`                      | Single-column unique constraint                    |
+| `.references(table, col, opts?)` | Single-column foreign key                          |
+| `.array()`                       | Array column; native on PostgreSQL, JSON elsewhere |
+| `.generatedAs(sql, { stored? })` | Generated column; trusted expression               |
+| `.$onUpdate(fn)`                 | Value applied on every ORM `UPDATE`                |
 
-```ts
-// Before: inferred Date; Postgres DDL emitted timestamptz.
-createdAt: columns.timestamp();
+Type helpers include `InferSelect`, `InferInsert`, `TableDefinition`,
+`TableColumn`, `ColumnBuilder`, `ColumnDefinition`, `ColumnDataType`,
+`ColumnValueMode`, `DateColumnMode`, `TimeColumnMode`, `TimestampColumnMode`,
+`ColumnNamingStrategy`, `getDefaultColumnNaming`, and `setDefaultColumnNaming`.
 
-// After: inferred Temporal.PlainDateTime; Postgres DDL emits timestamp.
-createdAt: columns.timestamp();
+## SQL Fragments
 
-// Keep instant semantics.
-createdAt: columns.timestamp({ withTimezone: true });
+`sql` is the safe tagged template. Values are bound as parameters, nested `Sql`
+fragments are inlined, and table/column refs render as identifiers.
 
-// Keep legacy JS Date values.
-createdAt: columns.timestamp({ withTimezone: true, mode: "date" });
+| Helper                                  | Purpose                                      |
+| --------------------------------------- | -------------------------------------------- |
+| `sql\`...\``                            | Build a parameterized fragment               |
+| `raw(text)`                             | Trusted raw SQL literal                      |
+| `identifier(name)`                      | Validated quoted identifier path             |
+| `placeholder(name)`                     | Named placeholder for prepared builders      |
+| `joinSql(items, sep?)` / `emptySql()`   | Fragment composition                         |
+| `expr<T>(sql)`                          | Type a fragment as `SqlExpression<T>`        |
+| `dialectSql(construct, variants, fb?)`  | Per-dialect rendering branch                 |
+| `dialectGuard(construct, unsupported)`  | Render-time unsupported-dialect guard        |
+| `renderSql(sql, { dialect, variant })`  | Driver-ready `{ text, params }`              |
+| `normalizeSqlInput(input, params?, d?)` | Normalize `Sql`, `SqlQuery`, or string input |
+| `quoteIdentifier(name, dialect?)`       | Quote one identifier                         |
+| `toSql(value)`                          | Unwrap `Sql` or `Condition`                  |
+| `serializeSqlValue(value)`              | Normalize a bind value                       |
+| `normalizeTemporalSqlValue(value)`      | ISO-serialize Temporal values recursively    |
+| `withSqlChunkMeta` / `sqlChunkMeta`     | Attach/read opaque chunk annotations         |
+| `isSql` / `isSqlQuery` / `isColumn`     | Type guards                                  |
 
-// Keep raw string values.
-createdAt: columns.timestamp({ withTimezone: true, mode: "string" });
-```
+Rendering uses `$1`, `$2`, ... for PostgreSQL and `?` for SQLite/libSQL/MySQL.
+`SQL_IR_VERSION` is `1`; `SQL_DIALECTS` is
+`["postgres", "sqlite", "mysql", "generic"]`.
 
-Precision: Temporal can represent nanoseconds, PostgreSQL stores timestamps at
-microsecond precision, and JS `Date` stores milliseconds. Sisal does not promise
-nanosecond round-trips through any database. For keyset pagination over
-date/time columns, prefer DB-returned cursor values and always include a unique
-final tiebreaker such as a primary key.
+## Operators And Expressions
 
-`columns.customType<T>({ kind, dialectType })` preserves `kind` in snapshots and
-lets Postgres DDL emit a trusted, developer-authored `dialectType` verbatim. Use
-it for types such as `interval`, `vector(1536)`, `inet`, or identity syntax when
-a dedicated Sisal factory does not exist.
+Predicates return `Condition`; expressions return typed `SqlExpression<T>`.
 
-### Column modifiers (`ColumnBuilder`)
+| Helper                                                          | Purpose                                |
+| --------------------------------------------------------------- | -------------------------------------- |
+| `eq`, `ne`, `gt`, `gte`, `lt`, `lte`                            | Comparisons                            |
+| `like`, `ilike`, `notLike`, `notIlike`                          | Pattern matching                       |
+| `between`, `notBetween`                                         | Inclusive range predicates             |
+| `inArray`, `notInArray`                                         | Array or subquery membership           |
+| `isNull`, `isNotNull`                                           | NULL checks                            |
+| `exists`, `notExists`                                           | Subquery existence                     |
+| `arrayContains`, `arrayContained`, `arrayOverlaps`              | PostgreSQL array operators             |
+| `and`, `or`, `not`                                              | Boolean composition                    |
+| `asc`, `desc`                                                   | Order terms                            |
+| `count`, `countDistinct`, `sum`, `avg`, `min`, `max`            | Aggregates                             |
+| `filter(aggregate, condition)`                                  | Conditional aggregate                  |
+| `excluded(column)`                                              | Portable upsert proposed-row reference |
+| `coalesce`, `greatest`, `least`                                 | Scalar expression helpers              |
+| `now`, `dateTrunc`, `dateAdd`, `dateSub`, `dateBin`, `dateDiff` | Temporal helpers                       |
+| `over`, `rank`, `denseRank`, `rowNumber`, `lag`, `lead`         | Window helpers                         |
+| `arrayExpr`, `jsonExtract`, `jsonTable`                         | Array/JSON expression and FROM helpers |
 
-All modifiers return a **new** builder (immutable chaining).
+`dateTrunc`, `dateBin`, and JSON/window helpers render per dialect and preserve
+portable ordering/grouping semantics, but result value shapes can still differ
+by engine; see the feature matrix for adapter-level details.
 
-| Modifier                               | Effect                                                                      |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `.notNull()`                           | Requires a value (opt out of the nullable default)                          |
-| `.nullable()`                          | Marks the column nullable (the default; explicit for readability)           |
-| `.optional()`                          | Makes the field optional **on insert** (does not change nullability)        |
-| `.default(value \| () => value)`       | Sets a default; also makes the field optional on insert                     |
-| `.primaryKey()`                        | Adds the column to the primary key (implies `.notNull()`)                   |
-| `.unique()`                            | Adds a single-column unique constraint                                      |
-| `.references(table, column, options?)` | Adds a single-column foreign key; `options` accepts `onDelete` / `onUpdate` |
-| `.array()`                             | Makes the column an array of its element type (Postgres `type[]`)           |
-| `.$onUpdate(() => value)`              | Value applied on every `UPDATE` of the row                                  |
-| `.named(name)`                         | Overrides the database column name                                          |
+## Schema Snapshots
 
-> **Nullability:** Sisal columns are **nullable by default**, matching SQL and
-> Drizzle. Call `.notNull()` to require a value; `.primaryKey()` implies it. A
-> column's inferred value type is therefore `T | null` until you narrow it with
-> `.notNull()`/`.primaryKey()`.
+Snapshots are serializable, dialect-neutral schema descriptions consumed by DDL
+generators and migration planning. `SCHEMA_SNAPSHOT_VERSION` is `2`.
 
-### Type inference
+| Helper                                               | Purpose                                   |
+| ---------------------------------------------------- | ----------------------------------------- |
+| `createSchemaSnapshot({ tables, ... })`              | Build from ORM tables                     |
+| `defineSchemaSnapshot(input)`                        | Normalize and validate authored snapshots |
+| `defineSchemaObject(object)`                         | Add trusted raw DDL objects to a snapshot |
+| `validateSchemaSnapshot` / `assertValid...`          | Report or throw validation issues         |
+| `normalizeSchemaSnapshot`                            | Deterministic sorted clone                |
+| `serializeSchemaSnapshot` / `deserialize...`         | Canonical JSON round-trip                 |
+| `equalSchemaSnapshots`                               | Normalized structural equality            |
+| `diffSchemaSnapshots` / `isEmpty...`                 | Snapshot diffing                          |
+| `selectSchemaObjects` / `schemaObjectDropStatements` | Dialect-gated raw DDL selection/drop      |
 
-```ts
-type User = InferSelect<typeof users>; // row shape returned by selects
-type NewUser = InferInsert<typeof users>; // accepted insert shape
+`createSchemaSnapshot` accepts `dialect`, `dialectVariant`, `dialectVersion`,
+`metadata`, `tables`, and `schemaObjects`. Schema objects are emitted after
+table/column/index/foreign-key creation by adapter DDL generators.
 
-// `InferInsert` honors `.optional()` and `.default()` to make fields optional.
-```
+Core snapshot types include `SisalSchemaSnapshot`, `SisalTableSnapshot`,
+`SisalColumnSnapshot`, `SisalColumnType`, `SisalColumnDefault`,
+`SisalSchemaObjectSnapshot`, `SisalIndexSnapshot`, `SisalForeignKeySnapshot`,
+`SisalSchemaSnapshotDiff`, and the related diff and issue types.
 
-## Typed SQL
+## Statement Assembly
 
-### `sql` tagged template
+`assembleSelect(parts)` and `assembleInsertFromSelect(parts)` are the core-only
+statement assembly surface for downstream packages that need deterministic SQL
+without depending on the ORM builders. They produce byte-identical SQL to the
+fluent builder for the supported shapes: projected `SELECT`, grouped/having
+selects, ordered/limited selects, and `INSERT INTO ... SELECT ...` with
+dialect-mapped upsert.
 
-```ts
-function sql(strings: TemplateStringsArray, ...values: unknown[]): Sql;
-```
+## Capabilities
 
-Interpolated values become bound **parameters**; nested `Sql` fragments are
-inlined. This is the safe building block for everything else.
+The capability registry is the source of truth for render-time and doc-matrix
+dialect divergence:
 
-```ts
-const frag = sql`id = ${userId} and active = ${true}`;
-```
+| Export                         | Purpose                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `DIALECT_CAPABILITIES`         | Named capability declarations                                   |
+| `CAPABILITY_TARGETS`           | `pg`, `neon`, `sqlite`, `libsql`, `mysql`, `mariadb` identities |
+| `capabilitySupported(cap, id)` | Non-rendering support predicate                                 |
+| `capabilityGuard(cap, label?)` | Render-time guard fragment                                      |
+| `compareServerVersions(a, b)`  | Leading numeric server-version comparison                       |
 
-### Other SQL builders
+Registered capabilities currently cover `RETURNING`, multi-table mutation forms,
+`DISTINCT ON`, `FULL JOIN`, row locking, PostgreSQL array operators,
+data-modifying CTEs, mutation CTEs, `GROUPS` window frames, `lag`/`lead`
+defaults, and partial indexes.
 
-| Function                                      | Purpose                                                    |
-| --------------------------------------------- | ---------------------------------------------------------- |
-| `raw(value)`                                  | Unsanitized raw SQL — trusted literals only                |
-| `identifier(value)`                           | Validated identifier fragment (dotted paths allowed)       |
-| `joinSql(items, separator = raw(", "))`       | Joins `Sql[]` with a separator fragment                    |
-| `emptySql()`                                  | Empty fragment                                             |
-| `renderSql(sql, { dialect? })`                | Renders a fragment to `{ text, params }`                   |
-| `normalizeSqlInput(input, params?, dialect?)` | Normalizes `Sql \| SqlQuery \| string` into a driver query |
-| `quoteIdentifier(name, dialect?)`             | Quotes/validates an identifier (`"` or backtick for mysql) |
-| `toSql(sqlOrCondition)`                       | Unwraps a `Sql` or `Condition` to `Sql`                    |
-| `serializeSqlValue(value)`                    | Coerces a JS value into a `SqlParameter`                   |
-| `normalizeTemporalSqlValue(value)`            | Converts Temporal values (including arrays) to ISO strings |
-| `isSql(v)` / `isSqlQuery(v)`                  | Type guards                                                |
+## Errors And Logging
 
-Rendering is dialect-aware: parameters render as `$1, $2, …` for `postgres` and
-`?` otherwise; identifiers are quoted per dialect.
+`SisalError` is the shared structured error (`code`, `status`, `expose`,
+`severity`, `details`, redacted `cause`). `OrmError` specializes it for schema,
+SQL, driver, transaction, and batch failures.
 
-## Predicates / operators
+Logging exports include `Logger`, `LoggerMethod`, `SisalLoggingOptions`,
+`SisalLogSettings`, `SisalLogLevel`, `SisalLogCategory`,
+`createSisalLogEmitter`, `normalizeSisalLogSettings`, `logEnabled`,
+`emitSisalLogEvent`, `redactSqlParameter`, and `redactSqlParameters`.
 
-Each returns a `Condition`. Comparison operators bind their right-hand value as
-a parameter unless it is itself a column (which renders as a column reference,
-for join conditions).
+`logging.level: "debug"` emits SQL/timing categories; `"trace"` also emits
+redacted bind summaries. The legacy `logger` option keeps the previous
+debug/error behavior without bind logs unless structured `logging` is passed.
 
-| Operator                         | SQL                                               |
-| -------------------------------- | ------------------------------------------------- |
-| `eq(col, value)`                 | `col = $n`                                        |
-| `ne(col, value)`                 | `col <> $n`                                       |
-| `gt` / `gte` / `lt` / `lte`      | `col > / >= / < / <= $n`                          |
-| `like(col, value)`               | `col like $n`                                     |
-| `ilike(col, value)`              | `col ilike $n` (Postgres-oriented)                |
-| `notLike` / `notIlike`           | `col not like / not ilike $n`                     |
-| `between(col, min, max)`         | `col between $1 and $2` (inclusive)               |
-| `notBetween(col, min, max)`      | `col not between $1 and $2`                       |
-| `inArray(col, values \| sub)`    | `col in (...)` / `in (subquery)`; empty → `1 = 0` |
-| `notInArray(col, values \| sub)` | `col not in (...)`; empty → `1 = 1`               |
-| `isNull(col)` / `isNotNull(col)` | `col is [not] null`                               |
-| `exists(sub)` / `notExists(sub)` | `[not] exists (subquery)`                         |
-| `arrayContains(col, v)`          | `col @> $n` (Postgres arrays)                     |
-| `arrayContained(col, v)`         | `col <@ $n` (Postgres arrays)                     |
-| `arrayOverlaps(col, v)`          | `col && $n` (Postgres arrays)                     |
-| `and(...conds)`                  | `(...) and (...)`; ignores nullish                |
-| `or(...conds)`                   | `(...) or (...)`; ignores nullish                 |
-| `not(cond)`                      | `not (...)`                                       |
+---
 
-### Ordering & aggregates
+# `@sisal/orm`
 
-`asc(col)` / `desc(col)` build order terms for `orderBy` (which also accepts the
-legacy `(col, "asc" | "desc")` form and multiple terms). The aggregate helpers
-`count(col?)`, `countDistinct(col)`, `sum(col)`, `avg(col)`, `min(col)`,
-`max(col)` return a typed `SqlExpression<T>` for use in select projections:
+`@sisal/orm` re-exports the stable `@sisal/core` API and adds the database
+facade, fluent query builders, relation metadata, typed database-function calls,
+test drivers, and atomic operation helpers. It stays driverless.
 
-```ts
-const rows = await db
-  .select({ org: users.columns.orgId, total: count() })
-  .from(users)
-  .orderBy(desc(count()))
-  .execute(); // rows: { org: ...; total: number }[]
-```
-
-## Database facade & query builders
-
-### `createDatabase(options?)`
+## Database Facade
 
 ```ts
 function createDatabase(options?: {
   driver?: OrmDriver;
-  dialect?: SqlDialect; // "postgres" | "sqlite" | "mysql" | "generic"
+  dialect?: SqlDialect;
+  variant?: string;
+  version?: string;
   logger?: Logger;
+  logging?: SisalLoggingOptions;
   schema?: DatabaseSchema;
   relations?: RelationsList;
   temporal?: { parse?: boolean };
 }): Database;
 ```
 
-`Database` methods: `execute`, callable `query`, schema-aware
-`query.<table>.findMany/findFirst`, `select`, `$with`/`with` (CTEs),
-`$count(table, where?)`, `insert`, `update`, `delete`, `transaction`, and
-`close`. Query builders are immutable and lazy — call `.toSql()` to inspect or
-`.execute()` to run.
+`Database` exposes:
 
-`temporal.parse` defaults to `false`. When set to `true`, ORM-built queries that
-carry column metadata (`select` from known tables/projections, `returning()`,
-relational queries, and `db.call(defineFunction(...))`) decode known date/time
-columns to their declared Temporal/string/Date mode. Raw `db.query(sql\`...\`)`
-results do not auto-parse because they have no semantic column metadata.
+| Method/property                        | Purpose                                  |
+| -------------------------------------- | ---------------------------------------- |
+| `dialect` / `dialectIdentity`          | Render dialect plus variant/version      |
+| callable `query(sql, params?)`         | Raw query returning a mappable promise   |
+| `query.<table>.findMany/findFirst`     | Relation-aware table queries             |
+| `execute(sql, params?)`                | Run manual or builder SQL                |
+| `select`, `insert`, `update`, `delete` | Fluent builders                          |
+| `$with`, `$withRecursive`, `with`      | CTE builders and CTE query roots         |
+| `$count(table, where?)`                | Count rows as `number`                   |
+| `call(fn, args)`                       | Typed database-function call             |
+| `transaction(fn)`                      | Interactive transaction callback         |
+| `batch(statements)`                    | Atomic, non-interactive statement batch  |
+| `close()` / `[Symbol.asyncDispose]()`  | Release driver resources / `await using` |
+
+Raw queries can map rows back through table metadata or a free-form column map:
 
 ```ts
-const db = createDatabase({ dialect: "postgres", driver });
-
-await db.select().from(users)
-  .where(gt(users.columns.age, 18))
-  .orderBy(users.columns.createdAt, "desc")
-  .limit(20)
-  .execute();
-
-await db.insert(users).values({ id, email, name }).returning().execute();
-
-await db.update(users).set({ name }).where(eq(users.columns.id, id)).execute();
-
-await db.delete(users).where(eq(users.columns.id, id)).execute();
-
-await db.transaction(async (tx) => {
-  await tx.insert(users).values(row).execute();
-});
+const rows = await db.query(sql`select * from users`).as(users);
+const totals = await db.query(sql`select count(*) as total from users`).as<{
+  total: number;
+}>({ total: { dataType: "integer" } });
 ```
 
-**Builder methods**
+`temporal.parse` defaults to `false`. When enabled, ORM-built queries and mapped
+raw queries decode known date/time columns according to their declared mode.
+Unmapped raw results keep the driver-returned shape.
 
-- `SelectBuilder`: `from`, `distinct`, `distinctOn(...cols)`, `innerJoin`,
-  `leftJoin`, `rightJoin`, `fullJoin`, `where`, `groupBy(...cols)`,
-  `having(cond)`, `orderBy` (legacy `(col, "asc" | "desc")` or `asc()`/`desc()`
-  terms), `limit`, `offset`, `for(strength, options?)` (row locking),
-  `as(alias)` (derived table),
-  `union`/`unionAll`/`intersect`/`intersectAll`/`except`/`exceptAll`, `toSql`,
-  `execute`.
-- `InsertBuilder`: `values`, `onConflictDoNothing({ target? })`,
-  `onConflictDoUpdate({ target, set, where? })`, `returning(projection?)`,
-  `toSql`, `execute`.
-- `UpdateBuilder`: `set`, `from`, `where`, `unsafeAllowAllRows`, `returning`,
-  `toSql`, `execute`.
-- `DeleteBuilder`: `using`, `where`, `unsafeAllowAllRows`, `returning`, `toSql`,
-  `execute`.
+## Query Builders
 
-> **Safety rail:** `update`/`delete` without a `where` throw unless you call
-> `.unsafeAllowAllRows()` first.
+All builders are immutable and lazy. Use `.toSql()` to inspect, `.prepare()` to
+bind named placeholders later, and `.execute()` to run.
 
-### Relations & relational queries
+| Builder                 | Main methods                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| `SelectBuilder`         | `from`, joins, `where`, `groupBy`, `having`, `orderBy`, `limit`, `offset`, `keyset`, `for`, `as`, set ops |
+| `CompoundSelectBuilder` | set ops, `orderBy`, `limit`, `offset`, `as`, `prepare`, `execute`                                         |
+| `InsertBuilder`         | `values`, `select`, conflict helpers, `returning`, `prepare`, `execute`                                   |
+| `UpdateBuilder`         | `set`, `from`, `where`, `unsafeAllowAllRows`, `returning`, `prepare`, `execute`                           |
+| `DeleteBuilder`         | `using`, `where`, `unsafeAllowAllRows`, `returning`, `prepare`, `execute`                                 |
+| `WithQueryBuilder`      | `select`, `insert`, `update`, `delete` with CTE prefix                                                    |
 
-`relations(table, ({ one, many }) => ({ ... }))` defines typed one-to-one and
-one-to-many metadata. Pass a schema map and relation list into
-`createDatabase()` to enable `db.query.<tableKey>`:
+`update` and `delete` without `where` throw unless `.unsafeAllowAllRows()` is
+called. `RETURNING`, `DISTINCT ON`, full joins, row locking, array operators,
+and data-modifying CTEs are capability-guarded and throw typed `OrmError`s on
+unsupported dialect identities.
+
+Prepared queries use `placeholder(name)`:
 
 ```ts
-const posts = defineTable("posts", {
-  id: columns.uuid().primaryKey(),
-  userId: columns.uuid().notNull().references("users", "id"),
-  title: columns.text().notNull(),
-});
+const byId = db.select().from(users)
+  .where(eq(users.columns.id, placeholder("id")))
+  .prepare("user_by_id");
 
+const rows = await byId.execute({ id: userId });
+```
+
+Keyset pagination returns `{ rows, nextCursor }` and should order by a unique
+final tiebreaker:
+
+```ts
+const page = await db.select({
+  id: posts.columns.id,
+  score: posts.columns.score,
+}).from(posts)
+  .keyset({
+    orderBy: [desc(posts.columns.score), desc(posts.columns.id)],
+  })
+  .limit(20)
+  .execute();
+```
+
+## CTEs, Functions, And Atomic Operations
+
+`db.$with(name).as(query)` creates a CTE from a select or a PostgreSQL-only
+data-modifying mutation with `RETURNING`. `db.$withRecursive(name, columns)`
+creates typed recursive CTE self-references.
+
+`defineFunction(name, { args?, returns })` declares typed database functions.
+`db.call(fn, args)` renders one `SELECT * FROM fn(args)` call and exposes
+`.execute()` and `.one()`.
+
+`defineAtomicOperation(name, bodyOrConfig)` packages domain operations behind
+one `.run(db, input)` call. The portable `body` runs inside
+`db.transaction(...)`; an optional `singleStatement` path runs on PostgreSQL
+when present, usually as one data-modifying CTE statement for serverless
+transports.
+
+## Relations
+
+`relations(table, ({ one, many }) => ({ ... }))` defines typed relation
+metadata. Pass `schema` and `relations` into `createDatabase` or adapter
+`connect` calls to enable `db.query.<schemaKey>.findMany/findFirst`.
+
+```ts
 const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts, {
     fields: [users.columns.id],
@@ -4163,515 +4527,245 @@ const rows = await db.query.users.findMany({
   with: { posts: { columns: { id: true, title: true } } },
   where: gt(users.columns.age, 18),
   orderBy: desc(users.columns.createdAt),
-  limit: 20,
 });
 ```
 
-`findMany(config?)` returns an array. `findFirst(config?)` adds `limit 1` and
-returns one row or `undefined`. `columns` can include selected columns (`true`)
-or exclude columns (`false`); `with` accepts `true` for a relation's default
-selection or a nested relational query config.
+`findFirst(config?)` adds `limit 1` and returns one row or `undefined`.
 
-### CTEs & set operations
+## Drivers
 
-Common table expressions are fluent. Create one with `db.$with(name).as(query)`
-— its columns are inferred from the inner query's projection — and consume it
-via `db.with(cte).select(...).from(cte)`:
-
-```ts
-const adults = db.$with("adults").as(
-  db.select({ id: users.columns.id, age: users.columns.age })
-    .from(users).where(gt(users.columns.age, 18)),
-);
-
-await db.with(adults)
-  .select({ id: adults.id, n: count() })
-  .from(adults)
-  .groupBy(adults.id)
-  .execute();
-// with "adults" as (select … where age > $1) select … from "adults" group by …
-```
-
-Set operations chain off any select and return a `CompoundSelectBuilder`;
-trailing `orderBy`/`limit`/`offset` apply to the whole compound:
-
-```ts
-const a = db.select({ id: users.columns.id }).from(users).where(/* … */);
-const b = db.select({ id: users.columns.id }).from(users).where(/* … */);
-
-await a.union(b).orderBy(asc(users.columns.id)).limit(10).execute();
-// also: .unionAll, .intersect, .intersectAll, .except, .exceptAll
-```
-
-Operands are **not** parenthesized, so the same query renders correctly on both
-Postgres and SQLite (which rejects parenthesized compound operands). Recursive
-CTEs are written with the `` sql`...` `` template.
-
-### Subqueries, locking & counts
-
-A select aliased with `.as("x")` becomes a **derived table**: pass it to
-`.from(...)` and reference its projected columns as `x.col`. The same builder
-also embeds as a parenthesized **scalar subquery** inside a projection or a
-`where` condition, and as the right side of `inArray(col, subquery)`:
-
-```ts
-const recent = db.select({ id: posts.columns.id, userId: posts.columns.userId })
-  .from(posts).where(gt(posts.columns.createdAt, cutoff)).as("recent");
-
-await db.select({ id: recent.id }).from(recent).execute();
-// select "recent"."id" from (select … from "posts" where …) as "recent"
-
-await db.select({
-  name: users.columns.name,
-  postCount: db.select({ c: count() }).from(posts)
-    .where(eq(posts.columns.userId, users.columns.id)), // scalar subquery
-}).from(users).execute();
-
-await db.select().from(users)
-  .where(
-    inArray(users.columns.id, db.select({ id: recent.userId }).from(recent)),
-  )
-  .execute();
-```
-
-`db.$count(table, where?)` returns a row count as a `number`. `.distinctOn(...)`
-emits Postgres `SELECT DISTINCT ON (...)`. `.for("update" | "share", options?)`
-appends row-level locking (`{ skipLocked }`, `{ noWait }`, or `{ of }`) on
-Postgres/MySQL:
-
-```ts
-const n = await db.$count(users, gt(users.columns.age, 18));
-
-await db.select().from(users)
-  .for("update", { skipLocked: true }) // for update skip locked
-  .limit(1)
-  .execute();
-```
-
-### Drivers
-
-| Helper                      | Description                                      |
-| --------------------------- | ------------------------------------------------ |
-| `noopOrmDriver()`           | Returns empty result sets; for tests/scaffolding |
-| `memoryOrmDriver(options?)` | Tiny test driver that returns empty rows         |
-
-`OrmDriver` is the async contract adapters implement (`query`, `execute`,
-optional `transaction`, `close`). `OrmTransaction` is the in-transaction facade.
-
-## Schema snapshots
-
-A snapshot is a serializable, dialect-neutral description of a schema used by
-the migration tooling. Built from tables or authored directly.
-
-| Function                                                | Purpose                                                           |
-| ------------------------------------------------------- | ----------------------------------------------------------------- |
-| `createSchemaSnapshot({ tables, dialect?, metadata? })` | Build a normalized, validated snapshot from ORM tables            |
-| `defineSchemaSnapshot(input)`                           | Normalize + validate a hand-authored snapshot                     |
-| `validateSchemaSnapshot(snapshot)`                      | Return `SisalSchemaIssue[]` without throwing                      |
-| `assertValidSchemaSnapshot(snapshot)`                   | Throw on the first validation problem                             |
-| `normalizeSchemaSnapshot(snapshot)`                     | Deterministic clone (sorted tables/constraints)                   |
-| `serializeSchemaSnapshot(snapshot)`                     | Canonical JSON (stable across ordering)                           |
-| `deserializeSchemaSnapshot(text)`                       | Parse → normalize → validate                                      |
-| `equalSchemaSnapshots(a, b)`                            | Structural equality after normalization                           |
-| `diffSchemaSnapshots(from, to)`                         | Structural diff (`addedTables`, `removedTables`, `changedTables`) |
-| `isEmptySchemaSnapshotDiff(diff)`                       | True when a diff has no changes                                   |
-
-Key types: `SisalSchemaSnapshot`, `SisalTableSnapshot`, `SisalColumnSnapshot`,
-`SisalColumnType`, `SisalColumnDefault`, `SisalPrimaryKeySnapshot`,
-`SisalIndexSnapshot`, `SisalIndexColumnSnapshot`,
-`SisalUniqueConstraintSnapshot`, `SisalForeignKeySnapshot`,
-`SisalCheckConstraintSnapshot`, plus the diff types `SisalSchemaSnapshotDiff` /
-`SisalTableDiff` / `SisalColumnDiff`. The constant `SCHEMA_SNAPSHOT_VERSION` is
-`2`.
-
-Index snapshots store `columns` as `{ value, direction?, expression? }` keys and
-may carry a partial-index `where` predicate.
-
-`SisalColumnType.dialectType`, `SisalColumnDefault` with `kind: "expression"`,
-index expression keys, and index `where` predicates are trusted schema inputs:
-DDL generators emit them verbatim. Use them only from developer-authored schema
-code, not runtime values.
-
-## Introspection & utilities
-
-`getTableColumns(table)`, `getTableName(table)`, `isTable(v)`, `isColumn(v)`,
-`createColumn(name, definition)`, `normalizeTableName(name)`,
-`normalizeColumnName(name)`.
-
-## Errors & logging
-
-- `SisalError` (`@sisal/orm/error`) — base structured error with `code`,
-  `status`, `expose`, `severity`, `details`.
-- `redactSecrets(text)` / `redactErrorCause(cause)` — mask connection-string
-  passwords and token-like key/value secrets before logging or wrapping errors.
-- `OrmError` — schema/SQL/execution failures; `OrmErrorCode` enumerates causes.
-- `Logger` / `LoggerMethod` (`@sisal/orm/logger`) — the minimal logger contract
-  accepted everywhere (`debug`/`info`/`warn`/`error`).
+`OrmDriver` is the async adapter contract: `query`, `execute`, optional
+`transaction`, optional `batch`, and optional `close`. `noopOrmDriver()` always
+returns empty result sets. `memoryOrmDriver({ tables? })` is a tiny in-memory
+test driver.
 
 ---
 
-# @sisal/migrate
+# `@sisal/migrate`
 
-Adapter-neutral migration definitions, checksums, planning, drift checks, the
-file workflow, and a generic runner. Depends only on `@sisal/orm`.
+`@sisal/migrate` is adapter-neutral and depends on `@sisal/core`. It defines
+migration records, checksums, planning, in-memory stores, a generic runner, the
+filesystem workflow, drift checks, and the CLI.
 
-## Defining migrations
-
-```ts
-function defineSqlMigration(opts: {
-  id: string;
-  up: string;
-  down?: string;
-  description?: string;
-  checksum?: string;
-  createdAt?: string;
-}): SqlMigration;
-
-function defineMigration(opts: {
-  id: string;
-  up: MigrationStep; // string | string[] | (ctx) => void | Promise<void>
-  down?: MigrationStep;
-  /* ...same metadata... */
-}): ProgrammaticMigration;
-```
-
-A `Migration` is `SqlMigration | ProgrammaticMigration`. `MigrationStep` covers
-raw SQL, an array of SQL statements, or a callback receiving a
-`MigrationContext` (`driver`, `logger`, `dryRun`, `direction`).
-
-## Running migrations
-
-### `createMigrator(options)`
+## Definitions And Core Runner
 
 ```ts
-function createMigrator(options: {
-  migrations: Migration[];
-  store?: MigrationStore; // default: memoryMigrationStore()
-  driver?: MigrationDriver; // default: noopMigrationDriver()
-  logger?: Logger;
-  lockId?: string; // default: "sisal:migrate"
-  useTransaction?: boolean; // default: true
-}): Migrator;
-```
+defineSqlMigration({
+  id: "0001_init",
+  up: "create table ...",
+  down: "drop table ...",
+});
 
-`Migrator`: `plan()`, `up(options?)`, `down(options?)`, `pending()`,
-`applied()`, `close()`.
-
-```ts
-const migrator = createMigrator({ migrations, store, driver });
-
-const plan = await migrator.plan(); // pending / applied / checksumMismatches
-await migrator.up({ dryRun: true }); // preview
-await migrator.up(); // apply pending (advisory-locked, transactional)
-await migrator.down({ steps: 1 }); // roll back the last migration
-await migrator.down({ to: "0003_x" }); // roll back down to (and including) an id
-```
-
-Run options: `MigrationRunOptions` (`dryRun`, `steps`, `allowDirty`) and
-`MigrationDownOptions` (adds `to`). The runner refuses to proceed on a checksum
-mismatch unless `allowDirty: true`.
-
-## Stores & drivers
-
-- `memoryMigrationStore(options?)` — in-memory history + lock for tests.
-- `noopMigrationDriver()` / `noopMigrator()` — execute nothing.
-- `MigrationStore` — async contract: `listApplied`, `getApplied`, `markApplied`,
-  `unmarkApplied`, optional `acquireLock`/`releaseLock`/`clear`/`close`.
-- `MigrationDriver` — `execute(sql)`, optional `transaction`, `close`.
-
-## Planning & schema diff
-
-| Function                                   | Purpose                                                                |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| `createMigrationPlan(migrations, applied)` | Pure plan from known migrations + applied history                      |
-| `planSchemaChanges({ from?, to })`         | Classify snapshot diff into ordered `SchemaChange[]`, flag destructive |
-| `planSchemaChangesFromDiff(diff)`          | Classify an already-computed schema snapshot diff                      |
-| `defineSchemaMigrationPlan({ from?, to })` | Validate/normalize a snapshot pair                                     |
-
-`SchemaChange.kind` is one of `create_table`, `drop_table`, `add_column`,
-`drop_column`, `alter_column`; `destructive` is set for drop/alter.
-
-## Checksums & helpers
-
-`calculateMigrationChecksum`, `assertMigrationChecksum`,
-`createAppliedMigration`, `isMigrationApplied`, `getPendingMigrations`,
-`getAppliedMigrations`, `getRollbackMigrations`, `sortMigrations`,
-`validateMigration`, `validateMigrations`,
-`formatMigrationFilename(sequence, name, ext = "sql")`, `slugifyMigrationName`.
-
-## File workflow (`@sisal/migrate/workflow`)
-
-A SQL-first workflow with an **injectable filesystem** so writers/readers are
-unit-testable.
-
-| Symbol                                                         | Purpose                                                                                                             |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `MigrationFileSystem`                                          | Interface: `readDir`, `readFile`, `writeFile`, `mkdir`                                                              |
-| `GeneratedMigrationFile` / `DiscoveredMigration`               | File shapes written and read by the workflow                                                                        |
-| `denoMigrationFileSystem()`                                    | Deno-backed implementation (needs `--allow-read/-write`)                                                            |
-| `buildMigrationFile({ sequence, name, statements, snapshot })` | Pure: build `.sql` + `.snapshot.json` contents                                                                      |
-| `writeMigrationFile(fs, dir, file)`                            | Write the generated pair                                                                                            |
-| `readMigrationsDir(fs, dir)`                                   | Read + order discovered migrations (with snapshots)                                                                 |
-| `parseMigrationSequence(id)` / `nextMigrationSequence(list)`   | Sequence helpers                                                                                                    |
-| `defineConfig(config)`                                         | Validate `MigrateConfig` (`dir`, `dialect?`, `snapshot?`, `databaseUrl?`, `databaseAuthToken?`, `databasePath?`, …) |
-| `checkDrift(input)`                                            | Pure drift check → `DriftReport`                                                                                    |
-
-`checkDrift` reports `schema_changed` (live schema differs from the newest
-captured snapshot), `pending_migrations`, and `missing_snapshot`. Related types:
-`MigrateConfig`, `DriftKind`, `DriftFinding`, `DriftReport`, and
-`DriftCheckInput`.
-
-## CLI (`@sisal/migrate/cli`)
-
-`runSisalCli(args, options?)` powers the `sisal` executable and returns an exit
-code. The real CLI loads `sisal.migrate.ts` by default; tests can inject
-`config`, `fs`, dialect `adapters`, `cwd`, `stdout`, and `stderr` through
-`SisalCliOptions`.
-
-Commands:
-
-| Command          | Purpose                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| `sisal init`     | Scaffold `sisal.migrate.ts` + migrations dir (`--force`, `--target`, `--dialect`, `--dir`) |
-| `sisal generate` | Diff latest snapshot → `config.snapshot`, write SQL + snapshot                             |
-| `sisal migrate`  | Apply pending SQL migrations through the dialect migrator                                  |
-| `sisal status`   | Print file counts, database plan, and drift findings                                       |
-| `sisal drift`    | Exit non-zero when drift findings exist                                                    |
-
-Config modules should export `default` or `config`:
-
-```ts
-import { defineConfig } from "@sisal/migrate";
-
-export default defineConfig({
-  dir: "migrations",
-  dialect: "sqlite",
-  databasePath: "./dev.db",
-  snapshot,
+defineMigration({
+  id: "0002_seed",
+  up: async ({ driver }) => await driver.execute("insert ..."),
 });
 ```
 
-For Turso/libSQL migrations, keep `dialect: "sqlite"` and set `databaseUrl` plus
-`databaseAuthToken` (or use `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`).
+`MigrationStep` is SQL text, an array of SQL statements, or a callback that
+receives `{ driver, logger, logging, dryRun, direction }`.
 
-`generate` emits only non-destructive SQL. Drop/alter changes are reported and
-withheld so the captured snapshot cannot get ahead of the SQL that was written.
-`splitSqlStatements(text)` is exported from `@sisal/migrate/cli` for tests and
-tooling that need the CLI's simple SQL-statement splitting behavior.
+`createMigrator(options)` accepts `migrations`, `store`, `driver`, `logger`,
+`logging`, `lockId`, `useTransaction`, and `splitStatements`. The returned
+`Migrator` exposes `plan`, `up`, `down`, `pending`, `applied`, `close`, and
+`[Symbol.asyncDispose]`.
 
-## Errors
+Pure helpers include `calculateMigrationChecksum`, `assertMigrationChecksum`,
+`createMigrationPlan`, `createAppliedMigration`, `sortMigrations`,
+`validateMigration`, `validateMigrations`, `getPendingMigrations`,
+`getAppliedMigrations`, `getRollbackMigrations`, `formatMigrationFilename`,
+`slugifyMigrationName`, and `splitSqlStatements`.
 
-`MigrationError` with `MigrationErrorCode` (`MIGRATION_INVALID`,
-`MIGRATION_DUPLICATE_ID`, `MIGRATION_CHECKSUM_MISMATCH`,
-`MIGRATION_LOCK_FAILED`, …).
+## Planning And Drift
+
+`planSchemaChanges({ from?, to })` and `planSchemaChangesFromDiff(diff)`
+classify snapshot diffs into `SchemaChange[]` with `kind` values such as
+`create_table`, `drop_table`, `add_column`, `drop_column`, and `alter_column`.
+Drop/alter changes are marked destructive.
+
+`checkDrift(input)` reports `schema_changed`, `pending_migrations`, and
+`missing_snapshot` findings. `defineSchemaMigrationPlan({ from?, to })`
+validates and normalizes schema pairs for migration planning.
+
+## File Workflow
+
+The workflow subpath (`@sisal/migrate/workflow`) is SQL-first and has an
+injectable filesystem:
+
+| Symbol                                             | Purpose                                     |
+| -------------------------------------------------- | ------------------------------------------- |
+| `MigrationFileSystem`                              | `readDir`, `readFile`, `writeFile`, `mkdir` |
+| `denoMigrationFileSystem()`                        | Deno-backed implementation                  |
+| `buildMigrationFile` / `writeMigrationFile`        | Create and write `.sql` + snapshot          |
+| `readMigrationsDir`                                | Discover ordered migrations                 |
+| `parseMigrationSequence` / `nextMigrationSequence` | Sequence helpers                            |
+| `defineConfig(config)`                             | Validate `sisal.migrate.ts` config          |
+
+`MigrateConfig` includes `dir`, `dialect`, optional `provider: "neon"`,
+`snapshot`, `databaseUrl`, `databaseAuthToken`, `databasePath`, `historyTable`,
+and default `logging`.
+
+## CLI
+
+`runSisalCli(args, options?)` powers the `sisal` executable. Commands are:
+
+| Command          | Purpose                                  |
+| ---------------- | ---------------------------------------- |
+| `sisal init`     | Scaffold config and migrations dir       |
+| `sisal generate` | Diff latest snapshot -> current snapshot |
+| `sisal migrate`  | Apply pending SQL migrations             |
+| `sisal status`   | Print files, DB plan, and drift findings |
+| `sisal drift`    | Exit non-zero when drift findings exist  |
+
+Targets: `postgres`, `neon`, `sqlite`, `libsql`, and `mysql` (`mariadb` is an
+alias). `--dialect` accepts `postgres`, `sqlite`, or `mysql`; `--provider neon`
+runs PostgreSQL DDL through the Neon adapter. Logging flags are `--log-level`,
+`--quiet`, and repeatable `-v`/`--verbose` (`-v` = debug, `-vv` = trace).
+
+`generate` emits only non-destructive SQL. Destructive drop/alter changes are
+reported and withheld so captured snapshots do not get ahead of emitted SQL.
 
 ---
 
-# @sisal/pg
+# Adapter Packages
 
-PostgreSQL adapter. Root export bundles the common helpers; `@sisal/pg/orm`,
-`@sisal/pg/migrate`, and `@sisal/pg/ddl` are narrower boundaries.
+Every adapter root re-exports its ORM helpers, migration facade, and pure DDL
+generator. Narrower imports (`@sisal/<adapter>/orm`, `/migrate`, `/ddl`) keep
+application boundaries explicit.
 
-## ORM execution (`@sisal/pg/orm`)
+## Shared Adapter Patterns
 
-| Symbol                       | Purpose                                              |
-| ---------------------------- | ---------------------------------------------------- |
-| `createPgDb(options)`        | Open a `PgDatabase` (a `Database` wired to Postgres) |
-| `connect(options)`           | Alias for `createPgDb`                               |
-| `createPgOrmDriver(options)` | Build the `OrmDriver` only                           |
-| `createPgExecutor(options)`  | Lower-level SQL executor                             |
-| `createPgPool(options)`      | Connection pool                                      |
-| `POSTGRES_DIALECT`           | `"postgres"`                                         |
+Adapter database facades (`PgDatabase`, `NeonDatabase`, `SqliteDatabase`,
+`LibsqlDatabase`, `MysqlDatabase`) extend `Database` and support `close()` plus
+`[Symbol.asyncDispose]()` through the ORM facade.
 
-Types: `PgDatabase`, `CreatePgDbOptions`, `PgOrmDriverOptions`, `PgClient`,
-`PgConnectionOptions`, `PgPool`, `PgQueryResult`, `PgSqlExecutor`.
+Adapter migration facades expose:
 
 ```ts
-import { connect } from "@sisal/pg";
-
-const db = await connect({/* connection options */});
-await db.select().from(users).execute();
+interface AdapterMigrator {
+  migrate(options: { migrations: readonly MigrationInput[] /* run opts */ });
+  rollback(options: { migrations: readonly MigrationInput[] /* down opts */ });
+  plan(options: { migrations: readonly MigrationInput[] });
+  applied();
+  close();
+  [Symbol.asyncDispose]();
+}
 ```
 
-## Migrations (`@sisal/pg/migrate`)
+All DDL generators return `{ statements, destructive }`, emit only additive
+changes (`CREATE TABLE`, `ADD COLUMN`, indexes, foreign keys, schema objects),
+and withhold destructive changes for explicit handling.
 
-`createPgMigrator(options)` returns a `PgMigrator`
-(`migrate`/`rollback`/`plan`/`applied`/`close`) backed by an advisory-locked,
-database history store.
+## `@sisal/pg`
 
-| Symbol                                   | Purpose                                  |
-| ---------------------------------------- | ---------------------------------------- |
-| `createPgMigrator(options)`              | Adapter facade over core migration flow  |
-| `createPgMigrationDriver(options)`       | `MigrationDriver` backed by Postgres SQL |
-| `createPgMigrationHistoryStore(options)` | Database-backed migration history store  |
-| `createPgExecutor(options)`              | Lower-level SQL executor                 |
-| `createPgPool(options)`                  | Connection pool                          |
-| `DEFAULT_PG_MIGRATION_TABLE`             | `"sisal_migrations"`                     |
+PostgreSQL adapter. ORM exports:
 
-Types include `CreatePgMigratorOptions`, `PgMigrationDefinition`,
-`PgMigrationInput`, `PgMigrateOptions`, `PgRollbackOptions`,
-`PgMigrationPlanOptions`, and `PgMigrator`.
+| Symbol                   | Purpose                      |
+| ------------------------ | ---------------------------- |
+| `connect` / `createPgDb` | Open a `PgDatabase`          |
+| `createPgOrmDriver`      | Build an ORM driver          |
+| `createPgExecutor`       | Lower-level SQL executor     |
+| `createPgPool`           | `@db/postgres` pool          |
+| `createPostgresJsPool`   | Optional `npm:postgres` pool |
+| `POSTGRES_DIALECT`       | `"postgres"`                 |
 
-## DDL generation (`@sisal/pg/ddl`)
+Migration exports include `createPgMigrator`, `createPgMigrationDriver`,
+`createPgMigrationHistoryStore`, `DEFAULT_PG_MIGRATION_TABLE`,
+`createPgExecutor`, and `createPgPool`.
 
-Pure functions — emit SQL strings, never open a connection.
-
-| Function                                        | Output                            |
-| ----------------------------------------------- | --------------------------------- |
-| `generatePostgresUpStatements(to, from?)`       | `{ statements, destructive }`     |
-| `generatePostgresCreateTable(table)`            | `CREATE TABLE …`                  |
-| `generatePostgresAddColumn(table, column)`      | `ALTER TABLE … ADD COLUMN …`      |
-| `generatePostgresColumnDefinition(column)`      | one column definition             |
-| `generatePostgresColumnType(type)`              | a Postgres type expression        |
-| `generatePostgresIndexes(table)`                | `CREATE [UNIQUE] INDEX …`         |
-| `generatePostgresForeignKeys(table)`            | `ALTER TABLE … ADD FOREIGN KEY …` |
-| `quotePgIdent(name)` / `pgQualifiedName(table)` | identifier quoting                |
-
-Only **additive** changes are emitted; destructive changes (drop table/column,
-type change) are returned in `destructive` for explicit handling.
-
-```ts
-import { columns, createSchemaSnapshot, defineTable } from "@sisal/orm";
-import { generatePostgresUpStatements } from "@sisal/pg/ddl";
-
-const users = defineTable("users", {
-  id: columns.uuid().primaryKey(),
-  email: columns.text().notNull().unique(),
-});
-const snapshot = createSchemaSnapshot({ dialect: "postgres", tables: [users] });
-const { statements } = generatePostgresUpStatements(snapshot);
-```
-
----
-
-# @sisal/neon
-
-Neon serverless PostgreSQL adapter, structured like `@sisal/pg` but backed by
-`jsr:@neon/serverless`. It uses the PostgreSQL SQL dialect, migrations, and DDL.
-
-## ORM execution (`@sisal/neon/orm`)
-
-`createNeonDb(options)` / `connect(options)` open a `NeonDatabase`. Options
-accept a Neon `url`/`connectionString`, an already-open `pool`/`client`, or an
-existing `executor`. Also: `createNeonPool`, `createNeonClient`,
-`createNeonExecutor`, `neonPoolConfigFromOptions`,
-`neonClientConfigFromOptions`, `resolveNeonConnectionString`,
-`normalizeNeonResult`, `NeonError`, `POSTGRES_DIALECT`.
-
-Types: `NeonDatabase`, `CreateNeonDbOptions`, `NeonClient`, `NeonPool`,
-`NeonPoolConfig`, `NeonClientConfig`, `NeonPoolConnectionOptions`,
-`NeonClientConnectionOptions`, `NeonExecutorOptions`, `NeonSqlExecutor`,
-`NeonSqlResult`, `NeonQueryResult`, `NeonDriverQueryResult`, and
-`NeonErrorCode`.
-
-```ts
-import { connect } from "@sisal/neon";
-
-const db = await connect({
-  url: Deno.env.get("DATABASE_URL"),
-});
-```
-
-## Migrations (`@sisal/neon/migrate`)
-
-`createNeonMigrator(options)` -> `NeonMigrator`, backed by the PostgreSQL
-migrator and history table. Also: `DEFAULT_NEON_MIGRATION_TABLE`. The migrate
-subpath also re-exports the Neon client/executor helpers so migration-only code
-can build pools, clients, or executors without importing `@sisal/neon/orm`.
-
-## DDL generation (`@sisal/neon/ddl`)
-
-Neon uses PostgreSQL syntax, so this subpath re-exports the `@sisal/pg/ddl`
-helpers: `generatePostgresUpStatements`, `generatePostgresCreateTable`,
+DDL exports: `generatePostgresUpStatements`, `generatePostgresCreateTable`,
 `generatePostgresAddColumn`, `generatePostgresColumnDefinition`,
-`generatePostgresColumnType`, `quotePgIdent`, and `pgQualifiedName`.
+`generatePostgresColumnType`, `generatePostgresIndexes`,
+`generatePostgresForeignKeys`, `quotePgIdent`, and `pgQualifiedName`.
 
----
+## `@sisal/neon`
 
-# @sisal/sqlite
+Neon serverless PostgreSQL adapter. ORM exports include `connect`,
+`createNeonDb`, `createNeonPool`, `createNeonClient`, `createNeonExecutor`,
+`neonPoolConfigFromOptions`, `neonClientConfigFromOptions`,
+`resolveNeonConnectionString`, `normalizeNeonResult`, `NeonError`, and
+`POSTGRES_DIALECT`.
 
-SQLite adapter, structured exactly like `@sisal/pg`.
+`createNeonMigrator` delegates to the PostgreSQL migrator with a Neon executor.
+Its defaults are serverless-oriented: `useTransaction` defaults to `false` and
+`splitStatements` defaults to `true`. `DEFAULT_NEON_MIGRATION_TABLE` matches the
+PostgreSQL history table default.
 
-## ORM execution (`@sisal/sqlite/orm`)
+`@sisal/neon/ddl` re-exports the PostgreSQL DDL helpers.
 
-`createSqliteDb(options?)` / `connect(options?)` open a `SqliteDatabase`
-(`@db/sqlite` is opened lazily, only when neither an `executor` nor an existing
-`database` is injected — so DDL/tests stay permission-free). Also:
+## `@sisal/sqlite`
+
+SQLite adapter. ORM exports include `connect`, `createSqliteDb`,
 `createSqliteOrmDriver`, `createSqliteExecutor`, `openSqliteDatabase`,
-`statementReturnsRows`, `sqliteColumnAffinity`, `SQLITE_DIALECT`.
+`statementReturnsRows`, `sqliteColumnAffinity`, and `SQLITE_DIALECT`.
+`@db/sqlite` is opened lazily only when no executor or existing database is
+injected.
 
-Types: `SqliteDatabase`, `CreateSqliteDbOptions`, `SqliteConnectionOptions`,
-`SqliteLikeDatabase`, `SqliteStatement`, `SqliteOrmDriverOptions`,
-`SqliteExecutorOptions`, `SqliteQueryResult`, `SqliteSqlExecutor`.
+Migration exports include `createSqliteMigrator`, `createSqliteMigrationDriver`,
+`createSqliteMigrationHistoryStore`, `DEFAULT_SQLITE_MIGRATION_TABLE`, and the
+SQLite executor/database helpers.
 
-## Migrations (`@sisal/sqlite/migrate`)
-
-`createSqliteMigrator(options)` → `SqliteMigrator`. Also
-`createSqliteMigrationDriver`, `createSqliteMigrationHistoryStore`,
-`createSqliteExecutor`, `openSqliteDatabase`, `statementReturnsRows`,
-`DEFAULT_SQLITE_MIGRATION_TABLE`, and the SQLite connection/database/executor
-types.
-
-## DDL generation (`@sisal/sqlite/ddl`)
-
-`generateSqliteUpStatements(to, from?)`, `generateSqliteCreateTable`,
+DDL exports: `generateSqliteUpStatements`, `generateSqliteCreateTable`,
 `generateSqliteAddColumn`, `generateSqliteColumnDefinition`,
-`generateSqliteColumnType`, `generateSqliteIndexes`, `quoteSqliteIdent`.
-Higher-level types collapse onto SQLite's five affinities
-(`TEXT`/`INTEGER`/`REAL`/`NUMERIC`/`BLOB`); booleans → `INTEGER`,
-dates/JSON/UUID → `TEXT`. Because SQLite has limited `ALTER TABLE`, destructive
-changes are always withheld and returned in `destructive`.
+`generateSqliteColumnType`, `generateSqliteIndexes`, and `quoteSqliteIdent`.
+SQLite DDL maps higher-level types onto SQLite affinities and withholds
+destructive changes for table-rebuild workflows.
 
-```ts
-import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
+## `@sisal/libsql`
 
-const { statements } = generateSqliteUpStatements(snapshot);
-```
-
----
-
-# @sisal/libsql
-
-libSQL/Turso adapter, structured like `@sisal/sqlite` but backed by
-`@libsql/client`. It uses the SQLite SQL dialect for rendering and DDL.
-
-## ORM execution (`@sisal/libsql/orm`)
-
-`createLibsqlDb(options)` / `connect(options)` open a `LibsqlDatabase`. Options
-accept a Turso/libSQL `url`, optional `authToken`, or an already-open `client`.
-Also: `createLibsqlOrmDriver`, `createLibsqlExecutor`, `openLibsqlClient`,
-`createLibsqlClient`, `isLibsqlUrl`, `libsqlConfigFromOptions`,
+libSQL/Turso adapter. ORM exports include `connect`, `createLibsqlDb`,
+`createLibsqlOrmDriver`, `createLibsqlExecutor`, `openLibsqlClient`,
+`createLibsqlClient`, `isLibsqlUrl`, `libsqlConfigFromOptions`, and
 `LIBSQL_DIALECT`.
 
-Types: `LibsqlDatabase`, `CreateLibsqlDbOptions`, `LibsqlConnectionOptions`,
-`LibsqlClient`, `LibsqlClientConfig`, `LibsqlArgs`, `LibsqlValue`,
-`LibsqlInValue`, `LibsqlStatement`, `LibsqlResultSet`, `LibsqlTransaction`,
-`LibsqlOrmDriverOptions`, `LibsqlExecutorOptions`, `LibsqlQueryResult`, and
-`LibsqlSqlExecutor`.
+Migration exports include `createLibsqlMigrator`, `createLibsqlMigrationDriver`,
+`createLibsqlMigrationHistoryStore`, `DEFAULT_LIBSQL_MIGRATION_TABLE`, and the
+libSQL client/executor helpers.
 
-```ts
-import { connect } from "@sisal/libsql";
-
-const db = await connect({
-  url: Deno.env.get("TURSO_DATABASE_URL")!,
-  authToken: Deno.env.get("TURSO_AUTH_TOKEN"),
-});
-```
-
-## Migrations (`@sisal/libsql/migrate`)
-
-`createLibsqlMigrator(options)` -> `LibsqlMigrator`. Also
-`createLibsqlMigrationDriver`, `createLibsqlMigrationHistoryStore`,
-`createLibsqlExecutor`, `openLibsqlClient`, `createLibsqlClient`, `isLibsqlUrl`,
-`libsqlConfigFromOptions`, `DEFAULT_LIBSQL_MIGRATION_TABLE`, and the libSQL
-client/executor/migration types.
-
-## DDL generation (`@sisal/libsql/ddl`)
-
-libSQL uses SQLite syntax, so DDL helpers are SQLite-compatible aliases:
-`generateLibsqlUpStatements(to, from?)`, `generateLibsqlCreateTable`,
+`@sisal/libsql/ddl` provides SQLite-compatible aliases:
+`generateLibsqlUpStatements`, `generateLibsqlCreateTable`,
 `generateLibsqlAddColumn`, `generateLibsqlColumnDefinition`,
-`generateLibsqlColumnType`, `quoteLibsqlIdent`.
+`generateLibsqlColumnType`, and `quoteLibsqlIdent`.
+
+## `@sisal/mysql`
+
+MySQL/MariaDB adapter. ORM exports:
+
+| Symbol                              | Purpose                                      |
+| ----------------------------------- | -------------------------------------------- |
+| `connect` / `createMysqlDb`         | Open a `MysqlDatabase`                       |
+| `createMysqlOrmDriver`              | Build an ORM driver                          |
+| `createMysqlExecutor`               | Lower-level SQL executor                     |
+| `createMysqlPool`                   | Lazy `npm:mysql2` pool                       |
+| `createMariadbPool`                 | Lazy `npm:mariadb` pool                      |
+| `adaptMariadbPool`                  | Adapt MariaDB connector pools                |
+| `parseMysqlServerVersion`           | Detect MariaDB variant/version               |
+| `insertReturning`                   | Fetch inserted rows with best available path |
+| `MYSQL_DIALECT` / `MARIADB_VARIANT` | Dialect identity constants                   |
+
+`connect({ driver: "mariadb" })` opts into the MariaDB connector; mysql2 is the
+default. The adapter detects `select version()` and fills
+`dialectIdentity.variant/version`, which lets version-gated capabilities such as
+MariaDB `RETURNING` light up.
+
+`insertReturning(db, table, values)` first tries real `INSERT ... RETURNING`
+when supported (MariaDB >= 10.5), then falls back to a transactionally safe
+fetch-by-primary-key strategy. The fallback refuses cases where it cannot
+identify the inserted rows correctly.
+
+Migration exports include `createMysqlMigrator`, `createMysqlMigrationDriver`,
+`createMysqlMigrationHistoryStore`, `createMysqlMigrateExecutor`, and
+`DEFAULT_MYSQL_MIGRATION_TABLE`. `CreateMysqlMigratorOptions.useTransaction`
+defaults to `false` because MySQL and MariaDB do not provide transactional DDL.
+
+DDL exports: `generateMysqlUpStatements`, `generateMysqlCreateTable`,
+`generateMysqlAddColumn`, `generateMysqlColumnDefinition`,
+`generateMysqlColumnType`, `generateMysqlIndexes`, `generateMysqlForeignKeys`,
+`quoteMysqlIdent`, and `mysqlQualifiedName`. The generator targets the shared
+MySQL/MariaDB floor, emits foreign keys after table creation, rejects
+unsupported partial/functional indexes, rejects keyed `TEXT`/`BLOB`/`JSON`
+columns that need prefix lengths, and validates `AUTO_INCREMENT` key rules
+before emitting SQL.
 ```
 
 ### docs/migration-notes.md
@@ -4714,6 +4808,13 @@ database toolkit.
 Legacy logging imports should be removed. Pass any logger that matches Sisal's
 generic logger interface. Pequi Logger is recommended for applications that
 already use it, but it is not required by `@sisal/orm`.
+
+For Hibernate-style verbosity controls, keep `logger` for compatibility or pass
+`logging: { logger, level, categories, sql }` to ORM and migrator facades.
+`debug` emits SQL/timing categories; `trace` additionally emits redacted
+bind-parameter summaries. The migration CLI accepts `--log-level`, `--quiet`,
+and repeatable `-v`/`--verbose`, and `sisal.migrate.ts` may define default
+`logging` settings.
 
 ## Migration Approach
 
@@ -5341,9 +5442,18 @@ adapter feature through the public API.
 Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
-`deno task docs:matrix:check`. All 41 `pg:` tests pass on **pg16/17/18**;
-`scripts/pg-matrix.sh` runs the suite across pg16/17/18. Below are the
-PostgreSQL-specific column-type coverage and driver-level behavior notes.
+`deno task docs:matrix:check`. The full `pg:` feature suite passes on
+**pg16/17/18**; `scripts/pg-matrix.sh` runs the suite across pg16/17/18. Below
+are the PostgreSQL-specific column-type coverage and driver-level behavior
+notes.
+
+**v0.9 additions.** The portable ETL substrate runs on PostgreSQL — the lock-row
+advisory lock (`db.tryAdvisoryLock`), the `etlCheckpoint` watermark + retention
+helper (`advance`/`prune`/`assertReplayable`), and the `tryInsert` write-outcome
+(inserted-vs-conflicted, reliable here via `RETURNING`). Read and
+`WITH RECURSIVE` CTEs, insert-from-select, and data-modifying CTEs (a
+PostgreSQL/Neon-only capability) now have per-engine execution coverage; all are
+in the [feature matrix](feature-matrix.md).
 
 ## Column types proven by the DDL test
 
@@ -5443,10 +5553,16 @@ Every feature across all four adapters — each ✅/⚠️ backed by a named
 integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. Neon reuses the full `@sisal/pg` SQL surface, so
-every Postgres-family ✅ applies. The 41-test suite is verified through the
+every Postgres-family ✅ applies. The feature suite is verified through the
 Docker `neon-proxy` (Neon's `wsproxy` image → PostgreSQL 17) and was
 additionally run once end-to-end against a **live Neon endpoint** (2026-06-30,
 secure WebSocket, no proxy) — all green.
+
+**v0.9 additions.** As a Postgres-family adapter Neon inherits the portable ETL
+substrate (`db.tryAdvisoryLock`, `etlCheckpoint`, `tryInsert` — reliable via
+`RETURNING`), read/`WITH RECURSIVE`/data-modifying CTEs, and `bigint`/`numeric`
+decoding as precision-preserving strings (aligned with `@sisal/pg` in v0.9); all
+in the [feature matrix](feature-matrix.md).
 
 The generated DDL test exercises the full Postgres type set (`text`,
 `varchar(n)`, `char(n)`, `integer`, `smallint`, `bigint`, `serial`, `bigserial`,
@@ -5535,6 +5651,14 @@ integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. The SQLite-specific affinity mapping and the
 SQLite-vs-PostgreSQL behavior notes are below.
+
+**v0.9 additions.** The portable ETL substrate runs on SQLite: the advisory lock
+uses a **lock-row lease** (`db.tryAdvisoryLock` — SQLite has no native advisory
+lock), plus the `etlCheckpoint` watermark/retention helper and the `tryInsert`
+write-outcome (reliable via `RETURNING`, SQLite 3.35+). Read and
+`WITH RECURSIVE` CTEs have per-engine execution coverage; **data-modifying CTEs
+are guarded off** (PostgreSQL-only). All are in the
+[feature matrix](feature-matrix.md).
 
 ## Column types via the DDL test
 
@@ -5638,6 +5762,13 @@ SQL (`LIBSQL_DIALECT = "sqlite"`), so its column-naming, keyset, prepared,
 `db.batch`, and `sql`-in-`SET`/`VALUES` rows match SQLite; the libSQL-specific
 round-trip differences and connection notes are below.
 
+**v0.9 additions.** libSQL inherits the SQLite-family behavior for the portable
+ETL substrate — the advisory lock is a **lock-row lease**
+(`db.tryAdvisoryLock`), plus `etlCheckpoint` (watermark/retention) and
+`tryInsert` (write-outcome via `RETURNING`); read/`WITH RECURSIVE` CTEs are
+covered per-engine and data-modifying CTEs are guarded off. All are in the
+[feature matrix](feature-matrix.md).
+
 ## Behavior notes
 
 > The cross-driver round-trip differences and PostgreSQL-only limits are
@@ -5724,20 +5855,11 @@ Sisal _can_ control is the CPU it spends on each query, and that is what these
 benchmarks pin down.
 
 - **Harness:** `Deno.bench` via `benchmarks/`, run with `deno task bench`.
-- **Comparison target:** Drizzle ORM 0.45.2 (the version pinned by the
-  [Drizzle parity matrix](drizzle-parity.html)).
 
 Absolute microsecond timings are machine-dependent, so this page does not report
 them — every figure below is **normalized**: a ratio between two things measured
 on the same machine, in the same run, which cancels the hardware out. Run
 `deno task bench` to see the raw numbers for your own machine.
-
-> **Drizzle runs through Deno's `npm:` compatibility layer**
-> (`npm:drizzle-orm@0.45.2`), since Sisal is a Deno-native project and Drizzle
-> ships as an npm package. That interop mainly affects module loading rather
-> than steady-state compute — the query building and row mapping run as ordinary
-> JavaScript on V8 — but a native Node or Bun run could differ. The ratios below
-> are specific to running Drizzle under Deno's npm compatibility.
 
 ## What is and isn't measured
 
@@ -5807,99 +5929,36 @@ ratios) will wobble; the magnitudes hold.
 
 ---
 
-## 2. SQL generation — Sisal vs Drizzle
+## 2. Temporal serialization + parsing (Sisal)
 
-Same query, same payload, both **built and rendered** to parameterized SQL:
-Drizzle's `query.toSQL()` vs Sisal's `builder.toSql()` +
-`renderSql({ dialect })`. The two dialects cover all four Sisal engines:
-Postgres backs `@sisal/pg` and `@sisal/neon`; SQLite backs `@sisal/sqlite` and
-`@sisal/libsql`.
+Every query that binds or returns a date/time value runs through Sisal's own
+temporal paths. Two database-free groups pin that cost:
 
-| Operation             | Postgres — Sisal vs Drizzle | SQLite — Sisal vs Drizzle |
-| --------------------- | :-------------------------: | :-----------------------: |
-| simple select         |        ~2.5× faster         |        ~2× faster         |
-| filtered select       |        ~2.5× faster         |       ~2.5× faster        |
-| CTE select            |        ~2.5× faster         |       ~2.5× faster        |
-| insert + returning    |         ~6× faster          |        ~5× faster         |
-| bulk insert (50 rows) |         ~10× faster         |        ~5× faster         |
-| update                |         ~5× faster          |       ~3.5× faster        |
-| delete                |        ~3.5× faster         |        ~3× faster         |
+- `sisal temporal params` — `serializeSqlValue(...)` for `Date` and each
+  `Temporal.*` type (including arrays), plus `renderSql` for statements that
+  bind them. This is the write-side cost of turning a temporal value into a
+  bound parameter.
+- `sisal temporal row parsing · N rows` — a fake `OrmDriver` returns rows shaped
+  like database date/time text, swept across 1 / 100 / 1000 rows. `parse=false`
+  is the baseline; `parse=true` adds Temporal decoding, so the ratio is the
+  per-row cost Sisal pays to hand back `Temporal.*` values instead of strings —
+  and it grows with row count, which is the signal worth watching.
 
-**Takeaways.**
-
-- Sisal generates SQL **~2×–10× faster** than Drizzle across every operation and
-  both dialects.
-- The widest gap is **Postgres bulk insert** — Drizzle's per-row parameter
-  encoding for the pg dialect is its costliest step, and it compounds with row
-  count. SQLite's lighter value encoding narrows the gap.
-- **Writes beat reads in margin** — insert/update/delete show the largest gaps;
-  selects are closest (~2–2.7×) because both libraries spend their time
-  enumerating the same column projections.
-
----
-
-## 3. Execution + result mapping — Sisal vs Drizzle
-
-The other half of a query's cost is the **read path**: dispatch the statement
-and turn the driver's raw rows into typed result objects. The database is the
-zero-latency fake returning identical canned rows, so the only thing timed is
-each ORM's dispatch + row mapping. Row count is the stressor.
-
-| Result size | Postgres — Sisal vs Drizzle | SQLite — Sisal vs Drizzle |
-| ----------- | :-------------------------: | :-----------------------: |
-| 1 row       |         ~2× faster          |        ~2× faster         |
-| 100 rows    |        ~4.5× faster         |       ~4.5× faster        |
-| 1000 rows   |         ~15× faster         |        ~15× faster        |
-
-Per row, Drizzle's mapping costs **well over 10× as much as Sisal's**.
-
-**Takeaways.**
-
-- The advantage **widens with result size** — ~2× at one row, ~15× at a thousand
-  — because mapping cost is per row, and Sisal's per-row cost is far lower.
-- Sisal's read path adds almost nothing per row: its `OrmDriver` contract hands
-  back name-keyed row objects (a real adapter builds those in native driver
-  code), so there is little left to do in JS. Drizzle reconstructs each row from
-  positional values and coerces every column in JS.
-
-> **Fairness note.** The two ORMs are measured from their _own_ driver
-> boundaries, which differ by design — Sisal's returns named row objects,
-> Drizzle's proxy returns positional arrays it maps to fields. Part of the gap
-> is therefore _where_ column-naming happens, not pure overhead. These are the
-> realistic per-query read costs of each library, not an isolated "mapping only"
-> microbenchmark.
-
----
-
-## 4. Date vs Temporal
-
-The `date api parse`, `date api format`, `sisal temporal params`, and
-`sisal temporal row parsing · N rows` groups compare JavaScript `Date` with the
-ECMAScript Temporal API in database-shaped paths:
-
-- Raw construction and formatting: `new Date(...)`, `date.toISOString()`, and
-  the equivalent `Temporal.Instant`, `PlainDate`, `PlainTime`, `PlainDateTime`,
-  and `ZonedDateTime` operations.
-- Sisal parameter handling: `serializeSqlValue(...)` and rendering SQL with Date
-  or Temporal bound parameters, including arrays and mixed date/time statements.
-- ORM result parsing: a fake `OrmDriver` returns rows shaped like database
-  date/time text, then the benchmark compares parse-disabled selects,
-  parse-enabled Temporal decoding, and manual `Date`/`Temporal.Instant` mapping.
-
-`Date` may be cheaper for simple instant-only work in microbenchmarks. Temporal
-is still Sisal's preferred model for SQL date/time because it matches the
-database semantics: `date` is a calendar date, `time` is a wall-clock time,
-`timestamp` is a local date-time, and `timestamptz` is an instant.
+Temporal is Sisal's model for SQL date/time because it matches the database
+semantics: `date` is a calendar date, `time` is a wall-clock time, `timestamp`
+is a local date-time, and `timestamptz` is an instant. (Benchmarks that timed
+the raw `Date`/`Temporal` runtime APIs were dropped — Sisal cannot influence
+them, so they carried no regression signal.)
 
 ## Honest framing
 
 These benchmarks measure **CPU efficiency and headroom**, not end-to-end request
-latency. In a real application the database and network dominate, so a 10× edge
-in generation or mapping rarely moves the wall-clock time of a single query. The
-gap matters when the per-query CPU is the constraint: large result sets, tight
-loops building many statements, serverless cold paths where every millisecond of
-compute is billed, and high-throughput services where ORM overhead competes with
-real work for the event loop.
+latency. In a real application the database and network dominate, so a large
+edge in generation or mapping rarely moves the wall-clock time of a single
+query. The gap matters when the per-query CPU is the constraint: large result
+sets, tight loops building many statements, serverless cold paths where every
+millisecond of compute is billed, and high-throughput services where ORM
+overhead competes with real work for the event loop.
 
 ## Reproduce
 
@@ -5907,12 +5966,12 @@ real work for the event loop.
 deno task bench                 # the whole suite
 ```
 
-The generation, Drizzle generation, Drizzle execution, and Date-vs-Temporal
-scenarios live in
-`benchmarks/scenarios/{sql_generation,vs_drizzle,vs_drizzle_execute,temporal}.ts`.
-The suite is network- and engine-free: it runs entirely against the in-memory
-fake driver, so it needs no database and no special permissions beyond
-`--allow-read` (plus `--allow-run=deno` for the migration-CLI scenarios).
+The scenarios live in `benchmarks/scenarios/` — SQL generation
+(`sql_generation.ts`), advanced-SQL constructs (`advanced_sql.ts`), the ORM
+dispatch/read path (`fakedbproxy.ts`), migration workflow (`migrate_cli.ts`),
+and temporal serialization/parsing (`temporal.ts`). The suite is network- and
+engine-free: it runs entirely against the in-memory fake driver, so it needs no
+database and no special permissions.
 ```
 
 ### docs/security.md
@@ -6736,6 +6795,24 @@ Each is a thin, typed layer over the same core primitives.
   models that D3 / Recharts / ECharts / Vega / custom renderers consume. The
   motto: _analytics computes, dashboard maps, renderer renders._
 
+### v0.9 ETL substrate lives in `@sisal/orm` (A3 decision held)
+
+The v0.9 correctness substrate a future `@sisal/etl` runner consumes — the
+portable advisory run lock (`Database.tryAdvisoryLock`, T11) and the
+checkpoint/watermark helper (`etlCheckpoint`, T12/T13) — ships in
+**`@sisal/orm`**, not `@sisal/migrate`. Both need the `Database` facade
+(`execute`/`insert`/`batch`) that lives in `@sisal/orm`, and neither reaches
+into migrate, so the v0.6 **A3 decision holds: there is no `etl → migrate`
+edge.** The `sisal_etl_checkpoints` and `sisal_advisory_locks` system tables are
+created and managed by these ORM helpers at runtime
+(`CREATE TABLE IF NOT EXISTS` on first use) — not by the migration snapshot/DDL
+pipeline, so a job's checkpoint is not part of the user's migrated schema and
+never appears as drift the migrator owns. When `@sisal/etl` is built (v0.10) it
+consumes these primitives from `@sisal/orm` (adding an `etl → orm` runtime edge
+alongside `etl → core`); the substrate does not move. Watermarks are stored as
+opaque TEXT, so the checkpoint carries no per-adapter timestamp-type surface to
+reconcile.
+
 ## Where we are today (the honest baseline)
 
 As of v0.8, **`@sisal/core` exists** as the extracted lower tier. It owns the
@@ -7116,6 +7193,12 @@ genuine dialect limit · — not applicable.
 | Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
 | Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 | ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Advisory run lock (portable lock-row lease)                              |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Atomic load+advance (ETL checkpoint watermark)                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Retention horizon + replay refusal (ETL)                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Write outcome (inserted vs conflicted/claimed)                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Read CTE (WITH on SELECT)                                                |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Recursive CTE (WITH RECURSIVE; MySQL 8+/MariaDB)                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -7130,7 +7213,7 @@ alternate form) off PostgreSQL:
 - **Insert / update / delete / returning** — MySQL 8/9 has no `RETURNING`; `.returning()` throws a typed `OrmError` at render time. The adapter's `insertReturning()` helper answers the common case with a transactional fetch-by-key fallback (per-row `LAST_INSERT_ID`, no consecutive-id arithmetic).
 - **Joins (inner / left / right / full)** — No `FULL JOIN` in MySQL/MariaDB; rendering it throws a typed `OrmError`. INNER/LEFT/RIGHT joins work.
 - **Portable `dateTrunc` (time bucketing)** — No `date_trunc`; `dateTrunc` renders via `strftime`, which returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL returns a `timestamp`). Both order and group identically.
-- **Rich indexes (DESC / partial / expression)** — `DESC` index keys apply; partial (`WHERE`) indexes are unsupported by both engines and expression indexes are MySQL-only (MariaDB rejects them), so the DDL generator throws a typed `OrmError` for either at generation time instead of shipping SQL one engine rejects.
+- **Rich indexes (DESC / partial / expression)** — `DESC` index keys apply; partial (`WHERE`) indexes are unsupported by both engines, so the DDL generator throws a typed `OrmError`. Functional (expression) indexes are emitted on a detected base MySQL ≥ 8.0.13 and throw below that, on MariaDB (which has none — use a generated column), or when the version is unknown. Sisal emits plain `CREATE INDEX` for every dialect (no `IF NOT EXISTS`, which MySQL proper lacks).
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
@@ -7156,7 +7239,7 @@ except the typed function caller (`db.call`), which has no non-Postgres API
 surface at all:
 
 - **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; the SQLite and MySQL families reject it. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
-- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family; rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution. The MySQL family renders it natively.
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite or MySQL families. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 - **Typed function caller (`db.call`)** — No stored-function caller off Postgres; `defineFunction`/`db.call` render PostgreSQL `SELECT * FROM fn(args)`.
 - **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; SQLite-family and MySQL-family CTEs are `SELECT`-only. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
@@ -7247,6 +7330,15 @@ integration test — lives in the unified
 [cross-driver feature matrix](feature-matrix.md), verified by
 `deno task docs:matrix:check`. The MySQL-specific type mapping and behavior
 notes are below.
+
+**v0.9 additions.** The portable ETL substrate runs on the MySQL family: the
+lock-row advisory lock (`db.tryAdvisoryLock`), `etlCheckpoint`
+(watermark/retention), and the `tryInsert` write-outcome — which on this family
+reads the affected-row count (no usable `RETURNING` on the portable no-op
+`ON DUPLICATE KEY UPDATE`) rather than `RETURNING`. Read and `WITH RECURSIVE`
+CTEs have per-engine coverage (recursive needs **MySQL 8.0+ / MariaDB**);
+data-modifying CTEs are guarded off (PostgreSQL-only). All are in the
+[feature matrix](feature-matrix.md).
 
 ## Column types via the DDL test
 
@@ -12585,7 +12677,7 @@ URL: https://gilvandovieira.github.io/sisal/v0.9.0-roadmap.html
 title: v0.9.0 Roadmap
 ---
 
-# Sisal v0.9.0 roadmap — Adapter Hardening & Capability Matrix
+# Sisal v0.9.0 roadmap — Adapter Hardening, Observability & Capability Matrix
 
 With the IR stabilized in [v0.8](v0.8.0-roadmap.md) and **MySQL added in
 [v0.7](v0.7.0-roadmap.md)**, v0.9 hardens the **five** adapters against the
@@ -12600,6 +12692,106 @@ This is the last hardening step before the public `@sisal/etl` (v0.10) and
 | Symbol | Meaning                                                    |
 | ------ | ---------------------------------------------------------- |
 | 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+
+## Priority summary — everything to track
+
+All v0.9 tasks, consolidated from this document's phased execution tasklist. The
+phases below remain the dependency-compatible build sequence; this table is the
+release-tracking view.
+
+| ID  | Task                                                            | Stream                  | Priority | Effort | Status |
+| --- | --------------------------------------------------------------- | ----------------------- | -------- | ------ | ------ |
+| T1  | Logging verbosity — tests complete                              | Observability           | P1       | M      | 🟢     |
+| T2  | `await using` — extend to adapter migrator facades              | Lifecycle               | P2       | S      | 🟢     |
+| T3  | Per-cell matrix wiring from `capabilitySupported(...)`          | Capability descriptor   | P1       | M      | 🟢     |
+| T4  | Reconcile descriptor key spaces + version axis                  | Capability descriptor   | P1       | L      | 🟢     |
+| T5  | `@sisal/pg` `float8`/`float4` → JS `number` (shipped v0.5.0)    | Adapter correctness     | P1       | M      | 🟢     |
+| T6  | Broad numeric/date round-trip suite                             | Adapter correctness     | P1       | L      | 🟢     |
+| T7  | Resolve the `bigint` cross-adapter split                        | Adapter correctness     | P1       | M      | 🟢     |
+| T8  | MySQL functional-index version gate                             | MySQL/MariaDB hardening | P2       | M      | 🟢     |
+| T9  | MySQL/MariaDB `RETURNING` + index gaps as capability rows       | MySQL/MariaDB hardening | P2       | M      | 🟢     |
+| T10 | Per-engine fallback integration tests                           | Adapter correctness     | P1       | M      | 🟢     |
+| T11 | Portable advisory-lock / queue-claim abstraction                | ETL substrate           | P1       | L      | 🟢     |
+| T12 | Atomic load+advance invariant                                   | ETL substrate           | P1       | M      | 🟢     |
+| T13 | Validate checkpoint/watermark contract                          | ETL substrate           | P1       | M      | 🟢     |
+| T14 | Replay-vs-retention refusal                                     | ETL substrate           | P1       | M      | 🟢     |
+| T15 | Write-result abstraction — inserted vs conflicted/claimed       | ETL substrate           | P1       | M      | 🟢     |
+| T16 | CTE per-engine execution tests                                  | Execution verification  | P2       | M      | 🟢     |
+| T17 | Recursive-CTE per-engine/version verification                   | Execution verification  | P2       | M      | 🟢     |
+| T18 | Insert-from-select / data-modifying CTE per-engine verification | Execution verification  | P2       | M      | 🟢     |
+| T19 | Refresh advanced-SQL example families to builder-native         | Examples/docs           | P2       | L      | 🟢     |
+| T20 | Update compatibility docs + unified matrix                      | Examples/docs           | P1       | M      | 🟢     |
+
+**P1 spine.** The v0.10-critical path is T3/T4 and T11–T15. T4 must land before
+version-gated capability work such as T8 and before ETL consumers read the
+descriptor. T5–T10 make adapter truth test-backed, while T16–T18 pin the v0.8
+constructs on real engines. T20 closes the release once the tests and capability
+rows reflect the hardened behavior. Phase 6 remains explicitly deferred and
+should not appear as active v0.9 scope.
+
+## Code-state audit (2026-07-02)
+
+The tasklist was re-baselined against the **actual code** (four parallel audits
+over `integration/`, `packages/`, `examples/`, `docs/`) after T5 turned out to
+be already shipped in v0.5.0. The status table above reflects the corrections:
+
+- **Already done (false 🔴 → 🟢):** **T5** (float8→number, shipped v0.5.0) and
+  **T10** — every degraded path (`ilike`→`LIKE`, `FILTER`→`CASE`,
+  `dateTrunc`→text, bucket math) already has per-engine assertions in
+  `integration/_shared/*_scenarios.ts`.
+- **More done than marked (→ 🟡, small slices remain):** **T6** (float +
+  date/Temporal cover all six targets; only typed `numeric`/`bigint` round-trips
+  missing); **T7** (pg↔neon `bigint` divergence already pinned in
+  `cross_adapter_parity_test.ts` + documented as an open decision — the
+  _decision + coercion_ and extending the pin remain); **T9** (RETURNING surface
+  fully declared/tested/matrix'd; only the index limits → registry rows and
+  `IF NOT EXISTS` remain); **T16** (a non-recursive `WITH` runs on 5/6 engines
+  inside the mutation-joins scenarios; a dedicated read-CTE scenario + MariaDB
+  coverage remain); **T18** (insert-from-select covered on all six; only the
+  sqlite/libsql data-modifying-CTE guard scenario missing); **T20** (matrix +
+  `mysql-compatibility.md` current; pg/neon/sqlite/libsql compat docs a
+  half-step behind).
+- **Less done than marked (🟡 → 🔴, greenfield):** **T13**
+  (`sisal_etl_checkpoints` exists only in a design doc + an example demo table)
+  and **T15** (v0.8 recorded the _decision_; no `WriteResult` type — results
+  carry only `rowCount`/`insertId`).
+- **Confirmed 🔴:** **T8** (expression indexes rejected unconditionally; the DDL
+  generator takes no version/identity — the base-engine-scoped version gate it
+  needs, "MySQL ≥ 8.0.13 but not MariaDB", was **not expressible** in the guard
+  model. That expressiveness (`baseEngine` on `unless`) has since shipped, so T8
+  is now **unblocked**; only the DDL generator's version-gating remains);
+  **T11/T12/T14** (ETL substrate, design-only — the migration-internal locks and
+  `db.batch`/`defineAtomicOperation` primitives exist but satisfy none of the
+  tasks); **T17** (zero recursive-CTE integration coverage); **T19** (only 1–2
+  of 11 advanced-SQL example contracts migrated to builder-native; the rest
+  still raw with stale `v08PainPoint` notes).
+
+**Revised picture.** Done: T1–T5, T9, T10 (7 — T9 completed same-day: partial
+index promoted to a registry capability). Partial/near-done: T6, T7, T16, T18,
+T20 (5 small slices). Not-started: T8, T11–T15, T17, T19 (8 — the ETL substrate
+is the bulk and the v0.10 gate). The critical path (T11–T15) is unchanged, now
+confirmed greenfield.
+
+**Since this audit (Phase 2 closed).** The adapter-correctness + MySQL-gate
+slices have landed: **T6** (typed `numeric`/`bigint` round-trips + a
+`valueShape.bigint` contract), **T7** (pg int8 → string; the Postgres family now
+aligns on precision-preserving strings), and **T8** (functional-index version
+gate via the `baseEngine` predicate) are 🟢, and Phase 3 is underway: **T11**
+(portable advisory lock, a lightweight lock-row lease), **T12** (atomic
+load+advance via `etlCheckpoint` — TEXT watermarks, `db.batch` atomicity), and
+**T13** (checkpoint-contract validation + the A3 ownership record), **T14**
+(replay-vs-retention refusal — `prune`/`assertReplayable`), and **T15** (the
+`tryInsert`/`WriteOutcome` write-result abstraction, now consumed by the T11
+lock) are 🟢 — **the Phase 3 ETL substrate (T11–T15, the v0.10-critical path) is
+complete.** Phase 4 execution-verification then landed: **T16** (read-CTE
+scenarios), **T17** (recursive-CTE scenarios — which uncovered and fixed a
+latent invalid-SQL bug in the builder-native recursive step, now guarded), and
+**T18** (data-modifying-CTE guard) are 🟢, **T20** (compatibility docs + the
+unified matrix refreshed to the v0.9-hardened reality) is 🟢, and **T19** (the
+advanced-SQL example families migrated from raw to builder-native across
+pg/mysql/sqlite) is 🟢. **All of v0.9 (T1–T20) is now complete.** The status
+table above is authoritative; this audit is retained as the dated re-baselining
+record.
 
 ## Goal
 
@@ -12625,6 +12817,9 @@ an engine can't match Postgres.
   **timestamp/date function differences** (the v0.6 bucket abstraction per
   dialect); **lock/checkpoint strategy differences** (advisory lock vs lock
   row).
+- **Operational observability** — Hibernate-style category/level logging for
+  SQL, bind summaries, migration plans/steps/locks/history, and CLI verbosity,
+  so adapter hardening has inspectable diagnostics without leaking secrets.
 - **Test coverage for dialect-specific fallbacks** — every degraded path
   (FILTER→CASE, ilike→LIKE, bucket math) gets a per-engine integration test.
 
@@ -12671,11 +12866,36 @@ an engine can't match Postgres.
   with a typed error. Test both directions: a refused replay leaves the rollup
   row unchanged (no zero-overwrite), and a crash between prune and horizon
   advance leaves the horizon ahead or equal — never behind.
+- **Hibernate-style logging verbosity** — add shared `SisalLoggingOptions` /
+  `SisalLogSettings` over the existing `Logger` contract, with `silent` →
+  `trace` thresholds, per-category overrides, optional `trace`, and safe
+  redacted SQL bind summaries. Wire it through the ORM facade, adapter ORM
+  factories, core migrator, adapter migrators, `defineConfig({ logging })`, and
+  the `sisal` CLI (`--log-level`, `--quiet`, repeatable `-v`/`--verbose`).
+  Preserve the legacy `logger` shorthand and keep raw bind values out of logs.
+- **Explicit resource management (`await using`)** — implement
+  `Symbol.asyncDispose` on the closeable facades as an alias for `close()`, so
+  `await using db = await connect(...)` and
+  `await using migrator = createMigrator(...)` release the pool/connection and
+  store at scope exit (including on an early throw) with no `try/finally`.
+  Additive and non-breaking; `close()` stays the source of truth. **Done:** core
+  `Database` (inherited by every adapter database via `extends Database`) and
+  core `Migrator`, with scope-exit/throw-path tests and a README + `llms` doc
+  example; JSR publish-clean (no slow types). **Remaining:** the adapter
+  migrator facades (`createPgMigrator` / `createSqliteMigrator` / … expose
+  `close()` only) get the same alias. Keep the surface async-only (no sync
+  `Symbol.dispose`) and note the cross-runtime type floor (`Symbol.asyncDispose`
+  needs TS ≥ 5.2 / `esnext.disposable` off Deno).
 
 ## Deliverables
 
 - A per-dialect **capability descriptor** wired into the generated feature
   matrix.
+- A shared **observability surface** for ORM and migration execution:
+  category-aware logging, safe bind summaries, and CLI verbosity flags.
+- **`await using` lifecycle support** on the `Database` and `Migrator` facades
+  (and the adapter migrator facades), aliasing `close()` through
+  `Symbol.asyncDispose`.
 - Integration tests for every ETL/analytics-relevant shape on every supporting
   adapter (extending the existing gated `integration/` suites).
 - Updated `docs/{pg,neon,sqlite,libsql,mysql}-compatibility.md` + the unified
@@ -12732,27 +12952,42 @@ no DuckDB.
   time.
 - The five compatibility docs and the six-column unified matrix reflect the
   hardened reality.
+- Logging verbosity is configurable without breaking existing `logger` users:
+  `debug` exposes SQL/timings, `trace` exposes only redacted bind summaries, and
+  CLI/config precedence is tested (`--log-level` / `--quiet` / `-v` override
+  `defineConfig({ logging })`).
+- `await using` closes a `Database` (any adapter) and a `Migrator` at scope exit
+  including on an early throw, verified by test; the adapter migrator facades
+  expose the same `Symbol.asyncDispose` alias, and `close()` stays directly
+  callable.
 
 ## Affected packages
 
 `@sisal/pg`, `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`, `@sisal/mysql`,
-`@sisal/core` (capability descriptors), `tools/feature_matrix.ts` + docs.
+`@sisal/core` (capability descriptors + logging contracts), `@sisal/orm`,
+`@sisal/migrate`, `tools/feature_matrix.ts` + docs.
 
 ## Required examples / tests
 
 - Per-engine integration tests for each ETL/analytics shape and fallback.
 - A numeric round-trip suite (float/numeric/bigint) across all five adapter
   packages and six capability targets.
+- Logging unit tests for thresholds/category overrides, trace fallback, ORM SQL
+  vs bind logging, migrator plan/step/sql/lock/history events, CLI verbosity
+  flags, config override precedence, and secret-safe parameter summaries.
+- `await using` disposal tests for `Database` and `Migrator` (scope-exit and
+  throw-path each close exactly once), extended to the adapter migrator facades.
 - **Refresh the advanced-SQL example families to builder-native** (raised by the
   v0.8 review). `examples/{postgres,mysql,sqlite}-family-advanced-sql` still
   implement contracts **01–07** and the index-half of **11** as `"raw"` /
   `"hybrid"` with stale `v08PainPoint` annotations that claim missing primitives
   — but v0.8 shipped them (`over`/windows, `lag`/`dateDiff`, `rowNumber`,
   `$withRecursive`, `expr` alias reuse, expression/partial indexes). Upgrade
-  those cases to the typed primitives, correct the annotations, and keep only
-  the genuinely-dialect-native/deferred cases (JSON-table = v0.8 item 14,
-  generated columns = v0.8 item 15, lock/claim = contract 08, checkpoint =
-  contract 09) as raw with accurate notes.
+  those cases to the typed primitives — including JSON-table (`jsonTable`, item
+  14) and generated columns (`.generatedAs()`, item 15), which **also shipped in
+  v0.8** — correct the annotations, and keep only the genuinely
+  substrate-dependent cases (lock/claim = contract 08, checkpoint = contract 09)
+  raw with accurate notes.
 
 ## Dialect compatibility notes
 
@@ -12762,5 +12997,348 @@ with serverless caveats; SQLite/libSQL expose only the subset they support
 correctly, with every degradation tested and documented. MySQL/MariaDB share the
 `@sisal/mysql` package but keep separate capability rows for named-lock
 behavior, the uneven `RETURNING` surface, and MySQL-family typed gaps.
+
+## Execution tasklist
+
+**Definition of success.** v0.9 ships when (1) the
+`(engine, variant,
+version-range)` **capability descriptor is the single
+authoritative, machine-checked surface** every matrix cell, `dialectGuard`, and
+future ETL/analytics reads; (2) the **ETL correctness substrate**
+(advisory-lock/claim, checkpoint contract, atomic load+advance,
+replay-vs-retention refusal) is **implemented and per-engine tested** — real,
+not designed — so v0.10 builds on proven ground; (3) **numeric truth** is fixed
+(`@sisal/pg` `float8` → `number`) and audited broadly; and (4) **every dialect
+divergence is a tested capability row** with a documented fallback. The
+**v0.10-critical path is Phase 1 + Phase 3** (see
+[roadmap-sequencing-audit.md](roadmap-sequencing-audit.md), which promotes those
+items from droppable "hardening" to v0.9 acceptance); the rest hardens quality.
+Status: 🔴 not started · 🟡 in progress/partial · 🟢 done. **[v0.10 prereq]**
+tasks block the ETL runner.
+
+### Phase 0 — Finish the in-flight observability/ergonomics lanes
+
+- **T1 · 🟢 Logging verbosity — tests complete.** Core landed (plus the
+  `metadata && enabled(...)` gating and redaction-guard fixes). End-to-end
+  category filtering (ORM + migrate), migrate level-suppression, the
+  logger-never-throws safety guarantee, `sql.parameters: "off"`, CLI/config
+  precedence (`--log-level` / `--quiet` / `-v` over
+  `defineConfig({ logging })`), and a CLI "secrets stay out of logs" guard are
+  all tested.
+- **T2 · 🟢 `await using` — extended to adapter migrator facades.**
+  `Symbol.asyncDispose` is on core `Database` (inherited by every adapter DB)
+  and core `Migrator`; the same `close()` alias now ships on `createPgMigrator`
+  / `createSqliteMigrator` / `createLibsqlMigrator` / `createMysqlMigrator`
+  (Neon inherits via `NeonMigrator = PgMigrator`), each with an `await using`
+  disposal test.
+
+### Phase 1 — Make the capability descriptor authoritative · [v0.10/v0.11 prereq · foundation]
+
+_The descriptor shape was frozen at the v0.8 IR freeze (registry exists,
+`dialectGuard` reads it, `docs:matrix:check` guards target-space divergence).
+v0.9 makes it the single source of truth — this gates T8, T11 and everything
+v0.10/v0.11 consume._
+
+- **T3 · 🟢 Per-cell matrix wiring (item 1 residual).** The pure
+  supported/unsupported rows (`distinctOn`, row locking, array operators,
+  data-modifying CTE) now derive their `docs/feature-matrix.md` cells from
+  `capabilitySupported(...)` via a `capabilityRow` helper, so they cannot drift
+  from `DIALECT_CAPABILITIES` — output is byte-identical and `docs:matrix:check`
+  stays green. Value-shape ⚠️ rows (JSON/boolean/`dateTrunc`) and fallback rows
+  (MySQL-family `RETURNING`, `FULL JOIN`) stay hand-authored — they encode a
+  round-trip/fallback axis the support predicate doesn't cover. _Files:_
+  `tools/feature_matrix.ts`, `tools/generate_feature_matrix.ts`.
+- **T4 · 🟢 Reconcile the key spaces + version axis (GI-1).** The render dialect
+  (`SqlDialect` + a new runtime `SQL_DIALECTS` companion), the snapshot dialect
+  (`SisalDialectName`), and the six `CAPABILITY_TARGETS` are now
+  **machine-checked projections of the one `(engine, variant, version)`
+  descriptor**: a reconciliation test asserts the 4-way unions are identical
+  (compile-time — the guard was proven to fail on divergence), pins the 6→4
+  collapse (neon→pg, libsql→sqlite, mariadb→mysql), verifies every render
+  dialect has a target, and rejects capability declarations naming an unknown
+  dialect/variant. The matrix's `ADAPTERS ≡ CAPABILITY_TARGETS` check
+  (generator) and T3's per-cell derivation cover the matrix projection. Version
+  axis + typed fail-closed predicates exist (`unless`/`minVersion`). The
+  **base-engine-scoped version gate** — e.g. "MySQL ≥ 8.0.13 but MariaDB never"
+  — was later delivered while unblocking T8: `baseEngine: true` on an `unless`
+  exception lifts only the base engine (no variant). _Files:_
+  `packages/core/sql.ts`, `packages/core/dialect_reconciliation_test.ts`.
+
+### Phase 2 — Adapter correctness & numeric truth
+
+- **T5 · 🟢 `@sisal/pg` `float8`/`float4` → JS `number` (v0.5 item 11).**
+  **Already shipped in v0.5.0** (commit `cfb3dfa`): `coerceFloatColumns` in the
+  pg executor maps float4/float8 (OIDs 700/701) string values from
+  `@db/postgres` to `number` on every query/transaction path, leaving
+  `numeric`/`bigint` strings for precision. The DB-gated integration scenario,
+  the matrix `Float …
+  → number` row, and the round-trip reference were shipped
+  with it. The v0.9 re-listing was a stale-doc artifact — the extraction
+  inferred "not shipped" from a missing status paragraph, but the code shipped
+  it. This pass added the missing **network-free unit test** (proven to catch a
+  regression) so the coercion is locked into `deno task test`, not only the
+  gated integration suite. _Feeds T6._ _Files:_
+  `packages/pg/orm/executor_test.ts`.
+- **T6 · 🟢 Broad numeric/date round-trip suite.** Added a `bigint` axis to the
+  shared `IntegrationValueShape` (pg/neon/mysql/mariadb → `"string"`,
+  sqlite/libsql → `"number"`) so the decode contract is declared per target, and
+  wrote a `numeric + bigint` round-trip scenario in each of the three family
+  scenario files. Each asserts `typeof value === valueShape.{numeric,bigint}`;
+  the string families use an int8 above 2^53 (`9007199254740993`) to prove no
+  lossy-float path, while the SQLite family stays under 2^53 and documents that
+  larger int8s would lose precision there. Type-checks across all six suites;
+  DB-gated, so the runtime assertions await a live integration run. _Files:_
+  `integration/_shared/target.ts`, `integration/_targets/*.ts`,
+  `integration/_shared/{postgres,sqlite,mysql}_family_scenarios.ts`.
+- **T7 · 🟢 Resolve the `bigint` cross-adapter split (decided: Postgres family →
+  `string`).** `bigint` decoded to `BigInt` on `@sisal/pg` but a **string** on
+  `@sisal/neon` (`2n === "2"` silently false across siblings). Resolved by
+  coercing pg int8 → string in the executor (`coercePgColumns`, OID 20) so the
+  whole Postgres family aligns on precision-preserving strings. Locked by a
+  network-free executor unit test (proven to bite) and pinned in
+  `cross_adapter_parity_test.ts` (both adapters assert `typeof === "string"` and
+  cross-adapter value equality). _Files:_ `packages/pg/orm/executor.ts`,
+  `packages/pg/orm/executor_test.ts`, `cross_adapter_parity_test.ts`.
+- **T8 · 🟢 MySQL functional-index version gate (contract 11 / C4).**
+  **Unblocked** — the base-engine-scoped version predicate (the piece deferred
+  from T4) shipped: `unless: [{ baseEngine: true, minVersion: "8.0.13" }]` lifts
+  a guard for base MySQL ≥ 8.0.13 while never lifting the MariaDB variant (a
+  variant-less `unless` used to lift MariaDB 11 too, which is numerically ≥
+  8.0.13); proven by `dialect_identity_test.ts` (render guard **and**
+  `capabilitySupported`). _Done:_ added the `functionalIndex` registry
+  capability
+  (`unsupported: ["mysql"], unless: [{ baseEngine: true,
+  minVersion: "8.0.13" }]`),
+  threaded a `DialectIdentity` (built from the snapshot's
+  `dialectVariant`/`dialectVersion`) through `generateMysqlIndexes` →
+  `renderMysqlIndexColumn`, and sourced the expression-index throw from
+  `capabilitySupported(...)` — so a functional index emits `((expr))` on MySQL ≥
+  8.0.13 and throws a typed guard below that, on MariaDB, and when the version
+  is unknown (fail-closed); partial stays ❌ family-wide. Proven by new
+  `ddl_test.ts` render + throw cases (8.0.16 emits, 8.0.10 / MariaDB 11.8.8 /
+  version-unknown throw). The live per-engine check is DB-gated. _Files:_
+  `packages/mysql/migrate/ddl.ts`, `packages/mysql/migrate/ddl_test.ts`,
+  `packages/core/capabilities.ts`, `tools/feature_matrix.ts`.
+- **T9 · 🟢 Declare + test MySQL/MariaDB `RETURNING` + index gaps as capability
+  rows (B1/B2).** The RETURNING surface was already fully declared/wired/tested/
+  matrix'd (version floors INSERT 10.5+, DELETE 10.0.5+, UPDATE 13.0+;
+  multi-table `.returning()` guarded family-wide; MySQL proper via
+  `insertReturning` fetch-by-key). This pass promoted the **partial-index**
+  limit from a hard-coded DDL throw into a declared `partialIndex` registry
+  capability (`unsupported: ["mysql"]`), and the MySQL DDL generator now sources
+  its rejection from `capabilitySupported(...)` — single-sourced, validated by
+  the reconciliation test and the existing DDL throw test. `IF NOT EXISTS` is
+  documented in the matrix (Sisal emits plain `CREATE INDEX` for every dialect;
+  MySQL proper lacks it). Expression-index's registry declaration rides with
+  **T8** (it needs the version gate). _Files:_ `packages/core/capabilities.ts`,
+  `packages/mysql/migrate/ddl.ts`, `tools/feature_matrix.ts`.
+- **T10 · 🟢 Per-engine fallback integration tests.** _Audit (2026-07-02): done
+  — all four fallbacks already have per-engine assertions in
+  `integration/_shared/*_scenarios.ts`; only an optional
+  `dateTrunc`-returns-text type pin remains._ Every degraded path —
+  `FILTER`→`CASE WHEN`, `ilike`→`LIKE`, `dateTrunc`→text/`strftime`, bucket math
+  — gets a per-engine assertion. _Files:_
+  `integration/<adapter>_features_test.ts`.
+
+### Phase 3 — ETL correctness substrate — implement + per-engine test · [v0.10 prereq · critical path]
+
+_v0.6 A2/A3/A4 shipped as **design only**; the sequencing audit promotes them to
+v0.9 acceptance because v0.10's own acceptance hard-requires them ("concurrent
+runs serialized by the lock strategy"). Ship them **real and tested**, or v0.10
+ships a public runner around an unbuilt model._
+
+- **T11 · 🟢 Portable advisory-lock / queue-claim abstraction (A2 / contract
+  08).** [dep: T4] Shipped `Database.tryAdvisoryLock(name, options?)` as a
+  **lightweight lock-row lease** rather than the contract's per-dialect
+  session-scoped native locks (`pg_advisory_lock` / `GET_LOCK` /
+  `BEGIN
+  IMMEDIATE`). _Rationale:_ a session-scoped lock pins a connection and
+  a server-side lock for the whole run — the exact cost we want to avoid — and
+  does not compose with the chosen `await using` disposal (dispose cannot signal
+  commit-vs-rollback for `BEGIN IMMEDIATE`). Instead the claim is one row in
+  `sisal_advisory_locks` (default; overridable via `{ table }` so Sisal never
+  forces its name into a user's schema) carrying an ISO-8601 **lease** — reap
+  the name if its lease lapsed, then `ON CONFLICT DO NOTHING` claim;
+  `await
+  using` deletes the row on scope exit; `renew()` extends the lease and
+  a `false` means "lock lost". No connection or server lock is held between
+  acquire and release, and it is **uniform across all six engines** (plain DML,
+  no `acquireSession` driver primitive, no adapter changes) — matching the v0.6
+  compat table / v0.10 roadmap's "lock-row on SQLite". Fails closed on the
+  `generic` dialect (`ORM_DIALECT_UNSUPPORTED`). Trade-off: a crashed holder's
+  row lingers until its lease expires (then it is stolen), so long runs must
+  `renew()` and honor a failed renew. _Files:_
+  `packages/orm/core/advisory_lock.ts`, `packages/orm/core/database.ts`,
+  `packages/orm/advisory_lock_test.ts` (10 network-free tests),
+  `tools/feature_matrix.ts`, the three family scenario files. _Acceptance:_
+  per-engine contention scenario on every ETL target (DB- gated); matrix row
+  "Advisory run lock (portable lock-row lease)".
+- **T12 · 🟢 Atomic load+advance invariant (A4 substrate).** Shipped
+  `etlCheckpoint(db, job, options?)` (standalone factory, mirrors
+  `defineAtomicOperation`): `read()` returns the last committed `window_end`
+  watermark (or `null`); `advance(until, load)` runs the caller's idempotent
+  load and the watermark upsert as **one `db.batch`**, so they commit together
+  and a crash never advances the watermark past un-written data (never ahead of
+  the load). Watermarks (`window_end`/`pruned_before`) are stored as **opaque
+  TEXT** (ISO-8601 by convention; caller owns the meaning) in the
+  `sisal_etl_checkpoints` table — overridable via `{ table }`, created on first
+  use — which keeps the checkpoint uniform across all six engines with no
+  per-adapter timestamp-decode divergence (T11's lesson). The table already
+  carries the nullable `pruned_before` column for the T14 retention horizon; T12
+  reads/advances `window_end` only. The DDL runs **outside** the atomic batch
+  (MySQL auto-commits DDL). Backed by 7 network-free unit tests (asserting the
+  single atomic batch) and a per-engine contention scenario proving idempotent
+  resume + crash-safety (a failing load rolls the whole batch back and the
+  watermark stays behind). _Rationale (decided with the user):_ TEXT
+  watermarks + `db.batch` + standalone factory. _Files:_
+  `packages/orm/core/checkpoint.ts`, `packages/orm/checkpoint_test.ts`,
+  `tools/feature_matrix.ts`, the three family scenario files. Underpins T13/T14.
+- **T13 · 🟢 Validate the checkpoint/watermark contract (A3 / contract 09 / item
+  18).** The A3 ownership decision **held and is recorded** in
+  `architecture.md`: the T12 checkpoint substrate ships in **`@sisal/orm`** (it
+  needs the `Database` facade), the `sisal_etl_checkpoints` table is
+  created/managed by the ORM helper at runtime, and there is **no
+  `etl → migrate` edge** — so no reversal, no migrate edge to add. Added
+  `readState()` to the `Checkpoint` handle (the full
+  `{ windowEnd, prunedBefore, updatedAt }` contract row — also what T14 reads
+  for the horizon), unit-tested. The "adapter-specific timestamp types"
+  validation target was **eliminated by the T12 TEXT-watermark decision** —
+  there is no per-engine timestamp surface to reconcile; T13 instead validates
+  **exact TEXT round-trip fidelity** (a precise ISO string reads back
+  byte-identical), **multi-job independence** (`job` is the PK), **`updated_at`
+  written**, and **persistence across a fresh handle** — a per-engine contention
+  scenario on every ETL target. _Files:_ `packages/orm/core/checkpoint.ts`,
+  `packages/orm/checkpoint_test.ts`, `docs/architecture.md`, the three family
+  scenario files.
+- **T14 · 🟢 Replay-vs-retention refusal (A4).** Extended the `Checkpoint`
+  handle with the mirror of `advance`: **`prune(before, deletes)`** upserts the
+  per-job `pruned_before` horizon **in the same `db.batch`** as the
+  source-delete statements — so the horizon moves only if the delete committed
+  and never lags it (a crash rolls both back together; the horizon may run
+  ahead, never behind). **`assertReplayable(from, options?)`** reads the horizon
+  (via `readState`) and throws a typed **`ORM_REPLAY_PRUNED`** error when
+  `from < pruned_before` (the window's source rows were pruned, so a replay
+  would overwrite the rollup with missing data), with an explicit
+  **`unsafeAllowPrunedReplay`** override mirroring `.unsafeAllowAllRows()`. TEXT
+  markers compare lexicographically, so `from >= pruned_before` is the
+  replayable boundary. _Acceptance (both directions), covered by a per-engine
+  scenario:_ a refused replay throws before the load runs so the rollup row is
+  untouched; a failing prune rolls the delete and the horizon back together
+  (horizon stays put, rows not deleted). Backed by 13 network-free unit tests
+  (prune atomicity, both refusal directions, the override, the null-horizon
+  allow) and the matrix row "Retention horizon + replay refusal (ETL)". _Files:_
+  `packages/orm/core/checkpoint.ts`, `packages/orm/checkpoint_test.ts`,
+  `tools/feature_matrix.ts`, the three family scenario files.
+- **T15 · 🟢 Write-result abstraction — inserted vs conflicted/claimed (v0.8
+  item 16).** Shipped `tryInsert(db, insert): Promise<WriteOutcome>` — a
+  portable **inserted-vs-conflicted** signal for a conflict-guarded insert (you
+  supply `.onConflictDoNothing()`). It reads the signal the reliable way **per
+  dialect**: `RETURNING` on the Postgres and SQLite families (a row comes back
+  iff the insert won — exact), the affected-row count on the MySQL family (which
+  has no usable `RETURNING` on a no-op `ON DUPLICATE KEY UPDATE` — 1 on insert,
+  0 on conflict). Fails closed on `generic`. **T11's advisory-lock claim now
+  consumes it** — so claimed-vs-not is reliable across engines instead of the
+  ambiguous-under-MySQL `rowCount >= 1` it used before (the exact v0.8 pain
+  point). Backed by 5 network-free unit tests (both dialect paths × both
+  outcomes + the generic guard), a per-engine integration scenario, and the
+  matrix row "Write outcome (inserted vs conflicted/claimed)". _Rationale:_
+  dialect-gated RETURNING (MySQL/MariaDB both reject RETURNING on the no-op
+  upsert, so the gate is by dialect, not the `returning` capability). _Files:_
+  `packages/orm/core/write_outcome.ts`, `packages/orm/write_outcome_test.ts`,
+  `packages/orm/core/advisory_lock.ts` (+ its test), `tools/feature_matrix.ts`,
+  the three family scenario files. **Closes the Phase 3 ETL substrate
+  (T11–T15).**
+- **Open question to close:** how much SQLite-family ETL is "supported" vs
+  "Postgres-first, documented gap"? If the substrate slips, scope v0.10
+  **Postgres-only at the API level** — SQLite/libsql return a typed "unsupported
+  job shape" rather than a silently degraded runner.
+
+### Phase 4 — Per-engine execution tests for the v0.8 constructs
+
+_These render dialect-agnostically today but have **no per-engine integration
+test**; v0.9 pins their behavior (no new constructs)._
+
+- **T16 · 🟢 CTE per-engine execution tests.** Added a dedicated **read-CTE**
+  (`WITH … AS (SELECT …) SELECT … FROM cte`) execution scenario on every ETL
+  target — the non-recursive `WITH` was only exercised incidentally inside the
+  mutation-joins scenario before. Matrix row "Read CTE (WITH on SELECT)".
+- **T17 · 🟢 Recursive-CTE per-engine/version verification.** Added a per-engine
+  `WITH RECURSIVE` tree-walk scenario on all six targets (documenting the MySQL
+  8.0+ / MariaDB floor — 5.7 has no recursive CTE) with the portable depth-guard
+  (`WHERE depth < n`; `CYCLE`/`SEARCH` stays Phase 6). **Uncovered and fixed a
+  latent bug:** the builder-native recursive step, as documented and pinned in
+  `recursive_cte_test.ts` + `golden_sql_test.ts`, used
+  `.from(base).innerJoin(base, … self …)` — which renders the recursive term
+  **absent from the FROM** (`from posts inner join posts … tree.id`), invalid on
+  every engine; it shipped only because there was zero integration coverage
+  (this task's gap). The correct form is `.from(self)`. Fixed both render
+  tests + the golden snapshot, and added a **build-time guard**
+  (`$withRecursive` throws `ORM_INVALID_QUERY` when the step never uses its
+  self-reference as a FROM source — a new `CTE_FROM_SOURCES` mark-on-use set
+  that `from()` records). Matrix row "Recursive CTE (WITH RECURSIVE; MySQL
+  8+/MariaDB)". _Files:_ `packages/orm/core/builders.ts`,
+  `packages/orm/core/database.ts`, `packages/orm/recursive_cte_test.ts`,
+  `packages/orm/golden_sql_test.ts` (+ snapshot), the three family scenario
+  files.
+- **T18 · 🟢 Insert-from-select / data-modifying CTE per-engine.** Insert-from-
+  select was already covered on all six; added the **data-modifying-CTE guard**
+  verification — a network-free render test asserting
+  `WITH x AS (DELETE …
+  RETURNING) …` renders on PostgreSQL but throws
+  `ORM_DIALECT_UNSUPPORTED` on the SQLite and MySQL families (the existing
+  `dataModifyingCte` matrix row already classifies it pg/neon-only). _Files:_
+  `packages/orm/mutation_cte_test.ts`.
+
+### Phase 5 — Compatibility truth: examples, docs, matrix
+
+- **T19 · 🟢 Refresh advanced-SQL example families to builder-native.** All
+  three families now express contracts **02–07 and 10** through the builder
+  (`over`/`rank`/`rowNumber`/`lag`/`sum` windows, `$with`/`$withRecursive` CTEs,
+  `filter`/`min`/`countDistinct` aggregates, `jsonTable`) — contracts 02 & 04
+  fully `builder`, 03/05/06/07/10 `hybrid` (builder structure + inline `sql`
+  fragments only for genuinely un-expressible bits: exact interval/date-boundary
+  math the whole-unit `dateDiff` can't reproduce, CTE-to-CTE joins, and
+  dialect-specific JSON/path functions). Contract **11** emits its DDL from a
+  `defineTable` snapshot (stored generated column + partial expression index)
+  via the adapter DDL generator (still `raw-ddl`). **08 (lock/claim) and 09
+  (checkpoint) stay raw** as substrate-dependent, per scope; SQLite additionally
+  un-skips 03/05/06. **Every migrated statement was render-verified against its
+  original raw SQL** (via `renderSql`) for semantic equivalence; the stale
+  `v08PainPoint` notes were rewritten and the network-free
+  `advanced_sql_test.ts` assertions updated to the equivalent builder output
+  (all three pass). Delivered by three parallel per-family subagents, each
+  verified. _Files:_ `examples/{postgres,mysql,sqlite}-family-advanced-sql`.
+- **T20 · 🟢 Update the five compatibility docs + the unified matrix** to the
+  hardened reality. The unified `docs/feature-matrix.md` is regenerated from
+  `tools/feature_matrix.ts` and now carries the v0.9 rows (advisory lock,
+  checkpoint watermark + retention, write outcome, read/recursive CTE) — all
+  scenario-backed and passing `docs:matrix:check`. Each of the five
+  `docs/*-compatibility.md` gained a **v0.9 additions** note (the portable ETL
+  substrate `tryAdvisoryLock`/`etlCheckpoint`/`tryInsert` with the per-engine
+  write-outcome mechanism — `RETURNING` on pg/neon/sqlite/libsql, affected-rows
+  on MySQL; read/`WITH RECURSIVE` CTE coverage; data-modifying CTEs
+  pg/neon-only) and the stale hardcoded pg suite count was de-hardcoded. The
+  dated "last live run" attestation tables are left intact — the v0.9-added
+  integration scenarios are DB-gated and await the next live run. _Files:_
+  `docs/{pg,neon,sqlite,libsql,mysql}-compatibility.md`,
+  `docs/feature-matrix.md` (generated).
+
+### Phase 6 — Explicitly deferred (record, do not build in v0.9)
+
+- **Recursive-CTE `CYCLE`/`SEARCH`** (contract 07) — a new construct; v0.10+/
+  backlog (keep the portable depth-guard surface).
+- **`postgres.js` as the default `@sisal/pg` driver** + the upstream
+  `setNoDelay(true)` fix — open follow-up; take it as a v0.9 perf-hardening item
+  or defer with a recorded decision.
+- **MySQL prepared-statement binary-protocol mode** (v0.7 B3/B4 opt-in) —
+  backlog optimization.
+- **Typed `CREATE FUNCTION` emission** (v0.5 item 7 residual) — future option
+  beyond the CTE form.
+- **Materialized-view DDL** (Postgres rollup acceleration) — open question,
+  deferrable (SQLite has none).
+- **npm / Node dual publish** — v0.13+, on demand (enabled by the v0.8
+  `@sisal/core` extraction; blocked on a chosen npm name).
+- **Transformable AST** — deferred; the additive `SqlChunk.meta` seam was
+  reserved in v0.8 item 4, so it stays a non-breaking later bump.
 ```
 

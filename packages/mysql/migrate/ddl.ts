@@ -12,13 +12,18 @@
  * 8.0.16 / MariaDB 10.10) and **fails closed at generation time** on the
  * constructs one engine would reject at apply time: a keyless or duplicated
  * `AUTO_INCREMENT` column, a `TEXT`/`BLOB`/`JSON` key (MySQL requires a
- * prefix length the snapshot cannot express — use `varchar(n)`), and
- * partial (`WHERE`) or functional (expression) indexes.
+ * prefix length the snapshot cannot express — use `varchar(n)`), and partial
+ * (`WHERE`) indexes. Functional (expression) indexes are emitted on a detected
+ * base MySQL ≥ 8.0.13 and fail closed otherwise (below the floor, MariaDB, or
+ * an unknown version).
  *
  * @module
  */
 
 import {
+  capabilitySupported,
+  DIALECT_CAPABILITIES,
+  type DialectIdentity,
   diffSchemaSnapshots,
   OrmError,
   selectSchemaObjects,
@@ -323,14 +328,23 @@ function mysqlIndexName(
 function renderMysqlIndexColumn(
   table: string,
   column: SisalIndexColumnSnapshot,
+  identity: DialectIdentity,
 ): string {
   if (column.expression === true) {
-    // Functional indexes are MySQL-8-only (MariaDB rejects them; its route
-    // is generated columns) — the version-less generator fails closed.
-    throw new OrmError(
-      `Index on "${table}" uses an expression column (${column.value}); functional indexes are MySQL-only and rejected by MariaDB, so the MySQL DDL generator does not emit them.`,
-      { code: "ORM_DIALECT_UNSUPPORTED" },
-    );
+    // Functional indexes light on base MySQL ≥ 8.0.13 (the `functionalIndex`
+    // capability's base-engine version gate); MariaDB has none, and a
+    // version-unknown identity fails closed.
+    if (!capabilitySupported(DIALECT_CAPABILITIES.functionalIndex, identity)) {
+      throw new OrmError(
+        `Index on "${table}" uses an expression column (${column.value}); functional (expression) indexes need MySQL ≥ 8.0.13 (MariaDB has none — use a generated column).`,
+        { code: "ORM_DIALECT_UNSUPPORTED" },
+      );
+    }
+    // MySQL 8.0.13+ functional key part: the expression wrapped in parens.
+    const expr = `(${column.value})`;
+    if (column.direction === "desc") return `${expr} DESC`;
+    if (column.direction === "asc") return `${expr} ASC`;
+    return expr;
   }
   const base = quoteMysqlIdent(column.value);
   if (column.direction === "desc") return `${base} DESC`;
@@ -341,15 +355,26 @@ function renderMysqlIndexColumn(
 /**
  * Generates `CREATE [UNIQUE] INDEX` statements for a table's indexes.
  *
- * Throws an `OrmError` (`ORM_DIALECT_UNSUPPORTED`) for partial indexes
- * (`WHERE` — unsupported by both engines) and expression columns
- * (functional indexes are MySQL-only; MariaDB rejects them).
+ * Partial indexes (`WHERE`) throw an `OrmError` (`ORM_DIALECT_UNSUPPORTED`) —
+ * unsupported by both engines. Functional (expression) indexes are emitted on a
+ * detected **base MySQL ≥ 8.0.13** `identity` and throw below that / on MariaDB
+ * / when the version is unknown (`identity` defaults to a version-less base
+ * MySQL, which fails closed).
  */
-export function generateMysqlIndexes(table: SisalTableSnapshot): string[] {
+export function generateMysqlIndexes(
+  table: SisalTableSnapshot,
+  identity: DialectIdentity = { dialect: "mysql" },
+): string[] {
   return (table.indexes ?? [])
     .filter((index) => index.columns.length > 0)
     .map((index) => {
-      if (index.where !== undefined && index.where.trim() !== "") {
+      // Index-limit facts are declared once in the core capability registry
+      // (`partialIndex`, `functionalIndex`); the generator reads them rather
+      // than hard-coding. Partial indexes are unsupported family-wide.
+      if (
+        index.where !== undefined && index.where.trim() !== "" &&
+        !capabilitySupported(DIALECT_CAPABILITIES.partialIndex, identity)
+      ) {
         throw new OrmError(
           `Index "${
             index.name ?? mysqlIndexName(table.name, index.columns)
@@ -359,7 +384,7 @@ export function generateMysqlIndexes(table: SisalTableSnapshot): string[] {
       }
       const unique = index.unique === true ? "UNIQUE " : "";
       const columns = index.columns
-        .map((column) => renderMysqlIndexColumn(table.name, column))
+        .map((column) => renderMysqlIndexColumn(table.name, column, identity))
         .join(", ");
       const name = quoteMysqlIdent(
         index.name ?? mysqlIndexName(table.name, index.columns),
@@ -457,6 +482,13 @@ export function generateMysqlUpStatements(
     from ?? { version: to.version, tables: [] },
     to,
   );
+  // The snapshot carries the detected `(variant, version)`; feed it to the
+  // index generator so functional indexes light on base MySQL ≥ 8.0.13.
+  const identity: DialectIdentity = {
+    dialect: "mysql",
+    ...(to.dialectVariant === undefined ? {} : { variant: to.dialectVariant }),
+    ...(to.dialectVersion === undefined ? {} : { version: to.dialectVersion }),
+  };
   const statements: string[] = [];
 
   for (const table of diff.addedTables) {
@@ -475,7 +507,7 @@ export function generateMysqlUpStatements(
   }
 
   for (const table of diff.addedTables) {
-    statements.push(...generateMysqlIndexes(table));
+    statements.push(...generateMysqlIndexes(table, identity));
   }
 
   // Stored DDL after table creation. Note for authors: MySQL has no

@@ -1,4 +1,4 @@
-import { columns, defineTable, primaryKey } from "@sisal/orm";
+import { columns, defineTable, index, primaryKey, sql } from "@sisal/orm";
 
 /** Posts used by the advanced SQL contracts. */
 export const posts = defineTable("sisal_adv_posts", {
@@ -56,6 +56,25 @@ export const backfillState = defineTable("sisal_adv_backfill_state", {
   updated_at: columns.timestamp({ withTimezone: true, mode: "date" })
     .notNull(),
 });
+
+/**
+ * Documents for the JSON-extraction (10) and generated-column (11) contracts.
+ * `title_text` is a stored generated column and the table carries a partial
+ * expression index — both now expressible in the schema snapshot, so the
+ * contract-11 DDL is emitted by the PostgreSQL generator rather than hand-rolled.
+ * Kept out of {@link schemaTables} because contract 11 emits its DDL separately.
+ */
+export const documents = defineTable("sisal_adv_documents", {
+  id: columns.integer().primaryKey(),
+  payload: columns.jsonb().notNull(),
+  title_text: columns.text().generatedAs(sql`payload ->> 'title'`, {
+    stored: true,
+  }),
+}, () => [
+  index("sisal_adv_documents_title_idx")
+    .where(sql`title_text is not null`)
+    .on(sql`lower(title_text)`),
+]);
 
 export const schemaTables = [
   posts,

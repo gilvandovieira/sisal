@@ -13,7 +13,11 @@
  * @module
  */
 
-import type { Logger, TemporalParsingOptions } from "@sisal/orm";
+import type {
+  Logger,
+  SisalLoggingOptions,
+  TemporalParsingOptions,
+} from "@sisal/orm";
 
 import {
   createDatabase,
@@ -64,6 +68,7 @@ export interface MysqlDatabase extends Database {
 /** Options for opening a MySQL/MariaDB-backed database facade. */
 export interface CreateMysqlDbOptions extends MysqlOrmDriverOptions {
   readonly logger?: Logger;
+  readonly logging?: SisalLoggingOptions;
   readonly temporal?: TemporalParsingOptions;
   /**
    * Engine variant behind the connection (e.g. {@link MARIADB_VARIANT}).
@@ -118,6 +123,7 @@ export async function createMysqlDb(
     ...(variant === undefined ? {} : { variant }),
     ...(version === undefined ? {} : { version }),
     logger: options.logger,
+    logging: options.logging,
     temporal: options.temporal,
   }) as MysqlDatabase;
 }
