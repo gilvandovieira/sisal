@@ -1,3 +1,4 @@
+import { mysqlFamilyScenarios } from "./mysql_family_scenarios.ts";
 import { postgresFamilyScenarios } from "./postgres_family_scenarios.ts";
 import { sqliteFamilyScenarios } from "./sqlite_family_scenarios.ts";
 import type {
@@ -24,7 +25,8 @@ export function featureScenariosForAdapter(
     case "libsql":
       return sqliteFamilyScenarios();
     case "mysql":
-      return [];
+    case "mariadb":
+      return mysqlFamilyScenarios();
   }
 }
 
@@ -37,6 +39,6 @@ export function featureScenariosForFamily(
     case "sqlite":
       return sqliteFamilyScenarios();
     case "mysql":
-      return [];
+      return mysqlFamilyScenarios();
   }
 }

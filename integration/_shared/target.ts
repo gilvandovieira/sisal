@@ -14,7 +14,8 @@ export type IntegrationAdapterId =
   | "neon"
   | "sqlite"
   | "libsql"
-  | "mysql";
+  | "mysql"
+  | "mariadb";
 
 export type IntegrationFamily = "postgres" | "sqlite" | "mysql";
 
@@ -38,7 +39,12 @@ export interface IntegrationCapabilities {
 export interface IntegrationValueShape {
   readonly boolean: "boolean" | "integer";
   readonly json: "parsed" | "text";
-  readonly array: "native" | "jsonText";
+  /**
+   * `jsonParsed` — no native array type, but the column maps to `JSON` and
+   * the driver parses it back to a real array (MySQL proper); `jsonText` —
+   * the same storage reads back as a JSON string (SQLite family, MariaDB).
+   */
+  readonly array: "native" | "jsonText" | "jsonParsed";
   readonly binary: "uint8array" | "arraybuffer";
   readonly numeric: "string" | "number";
   readonly dateTrunc: "timestamp" | "text";

@@ -9,7 +9,9 @@ title: Feature matrix
 # Cross-driver feature matrix
 
 One row per feature, one column per adapter, across `@sisal/pg`,
-`@sisal/neon`, `@sisal/sqlite`, and `@sisal/libsql`. Every ✅ and ⚠️ is
+`@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`, and `@sisal/mysql`
+(MySQL and MariaDB are distinct capability profiles of the one adapter, so
+each gets a test-backed column). Every ✅ and ⚠️ is
 backed by a registered shared integration scenario. The adapter entrypoints
 still render those scenarios as target-prefixed Deno tests in
 `integration/<adapter>_features_test.ts`; `deno task docs:matrix:check`
@@ -19,55 +21,59 @@ suites.
 **Legend.** ✅ tested · ⚠️ works, with a documented round-trip difference · ❌
 genuine dialect limit · — not applicable.
 
-| Feature                                                                  | Postgres | Neon | SQLite  | libSQL         |
-| :----------------------------------------------------------------------- | :------: | :--: | :-----: | :------------: |
-| Connection + raw parameterized SQL                                       |    ✅     |  ✅   |    ✅    |       ✅        |
-| Generated DDL (all column types)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
-| Insert / update / delete / returning                                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Filter / ordering / pagination                                           |    ✅     |  ✅   |    ✅    |       ✅        |
-| Joins (inner / left / right / full)                                      |    ✅     |  ✅   |    ✅    |       ✅        |
-| Aggregates / group / having                                              |    ✅     |  ✅   |    ✅    |       ✅        |
-| Conditional aggregate (`filter`)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
-| Portable `dateTrunc` (time bucketing)                                    |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Subqueries / exists / scalar                                             |    ✅     |  ✅   |    ✅    |       ✅        |
-| Upsert (`onConflict…`)                                                   |    ✅     |  ✅   |    ✅    |       ✅        |
-| `sql` in `SET` / `VALUES` / `onConflict`                                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Column naming (snake_case / `.named()` / preserve)                       |    ✅     |  ✅   |    ✅    |       ✅        |
-| Keyset pagination (expanded + row-value)                                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| Prepared statements                                                      |    ✅     |  ✅   |    ✅    |       ✅        |
-| Transactions (commit + rollback)                                         |    ✅     |  ✅   |    ✅    |       ✅        |
-| `db.batch` (non-interactive, atomic)                                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Atomic operation / transaction script (`defineAtomicOperation`)          |    ✅     |  ✅   |    ✅    |       ✅        |
-| Atomic op single-round-trip dispatch (CTE on PG / interactive on SQLite) |    ✅     |  ✅   |    ✅    |       ✅        |
-| Rich indexes (DESC / partial / expression)                               |    ✅     |  ✅   |    ✅    |       ✅        |
-| Migrator (apply / plan / idempotent)                                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Stored schema objects (functions / triggers / views)                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| Typed raw-query mapping (`db.query(...).as(table)`)                      |    ✅     |  ✅   |    ✅    |       ✅        |
-| Temporal date/time modes                                                 |    ✅     |  ✅   |    ✅    |       ✅        |
-| `ilike` / `notIlike`                                                     |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |
-| `json` / array round-trip                                                |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |
-| `boolean` round-trip                                                     |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |
-| `bytea` / BLOB round-trip                                                |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |
-| Float (`float4`/`float8`) round-trip → `number`                          |    ✅     |  ✅   |    ✅    |       ✅        |
-| `distinctOn`                                                             |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Row locking (`.for(...)`)                                                |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Array operators (`@>` / `<@` / `&&`)                                     |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Typed function caller (`db.call`)                                        |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |
-| Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |
-| ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |
+| Feature                                                                  | Postgres | Neon | SQLite  | libSQL         | MySQL           | MariaDB          |
+| :----------------------------------------------------------------------- | :------: | :--: | :-----: | :------------: | :-------------: | :--------------: |
+| Connection + raw parameterized SQL                                       |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Generated DDL (all column types)                                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Insert / update / delete / returning                                     |    ✅     |  ✅   |    ✅    |       ✅        | [⚠️ fetch-by-key](#round-trip-differences) | [⚠️ per-statement](#round-trip-differences) |
+| Filter / ordering / pagination                                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Joins (inner / left / right / full)                                      |    ✅     |  ✅   |    ✅    |       ✅        |   [⚠️ no FULL](#round-trip-differences)    |    [⚠️ no FULL](#round-trip-differences)    |
+| Aggregates / group / having                                              |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Conditional aggregate (`filter`)                                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Portable `dateTrunc` (time bucketing)                                    |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |     [⚠️ text](#round-trip-differences)     |     [⚠️ text](#round-trip-differences)      |
+| Interval/date math (`now`/`dateAdd`/`dateSub`/`dateBin`)                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Subqueries / exists / scalar                                             |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Upsert (`onConflict…`)                                                   |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `sql` in `SET` / `VALUES` / `onConflict`                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Column naming (snake_case / `.named()` / preserve)                       |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Keyset pagination (expanded + row-value)                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Prepared statements                                                      |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Transactions (commit + rollback)                                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `db.batch` (non-interactive, atomic)                                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Atomic operation / transaction script (`defineAtomicOperation`)          |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Atomic op single-round-trip dispatch (CTE on PG / interactive on SQLite) |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Rich indexes (DESC / partial / expression)                               |    ✅     |  ✅   |    ✅    |       ✅        |  [⚠️ DESC only](#round-trip-differences)   |   [⚠️ DESC only](#round-trip-differences)   |
+| Migrator (apply / plan / idempotent)                                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Stored schema objects (functions / triggers / views)                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Typed raw-query mapping (`db.query(...).as(table)`)                      |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Temporal date/time modes                                                 |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `ilike` / `notIlike`                                                     |    ✅     |  ✅   | [⚠️ LIKE](#round-trip-differences) |    [⚠️ LIKE](#round-trip-differences)     |     [⚠️ LIKE](#round-trip-differences)     |     [⚠️ LIKE](#round-trip-differences)      |
+| `json` / array round-trip                                                |    ✅     |  ✅   | [⚠️ text](#round-trip-differences) |    [⚠️ text](#round-trip-differences)     |     [⚠️ JSON](#round-trip-differences)     |     [⚠️ text](#round-trip-differences)      |
+| `boolean` round-trip                                                     |    ✅     |  ✅   | [⚠️ 0/1](#round-trip-differences)  |     [⚠️ 0/1](#round-trip-differences)     |     [⚠️ 0/1](#round-trip-differences)      |      [⚠️ 0/1](#round-trip-differences)      |
+| `bytea` / BLOB round-trip                                                |    ✅     |  ✅   |    ✅    | [⚠️ ArrayBuffer](#round-trip-differences) |        ✅        |        ✅         |
+| Float (`float4`/`float8`) round-trip → `number`                          |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| `distinctOn`                                                             |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Row locking (`.for(...)`)                                                |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        ✅        |        ✅         |
+| Array operators (`@>` / `<@` / `&&`)                                     |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Typed function caller (`db.call`)                                        |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)           |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
+| Mutation joins (`UPDATE … FROM` / `INSERT … SELECT`)                     |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| ETL rollup (insert-from-select + `FILTER` + `dateTrunc` + upsert)        |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
-identically across the four adapters.
+identically across the six columns.
 
 ## Round-trip differences
 
 These ⚠️ cells work — the feature is exercised on every adapter — but a value
-comes back in a different JS shape on the SQLite family than on PostgreSQL:
+comes back in a different JS shape (or the statement takes a documented
+alternate form) off PostgreSQL:
 
+- **Insert / update / delete / returning** — MySQL 8/9 has no `RETURNING`; `.returning()` throws a typed `OrmError` at render time. The adapter's `insertReturning()` helper answers the common case with a transactional fetch-by-key fallback (per-row `LAST_INSERT_ID`, no consecutive-id arithmetic).
+- **Joins (inner / left / right / full)** — No `FULL JOIN` in MySQL/MariaDB; rendering it throws a typed `OrmError`. INNER/LEFT/RIGHT joins work.
 - **Portable `dateTrunc` (time bucketing)** — No `date_trunc`; `dateTrunc` renders via `strftime`, which returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL returns a `timestamp`). Both order and group identically.
+- **Rich indexes (DESC / partial / expression)** — `DESC` index keys apply; partial (`WHERE`) indexes are unsupported by both engines and expression indexes are MySQL-only (MariaDB rejects them), so the DDL generator throws a typed `OrmError` for either at generation time instead of shipping SQL one engine rejects.
 - **`ilike` / `notIlike`** — No `ILIKE` keyword in the SQLite family; `ilike`/`notIlike` render as ASCII case-insensitive `LIKE`/`NOT LIKE`.
 - **`json` / array round-trip** — No `json`/array type; values auto-serialize to `TEXT` and read back as JSON strings (`JSON.parse` on read).
 - **`boolean` round-trip** — No native boolean; stored as `INTEGER` `0`/`1`.
@@ -75,26 +81,28 @@ comes back in a different JS shape on the SQLite family than on PostgreSQL:
 
 Value-shape summary (what a read yields, per adapter family):
 
-| Type | `@sisal/pg` / `@sisal/neon` | `@sisal/sqlite` / `@sisal/libsql` |
-| --- | --- | --- |
-| `numeric` / `bigint` | string (precision-preserving) | number |
-| `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) |
-| `boolean` | `boolean` | `INTEGER` `0`/`1` |
-| `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) |
-| `real` / `double precision` (float4/float8) | number | number |
+| Type | `@sisal/pg` / `@sisal/neon` | `@sisal/sqlite` / `@sisal/libsql` | `@sisal/mysql` (MySQL · MariaDB) |
+| --- | --- | --- | --- |
+| `numeric` / `bigint` | string (precision-preserving) | number | string (precision-preserving) |
+| `json` / `jsonb` / array | parsed value | JSON `TEXT` string (`JSON.parse` on read) | parsed (MySQL) · JSON string (MariaDB) |
+| `boolean` | `boolean` | `INTEGER` `0`/`1` | `TINYINT(1)` `0`/`1` |
+| `bytea` / BLOB | `Uint8Array` | `Uint8Array` (sqlite) · `ArrayBuffer` (libsql) | `Uint8Array` |
+| `real` / `double precision` (float4/float8) | number | number | number |
+| `date` / `timestamp` / `timestamptz` text | string | string | string (naive UTC convention for instants) |
 
 ## PostgreSQL-only limits
 
-The SQLite family has no equivalent for these PostgreSQL constructs. Rendering a
-builder that uses one for a SQLite-family dialect throws a typed `OrmError`
-(`ORM_DIALECT_UNSUPPORTED`) at render time (v0.5.0 item 4) — except the typed
-function caller (`db.call`), which has no SQLite-family API surface at all:
+The SQLite and MySQL families have no equivalent for these PostgreSQL
+constructs. Rendering a builder that uses one for those dialects throws a typed
+`OrmError` (`ORM_DIALECT_UNSUPPORTED`) at render time (v0.5.0 item 4) —
+except the typed function caller (`db.call`), which has no non-Postgres API
+surface at all:
 
-- **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; SQLite-family engines reject it. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
-- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
-- **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite family. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
-- **Typed function caller (`db.call`)** — No stored-function concept in the SQLite family; `defineFunction`/`db.call` target Postgres.
-- **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; the SQLite family's CTEs are `SELECT`-only. Rendering it for a SQLite-family dialect throws a typed `OrmError` at render time, before execution.
+- **`distinctOn`** — `DISTINCT ON` is PostgreSQL-only; the SQLite and MySQL families reject it. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Row locking (`.for(...)`)** — No row-level locking (`FOR UPDATE`/`FOR SHARE`) in the SQLite family. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite or MySQL families. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Typed function caller (`db.call`)** — No stored-function caller off Postgres; `defineFunction`/`db.call` render PostgreSQL `SELECT * FROM fn(args)`.
+- **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; SQLite-family and MySQL-family CTEs are `SELECT`-only. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 
 ## Reproduce
 
@@ -106,8 +114,13 @@ deno test --env-file=.env -A integration/pg_features_test.ts
 deno test --env-file=.env -A integration/neon_features_test.ts
 deno test --env-file=.env -A integration/sqlite_features_test.ts
 deno test --env-file=.env -A integration/libsql_features_test.ts
+SISAL_MYSQL_IT=1 MYSQL_URL=mysql://root:root@localhost:33084/sisal \
+  deno test -A integration/mysql_features_test.ts
+SISAL_MARIADB_IT=1 MARIADB_URL=mysql://root:root@localhost:33110/sisal \
+  deno test -A integration/mariadb_features_test.ts
 ```
 
 Per-engine behavior notes live on the
 [Postgres](pg-compatibility.md), [Neon](neon-compatibility.md),
-[SQLite](sqlite-compatibility.md), and [libSQL](libsql-compatibility.md) pages.
+[SQLite](sqlite-compatibility.md), [libSQL](libsql-compatibility.md), and
+[MySQL/MariaDB](mysql-compatibility.md) pages.
