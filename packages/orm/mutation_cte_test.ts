@@ -3,8 +3,8 @@
  * mutating terminal. `db.with(...)` can now terminate in `update`/`insert`/
  * `delete` (not only `select`); `update().from()` / `delete().using()` /
  * `insert().select()` let a mutation read another CTE's `RETURNING`. `UPDATE …
- * FROM` and `INSERT … SELECT` run on every adapter; `DELETE … USING` is
- * PostgreSQL-only (a typed guard throws on the SQLite family).
+ * FROM` and `INSERT … SELECT` run on every adapter; `DELETE … USING` runs on
+ * PostgreSQL and the MySQL family (a typed guard throws on the SQLite family).
  *
  * @module
  */
@@ -59,12 +59,16 @@ Deno.test("update().from(): UPDATE … FROM a CTE, on every dialect", () => {
   );
 });
 
-Deno.test("delete().using(): DELETE … USING is PostgreSQL-only", () => {
+Deno.test("delete().using(): DELETE … USING maps per supported dialect", () => {
   const q = db.with(scores).delete(posts).using(scores)
     .where(eq(posts.columns.id, scores.id));
   assertStringIncludes(
     renderSql(q.toSql(), { dialect: "postgres" }).text,
     'delete from "posts" using "scores"',
+  );
+  assertStringIncludes(
+    renderSql(q.toSql(), { dialect: "mysql" }).text,
+    "delete from `posts` using `posts`, `scores`",
   );
   const error = assertThrows(
     () => renderSql(q.toSql(), { dialect: "sqlite" }),

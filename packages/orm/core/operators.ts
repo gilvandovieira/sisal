@@ -21,6 +21,7 @@ import {
   operatorSql,
   type OrderTerm,
   raw,
+  type Sql,
   sql,
   type SqlDialect,
   type SqlExpression,
@@ -234,35 +235,96 @@ function makeOrderTerm(column: unknown, direction: "asc" | "desc"): OrderTerm {
   }) as OrderTerm;
 }
 
+// Metadata attached to the aggregate fragments this module creates, so
+// filter() can rebuild them as `agg(CASE WHEN … END)` for dialects without a
+// native FILTER clause (MySQL/MariaDB — the v0.6 C5 probe). A WeakMap keeps
+// the frozen fragments untouched and the public Sql surface unchanged (the
+// RESULT_METADATA precedent); a fragment without metadata (a hand-written
+// aggregate) simply has no CASE WHEN form and stays guarded under `mysql`.
+interface AggregateMetadata {
+  readonly fn: "count" | "sum" | "avg" | "min" | "max";
+  /** Rendered operand; absent = `count(*)`'s argument-less form. */
+  readonly operand?: Sql;
+  readonly distinct?: boolean;
+}
+const AGGREGATE_METADATA = new WeakMap<Sql, AggregateMetadata>();
+
+// Pre-rendered aggregate function names, so the CASE WHEN rebuild never
+// interpolates a computed string into raw SQL.
+const AGGREGATE_NAME: Record<AggregateMetadata["fn"], Sql> = {
+  count: raw("count"),
+  sum: raw("sum"),
+  avg: raw("avg"),
+  min: raw("min"),
+  max: raw("max"),
+};
+
+function stampAggregate<T extends Sql>(
+  fragment: T,
+  metadata: AggregateMetadata,
+): T {
+  AGGREGATE_METADATA.set(fragment, metadata);
+  return fragment;
+}
+
 /** `count(*)` (no argument) or `count(column)` aggregate expression. */
 export function count(column?: unknown): SqlExpression<number> {
-  const target = column === undefined ? raw("*") : columnToSql(column);
-  return sql`count(${target})` as SqlExpression<number>;
+  if (column === undefined) {
+    return stampAggregate(
+      sql`count(${raw("*")})` as SqlExpression<number>,
+      { fn: "count" },
+    );
+  }
+  const operand = columnToSql(column);
+  return stampAggregate(
+    sql`count(${operand})` as SqlExpression<number>,
+    { fn: "count", operand },
+  );
 }
 
 /** `count(distinct column)` aggregate expression. */
 export function countDistinct(column: unknown): SqlExpression<number> {
-  return sql`count(distinct ${columnToSql(column)})` as SqlExpression<number>;
+  const operand = columnToSql(column);
+  return stampAggregate(
+    sql`count(distinct ${operand})` as SqlExpression<number>,
+    { fn: "count", operand, distinct: true },
+  );
 }
 
 /** `sum(column)` aggregate expression. */
 export function sum(column: unknown): SqlExpression<number | null> {
-  return sql`sum(${columnToSql(column)})` as SqlExpression<number | null>;
+  const operand = columnToSql(column);
+  return stampAggregate(
+    sql`sum(${operand})` as SqlExpression<number | null>,
+    { fn: "sum", operand },
+  );
 }
 
 /** `avg(column)` aggregate expression. */
 export function avg(column: unknown): SqlExpression<number | null> {
-  return sql`avg(${columnToSql(column)})` as SqlExpression<number | null>;
+  const operand = columnToSql(column);
+  return stampAggregate(
+    sql`avg(${operand})` as SqlExpression<number | null>,
+    { fn: "avg", operand },
+  );
 }
 
 /** `min(column)` aggregate expression. */
 export function min<T = unknown>(column: unknown): SqlExpression<T | null> {
-  return sql`min(${columnToSql(column)})` as SqlExpression<T | null>;
+  const operand = columnToSql(column);
+  return stampAggregate(
+    sql`min(${operand})` as SqlExpression<T | null>,
+    { fn: "min", operand },
+  );
 }
 
 /** `max(column)` aggregate expression. */
 export function max<T = unknown>(column: unknown): SqlExpression<T | null> {
-  return sql`max(${columnToSql(column)})` as SqlExpression<T | null>;
+  const operand = columnToSql(column);
+  return stampAggregate(
+    sql`max(${operand})` as SqlExpression<T | null>,
+    { fn: "max", operand },
+  );
 }
 
 /**
@@ -271,10 +333,14 @@ export function max<T = unknown>(column: unknown): SqlExpression<T | null> {
  * `filter(sum(score), gte(bucket, cutoff))` renders
  * `sum("score") filter (where "bucket" >= $1)`. Supported natively by
  * PostgreSQL and by modern SQLite/libSQL, so it renders identically on every
- * shipped Sisal adapter. Neither MySQL nor MariaDB has `FILTER`, so rendering
- * for the (adapterless) `mysql` dialect throws a typed
- * `ORM_DIALECT_UNSUPPORTED` until the `CASE WHEN` fallback rendering lands
- * with the v0.7 adapter.
+ * shipped Sisal adapter. Neither MySQL nor MariaDB has `FILTER` (v0.6 C5
+ * probe), so under the `mysql` dialect the aggregate is rebuilt as the
+ * equivalent `agg(CASE WHEN condition THEN operand END)` —
+ * `count(*)` counts a literal `1`, `countDistinct` keeps its `DISTINCT` —
+ * which non-matching rows enter as SQL `NULL` and every aggregate skips.
+ * Only the aggregates this module exports carry the metadata that rebuild
+ * needs; a hand-written `` sql`…` `` aggregate still throws a typed
+ * `ORM_DIALECT_UNSUPPORTED` under `mysql`.
  */
 export function filter<T>(
   aggregate: SqlExpression<T>,
@@ -282,10 +348,24 @@ export function filter<T>(
 ): SqlExpression<T> {
   assertCondition(condition);
   const native = sql`${aggregate} filter (where ${condition.sql})`;
+  const metadata = AGGREGATE_METADATA.get(aggregate);
+  if (metadata === undefined) {
+    return dialectSql("filter (conditional aggregate)", {
+      postgres: native,
+      sqlite: native,
+      generic: native,
+    }) as SqlExpression<T>;
+  }
+  const name = AGGREGATE_NAME[metadata.fn];
+  const operand = metadata.operand ?? raw("1");
+  const caseForm = metadata.distinct === true
+    ? sql`${name}(distinct case when ${condition.sql} then ${operand} end)`
+    : sql`${name}(case when ${condition.sql} then ${operand} end)`;
   return dialectSql("filter (conditional aggregate)", {
     postgres: native,
     sqlite: native,
     generic: native,
+    mysql: caseForm,
   }) as SqlExpression<T>;
 }
 
@@ -341,6 +421,16 @@ const SQLITE_DATE_TRUNC_FORMAT: Record<DateTruncField, string> = {
   minute: "'%Y-%m-%d %H:%M:00'",
   second: "'%Y-%m-%d %H:%M:%S'",
 };
+// MySQL's DATE_FORMAT specifiers differ from strftime in exactly one place
+// that matters here: minutes are `%i` (strftime `%M`).
+const MYSQL_DATE_TRUNC_FORMAT: Record<DateTruncField, string> = {
+  year: "'%Y-01-01 00:00:00'",
+  month: "'%Y-%m-01 00:00:00'",
+  day: "'%Y-%m-%d 00:00:00'",
+  hour: "'%Y-%m-%d %H:00:00'",
+  minute: "'%Y-%m-%d %H:%i:00'",
+  second: "'%Y-%m-%d %H:%i:%s'",
+};
 
 /**
  * Portable timestamp truncation to a calendar `field`: renders
@@ -368,6 +458,7 @@ export function dateTrunc(
   return dialectSql("dateTrunc", {
     postgres: sql`date_trunc(${raw(unit)}, ${src})`,
     sqlite: sql`strftime(${raw(format)}, ${src})`,
+    mysql: sql`date_format(${src}, ${raw(MYSQL_DATE_TRUNC_FORMAT[field])})`,
   }) as SqlExpression<string>;
 }
 
@@ -380,6 +471,7 @@ export function now(): SqlExpression<string> {
   return dialectSql("now", {
     postgres: sql`now()`,
     sqlite: sql`datetime('now')`,
+    mysql: sql`now(6)`,
   }) as SqlExpression<string>;
 }
 
@@ -405,6 +497,17 @@ const DURATION_UNITS = [
   "minutes",
   "seconds",
 ] as const;
+
+// MySQL INTERVAL unit keywords per duration unit (fixed enum, never user
+// input, so it is safe inside raw()).
+const MYSQL_INTERVAL_UNIT: Record<string, string> = {
+  years: "year",
+  months: "month",
+  days: "day",
+  hours: "hour",
+  minutes: "minute",
+  seconds: "second",
+};
 
 // The non-zero (unit, value) pairs of a duration, validated as finite numbers.
 function durationParts(duration: DateDuration): Array<[string, number]> {
@@ -451,9 +554,19 @@ function dateShift(
     sqlite = sql`${sqlite}, ${`${signed >= 0 ? "+" : ""}${signed} ${unit}`}`;
   }
   sqlite = sql`${sqlite})`;
+  // MySQL/MariaDB: nested DATE_ADD calls, one per unit, with the (signed)
+  // quantity bound as a parameter and the unit keyword from a fixed enum.
+  let mysql = sql`${source}`;
+  for (const [unit, value] of parts) {
+    const signed = sign * value;
+    mysql = sql`date_add(${mysql}, interval ${signed} ${
+      raw(MYSQL_INTERVAL_UNIT[unit])
+    })`;
+  }
   return dialectSql("dateShift", {
     postgres: pg,
     sqlite,
+    mysql,
   }) as SqlExpression<string>;
 }
 
@@ -536,6 +649,7 @@ export function dateBin(
     postgres:
       sql`to_timestamp(floor(extract(epoch from ${src}) / ${n}) * ${n})`,
     sqlite: sql`datetime((unixepoch(${src}) / ${n}) * ${n}, 'unixepoch')`,
+    mysql: sql`from_unixtime(floor(unix_timestamp(${src}) / ${n}) * ${n})`,
   }) as SqlExpression<string>;
 }
 

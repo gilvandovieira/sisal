@@ -20,6 +20,15 @@ export type SisalDialectName =
 export interface SisalSchemaSnapshot {
   readonly version: typeof SCHEMA_SNAPSHOT_VERSION;
   readonly dialect?: SisalDialectName;
+  /**
+   * Engine variant behind `dialect` (e.g. `"mariadb"` for `mysql`) — the
+   * snapshot half of the `(engine, variant, version)` dialect identity
+   * decided in v0.6 (see `docs/mysql-readiness.md`). Optional and additive:
+   * older snapshots without it mean "base engine".
+   */
+  readonly dialectVariant?: string;
+  /** Minimum server version the snapshot's DDL targets (e.g. `"8.0.16"`). */
+  readonly dialectVersion?: string;
   readonly tables: readonly SisalTableSnapshot[];
   /**
    * Raw, dialect-specific DDL fragments (functions, triggers, extensions, …)
@@ -389,6 +398,12 @@ export function normalizeSchemaSnapshot(
   return {
     version: snapshot.version,
     ...(snapshot.dialect === undefined ? {} : { dialect: snapshot.dialect }),
+    ...(snapshot.dialectVariant === undefined
+      ? {}
+      : { dialectVariant: snapshot.dialectVariant }),
+    ...(snapshot.dialectVersion === undefined
+      ? {}
+      : { dialectVersion: snapshot.dialectVersion }),
     tables: [...(snapshot.tables ?? [])]
       .map(normalizeTableSnapshot)
       .sort(compareTables),

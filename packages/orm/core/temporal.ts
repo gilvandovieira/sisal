@@ -49,6 +49,12 @@ export function isTemporalSqlValue(value: unknown): value is TemporalSqlValue {
 }
 
 /** Serializes a Temporal value into the string shape drivers can bind safely. */
+/** True for the Temporal values whose serialization carries a `Z` suffix. */
+export function isTemporalInstantValue(value: unknown): boolean {
+  return value instanceof Temporal.Instant ||
+    value instanceof Temporal.ZonedDateTime;
+}
+
 export function serializeTemporalValue(value: TemporalSqlValue): string {
   if (value instanceof Temporal.ZonedDateTime) {
     return value.toInstant().toString();
@@ -192,7 +198,17 @@ function instantText(value: unknown): string {
   if (value instanceof Date) {
     return value.toISOString();
   }
-  return String(value).trim();
+  const text = String(value).trim();
+  // A designator-less literal has exactly one sane instant reading: UTC.
+  // Only the MySQL family produces these (its DATETIME/TIMESTAMP text has no
+  // zone suffix; the adapter writes instants as naive UTC) — PostgreSQL
+  // always renders an offset, so this branch never fires there.
+  if (
+    !/(?:[zZ]|[+-]\d{2}(?::?\d{2})?)$/u.test(text.replace(/\[[^\]]+\]$/u, ""))
+  ) {
+    return `${text.replace(" ", "T")}Z`;
+  }
+  return text;
 }
 
 function stripTimeZoneSuffix(value: string): string {

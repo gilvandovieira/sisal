@@ -40,6 +40,7 @@ import {
   assertCondition,
   cloneSqlQuery,
   type Condition,
+  type DialectIdentity,
   getResultMetadata,
   type InferProjection,
   normalizeSqlInput,
@@ -177,6 +178,13 @@ export interface Database<
   TRelations extends RelationsList = readonly [],
 > {
   readonly dialect: SqlDialect;
+  /**
+   * The full `(engine, variant, version)` identity queries render under.
+   * `dialect` is always present; `variant`/`version` are set when the adapter
+   * identified the server (e.g. MariaDB behind the `mysql` dialect), which is
+   * what lets version-gated capabilities light up (see `dialectGuard`).
+   */
+  readonly dialectIdentity: DialectIdentity;
   readonly query: DatabaseQuery<TSchema, TRelations>;
 
   execute<T = unknown>(
@@ -244,6 +252,10 @@ export interface DatabaseOptions<
 > {
   readonly driver?: OrmDriver;
   readonly dialect?: SqlDialect;
+  /** Engine variant behind the dialect (e.g. `"mariadb"`); see {@link DialectIdentity}. */
+  readonly variant?: string;
+  /** Server version string; see {@link DialectIdentity}. */
+  readonly version?: string;
   readonly logger?: Logger;
   /** Optional schema map that enables `db.query.<schemaKey>`. */
   readonly schema?: TSchema;
@@ -268,6 +280,8 @@ export function createDatabase<
   return new SisalDatabase<TSchema, TRelations>({
     driver: options.driver ?? noopOrmDriver(),
     dialect: options.dialect ?? "generic",
+    ...(options.variant === undefined ? {} : { variant: options.variant }),
+    ...(options.version === undefined ? {} : { version: options.version }),
     logger: options.logger,
     ...(options.schema === undefined ? {} : { schema: options.schema }),
     ...(options.relations === undefined
@@ -340,6 +354,8 @@ interface SisalDatabaseOptions<
 > {
   readonly driver: OrmDriver;
   readonly dialect: SqlDialect;
+  readonly variant?: string;
+  readonly version?: string;
   readonly logger?: Logger;
   readonly schema?: TSchema;
   readonly relations?: TRelations;
@@ -351,6 +367,7 @@ class SisalDatabase<
   TRelations extends RelationsList = readonly [],
 > implements Database<TSchema, TRelations> {
   readonly dialect: SqlDialect;
+  readonly dialectIdentity: DialectIdentity;
   readonly query: DatabaseQuery<TSchema, TRelations>;
   readonly #driver: OrmDriver;
   readonly #logger?: Logger;
@@ -362,6 +379,11 @@ class SisalDatabase<
   constructor(options: SisalDatabaseOptions<TSchema, TRelations>) {
     this.#driver = options.driver;
     this.dialect = options.dialect;
+    this.dialectIdentity = {
+      dialect: options.dialect,
+      ...(options.variant === undefined ? {} : { variant: options.variant }),
+      ...(options.version === undefined ? {} : { version: options.version }),
+    };
     this.#logger = options.logger;
     this.#schema = options.schema;
     this.#relations = options.relations;
@@ -604,6 +626,12 @@ class SisalDatabase<
         const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
           driver: transactionToDriver(tx),
           dialect: this.dialect,
+          ...(this.dialectIdentity.variant === undefined
+            ? {}
+            : { variant: this.dialectIdentity.variant }),
+          ...(this.dialectIdentity.version === undefined
+            ? {}
+            : { version: this.dialectIdentity.version }),
           logger: this.#logger,
           ...(this.#schema === undefined ? {} : { schema: this.#schema }),
           ...(this.#relations === undefined
@@ -660,7 +688,7 @@ class SisalDatabase<
     const input = typeof (statement as { toSql?: unknown }).toSql === "function"
       ? (statement as { toSql(): Sql }).toSql()
       : (statement as SqlInput);
-    return normalizeSqlInput(input, undefined, this.dialect);
+    return normalizeSqlInput(input, undefined, this.dialectIdentity);
   }
 
   async #runBatch(queries: SqlQuery[]): Promise<OrmQueryResult[]> {
@@ -696,7 +724,7 @@ class SisalDatabase<
     params: readonly SqlParameter[] | undefined,
     run: (rendered: SqlQuery) => Promise<OrmQueryResult<T>>,
   ): Promise<OrmQueryResult<T>> {
-    const rendered = normalizeSqlInput(query, params, this.dialect);
+    const rendered = normalizeSqlInput(query, params, this.dialectIdentity);
     const startedAt = performance.now();
 
     this.#debug({ sql: rendered.text }, "orm query started");
