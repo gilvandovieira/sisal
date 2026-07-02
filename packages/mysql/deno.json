@@ -1,0 +1,33 @@
+{
+  "name": "@sisal/mysql",
+  "version": "0.7.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./orm": "./orm/mod.ts",
+    "./migrate": "./migrate/mod.ts",
+    "./ddl": "./migrate/ddl.ts"
+  },
+  "license": "MIT",
+  "description": "MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.",
+  "keywords": [
+    "deno",
+    "jsr",
+    "sisal",
+    "mysql",
+    "mariadb",
+    "orm",
+    "migrations"
+  ],
+  "publish": {
+    "include": [
+      "README.md",
+      "mod.ts",
+      "orm/**/*.ts",
+      "migrate/**/*.ts",
+      "deno.json"
+    ],
+    "exclude": [
+      "**/*_test.ts"
+    ]
+  }
+}
