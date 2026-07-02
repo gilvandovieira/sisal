@@ -4,8 +4,8 @@
  * @module
  */
 
-import { SisalError } from "@sisal/orm";
-import type { Logger } from "@sisal/orm";
+import { SisalError } from "@sisal/core";
+import type { Logger } from "@sisal/core";
 import {
   assertValidSchemaSnapshot,
   diffSchemaSnapshots,
@@ -13,7 +13,7 @@ import {
   SCHEMA_SNAPSHOT_VERSION,
   type SisalSchemaSnapshot,
   type SisalSchemaSnapshotDiff,
-} from "@sisal/orm";
+} from "@sisal/core";
 
 import { splitSqlStatements } from "./sql_split.ts";
 
@@ -503,7 +503,7 @@ const EMPTY_SCHEMA_SNAPSHOT: SisalSchemaSnapshot = {
  * {@link SchemaChange}s, flagging destructive operations (drop table/column and
  * column type changes). A missing `from` treats every table as newly created.
  *
- * This builds on the schema snapshot helpers exported by `@sisal/orm`.
+ * This builds on the schema snapshot helpers exported by `@sisal/core`.
  * `@sisal/migrate` consumes snapshots; it does not create table metadata or
  * depend on any database adapter.
  */

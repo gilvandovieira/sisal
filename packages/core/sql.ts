@@ -2,7 +2,7 @@
  * Typed SQL fragments: the `sql` tag, identifier/parameter rendering, the
  * dialect-aware renderer, prepared-statement plans, and condition wrappers.
  *
- * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
+ * Part of `@sisal/core`; re-exported through `./mod.ts`.
  */
 
 import type { ColumnDefinition } from "./columns.ts";
@@ -15,6 +15,17 @@ import {
   serializeTemporalValue,
   type TemporalSqlValue,
 } from "./temporal.ts";
+
+/**
+ * Version of the public SQL fragment IR contract — the `Sql`/`SqlChunk`
+ * shapes, their render semantics, and the guard/dialect chunk data formats
+ * (see `docs/core-ir.md` for the full contract and compatibility policy).
+ * Additive changes (new chunk kinds, new optional fields, `meta`
+ * annotations) do not bump this; only a change that makes existing serialized
+ * chunks render differently would — and the golden per-dialect SQL suites
+ * exist to keep that from happening unnoticed.
+ */
+export const SQL_IR_VERSION = 1 as const;
 
 /** Normalized table name, optionally including a validated schema path. */
 export type TableName = string;
@@ -55,12 +66,15 @@ export type DialectGuardTarget = SqlDialect | {
 
 /**
  * A refinement that lifts a {@link dialectGuard} for identities it matches:
- * the identity's `variant` must equal `variant` (when set), and its `version`
- * must be **known** and at least `minVersion` (when set) — an unknown version
- * never lifts a guard (fail closed), so capabilities only light up when the
- * adapter has really identified the server.
+ * the identity's `dialect` must equal `dialect` (when set — scopes the
+ * exception to one of the guard's engines when a guard targets several), its
+ * `variant` must equal `variant` (when set), and its `version` must be
+ * **known** and at least `minVersion` (when set) — an unknown version never
+ * lifts a guard (fail closed), so capabilities only light up when the adapter
+ * has really identified the server.
  */
 export interface DialectGuardException {
+  readonly dialect?: SqlDialect;
   readonly variant?: string;
   readonly minVersion?: string;
 }
@@ -122,8 +136,20 @@ export interface Sql {
   readonly chunks: readonly SqlChunk[];
 }
 
+/**
+ * Opaque per-chunk annotations — the additive extension seam reserved by the
+ * v0.8 transformable-AST decision. The renderer never reads it; composition
+ * (the `sql` tag, `joinSql`, builder assembly) carries annotated chunks by
+ * reference, so an origin/AST capture attached here survives into the
+ * composed statement. A future introspectable AST can populate this slot as
+ * a minor, non-breaking version bump instead of reshaping `SqlChunk`.
+ */
+export type SqlChunkMeta = Readonly<Record<string, unknown>>;
+
 /** Internal chunk representation used by parameterized SQL fragments. */
-export type SqlChunk =
+export type SqlChunk = SqlChunkVariant & { readonly meta?: SqlChunkMeta };
+
+type SqlChunkVariant =
   | { readonly kind: "text"; readonly value: string }
   | {
     readonly kind: "param";
@@ -154,6 +180,42 @@ export type SqlChunk =
     readonly fallback?: Sql;
   }
   | { readonly kind: "sql"; readonly value: Sql };
+
+/**
+ * Returns a fragment whose chunks carry `meta` (merged over any existing
+ * annotations). Rendering is unaffected; the annotations ride along through
+ * composition — see {@link SqlChunkMeta}.
+ */
+export function withSqlChunkMeta(fragment: Sql, meta: SqlChunkMeta): Sql {
+  return makeSql(fragment.chunks.map((chunk) => ({
+    ...chunk,
+    meta: chunk.meta === undefined ? meta : { ...chunk.meta, ...meta },
+  })));
+}
+
+/** Reads a chunk's opaque annotations — see {@link SqlChunkMeta}. */
+export function sqlChunkMeta(chunk: SqlChunk): SqlChunkMeta | undefined {
+  return chunk.meta;
+}
+
+/**
+ * Types a fragment as a {@link SqlExpression} of `T` — the name-once handle
+ * for computed/metric expressions (v0.8 item 7). Assign it once and reuse it
+ * across a projection, `groupBy`, `having`, `orderBy`, and other expressions;
+ * every use re-renders the full expression, which is the portable reuse form
+ * (SQL alias references are not portable outside `ORDER BY`). Replaces the
+ * `as SqlExpression<T>` casts examples previously needed:
+ *
+ * ```ts
+ * const risingScore = expr<number>(
+ *   sql`${avg(votes)} * 2.0 + ${sum(comments)} * 0.5`,
+ * );
+ * db.select({ id, risingScore }).from(t).orderBy(desc(risingScore));
+ * ```
+ */
+export function expr<T>(fragment: Sql): SqlExpression<T> {
+  return fragment as SqlExpression<T>;
+}
 
 /** Boolean SQL condition wrapper used by query builders. */
 export interface Condition {
@@ -744,29 +806,58 @@ function guardApplies(
   },
   state: RenderState,
 ): boolean {
-  const targeted = chunk.unsupported.some((target) => {
+  return dialectGuardApplies(chunk, {
+    dialect: state.dialect,
+    ...(state.variant === undefined ? {} : { variant: state.variant }),
+    ...(state.version === undefined ? {} : { version: state.version }),
+  });
+}
+
+/**
+ * Evaluates a guard's declarative targets/exceptions against a dialect
+ * identity — the same fail-closed semantics the renderer applies to `guard`
+ * chunks, exposed so capability declarations ({@link dialectGuard} data and
+ * the core capability registry) can be queried without rendering: a
+ * variant-narrowed target matches only that variant, and a `minVersion`
+ * exception lifts the guard only when the identity's version is **known**
+ * and at least the floor.
+ */
+export function dialectGuardApplies(
+  spec: {
+    readonly unsupported: readonly DialectGuardTarget[];
+    readonly unless?: readonly DialectGuardException[];
+  },
+  identity: SqlDialect | DialectIdentity,
+): boolean {
+  const resolved = toDialectIdentity(identity);
+  const targeted = spec.unsupported.some((target) => {
     if (typeof target === "string") {
-      return target === state.dialect;
+      return target === resolved.dialect;
     }
-    if (target.dialect !== state.dialect) {
+    if (target.dialect !== resolved.dialect) {
       return false;
     }
-    return target.variant === undefined || target.variant === state.variant;
+    return target.variant === undefined || target.variant === resolved.variant;
   });
   if (!targeted) {
     return false;
   }
-  const lifted = (chunk.unless ?? []).some((exception) => {
+  const lifted = (spec.unless ?? []).some((exception) => {
     if (
-      exception.variant !== undefined && exception.variant !== state.variant
+      exception.dialect !== undefined && exception.dialect !== resolved.dialect
+    ) {
+      return false;
+    }
+    if (
+      exception.variant !== undefined && exception.variant !== resolved.variant
     ) {
       return false;
     }
     if (exception.minVersion !== undefined) {
-      if (state.version === undefined) {
+      if (resolved.version === undefined) {
         return false;
       }
-      if (compareServerVersions(state.version, exception.minVersion) < 0) {
+      if (compareServerVersions(resolved.version, exception.minVersion) < 0) {
         return false;
       }
     }

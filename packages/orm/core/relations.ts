@@ -5,32 +5,36 @@
  * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
  */
 
+import {
+  and,
+  type AnyTableDefinition,
+  type Condition,
+  eq,
+  inArray,
+  type InferSelect,
+  isColumn,
+  isTable,
+  or,
+  OrmError,
+  raw,
+  type SelectProjection,
+  type SelectProjectionValue,
+  type TableColumn,
+  type TableDefinition,
+} from "@sisal/core";
+import {
+  assertTable,
+  assertTableColumn,
+  isRecord,
+  isTemporalSqlValue,
+  serializeTemporalValue,
+} from "@sisal/core/unstable-internal";
 import type {
   Database,
   DatabaseQuery,
   DatabaseSchema,
   RawQueryExecutor,
 } from "./database.ts";
-import { OrmError } from "./errors.ts";
-import { and, eq, inArray, or } from "./operators.ts";
-import {
-  type Condition,
-  isColumn,
-  isRecord,
-  raw,
-  type SelectProjection,
-  type SelectProjectionValue,
-} from "./sql.ts";
-import {
-  type AnyTableDefinition,
-  assertTable,
-  assertTableColumn,
-  type InferSelect,
-  isTable,
-  type TableColumn,
-  type TableDefinition,
-} from "./table.ts";
-import { isTemporalSqlValue, serializeTemporalValue } from "./temporal.ts";
 
 /** Relational metadata list accepted by {@link createDatabase}. */
 export type RelationsList = readonly TableRelations[];

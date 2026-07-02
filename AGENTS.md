@@ -8,8 +8,11 @@ only at explicit adapter, runtime, or benchmark boundaries such as
 `npm:@libsql/client`, MySQL driver packages, and `npm:drizzle-orm` in
 benchmarks.
 
-- `packages/orm`: driverless schema, typed SQL, query builders, snapshots,
-  structured errors, and logger interfaces.
+- `packages/core`: the driverless compile target — schema primitives and
+  snapshots, the fragment SQL IR, expression operators, the dialect capability
+  registry, structured errors, and logger interfaces (extracted in v0.8).
+- `packages/orm`: the fluent query builders, `Database` facade, relations, and
+  typed function caller on top of `@sisal/core`, which it re-exports.
 - `packages/migrate`: adapter-neutral migration definitions, checksums,
   planning, drift checks, workflow helpers, generic execution, and the CLI.
 - `packages/pg`: PostgreSQL ORM and migration adapter boundary plus DDL
@@ -23,10 +26,12 @@ benchmarks.
 - `packages/mysql`: MySQL/MariaDB ORM and migration adapter boundary plus DDL
   generation.
 
-Keep dependency direction strict. `@sisal/orm` must stay driverless and must not
-import adapters, database drivers, runtime-specific adapter code, Pequi Logger,
-or application logging libraries. `@sisal/migrate` stays adapter-neutral and
-depends only on ORM-level contracts. Adapters may depend on `@sisal/orm` and
+Keep dependency direction strict. `@sisal/core` and `@sisal/orm` must stay
+driverless and must not import adapters, database drivers, runtime-specific
+adapter code, Pequi Logger, or application logging libraries. `@sisal/orm`
+depends on `@sisal/core` (non-public plumbing only via
+`@sisal/core/unstable-internal`). `@sisal/migrate` stays adapter-neutral and
+depends on `@sisal/core` only. Adapters may depend on `@sisal/orm` and
 `@sisal/migrate`; adapters must not import each other except for intentional,
 documented reuse through adapter package boundaries.
 

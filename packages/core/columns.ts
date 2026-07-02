@@ -1,7 +1,7 @@
 /**
  * The column builder factory and immutable `ColumnBuilder`.
  *
- * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
+ * Part of `@sisal/core`; re-exported through `./mod.ts`.
  */
 
 import { OrmError } from "./errors.ts";
@@ -111,6 +111,14 @@ export interface ColumnDefinition<T> {
    * developer-authored schema code. See `docs/security.md` (SEC-006).
    */
   readonly sqlDefault?: Sql;
+  /**
+   * A generated-column expression (`GENERATED ALWAYS AS (<expr>)
+   * STORED|VIRTUAL`), set by `.generatedAs(sql\`…\`)`. Like a `sqlDefault`,
+   * the expression is emitted into DDL verbatim — **trusted input**. `stored`
+   * defaults to `true` (the only form PostgreSQL supports; the SQLite and
+   * MySQL families also accept `VIRTUAL`).
+   */
+  readonly generatedAs?: { readonly sql: Sql; readonly stored: boolean };
   readonly onUpdate?: () => unknown;
 }
 
@@ -169,6 +177,20 @@ export interface ColumnBuilder<
   ): ColumnBuilder<T, TOptional, THasDefault>;
   /** Makes the column an array of its element type (Postgres `type[]`). */
   array(): ColumnBuilder<ColumnArray<T>, TOptional, THasDefault>;
+  /**
+   * Declares the column as `GENERATED ALWAYS AS (<expression>)`. The `sql`
+   * expression references sibling columns by their physical name (like a
+   * `CHECK` or a `sql` default) and is emitted into DDL verbatim. `stored`
+   * defaults to `true` — the only form PostgreSQL supports; pass
+   * `{ stored: false }` for a `VIRTUAL` column on the SQLite/MySQL families
+   * (the PostgreSQL DDL generator rejects a virtual generated column with a
+   * typed error). A generated column is computed by the database, so it is
+   * insert-optional and cannot also carry a `.default(...)`.
+   */
+  generatedAs(
+    expression: Sql,
+    options?: { readonly stored?: boolean },
+  ): ColumnBuilder<T, true, THasDefault>;
   /** Runs `fn` to produce a value applied on every `UPDATE` of the row. */
   $onUpdate(fn: () => NonNullable<T>): ColumnBuilder<T, TOptional, THasDefault>;
 }
@@ -477,6 +499,12 @@ class SisalColumnBuilder<
   }
 
   default(value: T | (() => T) | Sql): ColumnBuilder<T, TOptional, true> {
+    if (this.definition.generatedAs !== undefined) {
+      throw new OrmError(
+        "A generated column cannot also declare a default",
+        { code: "ORM_INVALID_COLUMN" },
+      );
+    }
     // A `sql` fragment is a server default (emitted as `DEFAULT <expr>`); any
     // other value is a client default applied through insert optionality.
     const serverDefault = isSql(value);
@@ -542,6 +570,32 @@ class SisalColumnBuilder<
     return new SisalColumnBuilder(
       { ...this.definition, array: true } as ColumnDefinition<ColumnArray<T>>,
       this.optionalInsert,
+      this.defaultInsert,
+    );
+  }
+
+  generatedAs(
+    expression: Sql,
+    options: { readonly stored?: boolean } = {},
+  ): ColumnBuilder<T, true, THasDefault> {
+    if (!isSql(expression)) {
+      throw new OrmError("generatedAs() expects a sql`...` expression", {
+        code: "ORM_INVALID_COLUMN",
+      });
+    }
+    if (this.definition.hasDefault) {
+      throw new OrmError(
+        "A generated column cannot also declare a default",
+        { code: "ORM_INVALID_COLUMN" },
+      );
+    }
+    // The database computes the value, so the column is always insert-optional.
+    return new SisalColumnBuilder(
+      {
+        ...this.definition,
+        generatedAs: { sql: expression, stored: options.stored ?? true },
+      },
+      true,
       this.defaultInsert,
     );
   }
@@ -696,6 +750,9 @@ export function cloneColumnDefinition<T>(
     ...(definition.sqlDefault === undefined
       ? {}
       : { sqlDefault: definition.sqlDefault }),
+    ...(definition.generatedAs === undefined
+      ? {}
+      : { generatedAs: definition.generatedAs }),
     ...(definition.onUpdate === undefined
       ? {}
       : { onUpdate: definition.onUpdate }),

@@ -1,0 +1,29 @@
+{
+  "name": "@sisal/core",
+  "version": "0.8.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./schema": "./schema.ts",
+    "./unstable-internal": "./internal.ts"
+  },
+  "license": "MIT",
+  "description": "Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer.",
+  "keywords": [
+    "deno",
+    "jsr",
+    "sisal",
+    "sql",
+    "ir",
+    "schema"
+  ],
+  "publish": {
+    "include": [
+      "README.md",
+      "*.ts",
+      "deno.json"
+    ],
+    "exclude": [
+      "**/*_test.ts"
+    ]
+  }
+}

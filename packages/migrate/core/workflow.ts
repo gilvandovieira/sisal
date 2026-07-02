@@ -17,7 +17,7 @@ import {
   serializeSchemaSnapshot,
   type SisalDialectName,
   type SisalSchemaSnapshot,
-} from "@sisal/orm";
+} from "@sisal/core";
 import { formatMigrationFilename, MigrationError } from "./mod.ts";
 
 /** Minimal filesystem surface used by the migration workflow. */

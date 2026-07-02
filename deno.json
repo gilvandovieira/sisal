@@ -1,5 +1,6 @@
 {
   "workspace": [
+    "./packages/core",
     "./packages/orm",
     "./packages/migrate",
     "./packages/pg",
@@ -26,14 +27,15 @@
   "imports": {
     "@db/postgres": "jsr:@db/postgres@^0.19.5",
     "@neon/serverless": "jsr:@neon/serverless@^1.0.0",
-    "@std/assert": "jsr:@std/assert@1"
+    "@std/assert": "jsr:@std/assert@1",
+    "@std/testing": "jsr:@std/testing@1"
   },
   "tasks": {
     "fmt": "deno fmt",
     "fmt:check": "deno fmt --check",
     "lint": "deno lint",
     "hooks:install": "git config core.hooksPath .githooks",
-    "check": "deno check packages/orm/mod.ts packages/migrate/mod.ts packages/migrate/cli.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/neon/mod.ts packages/neon/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts packages/libsql/mod.ts packages/libsql/migrate/mod.ts packages/mysql/mod.ts packages/mysql/migrate/mod.ts examples/postgres-family-basic/mod.ts examples/sqlite-family-basic/mod.ts examples/mysql-family-basic/mod.ts examples/postgres-family-showcase/mod.ts examples/sqlite-family-showcase/mod.ts examples/mysql-family-showcase/mod.ts examples/postgres-family-advanced-sql/mod.ts examples/mysql-family-advanced-sql/mod.ts examples/sqlite-family-advanced-sql/mod.ts examples/postgres-family-hot-feed/mod.ts examples/postgres-family-feed/mod.ts examples/sqlite-family-feed/mod.ts examples/mysql-family-feed/mod.ts examples/postgres-family-activity-vectors/mod.ts benchmarks/mod.ts perf/latency.ts perf/pg_driver_latency.ts perf/postgres_js_pool.ts perf/mysql_driver_survey.ts perf/mysql_ddl_probe.ts perf/mysql_variant_probe.ts",
+    "check": "deno check packages/core/mod.ts packages/orm/mod.ts packages/migrate/mod.ts packages/migrate/cli.ts packages/pg/mod.ts packages/pg/migrate/mod.ts packages/neon/mod.ts packages/neon/migrate/mod.ts packages/sqlite/mod.ts packages/sqlite/migrate/mod.ts packages/libsql/mod.ts packages/libsql/migrate/mod.ts packages/mysql/mod.ts packages/mysql/migrate/mod.ts examples/postgres-family-basic/mod.ts examples/sqlite-family-basic/mod.ts examples/mysql-family-basic/mod.ts examples/postgres-family-showcase/mod.ts examples/sqlite-family-showcase/mod.ts examples/mysql-family-showcase/mod.ts examples/postgres-family-advanced-sql/mod.ts examples/mysql-family-advanced-sql/mod.ts examples/sqlite-family-advanced-sql/mod.ts examples/postgres-family-hot-feed/mod.ts examples/postgres-family-feed/mod.ts examples/sqlite-family-feed/mod.ts examples/mysql-family-feed/mod.ts examples/postgres-family-activity-vectors/mod.ts benchmarks/mod.ts perf/latency.ts perf/pg_driver_latency.ts perf/postgres_js_pool.ts perf/mysql_driver_survey.ts perf/mysql_ddl_probe.ts perf/mysql_variant_probe.ts",
     "sisal": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi packages/migrate/cli.ts",
     "bench": "deno bench --allow-run=deno benchmarks/mod.ts",
     "perf:pg": "deno run --no-lock --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency.ts",
@@ -48,7 +50,7 @@
     "docs:matrix:check": "deno run --allow-read tools/generate_feature_matrix.ts --check",
     "audit": "deno run --allow-read --allow-net=api.osv.dev tools/check_advisories.ts",
     "publish:dry-run": "deno publish --dry-run",
-    "test": "deno test --allow-read packages/orm packages/migrate packages/pg packages/neon packages/sqlite packages/libsql packages/mysql tools/lint examples/postgres-family-advanced-sql/advanced_sql_test.ts examples/mysql-family-advanced-sql/advanced_sql_test.ts examples/sqlite-family-advanced-sql/advanced_sql_test.ts"
+    "test": "deno test --allow-read packages/core packages/orm packages/migrate packages/pg packages/neon packages/sqlite packages/libsql packages/mysql tools/lint examples/postgres-family-advanced-sql/advanced_sql_test.ts examples/mysql-family-advanced-sql/advanced_sql_test.ts examples/sqlite-family-advanced-sql/advanced_sql_test.ts"
   },
   "fmt": {
     "lineWidth": 80,

@@ -4,11 +4,29 @@
  * @module
  */
 
-export { OrmError } from "./errors.ts";
-export type { OrmErrorCode, OrmErrorOptions } from "./errors.ts";
+export { OrmError } from "@sisal/core";
+export type { OrmErrorCode, OrmErrorOptions } from "@sisal/core";
+export { assembleInsertFromSelect, assembleSelect } from "@sisal/core";
+export type {
+  AssembleInsertFromSelectParts,
+  AssembleSelectParts,
+  AssembleUpsert,
+} from "@sisal/core";
+export {
+  CAPABILITY_TARGETS,
+  capabilityGuard,
+  capabilitySupported,
+  DIALECT_CAPABILITIES,
+} from "@sisal/core";
+export type {
+  CapabilityTargetId,
+  DialectCapability,
+  SisalCapabilityId,
+} from "@sisal/core";
 export {
   compareServerVersions,
   dialectGuard,
+  dialectGuardApplies,
   dialectSql,
   emptySql,
   identifier,
@@ -26,8 +44,11 @@ export {
   renderSql,
   serializeSqlValue,
   sql,
+  SQL_IR_VERSION,
+  sqlChunkMeta,
   toSql,
-} from "./sql.ts";
+  withSqlChunkMeta,
+} from "@sisal/core";
 export type {
   ColumnName,
   Condition,
@@ -42,6 +63,7 @@ export type {
   SelectProjectionValue,
   Sql,
   SqlChunk,
+  SqlChunkMeta,
   SqlDialect,
   SqlExpression,
   SqlInput,
@@ -49,32 +71,43 @@ export type {
   SqlQuery,
   SubquerySource,
   TableName,
-} from "./sql.ts";
+} from "@sisal/core";
 export {
   and,
   arrayContained,
   arrayContains,
+  arrayExpr,
   arrayOverlaps,
   asc,
   avg,
   between,
+  coalesce,
   count,
   countDistinct,
   dateAdd,
   dateBin,
+  dateDiff,
   dateSub,
   dateTrunc,
+  denseRank,
   desc,
   eq,
   excluded,
   exists,
+  expr,
   filter,
+  greatest,
   gt,
   gte,
   ilike,
   inArray,
   isNotNull,
   isNull,
+  jsonExtract,
+  jsonTable,
+  lag,
+  lead,
+  least,
   like,
   lt,
   lte,
@@ -89,10 +122,20 @@ export {
   notLike,
   now,
   or,
+  over,
+  rank,
+  rowNumber,
   sum,
-} from "./operators.ts";
-export type { DateDuration, DateTruncField } from "./operators.ts";
-export { columns, createColumn } from "./columns.ts";
+} from "@sisal/core";
+export type {
+  DateDiffField,
+  DateDuration,
+  DateTruncField,
+  FrameBound,
+  WindowFrame,
+  WindowSpec,
+} from "@sisal/core";
+export { columns, createColumn } from "@sisal/core";
 export type {
   ColumnArray,
   ColumnBuilder,
@@ -106,9 +149,9 @@ export type {
   ReferentialOptions,
   TimeColumnMode,
   TimestampColumnMode,
-} from "./columns.ts";
-export { normalizeTemporalSqlValue } from "./temporal.ts";
-export type { TemporalParsingOptions, TemporalSqlValue } from "./temporal.ts";
+} from "@sisal/core";
+export { normalizeTemporalSqlValue } from "@sisal/core";
+export type { TemporalParsingOptions, TemporalSqlValue } from "@sisal/core";
 export {
   check,
   createSchemaSnapshot,
@@ -122,7 +165,7 @@ export {
   setDefaultColumnNaming,
   unique,
   uniqueIndex,
-} from "./table.ts";
+} from "@sisal/core";
 export type {
   AnyTableDefinition,
   ColumnDefinitionFromBuilder,
@@ -139,7 +182,7 @@ export type {
   TableConstraint,
   TableDefinition,
   UniqueConstraintBuilder,
-} from "./table.ts";
+} from "@sisal/core";
 export type {
   CompoundSelectBuilder,
   Cte,
@@ -155,6 +198,7 @@ export type {
   KeysetPage,
   KeysetSelectBuilder,
   PreparedQuery,
+  RecursiveCteBuilder,
   SelectBuilder,
   SetOperand,
   Subquery,

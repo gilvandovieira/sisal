@@ -86,17 +86,23 @@ untracked in the changelog.
 
 ## Architecture
 
-**Strict, one-directional package boundaries.** `@sisal/orm` is the driverless
-core. `@sisal/migrate` depends only on ORM-level contracts. The adapters
-(`@sisal/pg`, `@sisal/neon`, `@sisal/sqlite`, `@sisal/libsql`, and
-`@sisal/mysql`) depend on the ORM and migrate. **The ORM never imports an
-adapter or a database driver**. Adapters do not import each other except for
-intentional, documented reuse through an adapter boundary (Neon reuses
-PostgreSQL behavior through `@sisal/neon`). Each package's `deno.json` exposes
-narrow subpath exports (`./orm`, `./migrate`, `./ddl`; the migrate package also
-`./cli`, `./core`, and `./workflow`). During the v0.7 work most package
-manifests are `0.6.0`, while `@sisal/mysql` is `0.7.0` and already exposes `.`,
-`./orm`, `./migrate`, and `./ddl`.
+**Strict, one-directional package boundaries.** `@sisal/core` (`packages/core`,
+extracted in v0.8) is the driverless base: schema primitives, the fragment SQL
+IR, expression operators, the capability registry, and the dialect renderer.
+`@sisal/orm` builds the fluent query builders, `Database` facade, relations, and
+typed function caller on top of it and re-exports the whole core surface
+(existing `@sisal/orm` imports keep working). `@sisal/migrate` depends on
+**`@sisal/core` only**. The adapters (`@sisal/pg`, `@sisal/neon`,
+`@sisal/sqlite`, `@sisal/libsql`, and `@sisal/mysql`) depend on the ORM and
+migrate. **Core and the ORM never import an adapter or a database driver**.
+Adapters do not import each other except for intentional, documented reuse
+through an adapter boundary (Neon reuses PostgreSQL behavior through
+`@sisal/neon`). Each package's `deno.json` exposes narrow subpath exports
+(`./orm`, `./migrate`, `./ddl`; the migrate package also `./cli`, `./core`, and
+`./workflow`; `@sisal/core` exposes `.`, `./schema`, and the non-public
+`./unstable-internal` builder plumbing seam). See
+[docs/core-migration.md](docs/core-migration.md) for the extraction's import
+mapping.
 
 **The serializable schema snapshot is the spine that connects everything.** The
 flow is: `defineTable(...)` -> `createSchemaSnapshot(tables)` (normalize +
@@ -107,26 +113,32 @@ an adapter's pure DDL generator
 PostgreSQL DDL behavior). DDL generators emit **only additive SQL**; today that
 means `CREATE TABLE` and `ADD COLUMN`. Destructive diffs (drop/alter) are
 detected and returned in a separate `destructive` array, never emitted.
-`packages/orm/schema.ts` holds this snapshot contract and deliberately has no
-dependency on the rest of the ORM core. Current snapshot dialects are `generic`,
-`postgres`, `sqlite`, and `mysql`; optional `dialectVariant`/`dialectVersion`
-fields carry engine identity such as MariaDB vs MySQL.
+`packages/core/schema.ts` (`@sisal/core/schema`; `@sisal/orm/schema` re-exports
+it) holds this snapshot contract and deliberately has no dependency on the rest
+of the core. Current snapshot dialects are `generic`, `postgres`, `sqlite`, and
+`mysql`; optional `dialectVariant`/`dialectVersion` fields carry engine identity
+such as MariaDB vs MySQL.
 
-**`packages/orm/core/` is the heart**, split into coherent modules behind a
-barrel `mod.ts` (which re-exports the public surface and keeps the `@module`
-doc). The modules are `errors`, `sql`, `operators`, `columns`, `temporal`,
-`table`, `builders`, `relations`, `functions`, and `database`. Keep low-level
-concerns low, avoid runtime cycles, and export public symbols through
-`core/mod.ts` alongside their concern file. `sql.ts` owns the `sql` tag,
+**The heart is split across two packages since the v0.8 extraction.** The lower
+tier lives in **`packages/core/`** (`@sisal/core`): `error`, `logger`, `schema`,
+`errors`, `sql`, `capabilities`, `operators`, `columns`, `temporal`, and
+`table`, re-exported through its `mod.ts`. `sql.ts` owns the `sql` tag,
 identifier/parameter rendering, dialect-aware rendering, prepared-statement
-plans, and `Condition` wrappers. `table.ts` owns `defineTable`, table
-constraints, type inference, introspection, and `createSchemaSnapshot`.
-`builders.ts` owns immutable Select/Insert/Update/Delete, compound queries,
-CTEs/subqueries, keyset pagination, and prepared queries. `database.ts` owns the
-`Database` facade, `OrmDriver` contract, transactions, batches, and built-in
-drivers. To avoid a runtime cycle, `sql.ts` detects a query builder via the
-`QUERY_BUILDER_BRAND` symbol the builder classes stamp on themselves, rather
-than importing `./builders.ts`.
+plans, `Condition` wrappers, and the opaque `SqlChunk.meta` extension seam.
+`capabilities.ts` owns the declarative `(engine, variant, version-range)`
+capability registry that every dialect guard derives from. `table.ts` owns
+`defineTable`, table constraints, type inference, introspection, and
+`createSchemaSnapshot`. The upper tier stays in **`packages/orm/core/`**:
+`builders`, `relations`, `functions`, and `database`, behind the barrel
+`core/mod.ts` (which re-exports the full core surface plus the ORM tier —
+`@sisal/orm/core` is the compatibility path). `builders.ts` owns immutable
+Select/Insert/Update/Delete, compound queries, CTEs/subqueries, keyset
+pagination, and prepared queries. `database.ts` owns the `Database` facade,
+`OrmDriver` contract, transactions, batches, and built-in drivers. The ORM tier
+reaches non-public core plumbing only through `@sisal/core/unstable-internal` —
+never deep-import core module files. To avoid a runtime cycle, `sql.ts` detects
+a query builder via the `QUERY_BUILDER_BRAND` symbol the builder classes stamp
+on themselves, rather than importing the builders.
 
 **Adapters share the same boundary shape where practical.** `<adapter>/orm/`
 contains the dialect/executor/driver/pool-or-database/errors pieces that

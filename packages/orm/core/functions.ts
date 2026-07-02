@@ -11,21 +11,21 @@
 import {
   type ColumnBuilder,
   type ColumnDefinition,
-  isColumnBuilder,
-} from "./columns.ts";
-import type { Database } from "./database.ts";
-import { OrmError } from "./errors.ts";
-import {
-  attachResultMetadata,
   emptySql,
   identifier,
-  isRecord,
   joinSql,
-  paramSql,
+  OrmError,
   raw,
   type Sql,
-} from "./sql.ts";
-import type { ResultRowMetadata } from "./temporal.ts";
+} from "@sisal/core";
+import {
+  attachResultMetadata,
+  isColumnBuilder,
+  isRecord,
+  paramSql,
+  type ResultRowMetadata,
+} from "@sisal/core/unstable-internal";
+import type { Database } from "./database.ts";
 
 /** Column-builder map describing a function's positional arguments. */
 export type FunctionArgsConfig = Record<

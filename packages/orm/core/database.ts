@@ -4,7 +4,38 @@
  * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
  */
 
-import type { Logger } from "../logger.ts";
+import {
+  type AnyTableDefinition,
+  type ColumnDataType,
+  type ColumnValueMode,
+  type Condition,
+  count,
+  type DialectIdentity,
+  emptySql,
+  type InferProjection,
+  type InferSelect,
+  isTable,
+  type Logger,
+  normalizeSqlInput,
+  OrmError,
+  type SelectColumnRef,
+  type SelectProjection,
+  type Sql,
+  type SqlDialect,
+  type SqlInput,
+  type SqlParameter,
+  type SqlQuery,
+  type TableDefinition,
+  type TemporalParsingOptions,
+} from "@sisal/core";
+import {
+  assertCondition,
+  assertTable,
+  cloneSqlQuery,
+  decodeTemporalRow,
+  getResultMetadata,
+  type ResultColumnMetadata,
+} from "@sisal/core/unstable-internal";
 import {
   type Cte,
   CTE_DEFINITIONS,
@@ -14,6 +45,7 @@ import {
   type CteOperand,
   type DeleteBuilder,
   type InsertBuilder,
+  type RecursiveCteBuilder,
   type SelectBuilder,
   SisalDeleteBuilder,
   SisalInsertBuilder,
@@ -22,13 +54,11 @@ import {
   type UpdateBuilder,
   type WithQueryBuilder,
 } from "./builders.ts";
-import { OrmError } from "./errors.ts";
 import {
   createFunctionCall,
   type FunctionCall,
   type FunctionDefinition,
 } from "./functions.ts";
-import { count } from "./operators.ts";
 import {
   createDatabaseQuery,
   createRelationRegistry,
@@ -36,35 +66,6 @@ import {
   type RelationRegistry,
   type RelationsList,
 } from "./relations.ts";
-import {
-  assertCondition,
-  cloneSqlQuery,
-  type Condition,
-  type DialectIdentity,
-  getResultMetadata,
-  type InferProjection,
-  normalizeSqlInput,
-  type SelectColumnRef,
-  type SelectProjection,
-  type Sql,
-  type SqlDialect,
-  type SqlInput,
-  type SqlParameter,
-  type SqlQuery,
-} from "./sql.ts";
-import type { ColumnDataType, ColumnValueMode } from "./columns.ts";
-import {
-  type AnyTableDefinition,
-  assertTable,
-  type InferSelect,
-  isTable,
-  type TableDefinition,
-} from "./table.ts";
-import {
-  decodeTemporalRow,
-  type ResultColumnMetadata,
-  type TemporalParsingOptions,
-} from "./temporal.ts";
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
@@ -199,6 +200,16 @@ export interface Database<
 
   /** Names a common table expression; complete it with `.as(query)`. */
   $with(name: string): CteBuilder;
+  /**
+   * Names a recursive common table expression with an explicit column list;
+   * complete it with `.as((self) => base.unionAll(step))`. Renders
+   * `WITH RECURSIVE name (columns) AS (…)` (one `RECURSIVE` keyword covers
+   * mixed plain/recursive `WITH` lists).
+   */
+  $withRecursive<TColumn extends string>(
+    name: string,
+    columns: readonly TColumn[],
+  ): RecursiveCteBuilder<TColumn>;
   /** Begins a query whose `WITH` clause provides the given CTEs. */
   with(...ctes: Cte[]): WithQueryBuilder;
 
@@ -505,6 +516,54 @@ class SisalDatabase<
         return columns as Cte<
           { readonly [K in keyof TResult]-?: SelectColumnRef }
         >;
+      },
+    };
+  }
+
+  $withRecursive<TColumn extends string>(
+    name: string,
+    columnNames: readonly TColumn[],
+  ): RecursiveCteBuilder<TColumn> {
+    if (columnNames.length === 0) {
+      throw new OrmError(
+        "$withRecursive requires an explicit, non-empty column list",
+        { code: "ORM_INVALID_QUERY" },
+      );
+    }
+    return {
+      as: <TResult>(
+        build: (
+          self: Cte<{ readonly [K in TColumn]: SelectColumnRef }>,
+        ) => CteOperand<TResult>,
+      ): Cte<{ readonly [K in TColumn]: SelectColumnRef }> => {
+        // The self-reference exists before the body: its columns are the
+        // declared list, and its definition is filled in after the callback
+        // builds the body (the WeakMap entry is shared by reference).
+        const columns: Record<string, SelectColumnRef> = {};
+        for (const key of columnNames) {
+          columns[key] = {
+            name: key,
+            tableName: name,
+            dataType: "unknown",
+          } as unknown as SelectColumnRef;
+        }
+        // Register the reference first so `from(self)` works inside `build`.
+        CTE_DEFINITIONS.set(columns, {
+          name,
+          query: emptySql(),
+          recursive: true,
+          columnNames,
+        });
+        const self = columns as Cte<
+          { readonly [K in TColumn]: SelectColumnRef }
+        >;
+        CTE_DEFINITIONS.set(columns, {
+          name,
+          query: cteBodySql(build(self)),
+          recursive: true,
+          columnNames,
+        });
+        return self;
       },
     };
   }

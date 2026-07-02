@@ -1,10 +1,10 @@
 /**
  * Structured error type for the `@sisal/orm` core.
  *
- * Part of the `@sisal/orm` core; re-exported through `./mod.ts`.
+ * Part of `@sisal/core`; re-exported through `./mod.ts`.
  */
 
-import { SisalError } from "../error.ts";
+import { SisalError } from "./error.ts";
 
 /** Error codes emitted by ORM schema, SQL, driver, and transaction helpers. */
 export type OrmErrorCode =
