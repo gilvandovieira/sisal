@@ -11,9 +11,10 @@ Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
 > migration workflows, and adapter behavior may change before 1.0. Review
 > generated SQL and test migrations before using Sisal in production.
 
-Sisal is a Deno-first database toolkit, published to JSR, for typed schemas,
-safe SQL builders, schema snapshots, migration planning, and explicit database
-adapters.
+Sisal is a Deno-first **ORM and query builder**, published to JSR — typed
+schemas, safe SQL builders, schema snapshots, migration planning, and explicit
+database adapters — with **lightweight ETL and analytics capabilities** growing
+on the same driverless core.
 
 The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
 adapter-neutral. PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB
@@ -29,6 +30,19 @@ MySQL/MariaDB uses `npm:mysql2` by default with a lazy MariaDB connector opt-in.
 Sisal is inspired by useful vocabulary from the TypeScript database ecosystem,
 including Drizzle's fluent SQL-builder style, but it is not a compatibility
 layer and keeps its own driverless core, snapshot workflow, and adapter split.
+
+> [!NOTE]
+> **Scope — a toe in the water, not a replacement.** Sisal is first an ORM and
+> query builder. Its ETL and analytics layers ([v0.10](docs/v0.10.0-roadmap.md)
+> and [v0.11](docs/v0.11.0-roadmap.md), in progress) are deliberately small: a
+> typed rollup job with a single-run runner, and a typed query API over the
+> shapes it produces — all pushed down into your existing database, no extra
+> engine. The goal is to let a project already using Sisal for OLTP do
+> lightweight in-database rollups and analytical reads **without standing up a
+> separate stack on day one**. When a project outgrows that — real
+> orchestration, streaming, a warehouse, a BI platform — Sisal is meant to hand
+> off cleanly to a specialized tool, not to become one. It will not grow into a
+> scheduler, a worker queue, or an object-first ORM.
 
 ## Installing
 
@@ -259,6 +273,13 @@ database plan do not match.
   MySQL/MariaDB.
 - Structured `SisalError`, `OrmError`, and `MigrationError` classes plus
   configurable logger contracts.
+
+The v0.9 release also landed the substrate the ETL layer builds on — a portable
+advisory-lock/claim abstraction, an atomic load-and-advance checkpoint, and a
+replay-vs-retention guard. The `@sisal/etl` preview (a typed rollup job + a
+single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are the
+[v0.10](docs/v0.10.0-roadmap.md) and [v0.11](docs/v0.11.0-roadmap.md) roadmap
+milestones — lightweight by design, per the scope note above.
 
 ## Packages
 

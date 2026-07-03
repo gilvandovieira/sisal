@@ -9,7 +9,105 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
-## 0.9.0 - 2026-07-02
+### Security
+
+Resolves every open finding from the 0.9.0 security audit (SEC-008 through
+SEC-016; see [`docs/security.md`](docs/security.md)). Each fix is pinned by a
+test named for its finding id.
+
+- **SEC-008 (High) — MySQL-family advisory-lock mutual exclusion.**
+  `db.tryAdvisoryLock` now verifies ownership by reading the claimed row back
+  (owner-token equality) instead of trusting the affected-row count, so it is
+  correct on every engine regardless of the driver's found-rows flag. The
+  bundled `@sisal/mysql` pools additionally disable `CLIENT_FOUND_ROWS` (mysql2
+  `flags: ["-FOUND_ROWS"]`, MariaDB `foundRows: false`) so `tryInsert`'s
+  affected-row contract holds for the shipped drivers. **Behavior change:** on
+  the MySQL family a plain `UPDATE` that sets a row to its current values now
+  reports 0 affected rows (rows _changed_) rather than the number matched — see
+  `docs/mysql-compatibility.md`.
+- **SEC-009 (Medium) — MySQL/MariaDB TLS.** New `ssl` option on
+  `MysqlConnectionOptions` (`boolean | MysqlTlsOptions`), forwarded to mysql2,
+  the MariaDB connector, and the migrate driver. TLS-related URL query params
+  (`ssl-mode`, `sslmode`, …) are now rejected with a typed error instead of
+  being silently dropped (which had connected in cleartext).
+- **SEC-010 (Medium) — driver error-property leakage.** `redactErrorCause` now
+  recursively sanitizes a preserved driver `cause`: bind/statement properties
+  (`parameters`, `sql`, …) are dropped, credential-named properties masked, and
+  nested `cause` chains / `AggregateError` recursed. Sisal's own errors pass
+  through unchanged.
+- **SEC-011 (Low) — redaction gaps.** `redactSecrets` now covers
+  `encryptionKey`, URL passwords containing `@`/`/`, and SQL `IDENTIFIED BY '…'`
+  / `PASSWORD '…'`; `NeonError` extends `SisalError` (inheriting redaction);
+  `SisalError.details` (including `details.sql`) is redacted.
+- **SEC-012 (Low) — ETL checkpoint.** `prune` raises the retention horizon
+  before deleting source rows (crash-safe under the non-atomic batch fallback);
+  `unsafeAllowPrunedReplay` now warns instead of passing silently;
+  `etlCheckpoint` fails closed on the `generic` dialect.
+- **SEC-013 (Low) — MySQL migration lock.** The default `GET_LOCK` name is
+  namespaced by the current database (`sisal:migrate:<db>`), so unrelated
+  projects on a shared server no longer contend.
+- **SEC-014 (Low) — image pinning.** The `integration.yml` MySQL/MariaDB service
+  containers and the example compose images are digest-pinned; a new
+  `deno task check:images` (in CI) rejects any unpinned `image:`/`FROM`
+  reference; `--no-lock` dropped from the `perf:*` tasks.
+- **SEC-015 (Low) — release provenance.** The publish workflow refuses a
+  tag-push whose commit is not an ancestor of `main`; the doc tasks the
+  pre-commit hook runs use `--allow-run=deno` instead of a blanket
+  `--allow-run`.
+- **SEC-016 (Low) — core DDL.** `renderPortableExpression` rejects a portable
+  DDL expression carrying a bound parameter; index/unique/check constraint names
+  are validated as plain identifiers at the core boundary.
+- **SEC-007 residual — SQL splitter.** `splitSqlStatements` now handles
+  PostgreSQL `E'…'` backslash escapes and nested block comments (correctness on
+  trusted migration files).
+
+### Changed
+
+- **Security audit refresh at v0.9.0 (2026-07-02).** `docs/security.md` now
+  carries a full re-audit of the surface added since the 0.3.0 audit — the
+  `@sisal/core` extraction, the MySQL/MariaDB adapter, the opt-in postgres.js
+  driver, and the v0.9 ETL substrate — cross-checked against an independently
+  produced second audit and merged. No injection path was found; the refresh
+  raises nine open findings: **SEC-008 (High)** — MySQL-family found-rows
+  semantics break `tryInsert`/`tryAdvisoryLock` mutual exclusion (empirically
+  confirmed on MariaDB 11); **SEC-009 (Medium)** — the MySQL-family URL path
+  cannot require TLS and silently drops `ssl-mode` params; **SEC-010 (Medium)**
+  — bind values survive in driver-attached error properties; and six Lows
+  (SEC-011–SEC-016: redaction gaps, checkpoint prune ordering, server-global
+  MySQL migration lock, pinning gaps outside the SEC-002 perimeter, tag-publish
+  ancestry + hook permissions, core DDL defense-in-depth). `SECURITY.md` was
+  refreshed to the `0.9.x` support line, documents the new
+  `db.query`/`db.batch`/checkpoint escape surfaces and the two
+  deployment-affecting open findings, and gains a scoped-permission example for
+  MySQL/MariaDB migrations.
+- **v0.10 roadmap: security-hardening tasks scheduled.** All audit concerns are
+  now tracked as `docs/v0.10.0-roadmap.md` tasks **T1–T10** (SEC-008 through
+  SEC-016 plus the SEC-007 splitter residual), with per-task fix directions and
+  a new acceptance criterion tying the release to closing them; T1 (SEC-008) and
+  T5 (SEC-012) are called out as hard prerequisites of the ETL runner's
+  lock-serialization and checkpoint/replay acceptance criteria. The master
+  `docs/roadmap.md` v0.10 row and the `docs/security.md` findings table
+  cross-reference the task IDs.
+- **v0.10 roadmap: v0.9 Phase 6 deferrals triaged.** The seven items v0.9 left
+  _explicitly deferred_ are now tracked in `docs/v0.10.0-roadmap.md` as tasks
+  **CF1–CF7**. Three are scheduled into v0.10 as active work — CF1
+  (`postgres.js` as the default `@sisal/pg` driver + upstream `setNoDelay` fix),
+  CF2 (materialized-view Postgres rollup acceleration, investigate→build), and
+  CF3 (recursive-CTE `CYCLE`/`SEARCH`) — while CF4–CF7 (MySQL binary protocol,
+  typed `CREATE FUNCTION`, transformable AST, npm dual publish → v0.13+) stay
+  recorded but deferred past v0.10 per the release-sequencing discipline. The
+  v0.9 Phase 6 section links forward to the CF task IDs.
+- **v0.10 roadmap: ETL feature tasklist drawn up.** The `@sisal/etl` build work
+  — the release headline — is now tracked as tasks **T11–T23** in
+  `docs/v0.10.0-roadmap.md`, derived from the scope, execution model, and
+  acceptance criteria: package scaffold (T11), `defineJob` (T12), the `rollup()`
+  pushdown SQL (T13), checkpoint store (T14), window computation (T15), the
+  `run()` single-window runner (T16), `backfill`/`replay`/`status` (T17–T19),
+  `dry-run`/`explain` (T20), capability-gating (T21), scheduler docs (T22), and
+  the `post_events → post_hourly_stats` example + integration suite (T23). Each
+  task consumes the v0.9 ETL substrate (checkpoint contract, portable lock,
+  atomic load+advance, `WriteOutcome`) rather than reinventing it, and the
+  acceptance criteria now cite the tasks that discharge them.
 
 ### Added
 
