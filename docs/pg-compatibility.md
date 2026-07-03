@@ -5,17 +5,19 @@ title: PostgreSQL compatibility
 # PostgreSQL compatibility
 
 Sisal's PostgreSQL adapter (`@sisal/pg`) is verified end-to-end against a real
-server on every supported major version. The suite connects with the bundled
-`jsr:@db/postgres@0.19.5` driver, applies generated DDL, and exercises every
-adapter feature through the public API.
+server on every supported major version. The suite connects with the default
+driver — postgres.js (`npm:postgres`) since v0.10 (CF1) — applies generated DDL,
+and exercises every adapter feature through the public API; setting
+`SISAL_PG_DRIVER=db-postgres` re-runs it on the selectable pure-JSR
+`jsr:@db/postgres` driver.
 
-| Item            | Value                                                       |
-| --------------- | ----------------------------------------------------------- |
-| Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
-| Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (41 tests)                |
-| Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-07-01 — **41 / 41 passed** (pg16, pg17, pg18)          |
+| Item            | Value                                                                    |
+| --------------- | ------------------------------------------------------------------------ |
+| Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major)              |
+| Driver          | `npm:postgres@3.4.x` (default); `jsr:@db/postgres@0.19.5` selectable     |
+| Suite           | `integration/pg_features_test.ts` (50 tests)                             |
+| Runner          | `docker/Dockerfile` + `docker/compose.yaml`                              |
+| Last run        | 2026-07-02 — **50 / 50 passed** (pg16, pg17, pg18; both drivers on pg18) |
 
 ## Feature coverage
 

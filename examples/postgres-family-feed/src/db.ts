@@ -8,8 +8,8 @@
  * runs unchanged over all three** — only the connection differs. Pick one with
  * `SISAL_ADAPTER`:
  *
- * - `"pg"` (default) — `@sisal/pg` on `jsr:@db/postgres` (regular Postgres, TCP).
- * - `"pg-postgres-js"` — `@sisal/pg` on `npm:postgres` (the fast driver, 0.5.1+).
+ * - `"pg"` (default) — `@sisal/pg` on its default postgres.js driver (v0.10+).
+ * - `"pg-db-postgres"` — `@sisal/pg` on the pure-JSR `jsr:@db/postgres`.
  * - `"neon"` — `@sisal/neon` over a WebSocket (Neon / serverless). Interactive
  *   transactions still work; the activity recorder keeps everything single-
  *   statement/database-local anyway (see `src/activity.ts`).
@@ -33,7 +33,7 @@ export type { PgDatabase };
 export type FeedDatabase = PgDatabase;
 
 /** Which PostgreSQL-family driver {@link openDb} opens. */
-export type FeedAdapter = "pg" | "pg-postgres-js" | "neon";
+export type FeedAdapter = "pg" | "pg-db-postgres" | "neon";
 
 /** Reads an environment variable, tolerating a missing `--allow-env`. */
 export function readEnv(name: string): string | undefined {
@@ -70,11 +70,11 @@ export function getDirectUrl(): string {
 /** The selected driver, from `SISAL_ADAPTER` (defaults to `"pg"`). */
 export function getAdapter(): FeedAdapter {
   const raw = (readEnv("SISAL_ADAPTER") ?? "pg").trim();
-  if (raw === "pg" || raw === "pg-postgres-js" || raw === "neon") {
+  if (raw === "pg" || raw === "pg-db-postgres" || raw === "neon") {
     return raw;
   }
   throw new Error(
-    `Unknown SISAL_ADAPTER "${raw}"; use "pg", "pg-postgres-js", or "neon".`,
+    `Unknown SISAL_ADAPTER "${raw}"; use "pg", "pg-db-postgres", or "neon".`,
   );
 }
 
@@ -102,8 +102,8 @@ async function open(url: string): Promise<PgDatabase> {
       // `NeonDatabase` is structurally identical to `PgDatabase`.
       return await connectNeon({ url });
     }
-    case "pg-postgres-js":
-      return await connectPg({ url, driver: "postgres-js" });
+    case "pg-db-postgres":
+      return await connectPg({ url, driver: "db-postgres" });
     default:
       return await connectPg({ url });
   }

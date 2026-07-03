@@ -8,12 +8,27 @@ import { createPostgresJsPool } from "./postgres_js_pool.ts";
 /**
  * Which underlying driver an `@sisal/pg` URL connection uses.
  *
- * - `"db-postgres"` (default) — the pure-JSR `jsr:@db/postgres` driver.
- * - `"postgres-js"` — `npm:postgres` (postgres.js), which avoids the
- *   `@db/postgres` extended-protocol stall (see
- *   {@link createPostgresJsPool}).
+ * - `"postgres-js"` (default since v0.10) — `npm:postgres` (postgres.js),
+ *   imported lazily on first connect. Sets `TCP_NODELAY` and pipelines the
+ *   protocol, avoiding the `@db/postgres` extended-protocol stall (~40 ms per
+ *   parameterized query; see {@link createPostgresJsPool}).
+ * - `"db-postgres"` — the pure-JSR `jsr:@db/postgres` driver (the pre-v0.10
+ *   default). Select it to stay npm-free.
  */
 export type PgDriverKind = "db-postgres" | "postgres-js";
+
+/** The driver a URL connection uses when `options.driver` is not set. */
+export const DEFAULT_PG_DRIVER: PgDriverKind = "postgres-js";
+
+/**
+ * Resolves which {@link PgDriverKind} a URL connection will use — the
+ * explicit `options.driver` when given, otherwise {@link DEFAULT_PG_DRIVER}.
+ */
+export function resolvePgDriverKind(
+  options: Pick<PgConnectionOptions, "driver">,
+): PgDriverKind {
+  return options.driver ?? DEFAULT_PG_DRIVER;
+}
 
 /** A column descriptor from the driver's row description. */
 export interface PgResultColumn {
@@ -61,9 +76,10 @@ export interface PgConnectionOptions {
   readonly poolSize?: number;
   readonly lazy?: boolean;
   /**
-   * Driver used when connecting by `url`. Defaults to `"db-postgres"`
-   * (pure-JSR `@db/postgres`). Use `"postgres-js"` for postgres.js, which
-   * avoids the `@db/postgres` parameterized-query stall.
+   * Driver used when connecting by `url`. Defaults to `"postgres-js"`
+   * (postgres.js, lazily imported — avoids the `@db/postgres`
+   * parameterized-query stall). Use `"db-postgres"` for the pure-JSR
+   * `@db/postgres` driver.
    */
   readonly driver?: PgDriverKind;
   /**
@@ -130,17 +146,17 @@ export function resolvePgConnectionSource(
   }
 
   return {
-    pool: options.driver === "postgres-js"
-      ? createPostgresJsPool({
+    pool: resolvePgDriverKind(options) === "db-postgres"
+      ? createPgPool({
+        url: options.url,
+        poolSize: options.poolSize,
+        lazy: options.lazy,
+      })
+      : createPostgresJsPool({
         url: options.url,
         poolSize: options.poolSize,
         prepare: options.prepare,
         idleTimeout: options.idleTimeout,
-      })
-      : createPgPool({
-        url: options.url,
-        poolSize: options.poolSize,
-        lazy: options.lazy,
       }),
     ownsPool: true,
     ownsClient: false,

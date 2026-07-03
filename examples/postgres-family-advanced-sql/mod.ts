@@ -114,16 +114,16 @@ function databaseUrl(): string | undefined {
   return readEnv("DATABASE_URL");
 }
 
-function pgAdapter(): "pg" | "pg-postgres-js" | "neon" {
+function pgAdapter(): "pg" | "pg-db-postgres" | "neon" {
   const rawAdapter = (readEnv("SISAL_ADAPTER") ?? "pg").trim();
   if (
-    rawAdapter === "pg" || rawAdapter === "pg-postgres-js" ||
+    rawAdapter === "pg" || rawAdapter === "pg-db-postgres" ||
     rawAdapter === "neon"
   ) {
     return rawAdapter;
   }
   throw new Error(
-    `Unknown SISAL_ADAPTER "${rawAdapter}"; use "pg", "pg-postgres-js", or "neon".`,
+    `Unknown SISAL_ADAPTER "${rawAdapter}"; use "pg", "pg-db-postgres", or "neon".`,
   );
 }
 
@@ -142,8 +142,8 @@ async function openDb(url: string): Promise<PgDatabase> {
     }
     return await connectNeon({ url });
   }
-  if (adapter === "pg-postgres-js") {
-    return await connectPg({ url, driver: "postgres-js" });
+  if (adapter === "pg-db-postgres") {
+    return await connectPg({ url, driver: "db-postgres" });
   }
   return await connectPg({ url });
 }
@@ -165,7 +165,7 @@ if (import.meta.main) {
   if (url === undefined) {
     console.log(
       "\n(Set DATABASE_URL to execute the smoke run; " +
-        "SISAL_ADAPTER=pg|pg-postgres-js|neon selects the driver.)",
+        "SISAL_ADAPTER=pg|pg-db-postgres|neon selects the driver.)",
     );
   } else {
     await runLive(url);

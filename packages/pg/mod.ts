@@ -15,7 +15,9 @@ export {
   createPgOrmDriver,
   createPgPool,
   createPostgresJsPool,
+  DEFAULT_PG_DRIVER,
   POSTGRES_DIALECT,
+  resolvePgDriverKind,
 } from "./orm/mod.ts";
 export type {
   CreatePgDbOptions,

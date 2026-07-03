@@ -5,7 +5,7 @@
  * are set (mirrors the repo's `integration/` convention). It RESETS and reseeds
  * the target database, so point it at a scratch Neon branch (or local Postgres).
  * Connects through the example's own `openDb()`, so `SISAL_ADAPTER`
- * (`pg` default | `pg-postgres-js` | `neon`, plus `NEON_WS_PROXY` for a local
+ * (`pg` default | `pg-db-postgres` | `neon`, plus `NEON_WS_PROXY` for a local
  * proxy) runs the same chain over any PostgreSQL-family driver:
  *
  *   SISAL_NEON_ACTIVITY_VECTORS_IT=1 \

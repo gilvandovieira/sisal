@@ -80,6 +80,20 @@ Deno.test("@sisal/pg - ORM driver uses scoped transaction executor", async () =>
   ]);
 });
 
+Deno.test("@sisal/pg - a transaction-less executor yields a driver without transaction/batch", () => {
+  // The ORM facade then fails closed (ORM_TRANSACTION_UNSUPPORTED) instead of
+  // running transaction()/batch() statements non-atomically.
+  const executor: PgSqlExecutor = {
+    execute<Row = Record<string, unknown>>(): Promise<PgQueryResult<Row>> {
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    },
+  };
+  const driver = createPgOrmDriver({ executor });
+
+  assertEquals(driver.transaction, undefined);
+  assertEquals(driver.batch, undefined);
+});
+
 Deno.test("@sisal/pg - executor coerces float4/float8 → number, int8 → string, keeps numeric strings", async () => {
   // `@db/postgres` hands float4/float8 (OIDs 700/701) back as strings and int8
   // (20) as `BigInt`. The adapter coerces floats to `number` (v0.5 item 11 /

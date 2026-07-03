@@ -2,7 +2,9 @@
  * PostgreSQL adapter for `@sisal/orm`.
  *
  * Provides PostgreSQL query execution, connection pooling, dialect wiring, and
- * a database facade backed by `@db/postgres`-compatible clients.
+ * a database facade over `@db/postgres`-compatible clients. URL connections
+ * default to the postgres.js driver (`npm:postgres`, lazily imported) since
+ * v0.10; pass `driver: "db-postgres"` for the pure-JSR `jsr:@db/postgres`.
  *
  * @module
  */
@@ -36,7 +38,11 @@ export type {
   PgDriverKind,
   PgPool,
 } from "./pool.ts";
-export { createPgPool } from "./pool.ts";
+export {
+  createPgPool,
+  DEFAULT_PG_DRIVER,
+  resolvePgDriverKind,
+} from "./pool.ts";
 export { createPostgresJsPool } from "./postgres_js_pool.ts";
 export type { PostgresJsPoolOptions } from "./postgres_js_pool.ts";
 

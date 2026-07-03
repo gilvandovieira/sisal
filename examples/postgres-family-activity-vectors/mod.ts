@@ -7,7 +7,7 @@
  * vector** → similarity, plus daily/monthly **rollups** and event **pruning**.
  * This is deterministic SQL feature vectorization (set-based batch computation),
  * NOT pgvector / AI embeddings. Runs over any PostgreSQL-family driver via
- * `SISAL_ADAPTER` (`pg` default | `pg-postgres-js` | `neon`); see `src/db.ts`.
+ * `SISAL_ADAPTER` (`pg` default | `pg-db-postgres` | `neon`); see `src/db.ts`.
  *
  * Run the demo:
  *

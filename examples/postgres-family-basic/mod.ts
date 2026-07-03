@@ -7,8 +7,9 @@
  * `NeonDatabase` ≡ `PgDatabase`, so the same code runs over any driver; pick one
  * with `SISAL_ADAPTER`:
  *
- * - `"pg"` (default) — `@sisal/pg` on `jsr:@db/postgres`.
- * - `"pg-postgres-js"` — `@sisal/pg` on `npm:postgres`.
+ * - `"pg"` (default) — `@sisal/pg` on its default driver (postgres.js,
+ *   `npm:postgres`, since v0.10).
+ * - `"pg-db-postgres"` — `@sisal/pg` on the pure-JSR `jsr:@db/postgres`.
  * - `"neon"` — `@sisal/neon` over a WebSocket (set `NEON_WS_PROXY` for a local
  *   `neon-proxy`; omit for real Neon).
  *
@@ -61,15 +62,15 @@ if (url !== undefined) {
 }
 
 /** Which PostgreSQL-family driver to connect with, from `SISAL_ADAPTER`. */
-function getAdapter(): "pg" | "pg-postgres-js" | "neon" {
+function getAdapter(): "pg" | "pg-db-postgres" | "neon" {
   const raw = (readEnv("SISAL_ADAPTER") ?? "pg").trim();
-  if (raw === "pg" || raw === "pg-postgres-js" || raw === "neon") return raw;
+  if (raw === "pg" || raw === "pg-db-postgres" || raw === "neon") return raw;
   throw new Error(`Unknown SISAL_ADAPTER "${raw}".`);
 }
 
 async function openDb(
   url: string,
-  adapter: "pg" | "pg-postgres-js" | "neon",
+  adapter: "pg" | "pg-db-postgres" | "neon",
 ): Promise<PgDatabase> {
   if (adapter === "neon") {
     const wsProxy = readEnv("NEON_WS_PROXY");
@@ -84,8 +85,8 @@ async function openDb(
     }
     return await connectNeon({ url });
   }
-  if (adapter === "pg-postgres-js") {
-    return await connectPg({ url, driver: "postgres-js" });
+  if (adapter === "pg-db-postgres") {
+    return await connectPg({ url, driver: "db-postgres" });
   }
   return await connectPg({ url });
 }
