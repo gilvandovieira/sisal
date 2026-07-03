@@ -338,12 +338,12 @@ comparison. Sisal's `.keyset({ orderBy, after, form? })` infers the cursor type
 from the `orderBy` columns, emits the matching predicate (the default expanded
 `or`/`and` form, or a `"row-value"` comparison for a uniform sort direction)
 plus the `ORDER BY`, and returns a builder whose `.limit(n).execute()` yields
-`{ rows, nextCursor }` (a `nextCursor` only when a full page came back). End
-`orderBy` with a unique column (e.g. the primary key) so the order is total. For
-date/time cursors, prefer DB-returned cursor values and keep a unique final
-tiebreaker; PostgreSQL timestamps store microseconds, JS `Date` stores
-milliseconds, and Temporal can represent nanoseconds. Asserted by
-`packages/orm/keyset_test.ts`.
+`{ rows, nextCursor }` (the query probes one row past the page, so a
+`nextCursor` comes back only when a next page actually exists). End `orderBy`
+with a unique column (e.g. the primary key) so the order is total. For date/time
+cursors, prefer DB-returned cursor values and keep a unique final tiebreaker;
+PostgreSQL timestamps store microseconds, JS `Date` stores milliseconds, and
+Temporal can represent nanoseconds. Asserted by `packages/orm/keyset_test.ts`.
 
 ---
 

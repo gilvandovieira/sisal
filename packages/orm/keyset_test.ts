@@ -1,8 +1,8 @@
 /**
  * Tests for keyset (cursor) pagination: the expanded `or`/`and` and row-value
  * predicate forms, `ORDER BY` emission, ascending/descending comparators,
- * `nextCursor` derivation from a full page, cursor-type inference, and the
- * validation guards.
+ * `nextCursor` derivation via the limit+1 probe row (an exact final page
+ * yields `null`), cursor-type inference, and the validation guards.
  */
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import {
@@ -82,7 +82,9 @@ Deno.test("keyset: expanded form ANDs with an existing where", () => {
       '("posts"."created_at" = $3 and "posts"."id" < $4)) ' +
       'order by "posts"."created_at" desc, "posts"."id" desc limit $5',
   );
-  assertEquals(rendered.params, ["published", date, date, "p1", 2]);
+  // limit binds page size + 1: the probe row signals whether a next page
+  // exists without ever being returned.
+  assertEquals(rendered.params, ["published", date, date, "p1", 3]);
 });
 
 Deno.test("keyset: row-value form emits (a, b) < (x, y)", () => {
@@ -99,7 +101,7 @@ Deno.test("keyset: row-value form emits (a, b) < (x, y)", () => {
     'select * from "posts" where ("posts"."created_at", "posts"."id") < ' +
       '($1, $2) order by "posts"."created_at" desc, "posts"."id" desc limit $3',
   );
-  assertEquals(rendered.params, [date, "p1", 2]);
+  assertEquals(rendered.params, [date, "p1", 3]);
 });
 
 Deno.test("keyset: ascending terms use the > comparator", () => {
@@ -118,6 +120,8 @@ Deno.test("keyset: nextCursor comes from the last row of a full page", async () 
   const rows = [
     { id: "a", status: "x", hot_score: 9, created_at: date },
     { id: "b", status: "x", hot_score: 8, created_at: date },
+    // The limit+1 probe row: proves a next page exists, never returned.
+    { id: "c", status: "x", hot_score: 7, created_at: date },
   ];
   const database = createDatabase({
     driver: rowsDriver(rows),
@@ -131,7 +135,7 @@ Deno.test("keyset: nextCursor comes from the last row of a full page", async () 
     ],
   }).limit(2).execute();
 
-  assertEquals(page.rows, rows);
+  assertEquals(page.rows, rows.slice(0, 2));
   assertEquals(page.nextCursor, { hot_score: 8, created_at: date, id: "b" });
 
   // Cursor type is inferred from the orderBy columns.
@@ -155,6 +159,25 @@ Deno.test("keyset: a partial page yields a null nextCursor", async () => {
   const page = await database.select().from(posts).keyset({
     orderBy: [desc(posts.columns.hot_score), desc(posts.columns.id)],
   }).limit(2).execute();
+  assertEquals(page.nextCursor, null);
+});
+
+Deno.test("keyset: an exact final page yields a null nextCursor", async () => {
+  // Exactly `limit` rows remain and no probe row comes back: this is the last
+  // page, so no cursor — a cursor here would lead to an empty page.
+  const rows = [
+    { id: "a", status: "x", hot_score: 9, created_at: date },
+    { id: "b", status: "x", hot_score: 8, created_at: date },
+  ];
+  const database = createDatabase({
+    driver: rowsDriver(rows),
+    dialect: "postgres",
+  });
+  const page = await database.select().from(posts).keyset({
+    orderBy: [desc(posts.columns.hot_score), desc(posts.columns.id)],
+  }).limit(2).execute();
+
+  assertEquals(page.rows, rows);
   assertEquals(page.nextCursor, null);
 });
 

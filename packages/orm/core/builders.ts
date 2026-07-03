@@ -99,13 +99,21 @@ export interface KeysetOptions<
 /** A page returned by a keyset query: the rows plus the cursor for the next page. */
 export interface KeysetPage<TRow, TCursor> {
   readonly rows: TRow[];
-  /** Cursor for the next page, or `null` when this was the last (partial) page. */
+  /**
+   * Cursor for the next page, or `null` when this was the last page — even
+   * when the last page is exactly `limit` rows long (the query probes one row
+   * past the page to know).
+   */
   readonly nextCursor: TCursor | null;
 }
 
 /** A keyset-paginated select; set the page size with `.limit(n)` then run it. */
 export interface KeysetSelectBuilder<TRow, TCursor> {
-  /** Sets the page size. Required to derive a `nextCursor`. */
+  /**
+   * Sets the page size. Required to derive a `nextCursor`. The rendered query
+   * fetches `count + 1` rows — the extra probe row (never returned) is what
+   * signals that a next page exists.
+   */
   limit(count: number): KeysetSelectBuilder<TRow, TCursor>;
   toSql(): Sql;
   execute(): Promise<KeysetPage<TRow, TCursor>>;
@@ -1414,10 +1422,14 @@ class SisalKeysetSelectBuilder<TRow, TCursor>
   }
 
   limit(count: number): KeysetSelectBuilder<TRow, TCursor> {
+    const pageSize = normalizePositiveInteger(count, "limit");
+    // Fetch one row past the page: its presence is the only reliable
+    // "another page exists" signal, so an exact final page yields a null
+    // nextCursor instead of a cursor to an empty page.
     return new SisalKeysetSelectBuilder<TRow, TCursor>(
-      this.#builder.limit(count),
+      this.#builder.limit(pageSize + 1),
       this.#keys,
-      Math.floor(count),
+      pageSize,
     );
   }
 
@@ -1426,25 +1438,19 @@ class SisalKeysetSelectBuilder<TRow, TCursor>
   }
 
   async execute(): Promise<KeysetPage<TRow, TCursor>> {
-    const rows = await this.#builder.execute();
-    return { rows, nextCursor: this.#nextCursor(rows) };
-  }
-
-  // A nextCursor exists only when a full page came back (rows.length === limit);
-  // a short page is the last page.
-  #nextCursor(rows: readonly TRow[]): TCursor | null {
-    if (
-      this.#limit === undefined || rows.length === 0 ||
-      rows.length < this.#limit
-    ) {
-      return null;
+    const fetched = await this.#builder.execute();
+    // Without the extra probe row the fetched page is the last page.
+    if (this.#limit === undefined || fetched.length <= this.#limit) {
+      return { rows: fetched, nextCursor: null };
     }
+
+    const rows = fetched.slice(0, this.#limit);
     const last = rows[rows.length - 1] as Record<string, unknown>;
     const cursor: Record<string, unknown> = {};
     for (const key of this.#keys) {
       cursor[key] = last[key];
     }
-    return cursor as TCursor;
+    return { rows, nextCursor: cursor as TCursor };
   }
 }
 
