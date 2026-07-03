@@ -327,6 +327,7 @@ async function writeOrCheck(path: string, content: string): Promise<void> {
 async function denoDocJson(path: string): Promise<DocJson> {
   const command = new Deno.Command("deno", {
     args: ["doc", "--json", "--frozen", path],
+    clearEnv: true,
     stdout: "piped",
     stderr: "piped",
   });

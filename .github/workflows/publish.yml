@@ -27,6 +27,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history so the tag-ancestry guard can prove the tagged commit
+          # is reachable from main (SEC-015).
+          fetch-depth: 0
 
       - name: Setup Deno
         uses: denoland/setup-deno@667a34cdef165d8d2b2e98dde39547c9daac7282 # v2
@@ -77,6 +81,16 @@ jobs:
         run: |
           echo "::error::Manual publishing must run from the main branch."
           exit 1
+
+      - name: Refuse tag publish not on main
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at a commit that is" \
+              "not on main; refusing to publish."
+            exit 1
+          fi
 
       - name: Publish workspace
         if: >-

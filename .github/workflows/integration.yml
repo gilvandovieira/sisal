@@ -121,7 +121,7 @@ jobs:
     timeout-minutes: 20
     services:
       mysql:
-        image: mysql:8.4
+        image: mysql:8.4@sha256:d36d39a64cd12a5c1cc9e6aa2bfb5f8d4c81a2f6586e0a04a9ae13939db02209
         env:
           MYSQL_ROOT_PASSWORD: mysql
           MYSQL_DATABASE: sisal
@@ -156,7 +156,7 @@ jobs:
     timeout-minutes: 20
     services:
       mariadb:
-        image: mariadb:11
+        image: mariadb:11@sha256:efb4959ef2c835cd735dbc388eb9ad6aab0c78dd64febcd51bc17481111890c4
         env:
           MARIADB_ROOT_PASSWORD: mariadb
           MARIADB_DATABASE: sisal
