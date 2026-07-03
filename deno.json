@@ -24,6 +24,7 @@
     "./examples/sqlite-family-feed",
     "./examples/mysql-family-feed",
     "./examples/postgres-family-activity-vectors",
+    "./examples/postgres-family-etl-cron",
     "./benchmarks"
   ],
   "imports": {

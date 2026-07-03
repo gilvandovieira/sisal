@@ -1,0 +1,10 @@
+{
+  "name": "@sisal/example-postgres-family-etl-cron",
+  "version": "0.10.0",
+  "exports": "./mod.ts",
+  "publish": false,
+  "tasks": {
+    "sql": "deno run --allow-read mod.ts",
+    "run": "deno run --unstable-cron --allow-env --allow-net --allow-read mod.ts"
+  }
+}

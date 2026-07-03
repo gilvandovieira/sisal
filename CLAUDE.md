@@ -48,6 +48,11 @@ DATABASE_URL=postgres://postgres:postgres@localhost:55418/sisal \
   deno test --allow-net --allow-env --allow-read integration/pg_features_test.ts
 scripts/pg-matrix.sh            # runs all three versions + prints the matrix
 
+# ETL (@sisal/etl) — acceptance + failure/limits batteries, Postgres-gated
+DATABASE_URL=postgres://postgres:postgres@localhost:55418/sisal \
+  deno test --allow-net --allow-env --allow-read \
+  integration/etl_features_test.ts integration/etl_limits_test.ts
+
 # Neon local WebSocket proxy - Docker compose supplies the proxy and Postgres
 docker compose -f docker/compose.yaml up -d neon-proxy
 NEON_DATABASE_URL=postgres://postgres:postgres@localhost/sisal \
