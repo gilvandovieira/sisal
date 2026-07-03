@@ -14,15 +14,16 @@ explicit database adapters.
 | `@sisal/core`    | `@sisal/core`    | Schema primitives, SQL IR, operators, capabilities |
 | `@sisal/orm`     | `@sisal/orm`     | Database facade, fluent builders, relations, calls |
 | `@sisal/migrate` | `@sisal/migrate` | Migration definitions, planning, workflow, CLI     |
+| `@sisal/etl`     | `@sisal/etl`     | Rollup jobs, window math, runner APIs, status      |
 | `@sisal/pg`      | `@sisal/pg`      | PostgreSQL ORM, migration adapter, DDL             |
 | `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL ORM/migrations          |
 | `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite ORM, migration adapter, DDL                 |
 | `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
 | `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
 
-The manifests in this workspace are currently `0.9.0`; this page reflects the
-current tree, including v0.9 API additions such as structured logging controls
-and `await using` disposal aliases.
+The manifests in this workspace are currently `0.10.0`; this page reflects the
+current tree, including the v0.10 ETL package and v0.9 API additions such as
+structured logging controls and `await using` disposal aliases.
 
 ## Subpath Exports
 
@@ -33,6 +34,7 @@ Each package exposes smaller import boundaries:
 | `@sisal/core`    | `.`, `./schema`, `./unstable-internal`           |
 | `@sisal/orm`     | `.`, `./core`, `./schema`, `./error`, `./logger` |
 | `@sisal/migrate` | `.`, `./core`, `./workflow`, `./cli`             |
+| `@sisal/etl`     | `.`                                              |
 | `@sisal/pg`      | `.`, `./orm`, `./migrate`, `./ddl`               |
 | `@sisal/neon`    | `.`, `./orm`, `./migrate`, `./ddl`               |
 | `@sisal/sqlite`  | `.`, `./orm`, `./migrate`, `./ddl`               |
@@ -504,6 +506,35 @@ runs PostgreSQL DDL through the Neon adapter. Logging flags are `--log-level`,
 
 `generate` emits only non-destructive SQL. Destructive drop/alter changes are
 reported and withheld so captured snapshots do not get ahead of emitted SQL.
+
+---
+
+# `@sisal/etl`
+
+`@sisal/etl` defines adapter-neutral rollup jobs on top of Sisal schema metadata
+and SQL fragments. The job model and SQL compiler stay `@sisal/core`-based; the
+runner APIs execute through a caller-supplied Sisal `Database`, so adapters stay
+outside the package boundary.
+
+## Jobs And SQL
+
+- `defineJob(config)` validates the source table, target table, grain, window
+  column, group keys, and aggregate projections.
+- `rollup(job, window)` compiles a half-open window into the insert-from-select
+  rollup SQL.
+- `explain(job, window, options?)` returns the SQL and parameters without
+  executing it.
+- `supportsJob(job, identity)` and `assertJobSupported(job, identity)` apply the
+  dialect support gate before execution.
+
+## Windows And Runners
+
+- `truncateToGrain`, `addGrain`, `windowAt`, `windowsInRange`, and `nextWindow`
+  provide UTC bucket and half-open range helpers.
+- `run(db, job, options?)` folds one checkpoint-driven window.
+- `backfill(db, job, range, options?)` replays a deterministic historical range.
+- `replay(db, job, window, options?)` re-runs one idempotent window.
+- `status(db, job, options?)` reports checkpoint state and the next run window.
 
 ---
 

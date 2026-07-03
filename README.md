@@ -49,21 +49,21 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.9.0 \
-  jsr:@sisal/migrate@0.9.0 \
-  jsr:@sisal/pg@0.9.0
+deno add jsr:@sisal/orm@0.10.0 \
+  jsr:@sisal/migrate@0.10.0 \
+  jsr:@sisal/pg@0.10.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
 and one adapter package. Swap only the adapter for the database runtime you use.
 
-| Target        | Install                                                                          |
-| ------------- | -------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/pg@0.9.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/neon@0.9.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/sqlite@0.9.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/libsql@0.9.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/mysql@0.9.0`  |
+| Target        | Install                                                                             |
+| ------------- | ----------------------------------------------------------------------------------- |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/pg@0.10.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/neon@0.10.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/sqlite@0.10.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/libsql@0.10.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/mysql@0.10.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -197,7 +197,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.9.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.10.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
