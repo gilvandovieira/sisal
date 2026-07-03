@@ -98,11 +98,18 @@ export function createMysqlMigrationHistoryStore(
       return false;
     }
 
-    const name = namedLockName(lockId);
+    // Validate an explicit lock id up front, before opening a connection.
+    const explicitName = lockId === undefined
+      ? undefined
+      : namedLockName(lockId);
     const session = await acquireSession();
     let released = false;
 
     try {
+      // The default lock id is namespaced by the current database, so unrelated
+      // Sisal projects on a shared server do not serialize on one server-global
+      // name (SEC-013). An explicit id is used verbatim.
+      const name = explicitName ?? await defaultLockName(session);
       // Timeout 0 = try-lock (the pg_try_advisory_lock parity).
       const result = await session.execute<NamedLockRow>(
         "select get_lock(?, 0) as `acquired`",
@@ -315,6 +322,38 @@ function namedLockName(lockId?: string): string {
   }
 
   return normalized;
+}
+
+// Namespaces the default migration lock name by the current database, so two
+// Sisal projects sharing a MySQL server do not contend on one server-global
+// `GET_LOCK` name (SEC-013). Falls back to the bare id when there is no current
+// database, and to a hashed suffix when the database name would push the
+// composed name past MySQL's 64-character `GET_LOCK` limit.
+async function defaultLockName(session: SqlExecutorSession): Promise<string> {
+  const result = await session.execute<{ db?: unknown }>(
+    "select database() as `db`",
+  );
+  const raw = result.rows[0]?.db;
+  const database = typeof raw === "string" ? raw.trim() : "";
+  if (database.length === 0) {
+    return DEFAULT_MYSQL_MIGRATION_LOCK_ID;
+  }
+  const composed = `${DEFAULT_MYSQL_MIGRATION_LOCK_ID}:${database}`;
+  if (composed.length <= MYSQL_LOCK_NAME_MAX_LENGTH) {
+    return composed;
+  }
+  return `${DEFAULT_MYSQL_MIGRATION_LOCK_ID}:${fnv1aHex(database)}`;
+}
+
+// FNV-1a 32-bit → 8 hex chars. A stable, dependency-free hash used only to keep
+// a very long database name's lock namespace within the 64-char ceiling.
+function fnv1aHex(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 // GET_LOCK/RELEASE_LOCK return BIGINT 1/0 or NULL — and the mandated

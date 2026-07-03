@@ -9,8 +9,14 @@
  * on the Postgres and SQLite families (a row comes back **iff** the insert won,
  * so the outcome is exact), and reads the affected-row count on the MySQL family
  * (no usable `RETURNING` on a no-op upsert — the count is 1 on insert, 0 on a
- * conflict). This is what lets the advisory-lock claim (T11) and future
- * queue-claim helpers report claimed-vs-not portably.
+ * conflict). The MySQL count is only unambiguous when the connection has
+ * `CLIENT_FOUND_ROWS` **disabled** — otherwise a conflicting no-op upsert also
+ * reports one row, and the outcome reads as an insert (SEC-008). The bundled
+ * `@sisal/mysql` pools disable it (`flags: ["-FOUND_ROWS"]` / `foundRows:
+ * false`); a caller who injects their own pool/client must do the same. The
+ * advisory-lock claim (T11) does not rely on this — it verifies ownership by
+ * reading the row back — but future count-based queue-claim helpers depend on
+ * the found-rows setting.
  *
  * Part of the `@sisal/orm` core.
  *

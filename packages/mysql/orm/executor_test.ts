@@ -8,7 +8,12 @@
  *
  * @module
  */
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { columns, defineTable, eq, excluded } from "@sisal/orm";
 
 import { Buffer } from "node:buffer";
@@ -16,7 +21,8 @@ import { Buffer } from "node:buffer";
 import { connect } from "./mod.ts";
 import { createMysqlOrmDriver } from "./driver.ts";
 import { createMysqlExecutor } from "./executor.ts";
-import { adaptMariadbPool } from "./mariadb_pool.ts";
+import { adaptMariadbPool, mariadbConfigFromUrl } from "./mariadb_pool.ts";
+import { mysqlConfigFromUrl } from "./pool.ts";
 import { parseMysqlServerVersion } from "./version.ts";
 import type { MysqlClient, MysqlDriverRows, MysqlPool } from "./pool.ts";
 
@@ -386,4 +392,69 @@ Deno.test("@sisal/mysql - adaptMariadbPool re-views binary params as Buffers", a
   assertEquals(Buffer.isBuffer(blob), true);
   assertEquals([...(blob as Uint8Array)], [7, 8, 9]);
   assertEquals(text, "text");
+});
+
+Deno.test("mysql2 pool config disables CLIENT_FOUND_ROWS (SEC-008)", () => {
+  const config = mysqlConfigFromUrl({
+    url: "mysql://app:secret@db.example.com:3306/sisal",
+  });
+  // Without this, a conflicting no-op upsert reports 1 affected row and the
+  // advisory-lock claim / tryInsert cannot tell an insert from a conflict.
+  assertEquals(config.flags, ["-FOUND_ROWS"]);
+  // The mandated decode options are still present.
+  assertEquals(config.supportBigNumbers, true);
+  assertEquals(config.bigNumberStrings, true);
+  assertEquals(config.dateStrings, true);
+  assertEquals(config.host, "db.example.com");
+  assertEquals(config.database, "sisal");
+});
+
+Deno.test("MariaDB pool config disables found-rows (SEC-008)", () => {
+  const config = mariadbConfigFromUrl({
+    url: "mysql://app:secret@db.example.com:3306/sisal",
+  });
+  assertEquals(config.foundRows, false);
+  assertEquals(config.supportBigNumbers, true);
+  assertEquals(config.bigNumberStrings, true);
+  assertEquals(config.dateStrings, true);
+});
+
+Deno.test("mysql2 pool config forwards the ssl option (SEC-009)", () => {
+  const url = "mysql://app:secret@db.example.com:3306/sisal";
+  // `ssl: true` → TLS with default verification (mysql2 reads {} as "on").
+  assertEquals(mysqlConfigFromUrl({ url, ssl: true }).ssl, {});
+  // An object is forwarded verbatim to the driver's TLS layer.
+  const tls = { ca: "-----BEGIN CERT-----", rejectUnauthorized: true };
+  assertEquals(mysqlConfigFromUrl({ url, ssl: tls }).ssl, tls);
+  // No ssl option → no ssl key (unencrypted, as before).
+  assertEquals("ssl" in mysqlConfigFromUrl({ url }), false);
+});
+
+Deno.test("MariaDB pool config forwards the ssl option (SEC-009)", () => {
+  const url = "mysql://app:secret@db.example.com:3306/sisal";
+  assertEquals(mariadbConfigFromUrl({ url, ssl: true }).ssl, true);
+  const tls = { ca: "-----BEGIN CERT-----" };
+  assertEquals(mariadbConfigFromUrl({ url, ssl: tls }).ssl, tls);
+  assertEquals("ssl" in mariadbConfigFromUrl({ url }), false);
+});
+
+Deno.test("pool config rejects TLS URL params rather than failing open (SEC-009)", () => {
+  for (
+    const url of [
+      "mysql://app:secret@db.example.com:3306/sisal?ssl-mode=REQUIRED",
+      "mysql://app:secret@db.example.com:3306/sisal?sslmode=verify-ca",
+      "mysql://app:secret@db.example.com:3306/sisal?ssl=true",
+    ]
+  ) {
+    assertThrows(
+      () => mysqlConfigFromUrl({ url }),
+      Error,
+      "ssl",
+    );
+    assertThrows(
+      () => mariadbConfigFromUrl({ url }),
+      Error,
+      "ssl",
+    );
+  }
 });

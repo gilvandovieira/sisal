@@ -1,10 +1,12 @@
 import { Buffer } from "node:buffer";
 
-import type {
-  MysqlClient,
-  MysqlDriverRows,
-  MysqlPool,
-  MysqlResultHeader,
+import {
+  assertNoUrlSslParams,
+  type MysqlClient,
+  type MysqlDriverRows,
+  type MysqlPool,
+  type MysqlResultHeader,
+  type MysqlTlsOptions,
 } from "./pool.ts";
 
 // The subset of the MariaDB Connector/Node.js surface this adapter uses.
@@ -98,6 +100,7 @@ function normalizeMariadbResult<Row>(result: unknown): MysqlDriverRows<Row> {
 export function createMariadbPool(options: {
   readonly url: string;
   readonly connectionLimit?: number;
+  readonly ssl?: boolean | MysqlTlsOptions;
 }): MysqlPool {
   let opening: Promise<MysqlPool> | undefined;
 
@@ -109,20 +112,9 @@ export function createMariadbPool(options: {
       const mod = await import(specifier) as unknown as {
         default: { createPool(config: Record<string, unknown>): MariadbPool };
       };
-      const parsed = new URL(options.url);
-      return adaptMariadbPool(mod.default.createPool({
-        host: parsed.hostname,
-        port: parsed.port === "" ? 3306 : Number(parsed.port),
-        user: decodeURIComponent(parsed.username),
-        password: decodeURIComponent(parsed.password),
-        database: parsed.pathname.replace(/^\//, ""),
-        connectionLimit: options.connectionLimit ?? 5,
-        supportBigNumbers: true,
-        bigNumberStrings: true,
-        // Match the mysql2 pool: temporal columns read back as literal text
-        // (see `mysqlConfigFromUrl`).
-        dateStrings: true,
-      }));
+      return adaptMariadbPool(
+        mod.default.createPool(mariadbConfigFromUrl(options)),
+      );
     })();
   };
 
@@ -137,5 +129,41 @@ export function createMariadbPool(options: {
       }
       await (await opening).end?.();
     },
+  };
+}
+
+/**
+ * Parses a `mysql://` URL into a MariaDB Connector/Node.js pool config,
+ * mirroring the mysql2 pool's mandated options. Exported for tests. The
+ * `foundRows: false` entry is load-bearing — see the note below.
+ */
+export function mariadbConfigFromUrl(options: {
+  readonly url: string;
+  readonly connectionLimit?: number;
+  readonly ssl?: boolean | MysqlTlsOptions;
+}): Record<string, unknown> {
+  const parsed = new URL(options.url);
+  assertNoUrlSslParams(parsed);
+  return {
+    host: parsed.hostname,
+    port: parsed.port === "" ? 3306 : Number(parsed.port),
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, ""),
+    connectionLimit: options.connectionLimit ?? 5,
+    supportBigNumbers: true,
+    bigNumberStrings: true,
+    // Match the mysql2 pool: temporal columns read back as literal text
+    // (see `mysqlConfigFromUrl`).
+    dateStrings: true,
+    // The MariaDB connector enables found-rows by default (its `foundRows`
+    // option). Disable it for the same reason mysql2 drops `CLIENT_FOUND_ROWS`:
+    // a conflicting no-op upsert must report zero changed rows so `tryInsert`
+    // and the advisory-lock claim cannot mistake a conflict for a win
+    // (SEC-008). See `mysqlConfigFromUrl`.
+    foundRows: false,
+    // The MariaDB connector accepts `ssl: true` (default verification) or an
+    // object; forward the portable option verbatim.
+    ...(options.ssl === undefined ? {} : { ssl: options.ssl }),
   };
 }

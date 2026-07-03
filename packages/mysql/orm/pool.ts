@@ -57,6 +57,34 @@ export interface MysqlPool {
  */
 export type MysqlDriverKind = "mysql2" | "mariadb";
 
+/**
+ * TLS settings for a URL-based MySQL/MariaDB connection. Forwarded verbatim to
+ * the driver's `ssl` config (mysql2 and the MariaDB connector accept the same
+ * Node TLS fields), so a value here reaches Node's TLS layer directly. Use
+ * `ssl: true` to require TLS with the platform's default CA verification, or an
+ * object to pin a CA / client certificate / verification policy.
+ */
+export interface MysqlTlsOptions {
+  /** Trusted CA certificate(s) (PEM). */
+  readonly ca?: string | readonly string[];
+  /** Client certificate chain(s) (PEM) for mutual TLS. */
+  readonly cert?: string | readonly string[];
+  /** Client private key(s) (PEM) for mutual TLS. */
+  readonly key?: string | readonly string[];
+  /** Passphrase for an encrypted private `key`. */
+  readonly passphrase?: string;
+  /**
+   * Whether to reject a server whose certificate does not verify against `ca`.
+   * Defaults to the driver default (`true`). Set `false` only for a trusted
+   * private network with self-signed certs you accept.
+   */
+  readonly rejectUnauthorized?: boolean;
+  /** Minimum TLS protocol version, e.g. `"TLSv1.2"`. */
+  readonly minVersion?: string;
+  /** Server name for SNI / certificate identity checks. */
+  readonly servername?: string;
+}
+
 /** Connection options accepted by MySQL ORM adapter factories. */
 export interface MysqlConnectionOptions {
   /** `mysql://user:password@host:port/database` connection URL. */
@@ -69,6 +97,16 @@ export interface MysqlConnectionOptions {
   readonly connectionLimit?: number;
   /** Driver used when connecting by `url`; defaults to `"mysql2"`. */
   readonly driver?: MysqlDriverKind;
+  /**
+   * TLS for a URL connection. `true` requires TLS with default CA
+   * verification; an object pins a CA / client certificate / policy (see
+   * {@link MysqlTlsOptions}). Omitted, the connection is not encrypted. TLS
+   * **cannot** be set through the URL query string — a `?ssl-mode=…` (or
+   * similar) param is rejected rather than silently ignored, since the driver
+   * would otherwise connect in cleartext. Applies to the `url` path only;
+   * configure an injected `pool`/`client` yourself.
+   */
+  readonly ssl?: boolean | MysqlTlsOptions;
 }
 
 /** Resolved MySQL connection source with ownership metadata. */
@@ -94,6 +132,7 @@ export interface MysqlConnectionSource {
 export function createMysqlPool(options: {
   readonly url: string;
   readonly connectionLimit?: number;
+  readonly ssl?: boolean | MysqlTlsOptions;
 }): MysqlPool {
   let opening: Promise<MysqlPool> | undefined;
 
@@ -123,11 +162,51 @@ export function createMysqlPool(options: {
   };
 }
 
-// Parses a mysql:// URL into a mysql2 pool config with the mandated decode
-// options applied.
-function mysqlConfigFromUrl(options: {
+// TLS is security-sensitive and the drivers do not read it from the URL query
+// string, so a `?ssl-mode=…` (or similar) param would silently connect in
+// cleartext. Reject it and point the caller at the typed `ssl` option (SEC-009).
+const SSL_URL_PARAMS: ReadonlySet<string> = new Set([
+  "ssl",
+  "sslmode",
+  "ssl-mode",
+  "usessl",
+  "requiressl",
+  "sslaccept",
+]);
+
+/** Rejects TLS-related URL query params so they cannot fail open to cleartext. */
+export function assertNoUrlSslParams(parsed: URL): void {
+  for (const key of parsed.searchParams.keys()) {
+    if (SSL_URL_PARAMS.has(key.toLowerCase())) {
+      throw new OrmError(
+        `TLS cannot be configured through the connection URL (found "${key}"). ` +
+          `Pass the \`ssl\` option instead — the driver ignores URL TLS params, ` +
+          `so leaving this here would connect in cleartext.`,
+        { code: "ORM_INVALID_QUERY", status: 400 },
+      );
+    }
+  }
+}
+
+// Maps the portable `ssl` option to a driver `ssl` config: `true` enables TLS
+// with default verification (mysql2 treats an empty object as "TLS on"); an
+// object is forwarded verbatim.
+function mysql2SslConfig(
+  ssl: boolean | MysqlTlsOptions | undefined,
+): Record<string, unknown> {
+  if (ssl === undefined) return {};
+  return { ssl: ssl === true ? {} : ssl };
+}
+
+/**
+ * Parses a `mysql://` URL into a mysql2 pool config with the mandated decode
+ * options applied. Exported for tests. The `flags: ["-FOUND_ROWS"]` entry is
+ * load-bearing, not cosmetic — see the affected-row note below.
+ */
+export function mysqlConfigFromUrl(options: {
   readonly url: string;
   readonly connectionLimit?: number;
+  readonly ssl?: boolean | MysqlTlsOptions;
 }): Record<string, unknown> {
   let parsed: URL;
   try {
@@ -139,6 +218,7 @@ function mysqlConfigFromUrl(options: {
       cause: error,
     });
   }
+  assertNoUrlSslParams(parsed);
 
   return {
     host: parsed.hostname,
@@ -155,6 +235,16 @@ function mysqlConfigFromUrl(options: {
     // bytes — and it is what the column `mode` contracts and the opt-in
     // Temporal layer expect (the same shape the pg and SQLite families see).
     dateStrings: true,
+    // Disable `CLIENT_FOUND_ROWS` (mysql2 enables it by default). With it on, a
+    // conflicting no-op `INSERT … ON DUPLICATE KEY UPDATE` reports one *found*
+    // row instead of zero *changed* rows, so `tryInsert`'s affected-row signal
+    // cannot tell an insert from a conflict and the advisory-lock claim can
+    // double-grant (SEC-008). Off, the affected-row count is "rows changed",
+    // matching the write-outcome contract. Trade-off: a plain `UPDATE` that
+    // sets a row to its current values now reports 0 rather than 1 — documented
+    // in docs/mysql-compatibility.md.
+    flags: ["-FOUND_ROWS"],
+    ...mysql2SslConfig(options.ssl),
   };
 }
 
@@ -197,6 +287,7 @@ export function resolveMysqlConnectionSource(
     ...(options.connectionLimit === undefined
       ? {}
       : { connectionLimit: options.connectionLimit }),
+    ...(options.ssl === undefined ? {} : { ssl: options.ssl }),
   };
   return {
     pool: options.driver === "mariadb"

@@ -23,7 +23,6 @@ import type { SqlDialect } from "@sisal/core";
 // Type-only import — `database.ts` value-imports this module, so a value edge
 // back would be a cycle; the erased type edge is safe.
 import type { Database } from "./database.ts";
-import { tryInsert } from "./write_outcome.ts";
 
 /** Default physical name of the lock-registry table backing the lock. */
 const DEFAULT_ADVISORY_LOCK_TABLE = "sisal_advisory_locks";
@@ -194,7 +193,8 @@ export async function tryAcquireAdvisoryLock(
   // Reap this name's row only when its lease has lapsed — a live holder is left
   // untouched, so we never steal an active lock. Then claim the name if absent;
   // the primary key makes the insert the atomic arbiter between racing
-  // claimants (only one `ON CONFLICT DO NOTHING` insert reports a written row).
+  // claimants (only one insert sets `owner`; a losing insert is a no-op that
+  // leaves the incumbent's `owner` untouched).
   await db.delete(rows)
     .where(
       and(
@@ -204,17 +204,26 @@ export async function tryAcquireAdvisoryLock(
     )
     .execute();
 
-  // Reliable claimed-vs-not across engines (T15): `tryInsert` uses `RETURNING`
-  // on pg/sqlite and the affected-row count on MySQL — `rowCount` alone is
-  // ambiguous under the portable no-op `ON DUPLICATE KEY UPDATE`.
-  const claim = await tryInsert(
-    db,
-    db.insert(rows)
-      .values({ name: key, owner, expiresAt: leaseUntil(ttlMs) })
-      .onConflictDoNothing(),
-  );
+  await db.insert(rows)
+    .values({ name: key, owner, expiresAt: leaseUntil(ttlMs) })
+    .onConflictDoNothing()
+    .execute();
 
-  if (!claim.inserted) {
+  // Verify the claim by reading the row back and comparing `owner`, rather than
+  // trusting the insert's affected-row count. The MySQL family renders the
+  // no-op claim as `ON DUPLICATE KEY UPDATE`, whose affected-row count is 1 for
+  // *both* a win and a conflicting no-op under the drivers' `CLIENT_FOUND_ROWS`
+  // default — so a count-based signal double-grants the lock (SEC-008). An
+  // owner-equality check is exact on every engine and independent of the
+  // connection's found-rows flag, so mutual exclusion holds even if a caller
+  // injects a pool that leaves found-rows enabled.
+  const held = await db.select({ owner: rows.columns.owner })
+    .from(rows)
+    .where(eq(rows.columns.name, key))
+    .limit(1)
+    .execute();
+
+  if (held[0]?.owner !== owner) {
     return refusedLock();
   }
 

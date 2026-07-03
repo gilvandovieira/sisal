@@ -67,6 +67,20 @@ CTEs have per-engine coverage (recursive needs **MySQL 8.0+ / MariaDB**);
 data-modifying CTEs are guarded off (PostgreSQL-only). All are in the
 [feature matrix](feature-matrix.md).
 
+**Affected-row semantics — found-rows disabled.** The bundled `@sisal/mysql`
+pools connect with `CLIENT_FOUND_ROWS` **off** (mysql2 `flags: ["-FOUND_ROWS"]`,
+MariaDB connector `foundRows: false`). This is required for `tryInsert` and the
+advisory-lock claim to distinguish an insert from a conflicting no-op upsert —
+with found-rows on, both report one affected row, which double-grants the lock
+([SEC-008](security.md#sec-008)). The one visible consequence: a plain `UPDATE`
+that sets a row to the value it already holds reports **0** affected rows (rows
+_changed_), where PostgreSQL and SQLite report the number of rows _matched_. If
+you rely on matched-row counts on the MySQL family, compare against the row
+before writing, or inject your own pool (Sisal does not force found-rows off on
+an injected `pool`/`client`, so an injected pool that leaves it on will make
+`tryInsert` unreliable — the advisory lock stays correct regardless, because it
+verifies ownership by reading the row back).
+
 ## Column types via the DDL test
 
 Every generated type is executed live via `generateMysqlUpStatements`
