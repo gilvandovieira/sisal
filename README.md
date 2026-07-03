@@ -285,10 +285,17 @@ milestones — lightweight by design, per the scope note above.
 
 Core packages:
 
-| Package          | Purpose                                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging. |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.  |
+| Package          | Purpose                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@sisal/core`    | The public driverless base (extracted in v0.8): schema primitives, the SQL IR, expression operators, the capability registry, and the dialect renderer. |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging.                                       |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.                                        |
+
+`@sisal/core` is a public JSR package, but `@sisal/orm` re-exports its entire
+surface — most projects install `@sisal/orm` + `@sisal/migrate` + one adapter
+and never import `@sisal/core` directly. Depend on it directly only when you
+want the schema/SQL-IR layer without the query builders (as `@sisal/migrate`
+does).
 
 Adapter packages:
 

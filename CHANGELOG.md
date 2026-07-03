@@ -9,6 +9,101 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+### Added
+
+- **`@sisal/etl` (v0.10 preview) — the typed job model, generated rollup,
+  single-window runner, the backfill/replay/status/dry-run API, and
+  capability-gating** (roadmap T11–T21). New workspace package `packages/etl`
+  with a single `.` export:
+  - `defineJob()` — the typed rollup declaration (source, target, grain, window
+    column, group keys, aggregate expressions), validated at definition time
+    against the tables' column metadata: projection keys must be target columns,
+    claimed exactly once, insert-required target columns must be covered, and
+    `start` must be a grain-aligned ISO instant (`ETL_INVALID_JOB`).
+  - `rollup(job, window)` — compiles a job + half-open window into **one**
+    pushed-down insert-from-select (`dateTrunc` bucket + filtered aggregates +
+    upsert keyed on the grain), assembled purely from `@sisal/core`
+    (`assembleInsertFromSelect`) and pinned byte-for-byte by golden-SQL tests on
+    PostgreSQL (shape-pinned on the SQLite/MySQL families).
+  - `nextWindow()` / `truncateToGrain()` / `addGrain()` — half-open
+    `[from, until)` window math over UTC grain edges with the `until <= now`
+    complete-buckets discipline; unaligned watermarks re-align on the next edge
+    (`ETL_MISSING_START`, `ETL_INVALID_WINDOW`).
+  - `run(db, job)` — the single-window runner: acquires the v0.9 portable
+    advisory lock (`sisal:etl:<name>`), reads the v0.9 checkpoint, computes the
+    next window, and commits the rollup **atomically with** the watermark
+    advance in one `db.batch`; returns a typed outcome (`ran` / `locked` /
+    `up-to-date`). `run()` owns its transaction boundary (the batch) — it does
+    not compose into a caller's transaction.
+  - `backfill(db, job, range)` / `replay(db, job, from)` — deterministic
+    historical re-runs (T17/T18): successive grain-aligned windows over an
+    explicit half-open range (no wall-clock dependence) and a single-window
+    re-run, both lock-serialized, both idempotent via the grain-keyed upsert,
+    and both refusing windows behind the job's `pruned_before` retention horizon
+    with the v0.9 `ORM_REPLAY_PRUNED` typed error plus the loud
+    `unsafeAllowPrunedReplay` override. Neither advances the checkpoint — the
+    regular `run()` cadence is unaffected.
+  - `status(db, job)` — the read-only report (T19): checkpoint position,
+    retention horizon, last advance time, and the window the next `run()` would
+    fold. Takes no lock.
+  - `explain(job, window)` — dry-run (T20): renders the exact generated rollup
+    SQL and bound parameters per dialect without executing, pinned by golden-SQL
+    tests (PostgreSQL byte-for-byte; SQLite/MySQL shape; `generic` fails closed
+    with `ORM_DIALECT_UNSUPPORTED`).
+  - `supportsJob(job, identity)` / `assertJobSupported(job, identity)` —
+    capability-gating (T21): an engine allowlist (`postgres`/`sqlite`/`mysql`;
+    `generic` fails closed) plus a render probe of the job's exact SQL against
+    the `(dialect, variant, version)` identity, so an engine-specific construct
+    in an aggregate refuses **pre-flight** with the typed `ETL_UNSUPPORTED_JOB`
+    error. `run`/`backfill`/`replay` apply the gate before the lock, checkpoint,
+    and SQL — an unsupported job shape never partially executes and never
+    silently degrades.
+  - External-scheduler documentation (T22):
+    [`docs/etl-scheduling.md`](docs/etl-scheduling.md) — the runner-script +
+    catch-up-loop pattern and why any trigger cadence is safe (lock-serialized
+    overlaps, checkpoint misfire catch-up, idempotent re-runs), with concrete
+    crontab, systemd-timer, GitHub-Actions, and `Deno.cron` recipes; `pg_cron`
+    is scoped to re-folding a pinned window from `explain()` output and is never
+    the sole path. A new runnable example, `examples/postgres-family-etl-cron`,
+    schedules the hourly rollup in-process with `Deno.cron` (zero-setup it
+    prints the generated SQL; with `DATABASE_URL` it creates the tables, seeds
+    demo events, drains the backlog, and keeps folding on the hour).
+  - Integration coverage (T23), gated on `DATABASE_URL` and verified against
+    PostgreSQL 16 and 18: `integration/etl_features_test.ts` discharges the
+    acceptance criteria (dry-run SQL executes verbatim, one-window-per-run
+    resume, byte-identical replay, wipe-and-backfill determinism, two runners
+    one winner, `ORM_REPLAY_PRUNED` horizon refusal), and
+    `integration/etl_limits_test.ts` is the failure/limits battery — schema
+    drift, hand-edited/unaligned/rewound watermarks, late-arriving events, clock
+    skew, crashed lock holders, pruned sources, 50k-event pushdown, and
+    grain/identifier/bigint edges. Observed failure modes and recovery paths are
+    catalogued in [`docs/etl-pain-points.md`](docs/etl-pain-points.md).
+  - **Window-math fix (found by the failure battery):** a hand-advanced
+    **unaligned** watermark now floors to its bucket edge so the next window
+    refolds the **whole containing bucket** — previously the window resumed
+    mid-bucket and the upsert overwrote the bucket's aggregates with an
+    undercount computed from only the tail rows.
+  - Package boundaries are test-pinned: `@sisal/core`/`@sisal/orm`/
+    `@sisal/migrate` never import `@sisal/etl`; `@sisal/etl` never imports an
+    adapter, a driver, or `@sisal/migrate`; only the runner tier takes the
+    `etl → orm` runtime edge recorded in `docs/architecture.md` — the job model
+    and SQL compilation stay `@sisal/core`-only. Unit tests stay
+    network/FFI-free via injected recording drivers.
+- **Recursive-CTE `SEARCH`/`CYCLE` clauses** (v0.10 CF3, contract 07).
+  `db.$withRecursive(name, columns)` gains immutable builder steps —
+  `.searchDepthFirst(by, set)`, `.searchBreadthFirst(by, set)`, and
+  `.cycle(by, set, using)` — rendering the standard post-body clauses
+  (`SEARCH DEPTH FIRST BY … SET …`, `CYCLE … SET … USING …`). Validated at
+  definition time (BY columns must come from the declared column list, SET/USING
+  names must be fresh, at most one clause of each kind); the set columns are
+  typed on the CTE returned by `.as()` but not on `self` (the standard forbids
+  referencing them inside the recursive body). Capability-gated PostgreSQL-only
+  via the new `recursiveSearchCycle` capability (server ≥ 14; the SQLite/MySQL
+  families throw typed `ORM_DIALECT_UNSUPPORTED` — their portable spelling stays
+  the explicit depth column + `WHERE depth < n` guard). Verified live against a
+  cyclic fixture on PostgreSQL 16/17/18; new `docs/feature-matrix.md` row backed
+  by the `recursive search/cycle` scenario.
+
 ### Security
 
 Resolves every open finding from the 0.9.0 security audit (SEC-008 through
@@ -61,8 +156,84 @@ test named for its finding id.
   PostgreSQL `E'…'` backslash escapes and nested block comments (correctness on
   trusted migration files).
 
+### Fixed
+
+- **Multi-row `insert(...).values([...])` no longer binds NULL for omitted
+  columns.** The builder unions the column set across rows; a row missing a
+  column another row provides used to bind an explicit `NULL`, silently
+  overriding the column's database default. Such gaps (including explicit
+  `undefined` values) now render the standard `DEFAULT` keyword on the
+  PostgreSQL/MySQL families and the `generic` dialect. The SQLite family has no
+  `DEFAULT` inside `VALUES`, so heterogeneous row shapes there fail closed with
+  the typed `ORM_DIALECT_UNSUPPORTED` error (provide every column explicitly);
+  homogeneous multi-row inserts are unchanged on every engine.
+- **`limit()` / `offset()` now require integers.** `limit(0.5)` used to pass the
+  "greater than zero" validation and silently floor to `LIMIT 0`; fractional,
+  `NaN`, and out-of-range values now throw the typed `ORM_INVALID_QUERY` error
+  on both the select and compound (set-operation) builders. The migrate runner's
+  `steps` option gets the same treatment (`MIGRATION_INVALID` instead of
+  flooring).
+
 ### Changed
 
+- **`db.transaction()` and `db.batch()` fail closed when the driver cannot
+  provide atomicity (breaking).** Previously `transaction()` silently ran the
+  callback against the plain facade when the driver had no `transaction` method,
+  and `batch()` fell back to sequential statement execution when the driver had
+  neither `batch` nor `transaction` — both quietly discarded the documented
+  commit-together/roll-back-together contract. Both now throw the new typed
+  `ORM_TRANSACTION_UNSUPPORTED` error instead. Adapter drivers built from an
+  injected executor without `transaction` support (`@sisal/pg`, `@sisal/sqlite`,
+  `@sisal/libsql`, `@sisal/mysql`; `@sisal/neon` via `@sisal/pg`) now omit
+  `transaction`/`batch` so the facade guard applies, and the libSQL executor
+  fails closed on a client without `transaction` instead of running the callback
+  outside one. Inside a `transaction()` callback, nested
+  `transaction()`/`batch()` calls explicitly join the enclosing transaction
+  (unchanged behavior, now pinned by tests). Drivers with real connections are
+  unaffected — they always supported transactions.
+- **Keyset pagination probes one row past the page (breaking for pinned SQL).**
+  `.keyset(...).limit(n)` now renders `LIMIT n + 1`; the extra probe row is
+  trimmed from `rows` and only its presence produces a `nextCursor`. Previously
+  a `nextCursor` was returned whenever `rows.length === limit`, so a result set
+  that ended exactly on a page boundary handed callers a cursor to an empty
+  page. An exact final page now yields `nextCursor: null`. The keyset builder's
+  `limit()` also validates the page size as a positive integer.
+- **Root `deno task check` discovers its entrypoints.** The hard-coded file list
+  in `deno.json` (which drifted as packages/examples were added) is replaced by
+  `tools/workspace_packages.ts check-entrypoints` — workspace package export
+  entrypoints (the same discovery CI's package matrix uses) plus
+  `examples/*/mod.ts`, `benchmarks/mod.ts`, and the non-test `perf/*.ts` probes.
+  The checked set is a superset of the old list (every package export subpath is
+  now covered at the root, matching CI).
+- **README: `@sisal/core` is listed as a core package.** The packages table now
+  includes `@sisal/core` (public on JSR since the v0.8 extraction) and explains
+  that `@sisal/orm` re-exports its entire surface, so most projects never depend
+  on it directly.
+
+- **`@sisal/pg`: postgres.js (`npm:postgres`) is the default URL driver** (v0.10
+  CF1). The previous default, `jsr:@db/postgres`, stalls ~40 ms per
+  parameterized query on its extended-protocol path (no `TCP_NODELAY` +
+  un-coalesced writes); postgres.js pipelines the protocol — the 49-test pg
+  feature suite drops from ~7 s to ~0.6 s wall-clock. The driver is imported
+  lazily on the first actual connect. **Opt back into the pure-JSR driver with
+  `driver: "db-postgres"`** (`DEFAULT_PG_DRIVER`/`resolvePgDriverKind` are
+  exported and unit-pinned). `bigint` parity holds — the postgres.js pool
+  decodes `int8` as `BigInt` like `@db/postgres`, and the v0.9 executor coercion
+  yields strings on both (integration-pinned). Re-verified 49/49 on PostgreSQL
+  16/17/18 with the new default and 49/49 on the `db-postgres` opt-out; the
+  migrate boundary (`@sisal/pg/migrate`, `sisal` CLI) stays on `@db/postgres` so
+  migration runs remain npm-free. Example `SISAL_ADAPTER` values rename
+  `pg-postgres-js` → `pg-db-postgres` (`pg` now means the postgres.js default).
+- **CF2 investigated — materialized-view rollup acceleration is a recorded
+  defer.** New probe `perf/pg_matview_probe.ts` (`deno task perf:pg:matview`)
+  benchmarks `REFRESH MATERIALIZED VIEW` (plain and `CONCURRENTLY`) against the
+  `@sisal/etl` generated rollup on PostgreSQL 18 at 100k/1M-event scales: the
+  matview is 7.5–16.5× slower than the incremental window fold in steady state
+  (it recomputes all retained history per refresh), cannot express the runner's
+  checkpoint/resume/backfill/replay semantics, and is Postgres-only. Full
+  evidence and the revisit conditions are recorded in
+  `perf/PG_MATVIEW_ROLLUP_PROBE.md`; the generated-SQL rollup remains the only
+  runner path on every engine.
 - **Security audit refresh at v0.9.0 (2026-07-02).** `docs/security.md` now
   carries a full re-audit of the surface added since the 0.3.0 audit — the
   `@sisal/core` extraction, the MySQL/MariaDB adapter, the opt-in postgres.js
