@@ -3,6 +3,7 @@
     "./packages/core",
     "./packages/orm",
     "./packages/migrate",
+    "./packages/etl",
     "./packages/pg",
     "./packages/sqlite",
     "./packages/libsql",
@@ -52,7 +53,7 @@
     "check:images": "deno run --allow-read tools/check_image_pinning.ts",
     "audit": "deno run --allow-read --allow-net=api.osv.dev tools/check_advisories.ts",
     "publish:dry-run": "deno publish --dry-run",
-    "test": "deno test --allow-read packages/core packages/orm packages/migrate packages/pg packages/neon packages/sqlite packages/libsql packages/mysql tools/lint examples/postgres-family-advanced-sql/advanced_sql_test.ts examples/mysql-family-advanced-sql/advanced_sql_test.ts examples/sqlite-family-advanced-sql/advanced_sql_test.ts"
+    "test": "deno test --allow-read packages/core packages/orm packages/migrate packages/etl packages/pg packages/neon packages/sqlite packages/libsql packages/mysql tools/lint examples/postgres-family-advanced-sql/advanced_sql_test.ts examples/mysql-family-advanced-sql/advanced_sql_test.ts examples/sqlite-family-advanced-sql/advanced_sql_test.ts"
   },
   "fmt": {
     "lineWidth": 80,

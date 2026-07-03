@@ -1,0 +1,27 @@
+{
+  "name": "@sisal/etl",
+  "version": "0.10.0",
+  "exports": {
+    ".": "./mod.ts"
+  },
+  "license": "MIT",
+  "description": "SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs.",
+  "keywords": [
+    "deno",
+    "jsr",
+    "sisal",
+    "etl",
+    "rollup",
+    "database"
+  ],
+  "publish": {
+    "include": [
+      "README.md",
+      "*.ts",
+      "deno.json"
+    ],
+    "exclude": [
+      "**/*_test.ts"
+    ]
+  }
+}
