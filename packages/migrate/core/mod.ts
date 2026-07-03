@@ -1570,14 +1570,14 @@ function normalizeOptionalSteps(steps: number | undefined): number | undefined {
     return undefined;
   }
 
-  if (!Number.isFinite(steps) || steps <= 0) {
-    throw new MigrationError("Migration steps must be greater than zero", {
+  if (!Number.isInteger(steps) || steps <= 0) {
+    throw new MigrationError("Migration steps must be a positive integer", {
       code: "MIGRATION_INVALID",
       details: { option: "steps" },
     });
   }
 
-  return Math.floor(steps);
+  return steps;
 }
 
 function normalizeNonNegativeNumber(value: number, field: string): number {

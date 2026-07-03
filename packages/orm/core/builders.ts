@@ -2591,23 +2591,23 @@ function normalizeOrderDirection(direction: "asc" | "desc"): "asc" | "desc" {
 }
 
 function normalizePositiveInteger(value: number, field: string): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new OrmError(`${field} must be greater than zero`, {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new OrmError(`${field} must be a positive integer`, {
       code: "ORM_INVALID_QUERY",
-      details: { field },
+      details: { field, value },
     });
   }
 
-  return Math.floor(value);
+  return value;
 }
 
 function normalizeNonNegativeInteger(value: number, field: string): number {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new OrmError(`${field} must be zero or greater`, {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new OrmError(`${field} must be a non-negative integer`, {
       code: "ORM_INVALID_QUERY",
-      details: { field },
+      details: { field, value },
     });
   }
 
-  return Math.floor(value);
+  return value;
 }

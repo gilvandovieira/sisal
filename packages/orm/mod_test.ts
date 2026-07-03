@@ -277,6 +277,30 @@ Deno.test("@sisal/orm - update and delete require where by default", () => {
   assertEquals(deleteSql.text, 'delete from "users"');
 });
 
+Deno.test("@sisal/orm - limit and offset require integers", () => {
+  const db = createDatabase({ dialect: "postgres" });
+  const base = db.select().from(users);
+
+  // Fractional values used to slip through as Math.floor(value) — limit(0.5)
+  // silently became `limit 0` despite the "greater than zero" validation.
+  assertThrows(() => base.limit(0.5), OrmError, "positive integer");
+  assertThrows(() => base.limit(0), OrmError, "positive integer");
+  assertThrows(() => base.limit(-1), OrmError, "positive integer");
+  assertThrows(() => base.limit(Number.NaN), OrmError, "positive integer");
+  assertThrows(() => base.offset(1.5), OrmError, "non-negative integer");
+  assertThrows(() => base.offset(-1), OrmError, "non-negative integer");
+
+  const rendered = renderSql(base.limit(3).offset(0).toSql(), {
+    dialect: "postgres",
+  });
+  assertEquals(rendered.params, [3, 0]);
+
+  // The compound (set-operation) builder shares the same validation.
+  const compound = base.unionAll(db.select().from(users));
+  assertThrows(() => compound.limit(0.5), OrmError, "positive integer");
+  assertThrows(() => compound.offset(1.5), OrmError, "non-negative integer");
+});
+
 Deno.test("@sisal/orm - createSchemaSnapshot maps table metadata", () => {
   const snapshot = createSchemaSnapshot({
     dialect: "postgres",
