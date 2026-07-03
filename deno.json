@@ -42,6 +42,7 @@
     "bench": "deno bench benchmarks/mod.ts",
     "perf:pg": "deno run --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency.ts",
     "perf:pg:guard": "deno test --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency_test.ts",
+    "perf:pg:matview": "deno run --allow-net --allow-env --allow-read perf/pg_matview_probe.ts",
     "perf:mysql": "deno run --allow-net --allow-env --allow-read perf/mysql_driver_survey.ts",
     "perf:mysql:ddl": "deno run --allow-net --allow-env --allow-read perf/mysql_ddl_probe.ts",
     "perf:mysql:variant": "deno run --allow-net --allow-env --allow-read perf/mysql_variant_probe.ts",
