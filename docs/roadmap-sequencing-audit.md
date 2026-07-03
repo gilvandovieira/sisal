@@ -1,12 +1,24 @@
 ---
-title: Roadmap Sequencing Audit (v0.6 → v0.14)
+title: Roadmap Sequencing Audit (v0.6 → v0.11)
 ---
 
 # Sisal roadmap sequencing audit — gates, not items
 
+> **Scope change (July 2026).** The v0.12 `@sisal/dashboard`, v0.13 DuckDB /
+> external-OLAP, and v0.14 native/Rust milestones were **dropped** — Sisal will
+> not pursue a presentation-mapping layer or native acceleration, and DuckDB
+> specifically is off the table. (A future external database target such as a
+> time-series DB stays a _possible, unplanned_ post-v0.11 direction.) This audit
+> originally covered v0.6 → v0.14; the gates tied to the dropped milestones
+> (**G7** DuckDB-after-IR, **G8** native-after-benchmark, and the
+> transformable-AST defect **GI-3 / Defect 3**) are now **moot** and marked as
+> such below. The two live defects — **GI-1** (dialect capability
+> variant/version axis) and **GI-2** (ETL-runner substrate) — are unaffected and
+> remain the authoritative sequencing concerns through v0.11.
+
 This is a **second-pass sequencing audit** of the forward plan
 (`docs/roadmap.md`, `docs/architecture.md`, `docs/v0.6.0-roadmap.md` →
-`docs/v0.14.0-roadmap.md`, and the twelve `examples/advanced-sql-contracts/`).
+`docs/v0.11.0-roadmap.md`, and the twelve `examples/advanced-sql-contracts/`).
 It deliberately ignores the per-task trackers (A1–A6, B1–B8, C1–C6, …) — those
 are explicitly disposable. It audits the thinner layer of **gates**:
 cross-cutting invariants that must hold regardless of which line items survive
@@ -14,7 +26,9 @@ to do the work.
 
 The question this doc answers: **does dropping items the way they are designed
 to be dropped ever let a gate get crossed without its real, capability-level
-prerequisite landing?** For three gates the answer is **yes**.
+prerequisite landing?** It originally found **three** such gates; after the July
+2026 scope change **two remain live** (the third, GI-3, is moot with DuckDB
+dropped).
 
 Every claim below is verified against source (`packages/orm/core/*.ts`,
 `packages/orm/schema.ts`, `tools/feature_matrix.ts`) — the project's own
@@ -27,6 +41,7 @@ Every claim below is verified against source (`packages/orm/core/*.ts`,
 | 🟥     | Gate can be crossed without its real prerequisite — sequencing defect        |
 | 🟧     | Prerequisite scoped only as investigation/decision, not as a usable artifact |
 | 🟩     | Gate is self-protecting / adequately sequenced                               |
+| ⚪     | Gate moot/dropped after the July 2026 scope change (v0.12–v0.14 removed)     |
 
 Prerequisite scoping is classified, per the audit brief, as: **(a)** real
 implementation work scoped somewhere; **(b)** scoped only as an
@@ -41,34 +56,34 @@ Eight gates are stated, plus three that are **implicit** in the per-version docs
 without ever being named as cleanly as the rest — and it is the implicit ones
 that fail.
 
-| #        | Gate                                                                                                                                                                          | Source                                                         |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| G1       | ORM/core never depends on ETL/analytics/dashboard; adapters never import each other; dashboard never renders                                                                  | `architecture.md:64-72`; restated in each of v0.10/v0.11/v0.12 |
-| G2       | Substrate before dependents — `@sisal/core` (public, **versioned** IR) stabilizes before ETL/analytics/dashboard compile into it                                              | `roadmap.md:35`; `architecture.md:88-99`; v0.8                 |
-| G3       | Investigate before build — readiness (v0.6/v0.7) precedes public packages (v0.10+)                                                                                            | `roadmap.md:24-26,43-48`                                       |
-| G4       | MySQL investigated v0.6 → implemented v0.7; pg stays the reference                                                                                                            | `roadmap.md:58-59`                                             |
-| G5       | Pushdown-first ETL: job-definition + single-run runner + **external** scheduler                                                                                               | `roadmap.md:53-57`; v0.10                                      |
-| G6       | Explicit capability surface — adapters declare capabilities explicitly, from **one tested source of truth**                                                                   | `architecture.md:68-69`; v0.8:128-129; v0.9                    |
-| G7       | DuckDB only **after** the analytics IR exists, as an execution target                                                                                                         | `roadmap.md:49-50`; v0.13                                      |
-| G8       | Native/Rust only **after** benchmark evidence                                                                                                                                 | `roadmap.md:51-52`; v0.14                                      |
-| **GI-1** | _(implicit)_ The dialect/capability **identity primitive** must be expressive enough for the matrix it promises                                                               | nowhere — the gap behind G2+G4+G6                              |
-| **GI-2** | _(implicit)_ The ETL-runner correctness substrate (lock + checkpoint + idempotency + atomic advance) must be **built and tested**, not just designed, before the runner ships | nowhere — the gap behind G3+G5                                 |
-| **GI-3** | _(implicit)_ The transformable-AST question must be **decided or made additively reservable** before the IR is frozen public                                                  | partially — the gap behind G2+G7                               |
+| #        | Gate                                                                                                                                                                                                   | Source                                                         |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| G1       | ORM/core never depends on ETL/analytics/dashboard; adapters never import each other; dashboard never renders                                                                                           | `architecture.md:64-72`; restated in each of v0.10/v0.11/v0.12 |
+| G2       | Substrate before dependents — `@sisal/core` (public, **versioned** IR) stabilizes before ETL/analytics/dashboard compile into it                                                                       | `roadmap.md:35`; `architecture.md:88-99`; v0.8                 |
+| G3       | Investigate before build — readiness (v0.6/v0.7) precedes public packages (v0.10+)                                                                                                                     | `roadmap.md:24-26,43-48`                                       |
+| G4       | MySQL investigated v0.6 → implemented v0.7; pg stays the reference                                                                                                                                     | `roadmap.md:58-59`                                             |
+| G5       | Pushdown-first ETL: job-definition + single-run runner + **external** scheduler                                                                                                                        | `roadmap.md:53-57`; v0.10                                      |
+| G6       | Explicit capability surface — adapters declare capabilities explicitly, from **one tested source of truth**                                                                                            | `architecture.md:68-69`; v0.8:128-129; v0.9                    |
+| ~~G7~~   | ~~DuckDB only **after** the analytics IR exists, as an execution target~~ — **dropped July 2026** (no DuckDB milestone)                                                                                | ~~v0.13~~                                                      |
+| ~~G8~~   | ~~Native/Rust only **after** benchmark evidence~~ — **dropped July 2026** (no native milestone)                                                                                                        | ~~v0.14~~                                                      |
+| **GI-1** | _(implicit)_ The dialect/capability **identity primitive** must be expressive enough for the matrix it promises                                                                                        | nowhere — the gap behind G2+G4+G6                              |
+| **GI-2** | _(implicit)_ The ETL-runner correctness substrate (lock + checkpoint + idempotency + atomic advance) must be **built and tested**, not just designed, before the runner ships                          | nowhere — the gap behind G3+G5                                 |
+| ~~GI-3~~ | _(implicit)_ ~~The transformable-AST question must be **decided or made additively reservable** before the IR is frozen public~~ — **moot** (seam shipped in v0.8; DuckDB, its only consumer, dropped) | ~~the gap behind G2+G7~~                                       |
 
 ---
 
 ## The audit matrix
 
-| Gate               | Gate-crossing item (first deliverable that crosses it)                                                                                | True (capability-level) prerequisite                                                                                                                                                                                                                          | Scoping status                                                                                                                                                                                                                         | Risk if dropped/reordered                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GI-1 / G6** 🟥   | v0.9 "capability descriptor — authoritative & machine-checked" (built on the v0.8 descriptor extracted into the frozen `@sisal/core`) | A descriptor **key space** that (i) distinguishes the five adapter packages and six matrix targets — `pg`, `neon`, `sqlite`, `libsql`, `mysql`, `mariadb` — and (ii) carries a **version axis** (MySQL 8.0.21, MariaDB 10.5/11.7, SQLite 3.31, Postgres 14 …) | **(c)** not scoped — every doc says "per-dialect descriptor" and the primitive it is "generalized from" (`dialectGuard` over `SqlDialect`) is whole-dialect, 4-value, no version                                                       | The authoritative matrix structurally cannot express the very distinctions v0.9's own scope hardens (neon-vs-pg serverless caveats, libsql-vs-sqlite, MySQL-vs-MariaDB). It freezes into the public `@sisal/core` at v0.8 → adding the axis later breaks the exported `dialectGuard` signature and render contract (the snapshot is versioned via `SCHEMA_SNAPSHOT_VERSION` and can migrate; the guard/IR surface cannot) |
-| **G4** 🟥          | v0.7 ships `@sisal/mysql` as a real published package                                                                                 | A variant/version primitive to express the MySQL 8 / 5.7 / MariaDB 10.2 / 10.5 splits the adapter's own contract tabulates (`RETURNING`, `WITH RECURSIVE`, `JSON_TABLE`, partial indexes)                                                                     | **(b)** v0.6 C3/C5 + v0.7 open questions scope only "design dialect/version handling" and "decide one adapter with feature flags vs documented divergences"; the primitive itself is **(c)**                                           | v0.7 publishes a `"mysql"` dialect that cannot carry the split `12-mysql-compatibility.md:91-99` requires. The split lands ad-hoc in the executor or is dropped; the later correct fix breaks both the published adapter **and** the frozen `@sisal/core` dialect type. v0.7 closes **before** v0.8 — the fix window shuts at the wrong time                                                                              |
-| **GI-3 / G7** 🟧   | v0.13 DuckDB investigation (DuckDB as a **compiler target** for the IR)                                                               | An introspectable/transformable IR seam for predicate pushdown / plan rewriting                                                                                                                                                                               | **(b)** v0.8 defers it behind a "documented extension point," but the v0.8 acceptance criterion only requires documenting the **decision** (build/defer/reject) — **not delivering the extension point**                               | If DuckDB pushdown needs the AST (v0.13's own open question, `v0.13:66-67`) and only the decision-to-defer was delivered, v0.13 forces a breaking change to the frozen public IR. Conditional, but the load-bearing mitigation is not acceptance-gated                                                                                                                                                                    |
-| **GI-2 / G5** 🟧   | v0.10 ships `@sisal/etl` with `run`/`backfill`/`replay` + checkpoint + lock                                                           | (a) portable lock abstraction; (b) checkpoint-table contract **and** its ownership decision; (c) idempotency + atomic load+advance                                                                                                                            | **(b)** v0.6 A2/A3/A4 are all P2/🔴 "design/document only"; v0.9 "formalize the lock strategy" is in _hardening items_, **not** v0.9 acceptance criteria; checkpoint ownership is an **open question in v0.6, contract 09, and v0.10** | v0.10's acceptance **hard-requires** "concurrent runs are serialized by the lock strategy" and idempotent/resumable runs. If A2/A3/A4 stay design-only or drop, the runner ships on a correctness substrate that was never built or tested → "concurrent runs corrupt rollups" (v0.10's own risk wording, `v0.10:78-79`)                                                                                                  |
-| **G1** 🟧          | v0.10/v0.11 (first packages that compile into core)                                                                                   | `@sisal/core` exposes enough (statement-assembler decision) that ETL/analytics need not reach into `@sisal/orm`; checkpoint ownership must not silently add an `etl → migrate` edge                                                                           | **(b)** v0.8 open question "expose the statement assembler, or compile fragments + a thin helper?" is unresolved; the checkpoint "managed system table" branch implies an edge absent from `architecture.md`'s graph                   | If the assembler stays private and ETL needs SELECT/CTE assembly, v0.10 is pushed to depend on `@sisal/orm` (G1 violation) or reimplement it. The checkpoint "migrate system table" resolution adds an `etl → migrate` dependency the architecture diagram does not show                                                                                                                                                  |
-| **G2** 🟩 (mostly) | v0.8 extract `@sisal/core` + versioned IR                                                                                             | Clean lower-tier DAG with no upward edges                                                                                                                                                                                                                     | **(a)** real and **already true** in source (`errors ← sql ← {operators,columns} ← table ← {builders,relations} ← database`; the one cross-cut is inverted behind `QUERY_BUILDER_BRAND`)                                               | Extraction itself is low-risk (file-moves). The risk is **what gets frozen** at extraction — see GI-1 and GI-3, which ride on this same release                                                                                                                                                                                                                                                                           |
-| **G3** 🟩/🟧       | v0.10/v0.11 packages                                                                                                                  | v0.6/v0.7 investigations produce **usable artifacts**, not just reports                                                                                                                                                                                       | Mixed — the ETL _rollup_ spine is real and probed (v0.5 builder); the _runner_ substrate (GI-2) is design-only                                                                                                                         | The investigation-vs-artifact gap is concentrated in GI-2; the rest of G3 is sound                                                                                                                                                                                                                                                                                                                                        |
-| **G8** 🟩          | v0.14 native investigation                                                                                                            | A reproducible benchmark harness that localizes a hot path                                                                                                                                                                                                    | **(a)** self-protecting: "the first deliverable of this milestone is the benchmark, not the binary" (`v0.14:29`), and acceptance requires the benchmark report                                                                         | Well-sequenced. The only nuance: the candidate hot paths (Parquet/Arrow/ingestion) belong to ETL/analytics, which don't exist until v0.10/v0.11 — so the harness _cannot_ predate them, which the gate already assumes                                                                                                                                                                                                    |
+| Gate                 | Gate-crossing item (first deliverable that crosses it)                                                                                                                                                                                                                            | True (capability-level) prerequisite                                                                                                                                                                                                                          | Scoping status                                                                                                                                                                                                                         | Risk if dropped/reordered                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GI-1 / G6** 🟥     | v0.9 "capability descriptor — authoritative & machine-checked" (built on the v0.8 descriptor extracted into the frozen `@sisal/core`)                                                                                                                                             | A descriptor **key space** that (i) distinguishes the five adapter packages and six matrix targets — `pg`, `neon`, `sqlite`, `libsql`, `mysql`, `mariadb` — and (ii) carries a **version axis** (MySQL 8.0.21, MariaDB 10.5/11.7, SQLite 3.31, Postgres 14 …) | **(c)** not scoped — every doc says "per-dialect descriptor" and the primitive it is "generalized from" (`dialectGuard` over `SqlDialect`) is whole-dialect, 4-value, no version                                                       | The authoritative matrix structurally cannot express the very distinctions v0.9's own scope hardens (neon-vs-pg serverless caveats, libsql-vs-sqlite, MySQL-vs-MariaDB). It freezes into the public `@sisal/core` at v0.8 → adding the axis later breaks the exported `dialectGuard` signature and render contract (the snapshot is versioned via `SCHEMA_SNAPSHOT_VERSION` and can migrate; the guard/IR surface cannot) |
+| **G4** 🟥            | v0.7 ships `@sisal/mysql` as a real published package                                                                                                                                                                                                                             | A variant/version primitive to express the MySQL 8 / 5.7 / MariaDB 10.2 / 10.5 splits the adapter's own contract tabulates (`RETURNING`, `WITH RECURSIVE`, `JSON_TABLE`, partial indexes)                                                                     | **(b)** v0.6 C3/C5 + v0.7 open questions scope only "design dialect/version handling" and "decide one adapter with feature flags vs documented divergences"; the primitive itself is **(c)**                                           | v0.7 publishes a `"mysql"` dialect that cannot carry the split `12-mysql-compatibility.md:91-99` requires. The split lands ad-hoc in the executor or is dropped; the later correct fix breaks both the published adapter **and** the frozen `@sisal/core` dialect type. v0.7 closes **before** v0.8 — the fix window shuts at the wrong time                                                                              |
+| ~~**GI-3 / G7**~~ ⚪ | ~~v0.13 DuckDB investigation~~ — **MOOT (July 2026)**: DuckDB milestone dropped, so the seam has no consumer. In any case v0.8 **shipped** the additive `SqlChunk.meta` extension point (`sql_meta_seam_test.ts`), so the mitigation the original defect asked for already landed | ~~An introspectable/transformable IR seam~~ — n/a                                                                                                                                                                                                             | resolved on both axes: consumer dropped **and** seam shipped                                                                                                                                                                           | none — the risk this row described cannot occur now that no milestone depends on transforming the IR                                                                                                                                                                                                                                                                                                                      |
+| **GI-2 / G5** 🟧     | v0.10 ships `@sisal/etl` with `run`/`backfill`/`replay` + checkpoint + lock                                                                                                                                                                                                       | (a) portable lock abstraction; (b) checkpoint-table contract **and** its ownership decision; (c) idempotency + atomic load+advance                                                                                                                            | **(b)** v0.6 A2/A3/A4 are all P2/🔴 "design/document only"; v0.9 "formalize the lock strategy" is in _hardening items_, **not** v0.9 acceptance criteria; checkpoint ownership is an **open question in v0.6, contract 09, and v0.10** | v0.10's acceptance **hard-requires** "concurrent runs are serialized by the lock strategy" and idempotent/resumable runs. If A2/A3/A4 stay design-only or drop, the runner ships on a correctness substrate that was never built or tested → "concurrent runs corrupt rollups" (v0.10's own risk wording, `v0.10:78-79`)                                                                                                  |
+| **G1** 🟧            | v0.10/v0.11 (first packages that compile into core)                                                                                                                                                                                                                               | `@sisal/core` exposes enough (statement-assembler decision) that ETL/analytics need not reach into `@sisal/orm`; checkpoint ownership must not silently add an `etl → migrate` edge                                                                           | **(b)** v0.8 open question "expose the statement assembler, or compile fragments + a thin helper?" is unresolved; the checkpoint "managed system table" branch implies an edge absent from `architecture.md`'s graph                   | If the assembler stays private and ETL needs SELECT/CTE assembly, v0.10 is pushed to depend on `@sisal/orm` (G1 violation) or reimplement it. The checkpoint "migrate system table" resolution adds an `etl → migrate` dependency the architecture diagram does not show                                                                                                                                                  |
+| **G2** 🟩 (mostly)   | v0.8 extract `@sisal/core` + versioned IR                                                                                                                                                                                                                                         | Clean lower-tier DAG with no upward edges                                                                                                                                                                                                                     | **(a)** real and **already true** in source (`errors ← sql ← {operators,columns} ← table ← {builders,relations} ← database`; the one cross-cut is inverted behind `QUERY_BUILDER_BRAND`)                                               | Extraction itself is low-risk (file-moves). The risk is **what gets frozen** at extraction — see GI-1 and GI-3, which ride on this same release                                                                                                                                                                                                                                                                           |
+| **G3** 🟩/🟧         | v0.10/v0.11 packages                                                                                                                                                                                                                                                              | v0.6/v0.7 investigations produce **usable artifacts**, not just reports                                                                                                                                                                                       | Mixed — the ETL _rollup_ spine is real and probed (v0.5 builder); the _runner_ substrate (GI-2) is design-only                                                                                                                         | The investigation-vs-artifact gap is concentrated in GI-2; the rest of G3 is sound                                                                                                                                                                                                                                                                                                                                        |
+| ~~**G8**~~ ⚪        | ~~v0.14 native investigation~~ — **DROPPED (July 2026)**: no native/Rust milestone                                                                                                                                                                                                | ~~A reproducible benchmark harness~~ — n/a                                                                                                                                                                                                                    | n/a                                                                                                                                                                                                                                    | none — milestone removed                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 ---
 
@@ -185,6 +200,14 @@ concern, not just an ETL detail.
 
 ### Defect 3 — the transformable-AST mitigation is named but not acceptance-gated (GI-3, refines seed #2)
 
+> **MOOT (July 2026).** This defect is resolved on both axes. (1) v0.8
+> **shipped** the additive `SqlChunk.meta` extension point — the exact
+> mitigation this section asked for — proven by
+> `packages/orm/sql_meta_seam_test.ts` (see v0.8 item 4, 🟢). (2) Its only named
+> consumer, v0.13 DuckDB pushdown, was **dropped**, so nothing now needs to
+> transform the IR at all. The analysis below is retained as a record of why the
+> seam was worth shipping.
+
 - Verified the IR is compose-only: expressions are stored already-lowered
   (`eq()` flattens immediately into chunks; `core/sql.ts`), there is no
   introspectable relational AST (`architecture.md:93-99`; `v0.8:40-44`).
@@ -228,7 +251,9 @@ premise, with one refinement.** v0.13 frames the need as _conditional_ ("does it
 it is not a certain block. The precise defect is GI-3: the deferral's
 load-bearing mitigation (the "documented extension point") is recommended in
 prose but is **not** an acceptance-gated deliverable, while the _decision_ to
-defer is. Close that gap and the deferral becomes safe.
+defer is. Close that gap and the deferral becomes safe. **(Resolved July 2026:
+v0.8 shipped the seam and v0.13 DuckDB was dropped — see the MOOT note on Defect
+3.)**
 
 ---
 
@@ -278,7 +303,14 @@ reversible.
   — consistent with v0.10's own "document any unsupported job shapes rather than
   silently degrading."
 
-### Fix 3 — ship the extension point, not just the decision (addresses GI-3, G7)
+### Fix 3 — ship the extension point, not just the decision (addresses GI-3, G7) — ✅ DONE, now moot
+
+**Outcome (July 2026).** This fix was **adopted and shipped**: v0.8 changed its
+acceptance criterion to require the additive seam, and it landed as the
+`SqlChunk.meta` extension point, proven by `packages/orm/sql_meta_seam_test.ts`.
+Its motivating consumer (v0.13 DuckDB) was subsequently **dropped**, so the seam
+now stands purely as low-cost future-proofing. No further action. The original
+recommendation is preserved below for the record.
 
 - Change the **v0.8 acceptance criterion** from "the transformable-AST decision
   is documented" to "the versioned IR **reserves an additive seam** for later
@@ -286,8 +318,6 @@ reversible.
   optional un-lowered expression capture behind a flag) such that adding a
   transformable AST is a minor, non-breaking version bump — proven by a fixture
   that round-trips a fragment through the seam."
-- Then v0.13's open question (`v0.13:66-67`) can be answered either way without
-  endangering the frozen public IR.
 
 ### Fix 4 — close the v0.8 statement-assembler question before v0.10 (addresses G1)
 
@@ -305,14 +335,14 @@ would otherwise be tempted across the G1 boundary.
   edges and the one cross-cut is inverted behind `QUERY_BUILDER_BRAND` (verified
   in `sql.ts:699-726`). The risk is _what freezes at extraction_ (GI-1/GI-3),
   not the move.
-- **G7 DuckDB-after-IR and G8 native-after-benchmark are well-protected.** Both
-  are gated on prerequisites that are their own first deliverables (the IR; the
-  benchmark report), and both explicitly state no earlier milestone may depend
-  on them.
+- **G7 DuckDB-after-IR and G8 native-after-benchmark were well-protected** while
+  they existed — both were gated on prerequisites that were their own first
+  deliverables (the IR; the benchmark report). Both milestones were **dropped in
+  July 2026**, so the gates are retired rather than merely satisfied.
 - **The dependency-direction gate (G1) is enforced redundantly** — every
-  downstream roadmap restates "`@sisal/orm` must not depend on …" and v0.12 even
-  mandates a dependency-direction test. The only soft spots are the two _latent_
-  edges noted above (assembler exposure, checkpoint ownership).
+  downstream roadmap restates "`@sisal/orm` must not depend on …". The only soft
+  spots are the two _latent_ edges noted above (assembler exposure, checkpoint
+  ownership).
 
 ---
 
@@ -389,12 +419,13 @@ CREATE INDEX ix_fn ON kv ((LENGTH(v)));
 
 ## One-line summary
 
-The disposable per-task trackers are fine. The danger is concentrated in three
+The disposable per-task trackers are fine. The danger was concentrated in three
 **structural decisions that get committed to a public surface before the
 consumer that proves them out exists**: the dialect/capability granularity
 (frozen at v0.8, needed at v0.10+), the ETL-runner correctness substrate
 (shipped at v0.10, scoped only as v0.6 "design"), and the IR's transformability
-seam (frozen at v0.8, possibly needed at v0.13). All three are fixable now,
-cheaply, by attaching one acceptance criterion each to a mechanism the roadmap
-already names — most of all the **v0.9 capability descriptor**, which should be
-given its key space and version axis at v0.8, before the IR is frozen.
+seam (frozen at v0.8). The third was resolved (the seam shipped in v0.8) and is
+now moot anyway (DuckDB dropped July 2026); the first two remain live and are
+fixable cheaply, by attaching one acceptance criterion each to a mechanism the
+roadmap already names — most of all the **v0.9 capability descriptor**, which
+should be given its key space and version axis at v0.8, before the IR is frozen.

@@ -9,11 +9,15 @@ what must change for Sisal to publish to **npm** alongside JSR and run on
 **Node.js 24+**, so the work can be picked up cheaply **if and when** there is
 real Node-user demand. It deliberately ships **no npm package**.
 
-> **Status: deferred (v0.13+, on demand).** Node/npm is on **zero** roadmap
-> gates — nothing in v0.7–v0.12 (MySQL, `@sisal/core`, ETL, analytics) depends
-> on it. The feature line runs entirely on Deno/JSR. So this is the safest item
-> to defer. It is **enabled** by the v0.8 `@sisal/core` extraction (the one
-> clean `.ts`→`.js` build boundary) and **gated** on the naming decision below.
+> **Status: deferred, demand-driven — a versionless cross-cutting track.**
+> Node/npm is on **zero** roadmap gates — nothing in the feature line (MySQL,
+> `@sisal/core`, ETL, analytics) depends on it, and it runs entirely on
+> Deno/JSR. It **owns no version** (it was previously parked in the now-dropped
+> v0.13 slot; see the
+> [roadmap cross-cutting tracks](roadmap.md#cross-cutting-tracks-not-on-the-version-line)).
+> So this is the safest item to defer. It is **enabled** by the v0.8
+> `@sisal/core` extraction (the one clean `.ts`→`.js` build boundary) and
+> **gated** on the naming decision below.
 
 ## The honest baseline — the repo is already close
 
