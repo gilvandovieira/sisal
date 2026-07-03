@@ -11,6 +11,7 @@ import {
   defineTable,
   eq,
   type OrmDriver,
+  OrmError,
   type OrmQueryResult,
   placeholder,
   sql,
@@ -156,4 +157,28 @@ Deno.test("batch: an empty batch is a no-op", async () => {
   const db = createDatabase({ driver, dialect: "postgres" });
   assertEquals(await db.batch([]), []);
   assertEquals(calls.length, 0);
+});
+
+Deno.test("batch: a driver with neither batch nor transaction is rejected", async () => {
+  // Fail closed: sequential execution would silently break the
+  // commit-together/roll-back-together contract.
+  const executed: SqlQuery[] = [];
+  const db = createDatabase({
+    driver: {
+      query: () => Promise.resolve({ rows: [], rowCount: 0 }),
+      execute(query) {
+        executed.push(query);
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      },
+    },
+    dialect: "postgres",
+  });
+
+  const error = await assertRejects(
+    () => db.batch([sql`update t set a = 1`, sql`update t set b = 2`]),
+    OrmError,
+  );
+  assertEquals(error.code, "ORM_TRANSACTION_UNSUPPORTED");
+  // Nothing ran: the batch refused before touching the database.
+  assertEquals(executed, []);
 });

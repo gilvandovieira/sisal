@@ -98,6 +98,14 @@ export interface OrmDriver {
     query: SqlQuery,
   ): Promise<OrmQueryResult>;
 
+  /**
+   * Runs `fn` inside one database transaction, committing on return and
+   * rolling back on a throw. Optional in the contract, but a driver that
+   * omits it cannot provide atomicity: {@link Database.transaction} (and
+   * {@link Database.batch}, absent a native `batch`) then **throw**
+   * `ORM_TRANSACTION_UNSUPPORTED` instead of silently running statements
+   * non-atomically.
+   */
   transaction?<T>(
     fn: (tx: OrmTransaction) => Promise<T>,
   ): Promise<T>;
@@ -107,7 +115,8 @@ export interface OrmDriver {
    * (`begin; …; commit`). A driver may collapse this into a single round trip
    * where its client supports one; the built-in adapters run the statements
    * sequentially inside one transaction. Optional: when a driver omits it,
-   * {@link Database.batch} falls back to {@link transaction}.
+   * {@link Database.batch} falls back to {@link transaction}; when both are
+   * missing, `Database.batch` throws rather than losing atomicity.
    */
   batch?(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]>;
 
@@ -255,6 +264,14 @@ export interface Database<
     table: TTable,
   ): DeleteBuilder<TTable>;
 
+  /**
+   * Runs `fn` against a transaction-scoped facade: the callback's statements
+   * commit together and roll back together. Requires driver transaction
+   * support — a driver without it makes this throw
+   * `ORM_TRANSACTION_UNSUPPORTED` instead of silently running the callback
+   * non-atomically. Inside a transaction callback, a nested `transaction()`
+   * joins the enclosing transaction.
+   */
   transaction<T>(
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T>;
@@ -266,7 +283,9 @@ export interface Database<
    * builder, a `` sql`...` `` fragment, or rendered SQL; they commit together and
    * roll back on any failure, returning one result per statement. No statement
    * may depend on a previous one's result (that is what `transaction()` and
-   * database functions are for).
+   * database functions are for). Atomicity is guaranteed: a driver with
+   * neither `batch` nor `transaction` support makes this throw
+   * `ORM_TRANSACTION_UNSUPPORTED` instead of running statements sequentially.
    */
   batch(statements: readonly BatchStatement[]): Promise<OrmQueryResult[]>;
 
@@ -701,37 +720,40 @@ class SisalDatabase<
   async transaction<T>(
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T> {
+    // Fail closed: silently running the callback outside a transaction would
+    // discard the atomicity the caller asked for.
+    if (this.#driver.transaction === undefined) {
+      throw new OrmError("Driver does not support transactions", {
+        code: "ORM_TRANSACTION_UNSUPPORTED",
+      });
+    }
+
     const startedAt = performance.now();
     if (this.#log.settings.metadata) {
       this.#debug("orm.transaction", undefined, "orm transaction started");
     }
 
     try {
-      let result: T;
-      if (this.#driver.transaction === undefined) {
-        result = await fn(this);
-      } else {
-        result = await this.#driver.transaction(async (tx) => {
-          const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
-            driver: transactionToDriver(tx),
-            dialect: this.dialect,
-            ...(this.dialectIdentity.variant === undefined
-              ? {}
-              : { variant: this.dialectIdentity.variant }),
-            ...(this.dialectIdentity.version === undefined
-              ? {}
-              : { version: this.dialectIdentity.version }),
-            log: this.#log,
-            ...(this.#schema === undefined ? {} : { schema: this.#schema }),
-            ...(this.#relations === undefined
-              ? {}
-              : { relations: this.#relations }),
-            temporal: this.#temporal,
-          });
-
-          return await fn(transactionDatabase);
+      const result = await this.#driver.transaction(async (tx) => {
+        const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
+          driver: transactionToDriver(tx),
+          dialect: this.dialect,
+          ...(this.dialectIdentity.variant === undefined
+            ? {}
+            : { variant: this.dialectIdentity.variant }),
+          ...(this.dialectIdentity.version === undefined
+            ? {}
+            : { version: this.dialectIdentity.version }),
+          log: this.#log,
+          ...(this.#schema === undefined ? {} : { schema: this.#schema }),
+          ...(this.#relations === undefined
+            ? {}
+            : { relations: this.#relations }),
+          temporal: this.#temporal,
         });
-      }
+
+        return await fn(transactionDatabase);
+      });
 
       if (this.#log.settings.metadata) {
         this.#debug(
@@ -819,12 +841,12 @@ class SisalDatabase<
         return results;
       });
     }
-    // A minimal driver with no transaction: run sequentially (not atomic).
-    const results: OrmQueryResult[] = [];
-    for (const query of queries) {
-      results.push(await this.#driver.execute(query));
-    }
-    return results;
+    // Fail closed: running the statements sequentially would silently drop
+    // the commit-together/roll-back-together contract of db.batch.
+    throw new OrmError(
+      "Driver supports neither batch nor transactions; db.batch requires an atomic unit",
+      { code: "ORM_TRANSACTION_UNSUPPORTED" },
+    );
   }
 
   tryAdvisoryLock(
@@ -940,7 +962,7 @@ class SisalDatabase<
 }
 
 function transactionToDriver(transaction: OrmTransaction): OrmDriver {
-  return {
+  const driver: OrmDriver = {
     query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
       return transaction.query<T>(query);
     },
@@ -948,7 +970,16 @@ function transactionToDriver(transaction: OrmTransaction): OrmDriver {
     execute(query: SqlQuery): Promise<OrmQueryResult> {
       return transaction.execute(query);
     },
+
+    // A transaction facade cannot open a new driver-level transaction; a
+    // nested transaction() (or batch()) joins the enclosing one and commits
+    // or rolls back with it.
+    transaction<T>(fn: (tx: OrmTransaction) => Promise<T>): Promise<T> {
+      return fn(driver);
+    },
   };
+
+  return driver;
 }
 
 function elapsedMs(startedAt: number): number {

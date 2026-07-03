@@ -143,10 +143,11 @@ Deno.test("checkpoint: prune raises the horizon before the delete (SEC-012)", as
   const del = sql`delete from src where ts < '2026-02-01'`;
   await etlCheckpoint(db, "job").prune("2026-02-01", [del]);
 
-  // One batch. The horizon upsert runs FIRST, the source delete LAST — so a
-  // crash between them under a non-atomic batch fallback leaves the horizon
-  // ahead of the delete (conservative), never behind it (which would let a
-  // replay overwrite the rollup with pruned data).
+  // One batch. The horizon upsert runs FIRST, the source delete LAST —
+  // defense in depth on top of db.batch's atomic-or-throw contract: should a
+  // driver's own batch ever run non-atomically, a crash between them leaves
+  // the horizon ahead of the delete (conservative), never behind it (which
+  // would let a replay overwrite the rollup with pruned data).
   assertEquals(batched.length, 1);
   assertEquals(batched[0].length, 2);
   const horizon = batched[0][0];

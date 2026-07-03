@@ -300,12 +300,15 @@ tolerate reserved characters in URL userinfo, route `NeonError` through
 #### SEC-012 — ETL checkpoint prune ordering and fail-closed gaps {#sec-012}
 
 **Low · resolved.** `prune` now raises the horizon **first**, then deletes
-(`db.batch([horizon, ...deletes])`), so a crash under the non-atomic fallback
+(`db.batch([horizon, ...deletes])`), so a crash between the two statements
 leaves the horizon ahead of the delete (conservative), never behind. The
-`unsafeAllowPrunedReplay` override now emits a `console.warn` instead of passing
-silently, and `etlCheckpoint` fails closed with `ORM_DIALECT_UNSUPPORTED` on the
-`generic` dialect. Pinned by `checkpoint_test.ts` (horizon-first order, generic
-guard, override warning).
+non-atomic `db.batch` fallback the original finding describes has since been
+removed entirely — `db.batch` now throws `ORM_TRANSACTION_UNSUPPORTED` when a
+driver can supply neither `batch` nor `transaction`, so the horizon-first order
+is defense in depth. The `unsafeAllowPrunedReplay` override now emits a
+`console.warn` instead of passing silently, and `etlCheckpoint` fails closed
+with `ORM_DIALECT_UNSUPPORTED` on the `generic` dialect. Pinned by
+`checkpoint_test.ts` (horizon-first order, generic guard, override warning).
 
 _Original finding:_ `etlCheckpoint`'s `prune` issues its deletes **before**
 advancing the retention horizon. Under the ORM's non-atomic `db.batch` fallback

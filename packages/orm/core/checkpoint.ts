@@ -296,15 +296,16 @@ export function etlCheckpoint(
     assertMarker(before, "prune horizon (before)");
     await ensureTable();
     // The horizon upsert runs FIRST in the batch, then the source deletes — the
-    // mirror-opposite of `advance` (which puts its watermark last). If `db.batch`
-    // is atomic the order is immaterial; under the non-atomic fallback a crash
-    // between the two statements must leave the horizon *ahead* of the delete,
-    // never behind: a raised horizon over rows still present only makes
-    // `assertReplayable` conservatively refuse a replay (and a re-run prunes the
-    // rows), whereas a delete that outran the horizon would let a replay
-    // overwrite the rollup with missing data. The upsert updates only
-    // `pruned_before`/`updated_at`; `window_end` is preserved on conflict (and
-    // seeded to `before` only if no checkpoint exists yet).
+    // mirror-opposite of `advance` (which puts its watermark last). `db.batch`
+    // is atomic-or-throw, so the order is defense in depth against a driver
+    // whose own batch runs non-atomically: a crash between the two statements
+    // must leave the horizon *ahead* of the delete, never behind. A raised
+    // horizon over rows still present only makes `assertReplayable`
+    // conservatively refuse a replay (and a re-run prunes the rows), whereas a
+    // delete that outran the horizon would let a replay overwrite the rollup
+    // with missing data. The upsert updates only `pruned_before`/`updated_at`;
+    // `window_end` is preserved on conflict (and seeded to `before` only if no
+    // checkpoint exists yet).
     const horizon = db.insert(rows)
       .values({
         job: jobId,
