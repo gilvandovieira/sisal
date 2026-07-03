@@ -222,6 +222,15 @@ export function etlCheckpoint(
       { code: "ORM_INVALID_QUERY", status: 400 },
     );
   }
+  // Fail closed on the driverless `generic` dialect (as the advisory lock does):
+  // the upsert/`excluded()` forms the checkpoint relies on are not rendered
+  // there, so there is no correct behavior to offer.
+  if (db.dialect === "generic") {
+    throw new OrmError(
+      "ETL checkpoints are not supported by the generic dialect",
+      { code: "ORM_DIALECT_UNSUPPORTED", status: 400 },
+    );
+  }
   const jobId = job.trim();
   const { rows, createSql } = resolveCheckpointTable(
     options.table ?? DEFAULT_CHECKPOINT_TABLE,
@@ -286,11 +295,16 @@ export function etlCheckpoint(
   ): Promise<void> => {
     assertMarker(before, "prune horizon (before)");
     await ensureTable();
-    // The horizon upsert runs LAST in the same atomic batch as the source
-    // delete, so `pruned_before` only moves if the delete committed — the
-    // horizon can run ahead of the delete on a crash, never behind. It updates
-    // only `pruned_before`/`updated_at`; `window_end` is preserved on conflict
-    // (and seeded to `before` only if no checkpoint exists yet).
+    // The horizon upsert runs FIRST in the batch, then the source deletes — the
+    // mirror-opposite of `advance` (which puts its watermark last). If `db.batch`
+    // is atomic the order is immaterial; under the non-atomic fallback a crash
+    // between the two statements must leave the horizon *ahead* of the delete,
+    // never behind: a raised horizon over rows still present only makes
+    // `assertReplayable` conservatively refuse a replay (and a re-run prunes the
+    // rows), whereas a delete that outran the horizon would let a replay
+    // overwrite the rollup with missing data. The upsert updates only
+    // `pruned_before`/`updated_at`; `window_end` is preserved on conflict (and
+    // seeded to `before` only if no checkpoint exists yet).
     const horizon = db.insert(rows)
       .values({
         job: jobId,
@@ -305,7 +319,7 @@ export function etlCheckpoint(
           updatedAt: excluded(rows.columns.updatedAt),
         },
       });
-    await db.batch([...deletes, horizon]);
+    await db.batch([horizon, ...deletes]);
   };
 
   const assertReplayable = async (
@@ -313,25 +327,36 @@ export function etlCheckpoint(
     options: ReplayGuardOptions = {},
   ): Promise<void> => {
     assertMarker(from, "replay window (from)");
-    if (options.unsafeAllowPrunedReplay === true) {
-      return;
-    }
     const horizon = (await readState())?.prunedBefore ?? null;
     // TEXT markers compare lexicographically (== chronologically for ISO-8601);
     // `from >= horizon` is replayable, `from < horizon` is not.
-    if (horizon !== null && from < horizon) {
-      throw new OrmError(
-        `Refusing to replay window from=${from} behind the retention horizon ` +
-          `pruned_before=${horizon} for job "${jobId}" without an explicit ` +
-          `unsafeAllowPrunedReplay — its source rows were pruned, so the rollup ` +
-          `would be overwritten with missing data`,
-        {
-          code: "ORM_REPLAY_PRUNED",
-          status: 409,
-          details: { job: jobId, from, prunedBefore: horizon },
-        },
-      );
+    const behindHorizon = horizon !== null && from < horizon;
+    if (!behindHorizon) {
+      return;
     }
+    if (options.unsafeAllowPrunedReplay === true) {
+      // The override is deliberate, but a replay over pruned source rows is
+      // dangerous enough to never pass silently — warn so it is visible in logs
+      // and audits (the finding behind SEC-012).
+      console.warn(
+        `[sisal] unsafeAllowPrunedReplay: replaying window from=${from} behind ` +
+          `the retention horizon pruned_before=${horizon} for job "${jobId}" — ` +
+          `the rollup will be re-derived from the current source, which must be ` +
+          `restored/complete for that window`,
+      );
+      return;
+    }
+    throw new OrmError(
+      `Refusing to replay window from=${from} behind the retention horizon ` +
+        `pruned_before=${horizon} for job "${jobId}" without an explicit ` +
+        `unsafeAllowPrunedReplay — its source rows were pruned, so the rollup ` +
+        `would be overwritten with missing data`,
+      {
+        code: "ORM_REPLAY_PRUNED",
+        status: 409,
+        details: { job: jobId, from, prunedBefore: horizon },
+      },
+    );
   };
 
   return { job: jobId, read, readState, advance, prune, assertReplayable };
