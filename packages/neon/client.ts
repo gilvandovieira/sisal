@@ -6,7 +6,7 @@ import type {
   QueryResult,
   QueryResultRow,
 } from "@neon/serverless";
-import { redactErrorCause, redactSecrets } from "@sisal/orm";
+import { SisalError } from "@sisal/orm";
 
 /** Neon serverless single-client configuration (the driver's `ClientConfig`). */
 export type NeonClientConfig = ClientConfig;
@@ -26,10 +26,14 @@ export type NeonErrorCode =
   | "NEON_CONNECTION_FAILED"
   | "NEON_EXECUTE_FAILED";
 
-/** Structured error thrown by Neon compatibility helpers. */
-export class NeonError extends Error {
-  readonly code: NeonErrorCode;
-  readonly details?: Record<string, unknown>;
+/**
+ * Structured error thrown by Neon compatibility helpers. Extends
+ * {@link SisalError} so it inherits credential redaction of the message,
+ * preserved `cause`, and `details` — no separate redaction path to drift
+ * (SEC-011).
+ */
+export class NeonError extends SisalError {
+  declare readonly code: NeonErrorCode;
 
   /** Creates a Neon compatibility error with optional details and cause. */
   constructor(
@@ -40,11 +44,12 @@ export class NeonError extends Error {
       readonly cause?: unknown;
     },
   ) {
-    // Mirror SisalError: never let a connection error echo a DSN/token.
-    super(redactSecrets(message), { cause: redactErrorCause(options.cause) });
+    super(message, {
+      code: options.code,
+      ...(options.details === undefined ? {} : { details: options.details }),
+      ...(options.cause === undefined ? {} : { cause: options.cause }),
+    });
     this.name = "NeonError";
-    this.code = options.code;
-    this.details = options.details;
   }
 }
 
