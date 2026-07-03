@@ -1132,6 +1132,59 @@ export function postgresFamilyScenarios(): IntegrationScenario[] {
     await db.execute(raw("drop table if exists it_tree"));
   });
 
+  pgTest(
+    "pg: recursive search/cycle — SEARCH DEPTH FIRST + CYCLE clauses",
+    async (db) => {
+      await db.execute(raw("drop table if exists it_scc"));
+      await db.execute(
+        raw("create table it_scc (id integer primary key, parent_id integer)"),
+      );
+      const tree = defineTable("it_scc", {
+        id: columns.integer().primaryKey(),
+        parentId: columns.integer(),
+      });
+      // A deliberate cycle: 1 → 2 → 3 → 1 (each row's parent closes the loop).
+      await db.insert(tree).values([
+        { id: 1, parentId: 3 },
+        { id: 2, parentId: 1 },
+        { id: 3, parentId: 2 },
+      ]).execute();
+
+      // No portable depth guard here — the PostgreSQL-native CYCLE clause
+      // alone terminates the walk, and SEARCH DEPTH FIRST orders it.
+      const walk = db.$withRecursive("walk", ["id"])
+        .searchDepthFirst(["id"], "seq")
+        .cycle(["id"], "looped", "walked")
+        .as((self) =>
+          db.select({ id: tree.columns.id }).from(tree)
+            .where(eq(tree.columns.id, 1))
+            .unionAll(
+              db.select({ id: tree.columns.id }).from(self)
+                .innerJoin(tree, eq(tree.columns.parentId, self.id)),
+            )
+        );
+      const rows = await db.with(walk)
+        .select({ id: walk.id, looped: walk.looped })
+        .from(walk)
+        .orderBy(walk.seq)
+        .execute();
+
+      // DFS order: 1, 2, 3, then 1 again — marked as the cycle row, walk stops.
+      assertEquals(
+        rows.map((r) => Number(r.id)),
+        [1, 2, 3, 1],
+      );
+      assertEquals(rows.map((r) => r.looped === true), [
+        false,
+        false,
+        false,
+        true,
+      ]);
+
+      await db.execute(raw("drop table if exists it_scc"));
+    },
+  );
+
   // ---- v0.4.0 features ------------------------------------------------------
 
   pgTest(

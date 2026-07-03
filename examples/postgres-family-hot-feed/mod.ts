@@ -6,7 +6,7 @@
  * (a single-statement call to the `app.vote_post` SQL function, not an
  * interactive transaction) — a shape that suits serverless / Deno Deploy under
  * the `neon` driver. Runs over any PostgreSQL-family driver, selected by
- * `SISAL_ADAPTER` (`pg` default | `pg-postgres-js` | `neon`); see `src/db.ts`.
+ * `SISAL_ADAPTER` (`pg` default | `pg-db-postgres` | `neon`); see `src/db.ts`.
  *
  * This module re-exports the example's building blocks and runs the demo when
  * executed directly. See README.md.

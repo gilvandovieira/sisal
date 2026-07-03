@@ -17,27 +17,47 @@ otherwise.
 ## Supported versions
 
 Sisal is a `0.x` workspace; security fixes land on the latest published minor
-(currently `0.3.x`). Pin a version and upgrade promptly when a fix is released.
+(currently `0.9.x`). Pin a version and upgrade promptly when a fix is released.
 
 ## Security model (summary)
 
 Sisal is a **driverless ORM and migration toolkit that runs inside your
 application process** — it has no network surface, sessions, or auth of its own.
-The full audit and roadmap live in [`docs/security.md`](docs/security.md). In
-short:
+The full audit and roadmap live in [`docs/security.md`](docs/security.md); the
+latest refresh (2026-07-02, v0.9.0) found no injection path, and every finding
+it raised (SEC-008 through SEC-016) is now **resolved**, each pinned by a test.
+In short:
 
 - **Values are always bound parameters** — never concatenated into SQL.
 - **Identifiers are validated and quoted**, so a value cannot break out of a
   quoted name.
 - **Logs and errors carry the parameterized SQL text only** — never parameter
-  values, connection strings, or tokens.
+  values, connection strings, or tokens. A preserved driver `cause` is
+  recursively sanitized (bind arrays and rendered SQL dropped, credential fields
+  masked), so serializing `error.cause` does not leak values.
 - **Unknown columns are rejected** on insert/update (mass-assignment guard), and
   **where-less `update`/`delete` throw** unless you call
   `.unsafeAllowAllRows()`.
-- `raw(...)`, `identifier(...)`, and `db.execute("…")` are **escape hatches** —
-  pass only developer-authored SQL through them, never untrusted input.
+- `raw(...)`, `identifier(...)`, `db.execute("…")`, and `db.query("…")` are
+  **escape hatches** — as are the pre-rendered statement lists accepted by
+  `db.batch` and a checkpoint's `advance`/`prune`. Pass only developer-authored
+  SQL through them, never untrusted input.
 
 These invariants are pinned by `packages/orm/security_test.ts`.
+
+## MySQL/MariaDB deployment notes
+
+- **TLS:** pass the `ssl` option to `connect()` (`ssl: true` for default CA
+  verification, or an object to pin a CA / client certificate). TLS **cannot**
+  be set through the URL query string — a `?ssl-mode=…` param is rejected with a
+  clear error rather than silently connecting in cleartext (SEC-009).
+- **Affected-row semantics:** the bundled pools disable `CLIENT_FOUND_ROWS`, so
+  `tryInsert` and `db.tryAdvisoryLock` are reliable (SEC-008). One consequence:
+  a plain `UPDATE` that sets a row to its current values reports 0 affected rows
+  (rows _changed_), unlike PostgreSQL/SQLite (rows _matched_) — see
+  [`docs/mysql-compatibility.md`](docs/mysql-compatibility.md). If you inject
+  your own `pool`/`client`, disable found-rows there too for `tryInsert` to stay
+  reliable (the advisory lock verifies ownership and is correct regardless).
 
 ## Operational guidance
 
@@ -64,6 +84,10 @@ These invariants are pinned by `packages/orm/security_test.ts`.
   # libSQL/Turso: URL + token env vars and the Turso host
   deno run --allow-read=. --allow-env=TURSO_DATABASE_URL,TURSO_AUTH_TOKEN \
     --allow-net=your-db.turso.io:443 jsr:@sisal/migrate/cli migrate
+
+  # migrate against MySQL/MariaDB: the URL env var and the DB host
+  deno run --allow-read=. --allow-env=MYSQL_URL \
+    --allow-net=db.example.com:3306 jsr:@sisal/migrate/cli migrate
   ```
 
   SQLite (`@db/sqlite`) loads a native library on first run, so it needs the

@@ -1,9 +1,9 @@
 /**
  * Connection helpers for the PostgreSQL-**family** activity-vectors example.
  *
- * Runs over any PostgreSQL-family driver — `@sisal/pg` on `@db/postgres` or
+ * Runs over any PostgreSQL-family driver — `@sisal/pg` on postgres.js (default) or `@db/postgres`, or
  * `npm:postgres`, or `@sisal/neon` over a WebSocket — selected by `SISAL_ADAPTER`
- * (`pg` default | `pg-postgres-js` | `neon`). `NeonDatabase` ≡ `PgDatabase`, so
+ * (`pg` default | `pg-db-postgres` | `neon`). `NeonDatabase` ≡ `PgDatabase`, so
  * every other module runs unchanged.
  *
  * - {@link openDb} uses `DATABASE_URL` — the app/runtime path.
@@ -22,7 +22,7 @@ export type { PgDatabase };
 export type NeonDatabase = PgDatabase;
 
 /** Which PostgreSQL-family driver {@link openDb} opens, from `SISAL_ADAPTER`. */
-export type FeedAdapter = "pg" | "pg-postgres-js" | "neon";
+export type FeedAdapter = "pg" | "pg-db-postgres" | "neon";
 
 /** Reads an environment variable, tolerating a missing `--allow-env`. */
 export function readEnv(name: string): string | undefined {
@@ -58,11 +58,11 @@ export function getDirectUrl(): string {
 /** The selected driver, from `SISAL_ADAPTER` (defaults to `"pg"`). */
 export function getAdapter(): FeedAdapter {
   const raw = (readEnv("SISAL_ADAPTER") ?? "pg").trim();
-  if (raw === "pg" || raw === "pg-postgres-js" || raw === "neon") {
+  if (raw === "pg" || raw === "pg-db-postgres" || raw === "neon") {
     return raw;
   }
   throw new Error(
-    `Unknown SISAL_ADAPTER "${raw}"; use "pg", "pg-postgres-js", or "neon".`,
+    `Unknown SISAL_ADAPTER "${raw}"; use "pg", "pg-db-postgres", or "neon".`,
   );
 }
 
@@ -89,8 +89,8 @@ async function open(url: string): Promise<PgDatabase> {
       await configureNeonProxy();
       return await connectNeon({ url });
     }
-    case "pg-postgres-js":
-      return await connectPg({ url, driver: "postgres-js" });
+    case "pg-db-postgres":
+      return await connectPg({ url, driver: "db-postgres" });
     default:
       return await connectPg({ url });
   }

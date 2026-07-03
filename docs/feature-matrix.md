@@ -65,6 +65,7 @@ genuine dialect limit · — not applicable.
 | Write outcome (inserted vs conflicted/claimed)                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 | Read CTE (WITH on SELECT)                                                |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 | Recursive CTE (WITH RECURSIVE; MySQL 8+/MariaDB)                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Recursive CTE `SEARCH`/`CYCLE` clauses (PostgreSQL 14+)                  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -109,6 +110,7 @@ surface at all:
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite or MySQL families. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 - **Typed function caller (`db.call`)** — No stored-function caller off Postgres; `defineFunction`/`db.call` render PostgreSQL `SELECT * FROM fn(args)`.
 - **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; SQLite-family and MySQL-family CTEs are `SELECT`-only. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Recursive CTE `SEARCH`/`CYCLE` clauses (PostgreSQL 14+)** — The standard `SEARCH DEPTH|BREADTH FIRST` / `CYCLE` clauses are PostgreSQL-only (server >= 14); the portable spelling stays an explicit depth column + `WHERE depth < n` guard. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 
 ## Reproduce
 

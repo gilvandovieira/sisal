@@ -10,22 +10,37 @@ audit**, a **living roadmap** of addressed and open concerns, and the
 private disclosure, see
 [`SECURITY.md`](https://github.com/gilvandovieira/sisal/blob/main/SECURITY.md).
 
-> **Headline:** the audit confirmed **no Critical or High-severity issues**. The
-> ORM query path is the strongest control surface — values are bound parameters,
-> identifiers are validated before quoting, parameter values are never logged,
-> destructive operations require an explicit opt-in, and migrations use
-> checksums plus locks. All three medium findings raised by the audit — missing
-> constraint emission, credential leakage through driver error causes, and
-> unpinned CI/Docker references — have since been **resolved** (see
-> [SEC-001](#sec-001), [SEC-003](#sec-003), and [SEC-002](#sec-002)). The
-> dollar-quoted migration splitter finding is also resolved (see
-> [SEC-007](#sec-007)).
+> **Headline:** the 0.3.0 audit confirmed **no Critical or High-severity
+> issues**, and every finding it raised is **resolved** ([SEC-001](#sec-001)
+> through [SEC-007](#sec-007)). The **0.9.0 refresh** (2026-07-02) re-audited
+> the surface added since — the `@sisal/core` extraction, the MySQL/MariaDB
+> adapter, the opt-in postgres.js driver, and the v0.9 ETL substrate — and found
+> **no injection path**: the ORM query path remains the strongest control
+> surface (values are bound parameters, identifiers are validated before
+> quoting, prepared plans never inline values). The refresh raised **one High**
+> ([SEC-008](#sec-008): the MySQL family's `CLIENT_FOUND_ROWS` default breaks
+> `tryInsert` and advisory-lock mutual exclusion), **two Medium**
+> ([SEC-009](#sec-009) MySQL-family TLS, [SEC-010](#sec-010) bind values in
+> driver error properties), and six Low findings. **All nine are now resolved**
+> (the v0.10 hardening pass, tests pinning each) — every finding this document
+> has ever raised is closed.
 
 ## Audit basis & methodology
 
 - **Last full audit:** 2026-06-28, branch `release/0.3.0` @
   `3f3a9a49005af2f00695816b44af92471c5e7a28`; Deno 2.8.3 / V8 14.9 / TypeScript
   6.0.3; 176 tracked files.
+- **0.9.0 refresh:** 2026-07-02, `main` @
+  `c7996202f9fc0766ae2ef0b000a41f77059fcb9d` (v0.9.0). Four-track code re-audit
+  of the ~155 commits / ~406 changed files landed since 0.3.0 — core SQL
+  construction (the v0.8 `@sisal/core` extraction), all five adapters (the
+  MySQL/MariaDB adapter and the opt-in postgres.js driver are new), migrate/CLI
+  plus the v0.9 ETL substrate, and CI/supply chain — including empirical probes
+  of the MySQL/MariaDB drivers and a fresh OSV pass. A second, independently
+  produced agent audit (Codex, same date) was cross-checked and merged into
+  these findings: it corroborated the High and both Medium findings, and its
+  remaining items are folded into [SEC-014](#sec-014) or resolved by this
+  document refresh.
 - **Scope:** `packages/{orm,migrate,pg,sqlite,libsql,neon}`, `tools`, `scripts`,
   `.github/workflows`, `docker`, `integration`, `examples`, `benchmarks`,
   `docs`, and the root/package manifests + `deno.lock`. Binary assets were
@@ -52,7 +67,40 @@ by [SEC-006](#sec-006). The SQLite executor was hardened to serialize work on
 its single connection so unrelated calls cannot interleave inside an open
 transaction.
 
-### Validation at the audited commit
+**0.9.0 surface review.** The refresh re-examined everything added since 0.3.0.
+The `@sisal/core` extraction moved the SQL IR, identifier validation, and the
+capability registry without weakening them: values are bound parameters
+end-to-end, identifiers are validated at definition and again at render, custom
+naming-function output is re-validated, only fixed keyword enums reach the
+internal `raw()` uses, and prepared plans (`renderToPlan`/`fillPreparedPlan`)
+replay without ever inlining values. The new MySQL/MariaDB adapter follows the
+injectable-executor pattern; the advisory-lock lease table name is
+regex-validated before DDL interpolation and lock names/owners are bound
+parameters. The opt-in postgres.js driver is lazily imported and parameterizes
+identically to the default driver. The findings this refresh raises live at the
+edges instead: the MySQL family's affected-row semantics break the ETL
+substrate's claim protocol ([SEC-008](#sec-008)), its URL path cannot express
+TLS ([SEC-009](#sec-009)), driver-attached error properties escape the SEC-003
+redaction ([SEC-010](#sec-010), [SEC-011](#sec-011)), and checkpoint pruning,
+lock namespacing, CI pinning, release provenance, and two internal DDL
+boundaries each have a Low-severity gap
+([SEC-012](#sec-012)–[SEC-016](#sec-016)).
+
+### Validation after the v0.10 hardening pass (fixes for SEC-008–SEC-016)
+
+| Command                                | Result                                                                                                                        |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `deno task fmt:check`                  | Pass (433 files)                                                                                                              |
+| `deno lint`                            | Pass (316 files)                                                                                                              |
+| `deno task check`                      | Pass                                                                                                                          |
+| `deno task test`                       | Pass (475 passed, 61 steps)                                                                                                   |
+| `deno task docs:check`                 | Pass (48/48 modules; 96.9% JSDoc)                                                                                             |
+| `deno task check:images`               | Pass (all image refs digest-pinned)                                                                                           |
+| Security-invariant + `SEC-`id tests    | Pass (`security_test`, `error_test`, `advisory_lock_test`, `checkpoint_test`, `ddl_hardening_test`, MySQL pool/history tests) |
+| OSV npm querybatch (`deno task audit`) | Pass — 61 npm packages, **0 vulnerabilities**                                                                                 |
+| OSV `JSR`/`Deno` ecosystem             | Limitation — JSR remains unindexed by OSV                                                                                     |
+
+### Validation at the 0.3.0 audited commit
 
 | Command                                | Result                                                                                |
 | -------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -86,12 +134,16 @@ audit assumed these attacker models:
 **Trust boundary.** Schema definitions, query builders, and `` sql`…` ``
 templates are _code you author_ and are trusted. The untrusted surface is
 runtime **values**, any **string** passed to `raw(...)` / `identifier(...)` /
-`db.execute("…")`, and **secrets** flowing through config and adapters.
+`db.execute("…")` / `db.query("…")`, pre-rendered statements handed to
+`db.batch` or a checkpoint's `advance`/`prune` statement lists (see the
+[SEC-006](#sec-006) addendum), and **secrets** flowing through config and
+adapters.
 
 **Out of scope (your database's / app's job):** authn/authz, row-level security
-policies, TLS/transport (the driver's responsibility), database-server
-hardening, and protecting a user from intentionally running their own malicious
-migration config.
+policies, TLS/transport (the driver's responsibility — but see
+[SEC-009](#sec-009) for the MySQL-family gap), database-server hardening, and
+protecting a user from intentionally running their own malicious migration
+config.
 
 ---
 
@@ -100,17 +152,17 @@ migration config.
 Aligned with OWASP A03 (Injection) and least-privilege / secret-management
 practice — each with Sisal's current status.
 
-| # | Standard                                                               | Sisal                    |
-| - | ---------------------------------------------------------------------- | ------------------------ |
-| 1 | **Parameterize every value** — never concatenate values into SQL       | ✅                       |
-| 2 | **Quote and validate identifiers**                                     | ✅                       |
-| 3 | **No SQL from untrusted strings** in the core; escape hatches explicit | ✅                       |
-| 4 | **Safe-by-default destructive operations**                             | ✅                       |
-| 5 | **Keep secrets and values out of logs and errors**                     | ✅                       |
-| 6 | **Reject unknown columns** (mass assignment)                           | ✅                       |
-| 7 | **Enforce referential integrity** the schema declares                  | ✅ ([SEC-001](#sec-001)) |
-| 8 | **Least privilege & secret-management guidance**                       | ✅ ([SEC-004](#sec-004)) |
-| 9 | **Supply-chain integrity** of dependencies and CI                      | ✅ ([SEC-002](#sec-002)) |
+| # | Standard                                                               | Sisal                                                              |
+| - | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1 | **Parameterize every value** — never concatenate values into SQL       | ✅                                                                 |
+| 2 | **Quote and validate identifiers**                                     | ✅                                                                 |
+| 3 | **No SQL from untrusted strings** in the core; escape hatches explicit | ✅                                                                 |
+| 4 | **Safe-by-default destructive operations**                             | ✅                                                                 |
+| 5 | **Keep secrets and values out of logs and errors**                     | ✅ ([SEC-010](#sec-010), [SEC-011](#sec-011))                      |
+| 6 | **Reject unknown columns** (mass assignment)                           | ✅                                                                 |
+| 7 | **Enforce referential integrity** the schema declares                  | ✅ ([SEC-001](#sec-001))                                           |
+| 8 | **Least privilege & secret-management guidance**                       | ✅ ([SEC-004](#sec-004))                                           |
+| 9 | **Supply-chain integrity** of dependencies and CI                      | ✅ ([SEC-002](#sec-002), [SEC-014](#sec-014), [SEC-015](#sec-015)) |
 
 ---
 
@@ -118,17 +170,227 @@ practice — each with Sisal's current status.
 
 Every audit finding (`SEC-NNN`), its severity, and current status. **Addressed**
 items are done and, where relevant, pinned by a test; **partial**/**open** items
-are the roadmap.
+are the roadmap. Every open finding is scheduled for the next release:
+[SEC-008](#sec-008)–[SEC-016](#sec-016) map to
+[v0.10 roadmap](v0.10.0-roadmap.md) tasks **T1–T9**, and the [SEC-007](#sec-007)
+residual to **T10**.
 
-| ID                  | Concern                                               | Severity | Status       |
-| ------------------- | ----------------------------------------------------- | -------- | ------------ |
-| [SEC-001](#sec-001) | `UNIQUE`/`FOREIGN KEY` constraints not emitted in DDL | Medium   | ✅ Addressed |
-| [SEC-003](#sec-003) | Driver error `cause` may preserve DSNs/tokens         | Medium   | ✅ Addressed |
-| [SEC-006](#sec-006) | `raw()` / DDL-expression escape hatches               | Low      | ✅ Addressed |
-| [SEC-002](#sec-002) | Mutable GitHub Actions & Docker references            | Medium   | ✅ Addressed |
-| [SEC-007](#sec-007) | Dollar-quoted SQL split incorrectly                   | Low      | ✅ Addressed |
-| [SEC-004](#sec-004) | Broad Deno permissions in CLI & integration           | Low      | ✅ Addressed |
-| [SEC-005](#sec-005) | Migration config is trusted local code                | Info     | ◻️ Accepted  |
+| ID                  | Concern                                                | Severity | Status       |
+| ------------------- | ------------------------------------------------------ | -------- | ------------ |
+| [SEC-008](#sec-008) | MySQL-family found-rows breaks `tryInsert`/lock claims | High     | ✅ Addressed |
+| [SEC-009](#sec-009) | MySQL-family URL path cannot require TLS               | Medium   | ✅ Addressed |
+| [SEC-010](#sec-010) | Bind values survive in driver error properties         | Medium   | ✅ Addressed |
+| [SEC-011](#sec-011) | Redaction pattern & coverage gaps                      | Low      | ✅ Addressed |
+| [SEC-012](#sec-012) | ETL checkpoint prune ordering / fail-closed gaps       | Low      | ✅ Addressed |
+| [SEC-013](#sec-013) | MySQL migration lock name is server-global             | Low      | ✅ Addressed |
+| [SEC-014](#sec-014) | Pinning gaps outside the SEC-002 perimeter             | Low      | ✅ Addressed |
+| [SEC-015](#sec-015) | Tag-publish ancestry & pre-commit hook permissions     | Low      | ✅ Addressed |
+| [SEC-016](#sec-016) | Core DDL defense-in-depth gaps                         | Low      | ✅ Addressed |
+| [SEC-001](#sec-001) | `UNIQUE`/`FOREIGN KEY` constraints not emitted in DDL  | Medium   | ✅ Addressed |
+| [SEC-003](#sec-003) | Driver error `cause` may preserve DSNs/tokens          | Medium   | ✅ Addressed |
+| [SEC-006](#sec-006) | `raw()` / DDL-expression escape hatches                | Low      | ✅ Addressed |
+| [SEC-002](#sec-002) | Mutable GitHub Actions & Docker references             | Medium   | ✅ Addressed |
+| [SEC-007](#sec-007) | Dollar-quoted SQL split incorrectly                    | Low      | ✅ Addressed |
+| [SEC-004](#sec-004) | Broad Deno permissions in CLI & integration            | Low      | ✅ Addressed |
+| [SEC-005](#sec-005) | Migration config is trusted local code                 | Info     | ◻️ Accepted  |
+
+### ✅ Addressed (0.9.0 refresh · fixed in v0.10)
+
+Each fix is pinned by a test named for its `SEC-`id. Full per-task fix direction
+lives in the [v0.10 roadmap](v0.10.0-roadmap.md) (T1–T10).
+
+#### SEC-008 — MySQL-family found-rows semantics break `tryInsert` and advisory-lock claims {#sec-008}
+
+**High · resolved.** The advisory-lock claim now **verifies ownership** — it
+reads the row back and compares the owner token instead of trusting the insert's
+affected-row count, so it is exact on every engine and independent of the
+connection's found-rows flag (mutual exclusion holds even against an injected
+found-rows-on pool). The bundled `@sisal/mysql` pools additionally disable
+`CLIENT_FOUND_ROWS` (mysql2 `flags: ["-FOUND_ROWS"]`, MariaDB
+`foundRows: false`) so `tryInsert`'s affected-row contract holds for the shipped
+drivers; `AdvisoryLock.renew` stays correct because the lease value changes each
+renew. Pinned by a two-claimant `advisory_lock_test` that simulates the
+ambiguous count and asserts a single winner, plus pool-config tests. The narrow
+`UPDATE`-reports-changed-rows consequence is documented in
+`docs/mysql-compatibility.md`.
+
+_Original finding:_ MySQL has no `RETURNING`, so `tryInsert` infers "inserted"
+from the driver's affected-row count (`packages/orm/core/write_outcome.ts`:
+`inserted: rowCount >= 1`), and `db.tryAdvisoryLock` builds its lease-claim
+protocol on that signal (`packages/orm/core/advisory_lock.ts`). Both bundled
+drivers connect with the `CLIENT_FOUND_ROWS` protocol flag in effect, under
+which a conflicting `INSERT … ON DUPLICATE KEY UPDATE x = x` reports **one found
+row instead of zero changed rows** — so the loser of a race also sees
+`inserted: true`. Empirically confirmed against MariaDB 11: two concurrent
+claimants of the same lock name both returned `acquired: true`, breaking the
+mutual-exclusion guarantee the ETL substrate depends on (windowed jobs can
+double-run; any future queue-claim helper on the same primitive inherits the
+flaw). The MySQL-family integration scenarios for `tryInsert`/`tryAdvisoryLock`
+cannot pass against a live server in this state. Fix direction: connect with
+found-rows off (mysql2 `flags: ["-FOUND_ROWS"]`, MariaDB connector
+`foundRows: false`) — but audit `AdvisoryLock.renew` and every other consumer of
+an `UPDATE` row count first, since the flag flips their semantics from "matched"
+to "changed" — or move the claim path to an unambiguous strategy and fail closed
+where an insert-vs-conflict outcome cannot be proven.
+
+#### SEC-009 — MySQL-family URL connections cannot require TLS {#sec-009}
+
+**Medium · resolved.** `MysqlConnectionOptions` now takes an `ssl` option
+(`boolean | MysqlTlsOptions`), forwarded verbatim to mysql2, the MariaDB
+connector, and — through the shared connection-source resolver — the migrate
+driver. A TLS-relevant URL query param (`ssl-mode`, `sslmode`, `ssl`, …) is now
+**rejected** with a typed error rather than silently dropped, so the URL path
+can no longer fail open to cleartext. Pinned by pool-config tests (`ssl`
+forwarding and URL-param rejection).
+
+_Original finding:_ `MysqlConnectionOptions` has no TLS/SSL field, and the URL
+convenience path builds both driver configs without `ssl`
+(`packages/mysql/orm/pool.ts`, `packages/mysql/orm/mariadb_pool.ts`);
+`?ssl-mode=…` URL query parameters are silently dropped, so a URL that _asks_
+for TLS still connects in cleartext — the path fails open. Workaround today:
+inject a pre-configured `pool`/`client` carrying the driver's TLS options. Fix:
+add explicit TLS options to `MysqlConnectionOptions`, forward them to mysql2,
+the MariaDB connector, and the migrate driver alike, document strict-TLS
+examples, and reject unrecognized security-relevant URL parameters instead of
+dropping them.
+
+#### SEC-010 — Bind values survive in driver-attached error properties {#sec-010}
+
+**Medium · resolved.** `redactErrorCause` now recursively sanitizes a preserved
+driver cause: it drops bind/statement properties (`parameters`, `sql`, `values`,
+…), masks credential-named properties (`password`, `uri`, `authToken`, …), and
+recurses nested `cause` chains and `AggregateError.errors`, with a depth/cycle
+guard. Our own `SisalError` subclasses pass through unchanged (already redacted,
+so `instanceof`/`details` survive). Pinned by `packages/core/error_test.ts`
+(bind-value drop, DSN/credential masking, nested/aggregate recursion).
+
+_Original finding:_ [SEC-003](#sec-003)'s redaction covers a preserved driver
+cause's `message` and `stack`, but raw bind values reach serializable
+**properties** of the cause: the MariaDB connector appends parameter values to
+error text (`logParam` behavior), mysql2 attaches the offending statement as
+`err.sql`, and postgres.js attaches the `parameters` array as an enumerable
+property. `redactSecrets` targets credential patterns (DSN userinfo,
+token-bearing parameters), not arbitrary bind values, so a sensitive value bound
+into a failing query can surface when an application or test reporter serializes
+`error.cause`. Fix: sanitize enumerable cause properties (drop or summarize
+`parameters` / `sql` / driver `config` objects; recurse nested causes and
+`AggregateError`), disable value-echoing driver options by default, and pin with
+adapter-shaped error fixtures for mysql2, MariaDB, postgres.js, libSQL, and
+Neon.
+
+#### SEC-011 — Redaction pattern and coverage gaps {#sec-011}
+
+**Low · resolved.** `redactSecrets` now covers `encryptionKey`, masks URL
+passwords containing `@`/`/` (lazy match to the `@host` boundary), and redacts
+SQL grant/role credentials (`IDENTIFIED BY '…'`, `PASSWORD '…'`). `NeonError`
+now extends `SisalError`, inheriting its message/cause/details redaction, and
+`SisalError` passes `details` (including `details.sql`) through the redactor.
+Pinned by `packages/core/error_test.ts`.
+
+_Original finding:_ Three gaps in the [SEC-003](#sec-003) machinery: (1)
+`redactSecrets` misses the `encryptionKey` parameter name and fails to mask URL
+passwords containing `@` or `/`; (2) `NeonError` extends `Error` directly rather
+than `SisalError`, so it must self-apply redaction on every construction path
+instead of inheriting it; (3) `MigrationError` attaches `details.sql` unredacted
+— a failing migration statement like `CREATE USER app IDENTIFIED BY 'pw'` would
+echo the password into serialized details. Fix: broaden the parameter-name list,
+tolerate reserved characters in URL userinfo, route `NeonError` through
+`SisalError`, and pass `details.sql` through `redactSecrets`.
+
+#### SEC-012 — ETL checkpoint prune ordering and fail-closed gaps {#sec-012}
+
+**Low · resolved.** `prune` now raises the horizon **first**, then deletes
+(`db.batch([horizon, ...deletes])`), so a crash between the two statements
+leaves the horizon ahead of the delete (conservative), never behind. The
+non-atomic `db.batch` fallback the original finding describes has since been
+removed entirely — `db.batch` now throws `ORM_TRANSACTION_UNSUPPORTED` when a
+driver can supply neither `batch` nor `transaction`, so the horizon-first order
+is defense in depth. The `unsafeAllowPrunedReplay` override now emits a
+`console.warn` instead of passing silently, and `etlCheckpoint` fails closed
+with `ORM_DIALECT_UNSUPPORTED` on the `generic` dialect. Pinned by
+`checkpoint_test.ts` (horizon-first order, generic guard, override warning).
+
+_Original finding:_ `etlCheckpoint`'s `prune` issues its deletes **before**
+advancing the retention horizon. Under the ORM's non-atomic `db.batch` fallback
+(drivers without native batch execute statements sequentially), a failure
+between the two steps leaves rows deleted with the horizon still behind them —
+`assertReplayable` then vouches for a window that can no longer be replayed,
+violating the replay guarantee that `ORM_REPLAY_PRUNED` exists to protect. Safe
+order: advance the horizon first, then delete. Related hardening:
+`unsafeAllowPrunedReplay` suppresses the guard silently (it should at least
+log), and the checkpoint helpers do not fail closed on the `generic` dialect.
+
+#### SEC-013 — MySQL migration lock name is server-global {#sec-013}
+
+**Low · resolved.** The default migration lock is now namespaced by the current
+database — the store resolves `SELECT DATABASE()` and locks
+`GET_LOCK('sisal:migrate:<db>')` (hashed suffix if the composed name would
+exceed the 64-char ceiling), so unrelated projects on a shared server no longer
+contend. An explicit lock id is still honored verbatim and validated before a
+session is opened. Pinned by a `history_test` asserting the database-scoped
+name.
+
+_Original finding:_ The MySQL migrate driver serializes runners with
+`GET_LOCK('sisal:migrate')`, but MySQL user locks are **server-scoped**, not
+per-database: every Sisal project on a shared server contends for the same name,
+and a stuck or hostile co-tenant session can hold it indefinitely, blocking
+unrelated deployments' migrations (availability impact only — no data risk).
+Fix: namespace the lock name with the current database (`sisal:migrate:<db>`);
+the PostgreSQL advisory lock is already per-database.
+
+#### SEC-014 — Pinning gaps outside the SEC-002 perimeter {#sec-014}
+
+**Low · resolved.** The integration workflow's `mysql:8.4` / `mariadb:11`
+service containers and the example `docker-compose.yml` images are now
+digest-pinned; a new `deno task check:images` (`tools/check_image_pinning.ts`,
+wired into CI) fails on any `image:`/`FROM` reference lacking an `@sha256:`
+digest; and `--no-lock` is dropped from the `perf:*` tasks. Pinned by the CI
+guard itself.
+
+_Original finding:_ [SEC-002](#sec-002) pinned GitHub Actions and the `docker/`
+images, but three references sit outside that perimeter: the integration
+workflow's **service containers** still use mutable `mysql:8.4` / `mariadb:11`
+tags (`.github/workflows/integration.yml`; Dependabot's `docker` ecosystem does
+not scan workflow `services:` blocks, so these drift silently), the example
+compose files use mutable tags, and the `perf:*` tasks run with `--no-lock`,
+bypassing the lockfile integrity the rest of the workspace gets from `--frozen`.
+The integration workflow runs with `contents: read`, so the blast radius is
+bounded. Fix: digest-pin the service images and example images, add a CI check
+that rejects `image:` references without `@sha256:`, and drop `--no-lock`.
+
+#### SEC-015 — Tag-publish ancestry and pre-commit hook permissions {#sec-015}
+
+**Low · resolved.** The publish workflow now runs a **tag-push ancestry guard**
+— it fetches `origin/main` (checkout deepened to full history) and refuses to
+publish unless `git merge-base --is-ancestor "$GITHUB_SHA" origin/main`
+succeeds, so a tag on an off-main commit cannot reach the OIDC publish path. The
+doc tasks the pre-commit hook invokes now use `--allow-run=deno` instead of a
+blanket `--allow-run`.
+
+_Original finding:_ The publish workflow's "refuse outside `main`" guard covers
+`workflow_dispatch` runs only; a **tag push** publishes whatever commit the tag
+points at, even one not on `main`, so tag-push rights alone suffice to route an
+unreviewed commit through the OIDC publish path. Fix: assert ancestry in the tag
+path (`git merge-base --is-ancestor "$GITHUB_SHA" origin/main`). Also, the
+installed pre-commit hook runs with a blanket `--allow-run`; it only needs
+`--allow-run=deno`.
+
+#### SEC-016 — Core DDL defense-in-depth gaps {#sec-016}
+
+**Low · resolved.** `renderPortableExpression` now **rejects** a portable DDL
+expression that carries a bound parameter (a typed `OrmError`, matching the
+generated-column path) instead of emitting a dangling `$1`, and index / unique /
+check **constraint names** are validated as plain identifiers at the core
+boundary (the same discipline table and column names get). Pinned by
+`packages/core/ddl_hardening_test.ts`.
+
+_Original finding:_ Two internal-boundary gaps, neither reachable from untrusted
+input today: `renderPortableExpression` (`packages/core/table.ts`) silently
+**drops bound parameters** when rendering an expression into a snapshot, leaving
+a dangling `$1` placeholder in generated DDL where its sibling paths reject
+instead; and index/unique/check **constraint names** are not validated at the
+core boundary — currently safe only because every DDL generator quote-escapes
+them on emission.
 
 ### ✅ Addressed
 
@@ -207,6 +469,14 @@ three fronts:
   not sanitize" warning, and `packages/orm/security_test.ts` pins parameter
   binding, identifier rejection, and where-less mutation blocking.
 
+**0.9.0 addendum.** Two more trusted-string surfaces of the same class are now
+named explicitly: `db.query("…", params)` accepts raw SQL text exactly like
+`db.execute("…")` (same runner, same trust expectation), and `db.batch` plus a
+checkpoint's `advance`/`prune` statement lists accept pre-rendered `SqlQuery`
+objects that execute verbatim. All of them are `raw()`-class, developer-
+authored inputs — never build their SQL text from runtime strings. Root
+`SECURITY.md` lists them alongside the original escape hatches.
+
 #### SEC-002 — GitHub Actions & Docker references are pinned {#sec-002}
 
 **Medium · resolved.** Workflows referenced actions by moving tags
@@ -237,6 +507,13 @@ The splitter now recognizes untagged and tagged dollar-quote delimiters and
 ignores semicolons until the matching closing delimiter. `$1`/`$2` parameter
 placeholders are not treated as dollar quotes. Pinned by
 `splitSqlStatements: dollar-quoted bodies stay whole`.
+
+_Residual (0.9.0 refresh) — resolved in v0.10:_ the splitter now models
+PostgreSQL `E'…'` escape-string backslash escapes (a `\'` no longer ends the
+string) and **nested** block comments (depth-tracked, so an inner `*/` does not
+close the outer comment), so a `;` inside either construct is no longer treated
+as a top-level terminator. This was correctness hardening on trusted migration
+files, not an injection surface. Pinned by the new `sql_split_test` cases.
 
 #### SEC-004 — Scoped permission examples are documented {#sec-004}
 
@@ -327,6 +604,14 @@ packages. OSV `querybatch` returned **0 vulnerabilities** across the 33 npm
 packages; OSV rejects the `JSR`/`Deno` ecosystems (`Invalid ecosystem`), so
 complete advisory coverage for JSR dependencies cannot be claimed.
 
+**Refresh 2026-07-02 (v0.9.0):** the lockfile now inventories **61 npm**
+packages (the MySQL/MariaDB drivers and the opt-in postgres.js driver are the
+notable additions); OSV `querybatch` again returned **0 vulnerabilities**, and
+JSR remains unindexed. The new database drivers (`postgres`, `mysql2`,
+`mariadb`) are pure JavaScript and integrity-locked; native code still enters
+only through the libSQL client's platform packages and `@db/sqlite`'s
+`@denosaurs/plug` download; no installed package declares lifecycle scripts.
+
 Observations:
 
 - Runtime npm usage is confined to explicit adapter/benchmark boundaries
@@ -368,6 +653,26 @@ record but, as the audit noted, OSV does not index the JSR ecosystem.
       and scaffolds. — [SEC-005](#sec-005)
 - [x] Add an automated advisory/SBOM workflow for npm deps (`deno task audit` +
       `.github/workflows/advisories.yml`).
+- [x] Turn off found-rows semantics (or adopt an unambiguous claim strategy) for
+      the MySQL family so `tryInsert`/`tryAdvisoryLock` cannot double-grant; add
+      live-conflict regression tests. — [SEC-008](#sec-008)
+- [x] Add TLS options to `MysqlConnectionOptions`, forwarded to mysql2, the
+      MariaDB connector, and the migrate driver; stop silently dropping
+      `ssl-mode` URL params. — [SEC-009](#sec-009)
+- [x] Sanitize enumerable driver-error properties (`parameters`/`sql`/config
+      objects, nested causes, `AggregateError`); disable value-echoing driver
+      options. — [SEC-010](#sec-010)
+- [x] Close redaction gaps: `encryptionKey`, reserved characters in URL
+      passwords, `NeonError` inheritance, `details.sql`. — [SEC-011](#sec-011)
+- [x] Advance the checkpoint horizon before pruning; log
+      `unsafeAllowPrunedReplay`; fail closed on `generic`. — [SEC-012](#sec-012)
+- [x] Namespace the MySQL migration lock by database. — [SEC-013](#sec-013)
+- [x] Digest-pin workflow service images and example compose images; drop
+      `--no-lock` from the `perf:*` tasks. — [SEC-014](#sec-014)
+- [x] Enforce main-ancestry on tag-push publishes; narrow the pre-commit hook to
+      `--allow-run=deno`. — [SEC-015](#sec-015)
+- [x] Reject bound parameters in portable DDL expressions; validate constraint
+      names at the core boundary. — [SEC-016](#sec-016)
 
 ---
 

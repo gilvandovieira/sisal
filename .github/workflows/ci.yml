@@ -40,6 +40,9 @@ jobs:
       - name: Check feature-matrix coverage
         run: deno task --frozen docs:matrix:check
 
+      - name: Check container image pinning
+        run: deno task --frozen check:images
+
       - name: Type check workspace
         run: deno task --frozen check
 

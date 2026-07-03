@@ -19,25 +19,37 @@ import {
   type SqlQuery,
 } from "./mod.ts";
 
-// A driver that records every rendered statement and answers `insert`/`update`
-// with a programmed row count (the signal the lease reads: 1 = claimed/renewed,
-// 0 = a live holder / lost lease).
+// A driver that records every rendered statement and models who holds the
+// name. `insert: 1` (default) makes our insert win — the claim then verifies
+// ownership by reading the row back, so the SELECT must return our own token.
+// `insert: 0` stands in for a conflict (another live holder), so the verify
+// SELECT returns a different owner and the claim is refused.
 function recordingDriver(
   counts: { insert?: number; update?: number } = {},
 ): { driver: OrmDriver; statements: SqlQuery[] } {
   const statements: SqlQuery[] = [];
   const insertRows = counts.insert ?? 1;
   const updateRows = counts.update ?? 1;
+  // The owner the verify SELECT reports. Set from the insert's params on a win,
+  // or a foreign token on a conflict.
+  let heldOwner: string | undefined;
   const run = (query: SqlQuery): Promise<OrmQueryResult> => {
     statements.push(query);
     const head = query.text.trimStart().toLowerCase();
     if (head.startsWith("insert")) {
-      // The claim goes through `tryInsert`, which reads `RETURNING` rows on
-      // pg/sqlite and `rowCount` on MySQL — so a won claim must show both.
-      const won = insertRows >= 1;
+      // Values render in declaration order: name, owner, expires_at.
+      heldOwner = insertRows >= 1
+        ? (query.params[1] as string)
+        : "__other_holder__";
       return Promise.resolve({
-        rows: won ? [{ n: 1 }] : [],
+        rows: insertRows >= 1 ? [{ n: 1 }] : [],
         rowCount: insertRows,
+      });
+    }
+    if (head.startsWith("select")) {
+      return Promise.resolve({
+        rows: heldOwner === undefined ? [] : [{ owner: heldOwner }],
+        rowCount: heldOwner === undefined ? 0 : 1,
       });
     }
     if (head.startsWith("update")) {
@@ -165,6 +177,55 @@ Deno.test("advisory lock: MySQL uses the no-op upsert, not ON CONFLICT", async (
   );
   assert(insert, "expected a claim insert");
   assertStringIncludes(insert.text.toLowerCase(), "on duplicate key update");
+});
+
+// A single in-memory lock table shared by every claimant that uses this
+// driver. The `insert` deliberately reports `rowCount: 1` even for a
+// conflicting no-op — the exact found-rows-style ambiguity behind SEC-008 — so
+// a count-based claim would double-grant. Only the racer whose insert actually
+// set `owner` may win, and the verify SELECT is what enforces that.
+function sharedLockStore(): { driver(): OrmDriver } {
+  let owner: string | undefined;
+  const run = (query: SqlQuery): Promise<OrmQueryResult> => {
+    const head = query.text.trimStart().toLowerCase();
+    if (head.startsWith("insert")) {
+      if (owner === undefined) {
+        owner = query.params[1] as string; // name, owner, expires_at
+      }
+      // Ambiguous count: 1 for both a real insert and a conflicting no-op.
+      return Promise.resolve({ rows: [], rowCount: 1 });
+    }
+    if (head.startsWith("select")) {
+      return Promise.resolve({
+        rows: owner === undefined ? [] : [{ owner }],
+        rowCount: owner === undefined ? 0 : 1,
+      });
+    }
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  };
+  const driver: OrmDriver = {
+    query: <T = unknown>(q: SqlQuery) => run(q) as Promise<OrmQueryResult<T>>,
+    execute: (q: SqlQuery) => run(q),
+  };
+  return { driver: () => driver };
+}
+
+Deno.test("advisory lock: two racers, exactly one wins under the found-rows-ambiguous count (SEC-008)", async () => {
+  const store = sharedLockStore();
+  const a = createDatabase({ driver: store.driver(), dialect: "mysql" });
+  const b = createDatabase({ driver: store.driver(), dialect: "mysql" });
+
+  const [lockA, lockB] = await Promise.all([
+    a.tryAdvisoryLock("etl:daily"),
+    b.tryAdvisoryLock("etl:daily"),
+  ]);
+
+  assertEquals(
+    [lockA.acquired, lockB.acquired].filter(Boolean).length,
+    1,
+    "exactly one racer may hold the lock even though the driver reports one " +
+      "affected row for the losing conflict",
+  );
 });
 
 Deno.test("advisory lock: honors a custom table name", async () => {

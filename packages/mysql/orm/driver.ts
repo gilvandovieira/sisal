@@ -40,6 +40,32 @@ function createMysqlOrmDriverFromExecutor(
     },
   };
 
+  // Without executor transaction support the driver omits transaction/batch,
+  // so the ORM facade fails closed (ORM_TRANSACTION_UNSUPPORTED) instead of
+  // silently losing atomicity.
+  const executorTransaction = executor.transaction?.bind(executor);
+  const atomic: Pick<OrmDriver, "transaction" | "batch"> =
+    executorTransaction === undefined ? {} : {
+      transaction<T>(fn: (tx: OrmTransaction) => Promise<T>): Promise<T> {
+        return executorTransaction((txExecutor) => {
+          return fn(createMysqlOrmDriverFromExecutor(txExecutor, false));
+        });
+      },
+
+      // Runs the statements as one atomic transaction (begin/commit),
+      // collecting one result per statement. Used by the non-interactive
+      // `db.batch(...)` API.
+      batch(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]> {
+        return executorTransaction(async (txExecutor) => {
+          const results: OrmQueryResult[] = [];
+          for (const query of queries) {
+            results.push(await executeQuery(txExecutor, query));
+          }
+          return results;
+        });
+      },
+    };
+
   const driver: OrmDriver = {
     query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
       return executeQuery<T>(executor, query);
@@ -49,19 +75,7 @@ function createMysqlOrmDriverFromExecutor(
       return executeQuery(executor, query);
     },
 
-    transaction<T>(fn: (tx: OrmTransaction) => Promise<T>): Promise<T> {
-      if (executor.transaction === undefined) {
-        return fn(driver);
-      }
-
-      return executor.transaction((txExecutor) => {
-        return fn(createMysqlOrmDriverFromExecutor(txExecutor, false));
-      });
-    },
-
-    batch(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]> {
-      return executeBatch(executor, queries);
-    },
+    ...atomic,
 
     async close(): Promise<void> {
       if (!closeExecutor) {
@@ -92,27 +106,4 @@ async function executeQuery<T>(
     // from a facade-level result.
     ...(result.insertId === undefined ? {} : { insertId: result.insertId }),
   } as OrmQueryResult<T>;
-}
-
-// Runs the statements as one atomic transaction (begin/commit), collecting one
-// result per statement. Used by the non-interactive `db.batch(...)` API.
-async function executeBatch(
-  executor: MysqlSqlExecutor,
-  queries: readonly SqlQuery[],
-): Promise<OrmQueryResult[]> {
-  if (executor.transaction === undefined) {
-    const results: OrmQueryResult[] = [];
-    for (const query of queries) {
-      results.push(await executeQuery(executor, query));
-    }
-    return results;
-  }
-
-  return await executor.transaction(async (txExecutor) => {
-    const results: OrmQueryResult[] = [];
-    for (const query of queries) {
-      results.push(await executeQuery(txExecutor, query));
-    }
-    return results;
-  });
 }

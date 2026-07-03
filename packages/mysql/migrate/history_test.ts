@@ -91,6 +91,45 @@ Deno.test("@sisal/mysql - migration history store uses GET_LOCK named locks", as
   assertEquals(calls[1].params[0], "tenant-a");
 });
 
+Deno.test("@sisal/mysql - default migration lock is namespaced by database (SEC-013)", async () => {
+  const calls: QueryCall[] = [];
+  const session: SqlExecutorSession = {
+    execute<Row = Record<string, unknown>>(
+      sql: string,
+      params: readonly unknown[] = [],
+    ): Promise<QueryResult<Row>> {
+      calls.push({ sql, params });
+      if (sql.includes("database()")) {
+        return Promise.resolve({
+          rows: [{ db: "shop" }] as Row[],
+          rowCount: 1,
+        });
+      }
+      if (sql.includes("get_lock")) {
+        return Promise.resolve({
+          rows: [{ acquired: "1" }] as Row[],
+          rowCount: 1,
+        });
+      }
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    },
+    release: () => Promise.resolve(),
+  };
+  const executor: SqlExecutor = {
+    execute: () => Promise.resolve({ rows: [], rowCount: 0 }),
+    acquireSession: () => Promise.resolve(session),
+  };
+  const store = createMysqlMigrationHistoryStore({ executor });
+
+  assert(store.acquireLock !== undefined);
+  // No explicit lock id → the store resolves the current database and scopes
+  // the lock to it, so a different database's migrator is not blocked.
+  assertEquals(await store.acquireLock(), true);
+  const getLock = calls.find((c) => c.sql.includes("get_lock"));
+  assert(getLock, "expected a get_lock call");
+  assertEquals(getLock.params[0], "sisal:migrate:shop");
+});
+
 Deno.test("@sisal/mysql - migration history store releases busy lock sessions", async () => {
   let releases = 0;
   const executor: SqlExecutor = {

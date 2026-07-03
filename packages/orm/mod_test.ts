@@ -38,12 +38,15 @@ import {
   not,
   notInArray,
   or,
+  type OrmDriver,
   OrmError,
+  type OrmQueryResult,
   quoteIdentifier,
   raw,
   renderSql,
   serializeSqlValue,
   sql,
+  type SqlQuery,
   toSql,
 } from "./mod.ts";
 
@@ -277,6 +280,30 @@ Deno.test("@sisal/orm - update and delete require where by default", () => {
   assertEquals(deleteSql.text, 'delete from "users"');
 });
 
+Deno.test("@sisal/orm - limit and offset require integers", () => {
+  const db = createDatabase({ dialect: "postgres" });
+  const base = db.select().from(users);
+
+  // Fractional values used to slip through as Math.floor(value) — limit(0.5)
+  // silently became `limit 0` despite the "greater than zero" validation.
+  assertThrows(() => base.limit(0.5), OrmError, "positive integer");
+  assertThrows(() => base.limit(0), OrmError, "positive integer");
+  assertThrows(() => base.limit(-1), OrmError, "positive integer");
+  assertThrows(() => base.limit(Number.NaN), OrmError, "positive integer");
+  assertThrows(() => base.offset(1.5), OrmError, "non-negative integer");
+  assertThrows(() => base.offset(-1), OrmError, "non-negative integer");
+
+  const rendered = renderSql(base.limit(3).offset(0).toSql(), {
+    dialect: "postgres",
+  });
+  assertEquals(rendered.params, [3, 0]);
+
+  // The compound (set-operation) builder shares the same validation.
+  const compound = base.unionAll(db.select().from(users));
+  assertThrows(() => compound.limit(0.5), OrmError, "positive integer");
+  assertThrows(() => compound.offset(1.5), OrmError, "non-negative integer");
+});
+
 Deno.test("@sisal/orm - createSchemaSnapshot maps table metadata", () => {
   const snapshot = createSchemaSnapshot({
     dialect: "postgres",
@@ -349,6 +376,62 @@ Deno.test("@sisal/orm - database query transaction and helpers", async () => {
       }).query(sql`select 1`),
     OrmError,
   );
+});
+
+Deno.test("@sisal/orm - transaction fails closed without driver support", async () => {
+  // A driver with no transaction method must reject rather than silently run
+  // the callback non-atomically.
+  const db = createDatabase({
+    driver: {
+      query: () => Promise.resolve({ rows: [], rowCount: 0 }),
+      execute: () => Promise.resolve({ rows: [], rowCount: 0 }),
+    },
+  });
+
+  const error = await assertRejects(
+    () => db.transaction(() => Promise.resolve(1)),
+    OrmError,
+    "Driver does not support transactions",
+  );
+  assertEquals(error.code, "ORM_TRANSACTION_UNSUPPORTED");
+});
+
+Deno.test("@sisal/orm - nested transaction and batch join the enclosing one", async () => {
+  const order: string[] = [];
+  const record = (query: SqlQuery): Promise<OrmQueryResult> => {
+    order.push(query.text);
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  };
+  const driver: OrmDriver = {
+    query: () => Promise.resolve({ rows: [], rowCount: 0 }),
+    execute: () => Promise.resolve({ rows: [], rowCount: 0 }),
+    async transaction(fn) {
+      order.push("begin");
+      const result = await fn({
+        query: () => Promise.resolve({ rows: [], rowCount: 0 }),
+        execute: record,
+      });
+      order.push("commit");
+      return result;
+    },
+  };
+  const db = createDatabase({ driver, dialect: "postgres" });
+
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`update t set a = 1`);
+    // Neither of these may open (or require) a second driver transaction:
+    // they run on the enclosing one and commit with it.
+    await tx.transaction((inner) => inner.execute(sql`update t set b = 2`));
+    await tx.batch([sql`update t set c = 3`]);
+  });
+
+  assertEquals(order, [
+    "begin",
+    "update t set a = 1",
+    "update t set b = 2",
+    "update t set c = 3",
+    "commit",
+  ]);
 });
 
 Deno.test("@sisal/orm - joins and projected select generate SQL", () => {

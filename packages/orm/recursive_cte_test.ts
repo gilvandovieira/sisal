@@ -85,6 +85,112 @@ Deno.test("recursive CTE: requires an explicit column list", () => {
   assertEquals((error as OrmError).code, "ORM_INVALID_QUERY");
 });
 
+// A canonical SEARCH/CYCLE-decorated walk shared by the CF3 tests below.
+function decoratedTree() {
+  return db.$withRecursive("thread", ["id", "depth"])
+    .searchDepthFirst(["id"], "seq")
+    .cycle(["id"], "looped", "path")
+    .as((self) =>
+      db.select({ id: c.id, depth: sql`1` }).from(comments)
+        .where(eq(c.id, 7))
+        .unionAll(
+          db.select({ id: c.id, depth: sql`${self.depth} + 1` }).from(self)
+            .innerJoin(comments, eq(c.parentId, self.id)),
+        )
+    );
+}
+
+Deno.test("recursive CTE: SEARCH/CYCLE clauses render after the body (postgres)", () => {
+  const tree = decoratedTree();
+  const rendered = renderSql(
+    db.with(tree).select({ id: tree.id, seq: tree.seq, looped: tree.looped })
+      .from(tree).orderBy(tree.seq).toSql(),
+    { dialect: "postgres" },
+  );
+  // The clauses sit between the CTE body's closing paren and the outer SELECT,
+  // SEARCH before CYCLE (the SQL grammar's order).
+  assertStringIncludes(
+    rendered.text,
+    ') search depth first by "id" set "seq" ' +
+      'cycle "id" set "looped" using "path" ',
+  );
+  // The set columns are referenceable outside the CTE.
+  assertStringIncludes(rendered.text, '"thread"."seq" as "seq"');
+  assertStringIncludes(rendered.text, '"thread"."looped" as "looped"');
+  assertStringIncludes(rendered.text, 'order by "thread"."seq"');
+
+  const breadth = db.$withRecursive("t", ["id"])
+    .searchBreadthFirst(["id"], "lvl")
+    .as((self) =>
+      db.select({ id: c.id }).from(comments).unionAll(
+        db.select({ id: c.id }).from(self)
+          .innerJoin(comments, eq(c.parentId, self.id)),
+      )
+    );
+  assertStringIncludes(
+    renderSql(
+      db.with(breadth).select({ id: breadth.id }).from(breadth).toSql(),
+      {
+        dialect: "postgres",
+      },
+    ).text,
+    ') search breadth first by "id" set "lvl"',
+  );
+});
+
+Deno.test("recursive CTE: SEARCH/CYCLE fail typed off the postgres dialect", () => {
+  const tree = decoratedTree();
+  for (const dialect of ["sqlite", "mysql"] as const) {
+    const error = assertThrows(
+      () =>
+        renderSql(db.with(tree).select({ id: tree.id }).from(tree).toSql(), {
+          dialect,
+        }),
+      OrmError,
+      "SEARCH/CYCLE",
+    );
+    assertEquals((error as OrmError).code, "ORM_DIALECT_UNSUPPORTED");
+  }
+});
+
+Deno.test("recursive CTE: SEARCH/CYCLE validate at definition time", () => {
+  const base = () => db.$withRecursive("thread", ["id", "depth"]);
+  // BY columns must come from the declared column list.
+  assertThrows(
+    () => base().searchDepthFirst(["nope" as "id"], "seq"),
+    OrmError,
+    "not in the declared column list",
+  );
+  assertThrows(() => base().cycle([], "looped", "path"), OrmError, "BY column");
+  // SET/USING names must be fresh (no collision with columns or each other).
+  assertThrows(
+    () => base().searchDepthFirst(["id"], "depth"),
+    OrmError,
+    "collides",
+  );
+  assertThrows(
+    () => base().cycle(["id"], "mark", "mark"),
+    OrmError,
+    "collides",
+  );
+  assertThrows(
+    () => base().searchDepthFirst(["id"], "seq").cycle(["id"], "seq", "path"),
+    OrmError,
+    "collides",
+  );
+  // At most one clause of each kind.
+  assertThrows(
+    () => base().searchDepthFirst(["id"], "a").searchBreadthFirst(["id"], "b"),
+    OrmError,
+    "already declares a SEARCH clause",
+  );
+  assertThrows(
+    () => base().cycle(["id"], "a", "b").cycle(["id"], "x", "y"),
+    OrmError,
+    "already declares a CYCLE clause",
+  );
+});
+
 Deno.test("recursive CTE: guards a step that never uses self as a FROM source", () => {
   // A step that references `self` only in the join condition (not in FROM)
   // renders SQL where the CTE is absent from the FROM — invalid on every

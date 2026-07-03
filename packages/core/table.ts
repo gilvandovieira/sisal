@@ -295,11 +295,13 @@ function makeIndexBuilder(
 
 /** A table index (`CREATE INDEX`); complete it with `.on(...columns)`. */
 export function index(name?: string): IndexConstraintBuilder {
+  if (name !== undefined) assertConstraintName(name, "index");
   return makeIndexBuilder(name, false, undefined);
 }
 
 /** A unique table index (`CREATE UNIQUE INDEX`); complete with `.on(...)`. */
 export function uniqueIndex(name?: string): IndexConstraintBuilder {
+  if (name !== undefined) assertConstraintName(name, "unique index");
   return makeIndexBuilder(name, true, undefined);
 }
 
@@ -312,6 +314,7 @@ export function primaryKey(
 
 /** A named/composite `UNIQUE` constraint; complete it with `.on(...columns)`. */
 export function unique(name?: string): UniqueConstraintBuilder {
+  if (name !== undefined) assertConstraintName(name, "unique constraint");
   return {
     on: (...columns) => ({
       kind: "unique",
@@ -323,6 +326,7 @@ export function unique(name?: string): UniqueConstraintBuilder {
 
 /** A named `CHECK` constraint from a `sql` expression. */
 export function check(name: string, expression: Sql): TableConstraint {
+  assertConstraintName(name, "check constraint");
   if (!isSql(expression)) {
     throw new OrmError("check() expects a sql`...` expression", {
       code: "ORM_INVALID_QUERY",
@@ -336,10 +340,38 @@ export function check(name: string, expression: Sql): TableConstraint {
 // stripped so the same text reuses across dialects. Shared by CHECK constraints,
 // expression index keys, and partial-index `WHERE` predicates.
 function renderPortableExpression(expression: Sql, tableName: string): string {
-  return renderSql(expression, { dialect: "postgres" }).text.replaceAll(
-    `"${tableName}".`,
-    "",
-  );
+  const rendered = renderSql(expression, { dialect: "postgres" });
+  // A bound parameter has no meaning in DDL — only its `$1` placeholder would
+  // reach the generated statement, leaving a dangling, unbindable parameter.
+  // Reject it loudly (as generated-column expressions already do) instead of
+  // silently dropping the value; inline the literal into the expression (SEC-016).
+  if (rendered.params.length > 0) {
+    throw new OrmError(
+      "A portable DDL expression (CHECK, index key, or partial-index WHERE) " +
+        "cannot bind parameters — inline the literal into the sql`...` expression",
+      { code: "ORM_INVALID_QUERY", status: 400 },
+    );
+  }
+  return rendered.text.replaceAll(`"${tableName}".`, "");
+}
+
+// Constraint names are emitted into DDL by the adapter generators (quote-escaped
+// there). Validating at this boundary — the same discipline table and column
+// names get — keeps a stray quote, semicolon, or control character from ever
+// reaching a generator (SEC-016). A constraint name is a single plain identifier.
+const CONSTRAINT_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function assertConstraintName(name: string, kind: string): string {
+  if (typeof name !== "string" || !CONSTRAINT_NAME_PATTERN.test(name)) {
+    throw new OrmError(
+      `${kind} name must be a plain identifier ` +
+        `(letters, digits, "_"; leading letter or "_"): ${
+          JSON.stringify(name)
+        }`,
+      { code: "ORM_INVALID_QUERY", status: 400 },
+    );
+  }
+  return name;
 }
 
 function indexColumnToSnapshot(

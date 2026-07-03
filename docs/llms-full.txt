@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.9.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.10.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -18,7 +18,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [API Reference](https://gilvandovieira.github.io/sisal/api.html): This reference is verified against the current workspace package exports and source layout. Sisal is a Deno-first database toolkit, published to JSR, with a driverless core, a driverless ORM facade, adapter-neutral...
 - [Migration Notes](https://gilvandovieira.github.io/sisal/migration-notes.html): Sisal replaces the earlier ORM and migration package direction with a focused database toolkit.
 - [Drizzle Parity](https://gilvandovieira.github.io/sisal/drizzle-parity.html): This is the guiding document for how Sisal's API evolves. It maps every relevant part of the Drizzle ORM 0.45.2 surface to Sisal, records where we intentionally diverge, and lays out the roadmap to close the gaps...
-- [PostgreSQL compatibility](https://gilvandovieira.github.io/sisal/pg-compatibility.html): Sisal's PostgreSQL adapter (@sisal/pg) is verified end-to-end against a real server on every supported major version. The suite connects with the bundled jsr:@db/postgres@0.19.5 driver, applies generated DDL, and...
+- [PostgreSQL compatibility](https://gilvandovieira.github.io/sisal/pg-compatibility.html): Sisal's PostgreSQL adapter (@sisal/pg) is verified end-to-end against a real server on every supported major version. The suite connects with the default driver — postgres.js (npm:postgres) since v0.10 (CF1) —...
 - [Neon compatibility](https://gilvandovieira.github.io/sisal/neon-compatibility.html): Sisal's Neon adapter (@sisal/neon) targets Neon serverless PostgreSQL. It speaks the Postgres wire protocol over a WebSocket via jsr:@neon/serverless and **reuses the Postgres SQL dialect and DDL**, so its feature...
 - [SQLite compatibility](https://gilvandovieira.github.io/sisal/sqlite-compatibility.html): Sisal's SQLite adapter (@sisal/sqlite) is verified end-to-end against a real, embedded SQLite database. The suite opens a temp file with the bundled jsr:@db/sqlite driver, applies generated DDL, and exercises every...
 - [libSQL / Turso compatibility](https://gilvandovieira.github.io/sisal/libsql-compatibility.html): Sisal's libSQL adapter (@sisal/libsql) is verified end-to-end against a real libSQL database. libSQL is a SQLite fork, so the SQL surface matches SQLite; what differs is the **connection** — a local file:, an...
@@ -29,6 +29,8 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [@sisal/core — the compile-target contract](https://gilvandovieira.github.io/sisal/core-ir.html): The documented, versioned public surface downstream packages (@sisal/etl, @sisal/analytics) compile into — the v0.8 item-3 stamp. What this page declares public is a compatibility commitment; everything else is not.
 - [@sisal/core extraction — migration notes](https://gilvandovieira.github.io/sisal/core-migration.html): v0.8 extracted @sisal/orm's lower tier into **@sisal/core** (roadmap item 2): the schema primitives, fragment SQL IR, expression operators, the dialect capability registry, and the dialect-aware renderer. The fluent...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
+- [ETL pain points](https://gilvandovieira.github.io/sisal/etl-pain-points.html): What actually happens when a @sisal/etl (v0.10 preview) deployment breaks. Every entry is pinned by a live-PostgreSQL scenario in integration/etl_limits_test.ts (run alongside the acceptance suite...
+- [ETL scheduling](https://gilvandovieira.github.io/sisal/etl-scheduling.html): Sisal ETL is deliberately **not** a scheduler (v0.10 non-goals). The division of labor:
 - [Feature matrix](https://gilvandovieira.github.io/sisal/feature-matrix.html): Source of truth: tools/feature_matrix.ts Regenerate: deno task docs:matrix · Verify: deno task docs:matrix:check -->
 - [MySQL / MariaDB compatibility](https://gilvandovieira.github.io/sisal/mysql-compatibility.html): Sisal's MySQL adapter (@sisal/mysql) is verified end-to-end against real servers — **both** MySQL proper and MariaDB, which share one adapter but are distinct capability profiles. Each suite opens a pool with the...
 - [MySQL type & DDL mapping](https://gilvandovieira.github.io/sisal/mysql-ddl-mapping.html): **Date:** 2026-07-01 · **Probe:** perf/mysql_ddl_probe.ts (deno task perf:mysql:ddl) · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), decoded through the C6-chosen driver (npm:mysql2 with the...
@@ -54,6 +56,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [@sisal/core](https://jsr.io/@sisal/core): Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer. Exports: ., ./schema, ./unstable-internal.
 - [@sisal/orm](https://jsr.io/@sisal/orm): Driverless schema, typed SQL, and ORM primitives for Sisal. Exports: ., ./core, ./error, ./logger, ./schema.
 - [@sisal/migrate](https://jsr.io/@sisal/migrate): Migration planning, diffing, and running primitives for Sisal. Exports: ., ./cli, ./core, ./workflow.
+- [@sisal/etl](https://jsr.io/@sisal/etl): SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs. Exports: ..
 - [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL and Turso adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
@@ -62,13 +65,13 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Project Context
 
-- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first database toolkit, published to JSR, for typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters.
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first **ORM and query builder**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight ETL and analytics...
 - [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md): This is the canonical changelog for Sisal workspace releases.
 - [Repository](https://github.com/gilvandovieira/sisal): Source code, issues, examples, workflows, and package directories.
 
 ## Package Manifests
 
-### @sisal/core 0.9.0
+### @sisal/core 0.10.0
 
 Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer.
 
@@ -79,7 +82,7 @@ Exports:
 - `./schema` -> `./schema.ts`
 - `./unstable-internal` -> `./internal.ts`
 
-### @sisal/orm 0.9.0
+### @sisal/orm 0.10.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -92,7 +95,7 @@ Exports:
 - `./logger` -> `./logger.ts`
 - `./schema` -> `./schema.ts`
 
-### @sisal/migrate 0.9.0
+### @sisal/migrate 0.10.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -104,7 +107,16 @@ Exports:
 - `./core` -> `./core/mod.ts`
 - `./workflow` -> `./core/workflow.ts`
 
-### @sisal/pg 0.9.0
+### @sisal/etl 0.10.0
+
+SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs.
+
+Package path: `./packages/etl`
+
+Exports:
+- `.` -> `./mod.ts`
+
+### @sisal/pg 0.10.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -116,7 +128,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/sqlite 0.9.0
+### @sisal/sqlite 0.10.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -128,7 +140,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/libsql 0.9.0
+### @sisal/libsql 0.10.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -140,7 +152,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/mysql 0.9.0
+### @sisal/mysql 0.10.0
 
 MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.
 
@@ -152,7 +164,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/neon 0.9.0
+### @sisal/neon 0.10.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -315,8 +327,8 @@ Exports:
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
 - `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
-- `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
-- `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
+- `redactErrorCause` (function): Returns a cause with secrets masked throughout — its message/stack, and recursively its enumerable properties, nested cause, and AggregateError errors. Driver errors carry bind values (parameters) and rendered SQL...
+- `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo, the values of credential-bearing parameters (password, authToken, token, apiKey, secret, encryptionKey, …), and credentials in SQL grant/role statements...
 - `redactSqlParameter` (function): Builds a safe, non-raw summary for one SQL bind parameter.
 - `redactSqlParameters` (function): Builds safe, non-raw summaries for SQL bind parameters.
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
@@ -517,7 +529,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `CreateSisalLogEmitterOptions` (interface): Options for {@link createSisalLogEmitter}.
 - `Cte` (typeAlias): A named common table expression. Its keys are the projected columns of the inner query, each usable as a column reference in select, where, etc. Create one with {@link Database.$with} and reference it via {@link...
 - `CteBuilder` (interface): Intermediate returned by {@link Database.$with}; complete it with .as.
+- `CteCycleClause` (interface): The CYCLE … SET … USING … clause of a recursive CTE (contract 07 / v0.10 CF3). PostgreSQL-only at render time (recursiveSearchCycle capability; server ≥ 14).
 - `CteOperand` (typeAlias): A query usable as a CTE body: a SELECT/compound, or — **PostgreSQL-only** — a data-modifying INSERT/UPDATE/DELETE with .returning(). A data-modifying body lets a WITH chain perform a mutation and expose its RETURNING...
+- `CteSearchClause` (interface): The SEARCH DEPTH|BREADTH FIRST BY … SET … clause of a recursive CTE (contract 07 / v0.10 CF3). PostgreSQL-only at render time (recursiveSearchCycle capability; server ≥ 14).
 - `CustomColumnTypeOptions` (interface): Trusted custom column type metadata for {@link columns.customType}.
 - `Database` (interface): Database facade used by query builders and manual SQL execution.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
@@ -651,9 +665,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
 - `RawQueryExecutor` (interface): A raw SQL query executor.
-- `RecursiveCteBuilder` (interface): Intermediate returned by {@link Database.$withRecursive}; complete it with .as((self) => …). The declared column list types self, the CTE's own reference inside its body.
-- `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
-- `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
+- `RecursiveCteBuilder` (interface): Intermediate returned by {@link Database.$withRecursive}; complete it with .as((self) => …). The declared column list types self, the CTE's own reference inside its body. TExtra accumulates the output columns added...
+- `redactErrorCause` (function): Returns a cause with secrets masked throughout — its message/stack, and recursively its enumerable properties, nested cause, and AggregateError errors. Driver errors carry bind values (parameters) and rendered SQL...
+- `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo, the values of credential-bearing parameters (password, authToken, token, apiKey, secret, encryptionKey, …), and credentials in SQL grant/role statements...
 - `redactSqlParameter` (function): Builds a safe, non-raw summary for one SQL bind parameter.
 - `redactSqlParameters` (function): Builds safe, non-raw summaries for SQL bind parameters.
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
@@ -809,7 +823,9 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `CreateSchemaSnapshotOptions` (interface): Options applied when building a schema snapshot from ORM tables.
 - `Cte` (typeAlias): A named common table expression. Its keys are the projected columns of the inner query, each usable as a column reference in select, where, etc. Create one with {@link Database.$with} and reference it via {@link...
 - `CteBuilder` (interface): Intermediate returned by {@link Database.$with}; complete it with .as.
+- `CteCycleClause` (interface): The CYCLE … SET … USING … clause of a recursive CTE (contract 07 / v0.10 CF3). PostgreSQL-only at render time (recursiveSearchCycle capability; server ≥ 14).
 - `CteOperand` (typeAlias): A query usable as a CTE body: a SELECT/compound, or — **PostgreSQL-only** — a data-modifying INSERT/UPDATE/DELETE with .returning(). A data-modifying body lets a WITH chain perform a mutation and expose its RETURNING...
+- `CteSearchClause` (interface): The SEARCH DEPTH|BREADTH FIRST BY … SET … clause of a recursive CTE (contract 07 / v0.10 CF3). PostgreSQL-only at render time (recursiveSearchCycle capability; server ≥ 14).
 - `CustomColumnTypeOptions` (interface): Trusted custom column type metadata for {@link columns.customType}.
 - `Database` (interface): Database facade used by query builders and manual SQL execution.
 - `DatabaseOptions` (interface): Options for creating a {@link Database}.
@@ -928,7 +944,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
 - `RawQueryExecutor` (interface): A raw SQL query executor.
-- `RecursiveCteBuilder` (interface): Intermediate returned by {@link Database.$withRecursive}; complete it with .as((self) => …). The declared column list types self, the CTE's own reference inside its body.
+- `RecursiveCteBuilder` (interface): Intermediate returned by {@link Database.$withRecursive}; complete it with .as((self) => …). The declared column list types self, the CTE's own reference inside its body. TExtra accumulates the output columns added...
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
 - `ReferentialOptions` (interface): Options accepted by {@link ColumnBuilder.references}.
 - `RelationalColumnSelection` (typeAlias): Column selection accepted by relational queries.
@@ -994,8 +1010,8 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 
 Structured error primitives shared by Sisal packages — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
-- `redactErrorCause` (function): Returns a cause with any secrets in its message/stack masked. The original is kept when there is nothing to redact, so ordinary debugging is unaffected; only credential-bearing errors are replaced with a sanitized...
-- `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo and the values of credential-bearing parameters (password, authToken, token, apiKey, secret, …). Use it before logging or surfacing anything that may...
+- `redactErrorCause` (function): Returns a cause with secrets masked throughout — its message/stack, and recursively its enumerable properties, nested cause, and AggregateError errors. Driver errors carry bind values (parameters) and rendered SQL...
+- `redactSecrets` (function): Masks credentials in a string: passwords in a URL's userinfo, the values of credential-bearing parameters (password, authToken, token, apiKey, secret, encryptionKey, …), and credentials in SQL grant/role statements...
 - `SisalError` (class): Small structured error primitive shared by Sisal packages.
 - `SisalErrorOptions` (interface): Options accepted by {@link SisalError}.
 - `SisalErrorSeverity` (typeAlias): Severity attached to structured Sisal errors.
@@ -1132,7 +1148,7 @@ Migration planning and execution primitives for Sisal database tooling.
 - `SchemaMigrationPlanInput` (interface): Input snapshots for creating a schema migration plan.
 - `slugifyMigrationName` (function): Lowercases a migration name into an underscore slug (Add Users → add_users).
 - `sortMigrations` (function): Returns a new migration list sorted by id.
-- `splitSqlStatements` (function): Splits a SQL script into individual statements on top-level ;, ignoring semicolons inside string literals, quoted identifiers, line/block comments, and PostgreSQL dollar-quoted bodies ($$ … $$, $tag$ … $tag$). Each...
+- `splitSqlStatements` (function): Splits a SQL script into individual statements on top-level ;, ignoring semicolons inside string literals (including PostgreSQL E'…' escape strings with backslash escapes), quoted identifiers, line comments,...
 - `SqlMigration` (interface): SQL migration definition.
 - `validateMigration` (function): Validates one migration definition.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
@@ -1220,7 +1236,7 @@ Migration definitions, planning, history stores, and runner contracts.
 - `SchemaMigrationPlanInput` (interface): Input snapshots for creating a schema migration plan.
 - `slugifyMigrationName` (function): Lowercases a migration name into an underscore slug (Add Users → add_users).
 - `sortMigrations` (function): Returns a new migration list sorted by id.
-- `splitSqlStatements` (function): Splits a SQL script into individual statements on top-level ;, ignoring semicolons inside string literals, quoted identifiers, line/block comments, and PostgreSQL dollar-quoted bodies ($$ … $$, $tag$ … $tag$). Each...
+- `splitSqlStatements` (function): Splits a SQL script into individual statements on top-level ;, ignoring semicolons inside string literals (including PostgreSQL E'…' escape strings with backslash escapes), quoted identifiers, line comments,...
 - `SqlMigration` (interface): SQL migration definition.
 - `validateMigration` (function): Validates one migration definition.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
@@ -1248,6 +1264,43 @@ SQL-first migration workflow: an injectable filesystem, generated-migration file
 - `readMigrationsDir` (function): Reads and orders the .sql migrations in a directory (with their snapshots).
 - `writeMigrationFile` (function): Writes a generated migration's .sql and .snapshot.json files.
 
+### @sisal/etl . (packages/etl/mod.ts)
+
+Define a rollup job in TypeScript and execute **one** safe, idempotent window per invocation, with the heavy lifting pushed down into the database:
+
+- `addGrain` (function): Advances instant by exactly one grain in UTC calendar arithmetic (month/year are calendar units, not a fixed number of seconds).
+- `assertJobSupported` (function): The throwing form of {@link supportsJob}: refuses an unsupported job shape with the typed ETL_UNSUPPORTED_JOB error (status 400, details carrying the job, identity, and reason). The runner calls this **pre-flight** —...
+- `backfill` (function): Deterministically re-runs an explicit historical range as successive one-grain windows — the same generated SQL and idempotent upsert as {@link run}, with **no dependence on wall-clock now**. Both range bounds must...
+- `ColumnKeyOf` (typeAlias): A property key of TTable's column map.
+- `ColumnOf` (typeAlias): A column definition belonging to TTable (from table.columns).
+- `defineJob` (function): Validates and freezes an ETL rollup job. Throws ETL_INVALID_JOB when the declaration cannot generate correct SQL: an unknown grain, a window column not on the source, a bucket/groupBy/aggregates key that is not a...
+- `ETL_DIALECTS` (variable): The dialects the ETL runtime supports — the engines carrying both the portable advisory lock and the checkpoint substrate. The generic dialect fails closed.
+- `EtlBackfillOutcome` (typeAlias): What one {@link backfill} invocation did.
+- `EtlExplainOptions` (interface): Options for {@link explain}.
+- `EtlGrain` (typeAlias): The bucket width of a rollup window — one calendar/clock unit per run, matching the portable dateTrunc fields so the window edges the runner computes and the buckets the database groups by can never disagree.
+- `EtlJob` (interface): A validated, frozen ETL job — the output of {@link defineJob} and the input to rollup() and the runner. groupBy/aggregates are normalized to plain records.
+- `EtlJobConfig` (interface): The declaration accepted by {@link defineJob}: which rows to read, where to write them, and how to fold them.
+- `EtlJobSupport` (typeAlias): The verdict returned by {@link supportsJob}.
+- `EtlRange` (interface): An explicit historical range for backfill — half-open [from, until), both bounds **grain-aligned** ISO instants.
+- `EtlReplayOptions` (interface): Options for {@link backfill} and {@link replay}.
+- `EtlReplayOutcome` (typeAlias): What one {@link replay} invocation did.
+- `EtlRunOptions` (interface): Options for {@link run}.
+- `EtlRunOutcome` (typeAlias): What one {@link run} invocation did. A non-run is a normal outcome, not an error: locked means another runner holds the job's lock; up-to-date means the next bucket has not closed yet.
+- `EtlStatus` (interface): The read-only job report returned by {@link status}.
+- `EtlStatusOptions` (interface): Options for {@link status}.
+- `EtlWindow` (interface): A half-open ETL window [from, until) as ISO-8601 UTC instants. from is inclusive, until exclusive — adjacent windows share an edge without overlapping.
+- `explain` (function): Dry-run: renders the **exact** SQL {@link rollup} would send for job over window — driver text plus bound parameters — without executing anything. This is how "generated, pushed-down SQL" is verified (and...
+- `nextWindow` (function): Computes the next half-open window [from, until), or null when the job is **up to date** (the next bucket has not closed yet — until would exceed now).
+- `NextWindowParts` (interface): Inputs to {@link nextWindow}.
+- `replay` (function): Idempotently re-runs the single one-grain window starting at the grain-aligned instant from — the upsert overwrites the window's rollup rows in place. Refuses a window behind the job's pruned_before retention horizon...
+- `rollup` (function): Compiles job over window into the idempotent rollup statement, as a dialect-agnostic Sql fragment (render it with renderSql, or execute it via db.execute/db.batch). The window bounds bind as parameters against the...
+- `run` (function): Runs the next window of job on db, once:
+- `status` (function): Reports where job stands — checkpoint position, retention horizon, last-run state, and the window the next {@link run} would fold. Read-only: takes no lock and writes nothing, so it is safe to call from dashboards...
+- `supportsJob` (function): Decides whether job runs on the engine identity (a bare dialect or the full db.dialectIdentity), without executing anything. Returns { supported: false, reason } when the engine lacks the ETL substrate or when the...
+- `truncateToGrain` (function): Floors instant to its UTC grain edge — the runner-side mirror of the database-side dateTrunc(grain, ...), zeroing every finer field.
+- `windowAt` (function): The one-grain window starting at the **grain-aligned** instant from — [from, from + grain). The shape replay re-runs. Throws ETL_INVALID_WINDOW for an unparsable or unaligned from.
+- `windowsInRange` (function): Enumerates the successive one-grain windows covering the half-open range [range.from, range.until) — the deterministic backfill walk, with no dependence on wall-clock now. Both bounds must be grain-aligned and from <...
+
 ### @sisal/pg . (packages/pg/mod.ts)
 
 PostgreSQL adapter package for Sisal.
@@ -1262,6 +1315,7 @@ PostgreSQL adapter package for Sisal.
 - `createPgOrmDriver` (function): Creates an ORM driver backed by a PostgreSQL executor, pool, client, or URL.
 - `createPgPool` (function): Creates a PostgreSQL pool using the bundled @db/postgres driver.
 - `createPostgresJsPool` (function): Creates a {@link PgPool} backed by postgres.js (npm:postgres), imported lazily on first connect. Each connect() reserves one physical connection (sql.reserve()) so an interactive transaction's begin…commit stay...
+- `DEFAULT_PG_DRIVER` (variable): The driver a URL connection uses when options.driver is not set.
 - `DEFAULT_PG_MIGRATION_TABLE` (variable): Default PostgreSQL table used to store applied migration history.
 - `generatePostgresAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
 - `generatePostgresColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
@@ -1289,6 +1343,7 @@ PostgreSQL adapter package for Sisal.
 - `PostgresJsPoolOptions` (interface): Options for {@link createPostgresJsPool}.
 - `PostgresUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
+- `resolvePgDriverKind` (function): Resolves which {@link PgDriverKind} a URL connection will use — the explicit options.driver when given, otherwise {@link DEFAULT_PG_DRIVER}.
 
 ### @sisal/pg ./ddl (packages/pg/migrate/ddl.ts)
 
@@ -1349,6 +1404,7 @@ PostgreSQL adapter for @sisal/orm.
 - `createPgOrmDriver` (function): Creates an ORM driver backed by a PostgreSQL executor, pool, client, or URL.
 - `createPgPool` (function): Creates a PostgreSQL pool using the bundled @db/postgres driver.
 - `createPostgresJsPool` (function): Creates a {@link PgPool} backed by postgres.js (npm:postgres), imported lazily on first connect. Each connect() reserves one physical connection (sql.reserve()) so an interactive transaction's begin…commit stay...
+- `DEFAULT_PG_DRIVER` (variable): The driver a URL connection uses when options.driver is not set.
 - `PgClient` (interface): Minimal PostgreSQL client surface used by the ORM adapter.
 - `PgConnectionOptions` (interface): Connection options accepted by PostgreSQL ORM adapter factories.
 - `PgDatabase` (interface): PostgreSQL-specialized database facade.
@@ -1359,6 +1415,7 @@ PostgreSQL adapter for @sisal/orm.
 - `PgSqlExecutor` (interface): Minimal SQL executor used by the PostgreSQL ORM adapter.
 - `POSTGRES_DIALECT` (variable): SQL dialect name used by the PostgreSQL ORM adapter.
 - `PostgresJsPoolOptions` (interface): Options for {@link createPostgresJsPool}.
+- `resolvePgDriverKind` (function): Resolves which {@link PgDriverKind} a URL connection will use — the explicit options.driver when given, otherwise {@link DEFAULT_PG_DRIVER}.
 
 ### @sisal/sqlite . (packages/sqlite/mod.ts)
 
@@ -1739,6 +1796,7 @@ MySQL/MariaDB adapter for @sisal/orm.
 - `MysqlResultHeader` (interface): Affected-row header mysql2 returns for mutations (INSERT/UPDATE/ DELETE), in place of a row array.
 - `MysqlServerIdentity` (interface): Parsed (variant, version) half of a MySQL-family dialect identity.
 - `MysqlSqlExecutor` (interface): Minimal SQL executor used by the MySQL ORM adapter.
+- `MysqlTlsOptions` (interface): TLS settings for a URL-based MySQL/MariaDB connection. Forwarded verbatim to the driver's ssl config (mysql2 and the MariaDB connector accept the same Node TLS fields), so a value here reaches Node's TLS layer...
 - `parseMysqlServerVersion` (function): Parses a MySQL-family select version() string into the variant/version half of a DialectIdentity. MariaDB self-identifies in the version string ("11.8.8-MariaDB-ubu2404"); anything else is treated as base MySQL. The...
 
 ### @sisal/neon . (packages/neon/mod.ts)
@@ -1765,7 +1823,7 @@ Neon serverless adapter package for Sisal.
 - `NeonClientConnectionOptions` (interface): Connection options forwarded to Neon Client, with url as an alias.
 - `NeonDatabase` (interface): Neon-specialized database facade.
 - `NeonDriverQueryResult` (typeAlias): A raw Neon driver query result; rows typed as {@link NeonQueryResultRow}.
-- `NeonError` (class): Structured error thrown by Neon compatibility helpers.
+- `NeonError` (class): Structured error thrown by Neon compatibility helpers. Extends {@link SisalError} so it inherits credential redaction of the message, preserved cause, and details — no separate redaction path to drift (SEC-011).
 - `NeonErrorCode` (typeAlias): Error codes emitted by the Neon compatibility package.
 - `NeonExecutorOptions` (interface): Options for creating a Neon SQL executor.
 - `NeonMigrateOptions` (typeAlias): Options for applying pending Neon/PostgreSQL migrations.
@@ -1818,7 +1876,7 @@ Neon serverless adapter for @sisal/migrate.
 - `neonClientConfigFromOptions` (function): Extracts a Neon ClientConfig from package connection options.
 - `NeonClientConnectionOptions` (interface): Connection options forwarded to Neon Client, with url as an alias.
 - `NeonDriverQueryResult` (typeAlias): A raw Neon driver query result; rows typed as {@link NeonQueryResultRow}.
-- `NeonError` (class): Structured error thrown by Neon compatibility helpers.
+- `NeonError` (class): Structured error thrown by Neon compatibility helpers. Extends {@link SisalError} so it inherits credential redaction of the message, preserved cause, and details — no separate redaction path to drift (SEC-011).
 - `NeonErrorCode` (typeAlias): Error codes emitted by the Neon compatibility package.
 - `NeonExecutorOptions` (interface): Options for creating a Neon SQL executor.
 - `NeonMigrateOptions` (typeAlias): Options for applying pending Neon/PostgreSQL migrations.
@@ -1855,7 +1913,7 @@ Neon serverless adapter for @sisal/orm.
 - `NeonClientConnectionOptions` (interface): Connection options forwarded to Neon Client, with url as an alias.
 - `NeonDatabase` (interface): Neon-specialized database facade.
 - `NeonDriverQueryResult` (typeAlias): A raw Neon driver query result; rows typed as {@link NeonQueryResultRow}.
-- `NeonError` (class): Structured error thrown by Neon compatibility helpers.
+- `NeonError` (class): Structured error thrown by Neon compatibility helpers. Extends {@link SisalError} so it inherits credential redaction of the message, preserved cause, and details — no separate redaction path to drift (SEC-011).
 - `NeonErrorCode` (typeAlias): Error codes emitted by the Neon compatibility package.
 - `NeonExecutorOptions` (interface): Options for creating a Neon SQL executor.
 - `NeonPool` (interface): Minimal Neon pool surface used by the adapter.
@@ -1891,9 +1949,10 @@ Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
 > migration workflows, and adapter behavior may change before 1.0. Review
 > generated SQL and test migrations before using Sisal in production.
 
-Sisal is a Deno-first database toolkit, published to JSR, for typed schemas,
-safe SQL builders, schema snapshots, migration planning, and explicit database
-adapters.
+Sisal is a Deno-first **ORM and query builder**, published to JSR — typed
+schemas, safe SQL builders, schema snapshots, migration planning, and explicit
+database adapters — with **lightweight ETL and analytics capabilities** growing
+on the same driverless core.
 
 The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
 adapter-neutral. PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB
@@ -1910,26 +1969,39 @@ Sisal is inspired by useful vocabulary from the TypeScript database ecosystem,
 including Drizzle's fluent SQL-builder style, but it is not a compatibility
 layer and keeps its own driverless core, snapshot workflow, and adapter split.
 
+> [!NOTE]
+> **Scope — a toe in the water, not a replacement.** Sisal is first an ORM and
+> query builder. Its ETL and analytics layers ([v0.10](docs/v0.10.0-roadmap.md)
+> and [v0.11](docs/v0.11.0-roadmap.md), in progress) are deliberately small: a
+> typed rollup job with a single-run runner, and a typed query API over the
+> shapes it produces — all pushed down into your existing database, no extra
+> engine. The goal is to let a project already using Sisal for OLTP do
+> lightweight in-database rollups and analytical reads **without standing up a
+> separate stack on day one**. When a project outgrows that — real
+> orchestration, streaming, a warehouse, a BI platform — Sisal is meant to hand
+> off cleanly to a specialized tool, not to become one. It will not grow into a
+> scheduler, a worker queue, or an object-first ORM.
+
 ## Installing
 
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.9.0 \
-  jsr:@sisal/migrate@0.9.0 \
-  jsr:@sisal/pg@0.9.0
+deno add jsr:@sisal/orm@0.10.0 \
+  jsr:@sisal/migrate@0.10.0 \
+  jsr:@sisal/pg@0.10.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
 and one adapter package. Swap only the adapter for the database runtime you use.
 
-| Target        | Install                                                                          |
-| ------------- | -------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/pg@0.9.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/neon@0.9.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/sqlite@0.9.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/libsql@0.9.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.9.0 jsr:@sisal/migrate@0.9.0 jsr:@sisal/mysql@0.9.0`  |
+| Target        | Install                                                                             |
+| ------------- | ----------------------------------------------------------------------------------- |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/pg@0.10.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/neon@0.10.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/sqlite@0.10.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/libsql@0.10.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/mysql@0.10.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -2063,7 +2135,7 @@ work locally and in CI:
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.9.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.10.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -2140,14 +2212,28 @@ database plan do not match.
 - Structured `SisalError`, `OrmError`, and `MigrationError` classes plus
   configurable logger contracts.
 
+The v0.9 release also landed the substrate the ETL layer builds on — a portable
+advisory-lock/claim abstraction, an atomic load-and-advance checkpoint, and a
+replay-vs-retention guard. The `@sisal/etl` preview (a typed rollup job + a
+single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are the
+[v0.10](docs/v0.10.0-roadmap.md) and [v0.11](docs/v0.11.0-roadmap.md) roadmap
+milestones — lightweight by design, per the scope note above.
+
 ## Packages
 
 Core packages:
 
-| Package          | Purpose                                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging. |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.  |
+| Package          | Purpose                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@sisal/core`    | The public driverless base (extracted in v0.8): schema primitives, the SQL IR, expression operators, the capability registry, and the dialect renderer. |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging.                                       |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.                                        |
+
+`@sisal/core` is a public JSR package, but `@sisal/orm` re-exports its entire
+surface — most projects install `@sisal/orm` + `@sisal/migrate` + one adapter
+and never import `@sisal/core` directly. Depend on it directly only when you
+want the schema/SQL-IR layer without the query builders (as `@sisal/migrate`
+does).
 
 Adapter packages:
 
@@ -2237,7 +2323,276 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
-## 0.9.0 - 2026-07-02
+### Added
+
+- **`@sisal/etl` (v0.10 preview) — the typed job model, generated rollup,
+  single-window runner, the backfill/replay/status/dry-run API, and
+  capability-gating** (roadmap T11–T21). New workspace package `packages/etl`
+  with a single `.` export:
+  - `defineJob()` — the typed rollup declaration (source, target, grain, window
+    column, group keys, aggregate expressions), validated at definition time
+    against the tables' column metadata: projection keys must be target columns,
+    claimed exactly once, insert-required target columns must be covered, and
+    `start` must be a grain-aligned ISO instant (`ETL_INVALID_JOB`).
+  - `rollup(job, window)` — compiles a job + half-open window into **one**
+    pushed-down insert-from-select (`dateTrunc` bucket + filtered aggregates +
+    upsert keyed on the grain), assembled purely from `@sisal/core`
+    (`assembleInsertFromSelect`) and pinned byte-for-byte by golden-SQL tests on
+    PostgreSQL (shape-pinned on the SQLite/MySQL families).
+  - `nextWindow()` / `truncateToGrain()` / `addGrain()` — half-open
+    `[from, until)` window math over UTC grain edges with the `until <= now`
+    complete-buckets discipline; unaligned watermarks re-align on the next edge
+    (`ETL_MISSING_START`, `ETL_INVALID_WINDOW`).
+  - `run(db, job)` — the single-window runner: acquires the v0.9 portable
+    advisory lock (`sisal:etl:<name>`), reads the v0.9 checkpoint, computes the
+    next window, and commits the rollup **atomically with** the watermark
+    advance in one `db.batch`; returns a typed outcome (`ran` / `locked` /
+    `up-to-date`). `run()` owns its transaction boundary (the batch) — it does
+    not compose into a caller's transaction.
+  - `backfill(db, job, range)` / `replay(db, job, from)` — deterministic
+    historical re-runs (T17/T18): successive grain-aligned windows over an
+    explicit half-open range (no wall-clock dependence) and a single-window
+    re-run, both lock-serialized, both idempotent via the grain-keyed upsert,
+    and both refusing windows behind the job's `pruned_before` retention horizon
+    with the v0.9 `ORM_REPLAY_PRUNED` typed error plus the loud
+    `unsafeAllowPrunedReplay` override. Neither advances the checkpoint — the
+    regular `run()` cadence is unaffected.
+  - `status(db, job)` — the read-only report (T19): checkpoint position,
+    retention horizon, last advance time, and the window the next `run()` would
+    fold. Takes no lock.
+  - `explain(job, window)` — dry-run (T20): renders the exact generated rollup
+    SQL and bound parameters per dialect without executing, pinned by golden-SQL
+    tests (PostgreSQL byte-for-byte; SQLite/MySQL shape; `generic` fails closed
+    with `ORM_DIALECT_UNSUPPORTED`).
+  - `supportsJob(job, identity)` / `assertJobSupported(job, identity)` —
+    capability-gating (T21): an engine allowlist (`postgres`/`sqlite`/`mysql`;
+    `generic` fails closed) plus a render probe of the job's exact SQL against
+    the `(dialect, variant, version)` identity, so an engine-specific construct
+    in an aggregate refuses **pre-flight** with the typed `ETL_UNSUPPORTED_JOB`
+    error. `run`/`backfill`/`replay` apply the gate before the lock, checkpoint,
+    and SQL — an unsupported job shape never partially executes and never
+    silently degrades.
+  - External-scheduler documentation (T22):
+    [`docs/etl-scheduling.md`](docs/etl-scheduling.md) — the runner-script +
+    catch-up-loop pattern and why any trigger cadence is safe (lock-serialized
+    overlaps, checkpoint misfire catch-up, idempotent re-runs), with concrete
+    crontab, systemd-timer, GitHub-Actions, and `Deno.cron` recipes; `pg_cron`
+    is scoped to re-folding a pinned window from `explain()` output and is never
+    the sole path. A new runnable example, `examples/postgres-family-etl-cron`,
+    schedules the hourly rollup in-process with `Deno.cron` (zero-setup it
+    prints the generated SQL; with `DATABASE_URL` it creates the tables, seeds
+    demo events, drains the backlog, and keeps folding on the hour).
+  - Integration coverage (T23), gated on `DATABASE_URL` and verified against
+    PostgreSQL 16 and 18: `integration/etl_features_test.ts` discharges the
+    acceptance criteria (dry-run SQL executes verbatim, one-window-per-run
+    resume, byte-identical replay, wipe-and-backfill determinism, two runners
+    one winner, `ORM_REPLAY_PRUNED` horizon refusal), and
+    `integration/etl_limits_test.ts` is the failure/limits battery — schema
+    drift, hand-edited/unaligned/rewound watermarks, late-arriving events, clock
+    skew, crashed lock holders, pruned sources, 50k-event pushdown, and
+    grain/identifier/bigint edges. Observed failure modes and recovery paths are
+    catalogued in [`docs/etl-pain-points.md`](docs/etl-pain-points.md).
+  - **Window-math fix (found by the failure battery):** a hand-advanced
+    **unaligned** watermark now floors to its bucket edge so the next window
+    refolds the **whole containing bucket** — previously the window resumed
+    mid-bucket and the upsert overwrote the bucket's aggregates with an
+    undercount computed from only the tail rows.
+  - Package boundaries are test-pinned: `@sisal/core`/`@sisal/orm`/
+    `@sisal/migrate` never import `@sisal/etl`; `@sisal/etl` never imports an
+    adapter, a driver, or `@sisal/migrate`; only the runner tier takes the
+    `etl → orm` runtime edge recorded in `docs/architecture.md` — the job model
+    and SQL compilation stay `@sisal/core`-only. Unit tests stay
+    network/FFI-free via injected recording drivers.
+- **Recursive-CTE `SEARCH`/`CYCLE` clauses** (v0.10 CF3, contract 07).
+  `db.$withRecursive(name, columns)` gains immutable builder steps —
+  `.searchDepthFirst(by, set)`, `.searchBreadthFirst(by, set)`, and
+  `.cycle(by, set, using)` — rendering the standard post-body clauses
+  (`SEARCH DEPTH FIRST BY … SET …`, `CYCLE … SET … USING …`). Validated at
+  definition time (BY columns must come from the declared column list, SET/USING
+  names must be fresh, at most one clause of each kind); the set columns are
+  typed on the CTE returned by `.as()` but not on `self` (the standard forbids
+  referencing them inside the recursive body). Capability-gated PostgreSQL-only
+  via the new `recursiveSearchCycle` capability (server ≥ 14; the SQLite/MySQL
+  families throw typed `ORM_DIALECT_UNSUPPORTED` — their portable spelling stays
+  the explicit depth column + `WHERE depth < n` guard). Verified live against a
+  cyclic fixture on PostgreSQL 16/17/18; new `docs/feature-matrix.md` row backed
+  by the `recursive search/cycle` scenario.
+
+### Security
+
+Resolves every open finding from the 0.9.0 security audit (SEC-008 through
+SEC-016; see [`docs/security.md`](docs/security.md)). Each fix is pinned by a
+test named for its finding id.
+
+- **SEC-008 (High) — MySQL-family advisory-lock mutual exclusion.**
+  `db.tryAdvisoryLock` now verifies ownership by reading the claimed row back
+  (owner-token equality) instead of trusting the affected-row count, so it is
+  correct on every engine regardless of the driver's found-rows flag. The
+  bundled `@sisal/mysql` pools additionally disable `CLIENT_FOUND_ROWS` (mysql2
+  `flags: ["-FOUND_ROWS"]`, MariaDB `foundRows: false`) so `tryInsert`'s
+  affected-row contract holds for the shipped drivers. **Behavior change:** on
+  the MySQL family a plain `UPDATE` that sets a row to its current values now
+  reports 0 affected rows (rows _changed_) rather than the number matched — see
+  `docs/mysql-compatibility.md`.
+- **SEC-009 (Medium) — MySQL/MariaDB TLS.** New `ssl` option on
+  `MysqlConnectionOptions` (`boolean | MysqlTlsOptions`), forwarded to mysql2,
+  the MariaDB connector, and the migrate driver. TLS-related URL query params
+  (`ssl-mode`, `sslmode`, …) are now rejected with a typed error instead of
+  being silently dropped (which had connected in cleartext).
+- **SEC-010 (Medium) — driver error-property leakage.** `redactErrorCause` now
+  recursively sanitizes a preserved driver `cause`: bind/statement properties
+  (`parameters`, `sql`, …) are dropped, credential-named properties masked, and
+  nested `cause` chains / `AggregateError` recursed. Sisal's own errors pass
+  through unchanged.
+- **SEC-011 (Low) — redaction gaps.** `redactSecrets` now covers
+  `encryptionKey`, URL passwords containing `@`/`/`, and SQL `IDENTIFIED BY '…'`
+  / `PASSWORD '…'`; `NeonError` extends `SisalError` (inheriting redaction);
+  `SisalError.details` (including `details.sql`) is redacted.
+- **SEC-012 (Low) — ETL checkpoint.** `prune` raises the retention horizon
+  before deleting source rows (crash-safe under the non-atomic batch fallback);
+  `unsafeAllowPrunedReplay` now warns instead of passing silently;
+  `etlCheckpoint` fails closed on the `generic` dialect.
+- **SEC-013 (Low) — MySQL migration lock.** The default `GET_LOCK` name is
+  namespaced by the current database (`sisal:migrate:<db>`), so unrelated
+  projects on a shared server no longer contend.
+- **SEC-014 (Low) — image pinning.** The `integration.yml` MySQL/MariaDB service
+  containers and the example compose images are digest-pinned; a new
+  `deno task check:images` (in CI) rejects any unpinned `image:`/`FROM`
+  reference; `--no-lock` dropped from the `perf:*` tasks.
+- **SEC-015 (Low) — release provenance.** The publish workflow refuses a
+  tag-push whose commit is not an ancestor of `main`; the doc tasks the
+  pre-commit hook runs use `--allow-run=deno` instead of a blanket
+  `--allow-run`.
+- **SEC-016 (Low) — core DDL.** `renderPortableExpression` rejects a portable
+  DDL expression carrying a bound parameter; index/unique/check constraint names
+  are validated as plain identifiers at the core boundary.
+- **SEC-007 residual — SQL splitter.** `splitSqlStatements` now handles
+  PostgreSQL `E'…'` backslash escapes and nested block comments (correctness on
+  trusted migration files).
+
+### Fixed
+
+- **Multi-row `insert(...).values([...])` no longer binds NULL for omitted
+  columns.** The builder unions the column set across rows; a row missing a
+  column another row provides used to bind an explicit `NULL`, silently
+  overriding the column's database default. Such gaps (including explicit
+  `undefined` values) now render the standard `DEFAULT` keyword on the
+  PostgreSQL/MySQL families and the `generic` dialect. The SQLite family has no
+  `DEFAULT` inside `VALUES`, so heterogeneous row shapes there fail closed with
+  the typed `ORM_DIALECT_UNSUPPORTED` error (provide every column explicitly);
+  homogeneous multi-row inserts are unchanged on every engine.
+- **`limit()` / `offset()` now require integers.** `limit(0.5)` used to pass the
+  "greater than zero" validation and silently floor to `LIMIT 0`; fractional,
+  `NaN`, and out-of-range values now throw the typed `ORM_INVALID_QUERY` error
+  on both the select and compound (set-operation) builders. The migrate runner's
+  `steps` option gets the same treatment (`MIGRATION_INVALID` instead of
+  flooring).
+
+### Changed
+
+- **`db.transaction()` and `db.batch()` fail closed when the driver cannot
+  provide atomicity (breaking).** Previously `transaction()` silently ran the
+  callback against the plain facade when the driver had no `transaction` method,
+  and `batch()` fell back to sequential statement execution when the driver had
+  neither `batch` nor `transaction` — both quietly discarded the documented
+  commit-together/roll-back-together contract. Both now throw the new typed
+  `ORM_TRANSACTION_UNSUPPORTED` error instead. Adapter drivers built from an
+  injected executor without `transaction` support (`@sisal/pg`, `@sisal/sqlite`,
+  `@sisal/libsql`, `@sisal/mysql`; `@sisal/neon` via `@sisal/pg`) now omit
+  `transaction`/`batch` so the facade guard applies, and the libSQL executor
+  fails closed on a client without `transaction` instead of running the callback
+  outside one. Inside a `transaction()` callback, nested
+  `transaction()`/`batch()` calls explicitly join the enclosing transaction
+  (unchanged behavior, now pinned by tests). Drivers with real connections are
+  unaffected — they always supported transactions.
+- **Keyset pagination probes one row past the page (breaking for pinned SQL).**
+  `.keyset(...).limit(n)` now renders `LIMIT n + 1`; the extra probe row is
+  trimmed from `rows` and only its presence produces a `nextCursor`. Previously
+  a `nextCursor` was returned whenever `rows.length === limit`, so a result set
+  that ended exactly on a page boundary handed callers a cursor to an empty
+  page. An exact final page now yields `nextCursor: null`. The keyset builder's
+  `limit()` also validates the page size as a positive integer.
+- **Root `deno task check` discovers its entrypoints.** The hard-coded file list
+  in `deno.json` (which drifted as packages/examples were added) is replaced by
+  `tools/workspace_packages.ts check-entrypoints` — workspace package export
+  entrypoints (the same discovery CI's package matrix uses) plus
+  `examples/*/mod.ts`, `benchmarks/mod.ts`, and the non-test `perf/*.ts` probes.
+  The checked set is a superset of the old list (every package export subpath is
+  now covered at the root, matching CI).
+- **README: `@sisal/core` is listed as a core package.** The packages table now
+  includes `@sisal/core` (public on JSR since the v0.8 extraction) and explains
+  that `@sisal/orm` re-exports its entire surface, so most projects never depend
+  on it directly.
+
+- **`@sisal/pg`: postgres.js (`npm:postgres`) is the default URL driver** (v0.10
+  CF1). The previous default, `jsr:@db/postgres`, stalls ~40 ms per
+  parameterized query on its extended-protocol path (no `TCP_NODELAY` +
+  un-coalesced writes); postgres.js pipelines the protocol — the 49-test pg
+  feature suite drops from ~7 s to ~0.6 s wall-clock. The driver is imported
+  lazily on the first actual connect. **Opt back into the pure-JSR driver with
+  `driver: "db-postgres"`** (`DEFAULT_PG_DRIVER`/`resolvePgDriverKind` are
+  exported and unit-pinned). `bigint` parity holds — the postgres.js pool
+  decodes `int8` as `BigInt` like `@db/postgres`, and the v0.9 executor coercion
+  yields strings on both (integration-pinned). Re-verified 49/49 on PostgreSQL
+  16/17/18 with the new default and 49/49 on the `db-postgres` opt-out; the
+  migrate boundary (`@sisal/pg/migrate`, `sisal` CLI) stays on `@db/postgres` so
+  migration runs remain npm-free. Example `SISAL_ADAPTER` values rename
+  `pg-postgres-js` → `pg-db-postgres` (`pg` now means the postgres.js default).
+- **CF2 investigated — materialized-view rollup acceleration is a recorded
+  defer.** New probe `perf/pg_matview_probe.ts` (`deno task perf:pg:matview`)
+  benchmarks `REFRESH MATERIALIZED VIEW` (plain and `CONCURRENTLY`) against the
+  `@sisal/etl` generated rollup on PostgreSQL 18 at 100k/1M-event scales: the
+  matview is 7.5–16.5× slower than the incremental window fold in steady state
+  (it recomputes all retained history per refresh), cannot express the runner's
+  checkpoint/resume/backfill/replay semantics, and is Postgres-only. Full
+  evidence and the revisit conditions are recorded in
+  `perf/PG_MATVIEW_ROLLUP_PROBE.md`; the generated-SQL rollup remains the only
+  runner path on every engine.
+- **Security audit refresh at v0.9.0 (2026-07-02).** `docs/security.md` now
+  carries a full re-audit of the surface added since the 0.3.0 audit — the
+  `@sisal/core` extraction, the MySQL/MariaDB adapter, the opt-in postgres.js
+  driver, and the v0.9 ETL substrate — cross-checked against an independently
+  produced second audit and merged. No injection path was found; the refresh
+  raises nine open findings: **SEC-008 (High)** — MySQL-family found-rows
+  semantics break `tryInsert`/`tryAdvisoryLock` mutual exclusion (empirically
+  confirmed on MariaDB 11); **SEC-009 (Medium)** — the MySQL-family URL path
+  cannot require TLS and silently drops `ssl-mode` params; **SEC-010 (Medium)**
+  — bind values survive in driver-attached error properties; and six Lows
+  (SEC-011–SEC-016: redaction gaps, checkpoint prune ordering, server-global
+  MySQL migration lock, pinning gaps outside the SEC-002 perimeter, tag-publish
+  ancestry + hook permissions, core DDL defense-in-depth). `SECURITY.md` was
+  refreshed to the `0.9.x` support line, documents the new
+  `db.query`/`db.batch`/checkpoint escape surfaces and the two
+  deployment-affecting open findings, and gains a scoped-permission example for
+  MySQL/MariaDB migrations.
+- **v0.10 roadmap: security-hardening tasks scheduled.** All audit concerns are
+  now tracked as `docs/v0.10.0-roadmap.md` tasks **T1–T10** (SEC-008 through
+  SEC-016 plus the SEC-007 splitter residual), with per-task fix directions and
+  a new acceptance criterion tying the release to closing them; T1 (SEC-008) and
+  T5 (SEC-012) are called out as hard prerequisites of the ETL runner's
+  lock-serialization and checkpoint/replay acceptance criteria. The master
+  `docs/roadmap.md` v0.10 row and the `docs/security.md` findings table
+  cross-reference the task IDs.
+- **v0.10 roadmap: v0.9 Phase 6 deferrals triaged.** The seven items v0.9 left
+  _explicitly deferred_ are now tracked in `docs/v0.10.0-roadmap.md` as tasks
+  **CF1–CF7**. Three are scheduled into v0.10 as active work — CF1
+  (`postgres.js` as the default `@sisal/pg` driver + upstream `setNoDelay` fix),
+  CF2 (materialized-view Postgres rollup acceleration, investigate→build), and
+  CF3 (recursive-CTE `CYCLE`/`SEARCH`) — while CF4–CF7 (MySQL binary protocol,
+  typed `CREATE FUNCTION`, transformable AST, npm dual publish → v0.13+) stay
+  recorded but deferred past v0.10 per the release-sequencing discipline. The
+  v0.9 Phase 6 section links forward to the CF task IDs.
+- **v0.10 roadmap: ETL feature tasklist drawn up.** The `@sisal/etl` build work
+  — the release headline — is now tracked as tasks **T11–T23** in
+  `docs/v0.10.0-roadmap.md`, derived from the scope, execution model, and
+  acceptance criteria: package scaffold (T11), `defineJob` (T12), the `rollup()`
+  pushdown SQL (T13), checkpoint store (T14), window computation (T15), the
+  `run()` single-window runner (T16), `backfill`/`replay`/`status` (T17–T19),
+  `dry-run`/`explain` (T20), capability-gating (T21), scheduler docs (T22), and
+  the `post_events → post_hourly_stats` example + integration suite (T23). Each
+  task consumes the v0.9 ETL substrate (checkpoint contract, portable lock,
+  atomic load+advance, `WriteOutcome`) rather than reinventing it, and the
+  acceptance criteria now cite the tasks that discharge them.
 
 ### Added
 
@@ -4134,15 +4489,16 @@ explicit database adapters.
 | `@sisal/core`    | `@sisal/core`    | Schema primitives, SQL IR, operators, capabilities |
 | `@sisal/orm`     | `@sisal/orm`     | Database facade, fluent builders, relations, calls |
 | `@sisal/migrate` | `@sisal/migrate` | Migration definitions, planning, workflow, CLI     |
+| `@sisal/etl`     | `@sisal/etl`     | Rollup jobs, window math, runner APIs, status      |
 | `@sisal/pg`      | `@sisal/pg`      | PostgreSQL ORM, migration adapter, DDL             |
 | `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL ORM/migrations          |
 | `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite ORM, migration adapter, DDL                 |
 | `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
 | `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
 
-The manifests in this workspace are currently `0.9.0`; this page reflects the
-current tree, including v0.9 API additions such as structured logging controls
-and `await using` disposal aliases.
+The manifests in this workspace are currently `0.10.0`; this page reflects the
+current tree, including the v0.10 ETL package and v0.9 API additions such as
+structured logging controls and `await using` disposal aliases.
 
 ## Subpath Exports
 
@@ -4153,6 +4509,7 @@ Each package exposes smaller import boundaries:
 | `@sisal/core`    | `.`, `./schema`, `./unstable-internal`           |
 | `@sisal/orm`     | `.`, `./core`, `./schema`, `./error`, `./logger` |
 | `@sisal/migrate` | `.`, `./core`, `./workflow`, `./cli`             |
+| `@sisal/etl`     | `.`                                              |
 | `@sisal/pg`      | `.`, `./orm`, `./migrate`, `./ddl`               |
 | `@sisal/neon`    | `.`, `./orm`, `./migrate`, `./ddl`               |
 | `@sisal/sqlite`  | `.`, `./orm`, `./migrate`, `./ddl`               |
@@ -4624,6 +4981,35 @@ runs PostgreSQL DDL through the Neon adapter. Logging flags are `--log-level`,
 
 `generate` emits only non-destructive SQL. Destructive drop/alter changes are
 reported and withheld so captured snapshots do not get ahead of emitted SQL.
+
+---
+
+# `@sisal/etl`
+
+`@sisal/etl` defines adapter-neutral rollup jobs on top of Sisal schema metadata
+and SQL fragments. The job model and SQL compiler stay `@sisal/core`-based; the
+runner APIs execute through a caller-supplied Sisal `Database`, so adapters stay
+outside the package boundary.
+
+## Jobs And SQL
+
+- `defineJob(config)` validates the source table, target table, grain, window
+  column, group keys, and aggregate projections.
+- `rollup(job, window)` compiles a half-open window into the insert-from-select
+  rollup SQL.
+- `explain(job, window, options?)` returns the SQL and parameters without
+  executing it.
+- `supportsJob(job, identity)` and `assertJobSupported(job, identity)` apply the
+  dialect support gate before execution.
+
+## Windows And Runners
+
+- `truncateToGrain`, `addGrain`, `windowAt`, `windowsInRange`, and `nextWindow`
+  provide UTC bucket and half-open range helpers.
+- `run(db, job, options?)` folds one checkpoint-driven window.
+- `backfill(db, job, range, options?)` replays a deterministic historical range.
+- `replay(db, job, window, options?)` re-runs one idempotent window.
+- `status(db, job, options?)` reports checkpoint state and the next run window.
 
 ---
 
@@ -5169,12 +5555,12 @@ comparison. Sisal's `.keyset({ orderBy, after, form? })` infers the cursor type
 from the `orderBy` columns, emits the matching predicate (the default expanded
 `or`/`and` form, or a `"row-value"` comparison for a uniform sort direction)
 plus the `ORDER BY`, and returns a builder whose `.limit(n).execute()` yields
-`{ rows, nextCursor }` (a `nextCursor` only when a full page came back). End
-`orderBy` with a unique column (e.g. the primary key) so the order is total. For
-date/time cursors, prefer DB-returned cursor values and keep a unique final
-tiebreaker; PostgreSQL timestamps store microseconds, JS `Date` stores
-milliseconds, and Temporal can represent nanoseconds. Asserted by
-`packages/orm/keyset_test.ts`.
+`{ rows, nextCursor }` (the query probes one row past the page, so a
+`nextCursor` comes back only when a next page actually exists). End `orderBy`
+with a unique column (e.g. the primary key) so the order is total. For date/time
+cursors, prefer DB-returned cursor values and keep a unique final tiebreaker;
+PostgreSQL timestamps store microseconds, JS `Date` stores milliseconds, and
+Temporal can represent nanoseconds. Asserted by `packages/orm/keyset_test.ts`.
 
 ---
 
@@ -5425,17 +5811,19 @@ title: PostgreSQL compatibility
 # PostgreSQL compatibility
 
 Sisal's PostgreSQL adapter (`@sisal/pg`) is verified end-to-end against a real
-server on every supported major version. The suite connects with the bundled
-`jsr:@db/postgres@0.19.5` driver, applies generated DDL, and exercises every
-adapter feature through the public API.
+server on every supported major version. The suite connects with the default
+driver — postgres.js (`npm:postgres`) since v0.10 (CF1) — applies generated DDL,
+and exercises every adapter feature through the public API; setting
+`SISAL_PG_DRIVER=db-postgres` re-runs it on the selectable pure-JSR
+`jsr:@db/postgres` driver.
 
-| Item            | Value                                                       |
-| --------------- | ----------------------------------------------------------- |
-| Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major) |
-| Driver          | `jsr:@db/postgres@0.19.5`                                   |
-| Suite           | `integration/pg_features_test.ts` (41 tests)                |
-| Runner          | `docker/Dockerfile` + `docker/compose.yaml`                 |
-| Last run        | 2026-07-01 — **41 / 41 passed** (pg16, pg17, pg18)          |
+| Item            | Value                                                                    |
+| --------------- | ------------------------------------------------------------------------ |
+| Versions tested | **16.14**, **17.10**, **18.4** (latest patch of each major)              |
+| Driver          | `npm:postgres@3.4.x` (default); `jsr:@db/postgres@0.19.5` selectable     |
+| Suite           | `integration/pg_features_test.ts` (50 tests)                             |
+| Runner          | `docker/Dockerfile` + `docker/compose.yaml`                              |
+| Last run        | 2026-07-02 — **50 / 50 passed** (pg16, pg17, pg18; both drivers on pg18) |
 
 ## Feature coverage
 
@@ -5454,6 +5842,13 @@ helper (`advance`/`prune`/`assertReplayable`), and the `tryInsert` write-outcome
 `WITH RECURSIVE` CTEs, insert-from-select, and data-modifying CTEs (a
 PostgreSQL/Neon-only capability) now have per-engine execution coverage; all are
 in the [feature matrix](feature-matrix.md).
+
+**v0.10 additions.** The standard recursive-CTE `SEARCH DEPTH|BREADTH FIRST` /
+`CYCLE` clauses (`$withRecursive(...).searchDepthFirst(...)/.cycle(...)`) render
+on PostgreSQL only (server ≥ 14 — every major verified here qualifies) and are
+verified live against a cyclic fixture; the SQLite and MySQL families fail typed
+(`ORM_DIALECT_UNSUPPORTED`) — their portable spelling stays the explicit depth
+column + `WHERE depth < n` guard.
 
 ## Column types proven by the DDL test
 
@@ -5991,22 +6386,37 @@ audit**, a **living roadmap** of addressed and open concerns, and the
 private disclosure, see
 [`SECURITY.md`](https://github.com/gilvandovieira/sisal/blob/main/SECURITY.md).
 
-> **Headline:** the audit confirmed **no Critical or High-severity issues**. The
-> ORM query path is the strongest control surface — values are bound parameters,
-> identifiers are validated before quoting, parameter values are never logged,
-> destructive operations require an explicit opt-in, and migrations use
-> checksums plus locks. All three medium findings raised by the audit — missing
-> constraint emission, credential leakage through driver error causes, and
-> unpinned CI/Docker references — have since been **resolved** (see
-> [SEC-001](#sec-001), [SEC-003](#sec-003), and [SEC-002](#sec-002)). The
-> dollar-quoted migration splitter finding is also resolved (see
-> [SEC-007](#sec-007)).
+> **Headline:** the 0.3.0 audit confirmed **no Critical or High-severity
+> issues**, and every finding it raised is **resolved** ([SEC-001](#sec-001)
+> through [SEC-007](#sec-007)). The **0.9.0 refresh** (2026-07-02) re-audited
+> the surface added since — the `@sisal/core` extraction, the MySQL/MariaDB
+> adapter, the opt-in postgres.js driver, and the v0.9 ETL substrate — and found
+> **no injection path**: the ORM query path remains the strongest control
+> surface (values are bound parameters, identifiers are validated before
+> quoting, prepared plans never inline values). The refresh raised **one High**
+> ([SEC-008](#sec-008): the MySQL family's `CLIENT_FOUND_ROWS` default breaks
+> `tryInsert` and advisory-lock mutual exclusion), **two Medium**
+> ([SEC-009](#sec-009) MySQL-family TLS, [SEC-010](#sec-010) bind values in
+> driver error properties), and six Low findings. **All nine are now resolved**
+> (the v0.10 hardening pass, tests pinning each) — every finding this document
+> has ever raised is closed.
 
 ## Audit basis & methodology
 
 - **Last full audit:** 2026-06-28, branch `release/0.3.0` @
   `3f3a9a49005af2f00695816b44af92471c5e7a28`; Deno 2.8.3 / V8 14.9 / TypeScript
   6.0.3; 176 tracked files.
+- **0.9.0 refresh:** 2026-07-02, `main` @
+  `c7996202f9fc0766ae2ef0b000a41f77059fcb9d` (v0.9.0). Four-track code re-audit
+  of the ~155 commits / ~406 changed files landed since 0.3.0 — core SQL
+  construction (the v0.8 `@sisal/core` extraction), all five adapters (the
+  MySQL/MariaDB adapter and the opt-in postgres.js driver are new), migrate/CLI
+  plus the v0.9 ETL substrate, and CI/supply chain — including empirical probes
+  of the MySQL/MariaDB drivers and a fresh OSV pass. A second, independently
+  produced agent audit (Codex, same date) was cross-checked and merged into
+  these findings: it corroborated the High and both Medium findings, and its
+  remaining items are folded into [SEC-014](#sec-014) or resolved by this
+  document refresh.
 - **Scope:** `packages/{orm,migrate,pg,sqlite,libsql,neon}`, `tools`, `scripts`,
   `.github/workflows`, `docker`, `integration`, `examples`, `benchmarks`,
   `docs`, and the root/package manifests + `deno.lock`. Binary assets were
@@ -6033,7 +6443,40 @@ by [SEC-006](#sec-006). The SQLite executor was hardened to serialize work on
 its single connection so unrelated calls cannot interleave inside an open
 transaction.
 
-### Validation at the audited commit
+**0.9.0 surface review.** The refresh re-examined everything added since 0.3.0.
+The `@sisal/core` extraction moved the SQL IR, identifier validation, and the
+capability registry without weakening them: values are bound parameters
+end-to-end, identifiers are validated at definition and again at render, custom
+naming-function output is re-validated, only fixed keyword enums reach the
+internal `raw()` uses, and prepared plans (`renderToPlan`/`fillPreparedPlan`)
+replay without ever inlining values. The new MySQL/MariaDB adapter follows the
+injectable-executor pattern; the advisory-lock lease table name is
+regex-validated before DDL interpolation and lock names/owners are bound
+parameters. The opt-in postgres.js driver is lazily imported and parameterizes
+identically to the default driver. The findings this refresh raises live at the
+edges instead: the MySQL family's affected-row semantics break the ETL
+substrate's claim protocol ([SEC-008](#sec-008)), its URL path cannot express
+TLS ([SEC-009](#sec-009)), driver-attached error properties escape the SEC-003
+redaction ([SEC-010](#sec-010), [SEC-011](#sec-011)), and checkpoint pruning,
+lock namespacing, CI pinning, release provenance, and two internal DDL
+boundaries each have a Low-severity gap
+([SEC-012](#sec-012)–[SEC-016](#sec-016)).
+
+### Validation after the v0.10 hardening pass (fixes for SEC-008–SEC-016)
+
+| Command                                | Result                                                                                                                        |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `deno task fmt:check`                  | Pass (433 files)                                                                                                              |
+| `deno lint`                            | Pass (316 files)                                                                                                              |
+| `deno task check`                      | Pass                                                                                                                          |
+| `deno task test`                       | Pass (475 passed, 61 steps)                                                                                                   |
+| `deno task docs:check`                 | Pass (48/48 modules; 96.9% JSDoc)                                                                                             |
+| `deno task check:images`               | Pass (all image refs digest-pinned)                                                                                           |
+| Security-invariant + `SEC-`id tests    | Pass (`security_test`, `error_test`, `advisory_lock_test`, `checkpoint_test`, `ddl_hardening_test`, MySQL pool/history tests) |
+| OSV npm querybatch (`deno task audit`) | Pass — 61 npm packages, **0 vulnerabilities**                                                                                 |
+| OSV `JSR`/`Deno` ecosystem             | Limitation — JSR remains unindexed by OSV                                                                                     |
+
+### Validation at the 0.3.0 audited commit
 
 | Command                                | Result                                                                                |
 | -------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -6067,12 +6510,16 @@ audit assumed these attacker models:
 **Trust boundary.** Schema definitions, query builders, and `` sql`…` ``
 templates are _code you author_ and are trusted. The untrusted surface is
 runtime **values**, any **string** passed to `raw(...)` / `identifier(...)` /
-`db.execute("…")`, and **secrets** flowing through config and adapters.
+`db.execute("…")` / `db.query("…")`, pre-rendered statements handed to
+`db.batch` or a checkpoint's `advance`/`prune` statement lists (see the
+[SEC-006](#sec-006) addendum), and **secrets** flowing through config and
+adapters.
 
 **Out of scope (your database's / app's job):** authn/authz, row-level security
-policies, TLS/transport (the driver's responsibility), database-server
-hardening, and protecting a user from intentionally running their own malicious
-migration config.
+policies, TLS/transport (the driver's responsibility — but see
+[SEC-009](#sec-009) for the MySQL-family gap), database-server hardening, and
+protecting a user from intentionally running their own malicious migration
+config.
 
 ---
 
@@ -6081,17 +6528,17 @@ migration config.
 Aligned with OWASP A03 (Injection) and least-privilege / secret-management
 practice — each with Sisal's current status.
 
-| # | Standard                                                               | Sisal                    |
-| - | ---------------------------------------------------------------------- | ------------------------ |
-| 1 | **Parameterize every value** — never concatenate values into SQL       | ✅                       |
-| 2 | **Quote and validate identifiers**                                     | ✅                       |
-| 3 | **No SQL from untrusted strings** in the core; escape hatches explicit | ✅                       |
-| 4 | **Safe-by-default destructive operations**                             | ✅                       |
-| 5 | **Keep secrets and values out of logs and errors**                     | ✅                       |
-| 6 | **Reject unknown columns** (mass assignment)                           | ✅                       |
-| 7 | **Enforce referential integrity** the schema declares                  | ✅ ([SEC-001](#sec-001)) |
-| 8 | **Least privilege & secret-management guidance**                       | ✅ ([SEC-004](#sec-004)) |
-| 9 | **Supply-chain integrity** of dependencies and CI                      | ✅ ([SEC-002](#sec-002)) |
+| # | Standard                                                               | Sisal                                                              |
+| - | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1 | **Parameterize every value** — never concatenate values into SQL       | ✅                                                                 |
+| 2 | **Quote and validate identifiers**                                     | ✅                                                                 |
+| 3 | **No SQL from untrusted strings** in the core; escape hatches explicit | ✅                                                                 |
+| 4 | **Safe-by-default destructive operations**                             | ✅                                                                 |
+| 5 | **Keep secrets and values out of logs and errors**                     | ✅ ([SEC-010](#sec-010), [SEC-011](#sec-011))                      |
+| 6 | **Reject unknown columns** (mass assignment)                           | ✅                                                                 |
+| 7 | **Enforce referential integrity** the schema declares                  | ✅ ([SEC-001](#sec-001))                                           |
+| 8 | **Least privilege & secret-management guidance**                       | ✅ ([SEC-004](#sec-004))                                           |
+| 9 | **Supply-chain integrity** of dependencies and CI                      | ✅ ([SEC-002](#sec-002), [SEC-014](#sec-014), [SEC-015](#sec-015)) |
 
 ---
 
@@ -6099,17 +6546,227 @@ practice — each with Sisal's current status.
 
 Every audit finding (`SEC-NNN`), its severity, and current status. **Addressed**
 items are done and, where relevant, pinned by a test; **partial**/**open** items
-are the roadmap.
+are the roadmap. Every open finding is scheduled for the next release:
+[SEC-008](#sec-008)–[SEC-016](#sec-016) map to
+[v0.10 roadmap](v0.10.0-roadmap.md) tasks **T1–T9**, and the [SEC-007](#sec-007)
+residual to **T10**.
 
-| ID                  | Concern                                               | Severity | Status       |
-| ------------------- | ----------------------------------------------------- | -------- | ------------ |
-| [SEC-001](#sec-001) | `UNIQUE`/`FOREIGN KEY` constraints not emitted in DDL | Medium   | ✅ Addressed |
-| [SEC-003](#sec-003) | Driver error `cause` may preserve DSNs/tokens         | Medium   | ✅ Addressed |
-| [SEC-006](#sec-006) | `raw()` / DDL-expression escape hatches               | Low      | ✅ Addressed |
-| [SEC-002](#sec-002) | Mutable GitHub Actions & Docker references            | Medium   | ✅ Addressed |
-| [SEC-007](#sec-007) | Dollar-quoted SQL split incorrectly                   | Low      | ✅ Addressed |
-| [SEC-004](#sec-004) | Broad Deno permissions in CLI & integration           | Low      | ✅ Addressed |
-| [SEC-005](#sec-005) | Migration config is trusted local code                | Info     | ◻️ Accepted  |
+| ID                  | Concern                                                | Severity | Status       |
+| ------------------- | ------------------------------------------------------ | -------- | ------------ |
+| [SEC-008](#sec-008) | MySQL-family found-rows breaks `tryInsert`/lock claims | High     | ✅ Addressed |
+| [SEC-009](#sec-009) | MySQL-family URL path cannot require TLS               | Medium   | ✅ Addressed |
+| [SEC-010](#sec-010) | Bind values survive in driver error properties         | Medium   | ✅ Addressed |
+| [SEC-011](#sec-011) | Redaction pattern & coverage gaps                      | Low      | ✅ Addressed |
+| [SEC-012](#sec-012) | ETL checkpoint prune ordering / fail-closed gaps       | Low      | ✅ Addressed |
+| [SEC-013](#sec-013) | MySQL migration lock name is server-global             | Low      | ✅ Addressed |
+| [SEC-014](#sec-014) | Pinning gaps outside the SEC-002 perimeter             | Low      | ✅ Addressed |
+| [SEC-015](#sec-015) | Tag-publish ancestry & pre-commit hook permissions     | Low      | ✅ Addressed |
+| [SEC-016](#sec-016) | Core DDL defense-in-depth gaps                         | Low      | ✅ Addressed |
+| [SEC-001](#sec-001) | `UNIQUE`/`FOREIGN KEY` constraints not emitted in DDL  | Medium   | ✅ Addressed |
+| [SEC-003](#sec-003) | Driver error `cause` may preserve DSNs/tokens          | Medium   | ✅ Addressed |
+| [SEC-006](#sec-006) | `raw()` / DDL-expression escape hatches                | Low      | ✅ Addressed |
+| [SEC-002](#sec-002) | Mutable GitHub Actions & Docker references             | Medium   | ✅ Addressed |
+| [SEC-007](#sec-007) | Dollar-quoted SQL split incorrectly                    | Low      | ✅ Addressed |
+| [SEC-004](#sec-004) | Broad Deno permissions in CLI & integration            | Low      | ✅ Addressed |
+| [SEC-005](#sec-005) | Migration config is trusted local code                 | Info     | ◻️ Accepted  |
+
+### ✅ Addressed (0.9.0 refresh · fixed in v0.10)
+
+Each fix is pinned by a test named for its `SEC-`id. Full per-task fix direction
+lives in the [v0.10 roadmap](v0.10.0-roadmap.md) (T1–T10).
+
+#### SEC-008 — MySQL-family found-rows semantics break `tryInsert` and advisory-lock claims {#sec-008}
+
+**High · resolved.** The advisory-lock claim now **verifies ownership** — it
+reads the row back and compares the owner token instead of trusting the insert's
+affected-row count, so it is exact on every engine and independent of the
+connection's found-rows flag (mutual exclusion holds even against an injected
+found-rows-on pool). The bundled `@sisal/mysql` pools additionally disable
+`CLIENT_FOUND_ROWS` (mysql2 `flags: ["-FOUND_ROWS"]`, MariaDB
+`foundRows: false`) so `tryInsert`'s affected-row contract holds for the shipped
+drivers; `AdvisoryLock.renew` stays correct because the lease value changes each
+renew. Pinned by a two-claimant `advisory_lock_test` that simulates the
+ambiguous count and asserts a single winner, plus pool-config tests. The narrow
+`UPDATE`-reports-changed-rows consequence is documented in
+`docs/mysql-compatibility.md`.
+
+_Original finding:_ MySQL has no `RETURNING`, so `tryInsert` infers "inserted"
+from the driver's affected-row count (`packages/orm/core/write_outcome.ts`:
+`inserted: rowCount >= 1`), and `db.tryAdvisoryLock` builds its lease-claim
+protocol on that signal (`packages/orm/core/advisory_lock.ts`). Both bundled
+drivers connect with the `CLIENT_FOUND_ROWS` protocol flag in effect, under
+which a conflicting `INSERT … ON DUPLICATE KEY UPDATE x = x` reports **one found
+row instead of zero changed rows** — so the loser of a race also sees
+`inserted: true`. Empirically confirmed against MariaDB 11: two concurrent
+claimants of the same lock name both returned `acquired: true`, breaking the
+mutual-exclusion guarantee the ETL substrate depends on (windowed jobs can
+double-run; any future queue-claim helper on the same primitive inherits the
+flaw). The MySQL-family integration scenarios for `tryInsert`/`tryAdvisoryLock`
+cannot pass against a live server in this state. Fix direction: connect with
+found-rows off (mysql2 `flags: ["-FOUND_ROWS"]`, MariaDB connector
+`foundRows: false`) — but audit `AdvisoryLock.renew` and every other consumer of
+an `UPDATE` row count first, since the flag flips their semantics from "matched"
+to "changed" — or move the claim path to an unambiguous strategy and fail closed
+where an insert-vs-conflict outcome cannot be proven.
+
+#### SEC-009 — MySQL-family URL connections cannot require TLS {#sec-009}
+
+**Medium · resolved.** `MysqlConnectionOptions` now takes an `ssl` option
+(`boolean | MysqlTlsOptions`), forwarded verbatim to mysql2, the MariaDB
+connector, and — through the shared connection-source resolver — the migrate
+driver. A TLS-relevant URL query param (`ssl-mode`, `sslmode`, `ssl`, …) is now
+**rejected** with a typed error rather than silently dropped, so the URL path
+can no longer fail open to cleartext. Pinned by pool-config tests (`ssl`
+forwarding and URL-param rejection).
+
+_Original finding:_ `MysqlConnectionOptions` has no TLS/SSL field, and the URL
+convenience path builds both driver configs without `ssl`
+(`packages/mysql/orm/pool.ts`, `packages/mysql/orm/mariadb_pool.ts`);
+`?ssl-mode=…` URL query parameters are silently dropped, so a URL that _asks_
+for TLS still connects in cleartext — the path fails open. Workaround today:
+inject a pre-configured `pool`/`client` carrying the driver's TLS options. Fix:
+add explicit TLS options to `MysqlConnectionOptions`, forward them to mysql2,
+the MariaDB connector, and the migrate driver alike, document strict-TLS
+examples, and reject unrecognized security-relevant URL parameters instead of
+dropping them.
+
+#### SEC-010 — Bind values survive in driver-attached error properties {#sec-010}
+
+**Medium · resolved.** `redactErrorCause` now recursively sanitizes a preserved
+driver cause: it drops bind/statement properties (`parameters`, `sql`, `values`,
+…), masks credential-named properties (`password`, `uri`, `authToken`, …), and
+recurses nested `cause` chains and `AggregateError.errors`, with a depth/cycle
+guard. Our own `SisalError` subclasses pass through unchanged (already redacted,
+so `instanceof`/`details` survive). Pinned by `packages/core/error_test.ts`
+(bind-value drop, DSN/credential masking, nested/aggregate recursion).
+
+_Original finding:_ [SEC-003](#sec-003)'s redaction covers a preserved driver
+cause's `message` and `stack`, but raw bind values reach serializable
+**properties** of the cause: the MariaDB connector appends parameter values to
+error text (`logParam` behavior), mysql2 attaches the offending statement as
+`err.sql`, and postgres.js attaches the `parameters` array as an enumerable
+property. `redactSecrets` targets credential patterns (DSN userinfo,
+token-bearing parameters), not arbitrary bind values, so a sensitive value bound
+into a failing query can surface when an application or test reporter serializes
+`error.cause`. Fix: sanitize enumerable cause properties (drop or summarize
+`parameters` / `sql` / driver `config` objects; recurse nested causes and
+`AggregateError`), disable value-echoing driver options by default, and pin with
+adapter-shaped error fixtures for mysql2, MariaDB, postgres.js, libSQL, and
+Neon.
+
+#### SEC-011 — Redaction pattern and coverage gaps {#sec-011}
+
+**Low · resolved.** `redactSecrets` now covers `encryptionKey`, masks URL
+passwords containing `@`/`/` (lazy match to the `@host` boundary), and redacts
+SQL grant/role credentials (`IDENTIFIED BY '…'`, `PASSWORD '…'`). `NeonError`
+now extends `SisalError`, inheriting its message/cause/details redaction, and
+`SisalError` passes `details` (including `details.sql`) through the redactor.
+Pinned by `packages/core/error_test.ts`.
+
+_Original finding:_ Three gaps in the [SEC-003](#sec-003) machinery: (1)
+`redactSecrets` misses the `encryptionKey` parameter name and fails to mask URL
+passwords containing `@` or `/`; (2) `NeonError` extends `Error` directly rather
+than `SisalError`, so it must self-apply redaction on every construction path
+instead of inheriting it; (3) `MigrationError` attaches `details.sql` unredacted
+— a failing migration statement like `CREATE USER app IDENTIFIED BY 'pw'` would
+echo the password into serialized details. Fix: broaden the parameter-name list,
+tolerate reserved characters in URL userinfo, route `NeonError` through
+`SisalError`, and pass `details.sql` through `redactSecrets`.
+
+#### SEC-012 — ETL checkpoint prune ordering and fail-closed gaps {#sec-012}
+
+**Low · resolved.** `prune` now raises the horizon **first**, then deletes
+(`db.batch([horizon, ...deletes])`), so a crash between the two statements
+leaves the horizon ahead of the delete (conservative), never behind. The
+non-atomic `db.batch` fallback the original finding describes has since been
+removed entirely — `db.batch` now throws `ORM_TRANSACTION_UNSUPPORTED` when a
+driver can supply neither `batch` nor `transaction`, so the horizon-first order
+is defense in depth. The `unsafeAllowPrunedReplay` override now emits a
+`console.warn` instead of passing silently, and `etlCheckpoint` fails closed
+with `ORM_DIALECT_UNSUPPORTED` on the `generic` dialect. Pinned by
+`checkpoint_test.ts` (horizon-first order, generic guard, override warning).
+
+_Original finding:_ `etlCheckpoint`'s `prune` issues its deletes **before**
+advancing the retention horizon. Under the ORM's non-atomic `db.batch` fallback
+(drivers without native batch execute statements sequentially), a failure
+between the two steps leaves rows deleted with the horizon still behind them —
+`assertReplayable` then vouches for a window that can no longer be replayed,
+violating the replay guarantee that `ORM_REPLAY_PRUNED` exists to protect. Safe
+order: advance the horizon first, then delete. Related hardening:
+`unsafeAllowPrunedReplay` suppresses the guard silently (it should at least
+log), and the checkpoint helpers do not fail closed on the `generic` dialect.
+
+#### SEC-013 — MySQL migration lock name is server-global {#sec-013}
+
+**Low · resolved.** The default migration lock is now namespaced by the current
+database — the store resolves `SELECT DATABASE()` and locks
+`GET_LOCK('sisal:migrate:<db>')` (hashed suffix if the composed name would
+exceed the 64-char ceiling), so unrelated projects on a shared server no longer
+contend. An explicit lock id is still honored verbatim and validated before a
+session is opened. Pinned by a `history_test` asserting the database-scoped
+name.
+
+_Original finding:_ The MySQL migrate driver serializes runners with
+`GET_LOCK('sisal:migrate')`, but MySQL user locks are **server-scoped**, not
+per-database: every Sisal project on a shared server contends for the same name,
+and a stuck or hostile co-tenant session can hold it indefinitely, blocking
+unrelated deployments' migrations (availability impact only — no data risk).
+Fix: namespace the lock name with the current database (`sisal:migrate:<db>`);
+the PostgreSQL advisory lock is already per-database.
+
+#### SEC-014 — Pinning gaps outside the SEC-002 perimeter {#sec-014}
+
+**Low · resolved.** The integration workflow's `mysql:8.4` / `mariadb:11`
+service containers and the example `docker-compose.yml` images are now
+digest-pinned; a new `deno task check:images` (`tools/check_image_pinning.ts`,
+wired into CI) fails on any `image:`/`FROM` reference lacking an `@sha256:`
+digest; and `--no-lock` is dropped from the `perf:*` tasks. Pinned by the CI
+guard itself.
+
+_Original finding:_ [SEC-002](#sec-002) pinned GitHub Actions and the `docker/`
+images, but three references sit outside that perimeter: the integration
+workflow's **service containers** still use mutable `mysql:8.4` / `mariadb:11`
+tags (`.github/workflows/integration.yml`; Dependabot's `docker` ecosystem does
+not scan workflow `services:` blocks, so these drift silently), the example
+compose files use mutable tags, and the `perf:*` tasks run with `--no-lock`,
+bypassing the lockfile integrity the rest of the workspace gets from `--frozen`.
+The integration workflow runs with `contents: read`, so the blast radius is
+bounded. Fix: digest-pin the service images and example images, add a CI check
+that rejects `image:` references without `@sha256:`, and drop `--no-lock`.
+
+#### SEC-015 — Tag-publish ancestry and pre-commit hook permissions {#sec-015}
+
+**Low · resolved.** The publish workflow now runs a **tag-push ancestry guard**
+— it fetches `origin/main` (checkout deepened to full history) and refuses to
+publish unless `git merge-base --is-ancestor "$GITHUB_SHA" origin/main`
+succeeds, so a tag on an off-main commit cannot reach the OIDC publish path. The
+doc tasks the pre-commit hook invokes now use `--allow-run=deno` instead of a
+blanket `--allow-run`.
+
+_Original finding:_ The publish workflow's "refuse outside `main`" guard covers
+`workflow_dispatch` runs only; a **tag push** publishes whatever commit the tag
+points at, even one not on `main`, so tag-push rights alone suffice to route an
+unreviewed commit through the OIDC publish path. Fix: assert ancestry in the tag
+path (`git merge-base --is-ancestor "$GITHUB_SHA" origin/main`). Also, the
+installed pre-commit hook runs with a blanket `--allow-run`; it only needs
+`--allow-run=deno`.
+
+#### SEC-016 — Core DDL defense-in-depth gaps {#sec-016}
+
+**Low · resolved.** `renderPortableExpression` now **rejects** a portable DDL
+expression that carries a bound parameter (a typed `OrmError`, matching the
+generated-column path) instead of emitting a dangling `$1`, and index / unique /
+check **constraint names** are validated as plain identifiers at the core
+boundary (the same discipline table and column names get). Pinned by
+`packages/core/ddl_hardening_test.ts`.
+
+_Original finding:_ Two internal-boundary gaps, neither reachable from untrusted
+input today: `renderPortableExpression` (`packages/core/table.ts`) silently
+**drops bound parameters** when rendering an expression into a snapshot, leaving
+a dangling `$1` placeholder in generated DDL where its sibling paths reject
+instead; and index/unique/check **constraint names** are not validated at the
+core boundary — currently safe only because every DDL generator quote-escapes
+them on emission.
 
 ### ✅ Addressed
 
@@ -6188,6 +6845,14 @@ three fronts:
   not sanitize" warning, and `packages/orm/security_test.ts` pins parameter
   binding, identifier rejection, and where-less mutation blocking.
 
+**0.9.0 addendum.** Two more trusted-string surfaces of the same class are now
+named explicitly: `db.query("…", params)` accepts raw SQL text exactly like
+`db.execute("…")` (same runner, same trust expectation), and `db.batch` plus a
+checkpoint's `advance`/`prune` statement lists accept pre-rendered `SqlQuery`
+objects that execute verbatim. All of them are `raw()`-class, developer-
+authored inputs — never build their SQL text from runtime strings. Root
+`SECURITY.md` lists them alongside the original escape hatches.
+
 #### SEC-002 — GitHub Actions & Docker references are pinned {#sec-002}
 
 **Medium · resolved.** Workflows referenced actions by moving tags
@@ -6218,6 +6883,13 @@ The splitter now recognizes untagged and tagged dollar-quote delimiters and
 ignores semicolons until the matching closing delimiter. `$1`/`$2` parameter
 placeholders are not treated as dollar quotes. Pinned by
 `splitSqlStatements: dollar-quoted bodies stay whole`.
+
+_Residual (0.9.0 refresh) — resolved in v0.10:_ the splitter now models
+PostgreSQL `E'…'` escape-string backslash escapes (a `\'` no longer ends the
+string) and **nested** block comments (depth-tracked, so an inner `*/` does not
+close the outer comment), so a `;` inside either construct is no longer treated
+as a top-level terminator. This was correctness hardening on trusted migration
+files, not an injection surface. Pinned by the new `sql_split_test` cases.
 
 #### SEC-004 — Scoped permission examples are documented {#sec-004}
 
@@ -6308,6 +6980,14 @@ packages. OSV `querybatch` returned **0 vulnerabilities** across the 33 npm
 packages; OSV rejects the `JSR`/`Deno` ecosystems (`Invalid ecosystem`), so
 complete advisory coverage for JSR dependencies cannot be claimed.
 
+**Refresh 2026-07-02 (v0.9.0):** the lockfile now inventories **61 npm**
+packages (the MySQL/MariaDB drivers and the opt-in postgres.js driver are the
+notable additions); OSV `querybatch` again returned **0 vulnerabilities**, and
+JSR remains unindexed. The new database drivers (`postgres`, `mysql2`,
+`mariadb`) are pure JavaScript and integrity-locked; native code still enters
+only through the libSQL client's platform packages and `@db/sqlite`'s
+`@denosaurs/plug` download; no installed package declares lifecycle scripts.
+
 Observations:
 
 - Runtime npm usage is confined to explicit adapter/benchmark boundaries
@@ -6349,6 +7029,26 @@ record but, as the audit noted, OSV does not index the JSR ecosystem.
       and scaffolds. — [SEC-005](#sec-005)
 - [x] Add an automated advisory/SBOM workflow for npm deps (`deno task audit` +
       `.github/workflows/advisories.yml`).
+- [x] Turn off found-rows semantics (or adopt an unambiguous claim strategy) for
+      the MySQL family so `tryInsert`/`tryAdvisoryLock` cannot double-grant; add
+      live-conflict regression tests. — [SEC-008](#sec-008)
+- [x] Add TLS options to `MysqlConnectionOptions`, forwarded to mysql2, the
+      MariaDB connector, and the migrate driver; stop silently dropping
+      `ssl-mode` URL params. — [SEC-009](#sec-009)
+- [x] Sanitize enumerable driver-error properties (`parameters`/`sql`/config
+      objects, nested causes, `AggregateError`); disable value-echoing driver
+      options. — [SEC-010](#sec-010)
+- [x] Close redaction gaps: `encryptionKey`, reserved characters in URL
+      passwords, `NeonError` inheritance, `details.sql`. — [SEC-011](#sec-011)
+- [x] Advance the checkpoint horizon before pruning; log
+      `unsafeAllowPrunedReplay`; fail closed on `generic`. — [SEC-012](#sec-012)
+- [x] Namespace the MySQL migration lock by database. — [SEC-013](#sec-013)
+- [x] Digest-pin workflow service images and example compose images; drop
+      `--no-lock` from the `perf:*` tasks. — [SEC-014](#sec-014)
+- [x] Enforce main-ancestry on tag-push publishes; narrow the pre-commit hook to
+      `--allow-run=deno`. — [SEC-015](#sec-015)
+- [x] Reject bound parameters in portable DDL expressions; validate constraint
+      names at the core boundary. — [SEC-016](#sec-016)
 
 ---
 
@@ -7127,6 +7827,365 @@ npm support must reproduce for editors that only speak the ordinary TypeScript
 package model.
 ```
 
+### docs/etl-pain-points.md
+
+URL: https://gilvandovieira.github.io/sisal/etl-pain-points.html
+
+```md
+---
+title: ETL pain points
+---
+
+# ETL pain points — observed failure modes and recovery paths
+
+What actually happens when a `@sisal/etl` (v0.10 preview) deployment breaks.
+Every entry is pinned by a live-PostgreSQL scenario in
+[`integration/etl_limits_test.ts`](../integration/etl_limits_test.ts) (run
+alongside the acceptance suite `integration/etl_features_test.ts`) — this list
+records **observed behavior**, not intent. Each has the failure, what the API
+does today, the recovery, and where relevant a candidate follow-up for a later
+release.
+
+## 1. The upsert key is not validated at definition time
+
+**Failure.** `defineJob` checks column coverage, but nothing verifies the target
+table has a unique constraint matching `(bucket, ...groupBy)`. The mismatch only
+surfaces on the **first live run**, as the database's `ON CONFLICT` error (a
+typed `OrmError`, but a runtime one).
+
+**Today.** The atomic batch rolls back cleanly: no watermark advance, no partial
+rows (verified — this is the crash-atomicity invariant doing its job).
+
+**Recovery.** Add the constraint and simply run again — the runner resumes at
+the same window. _Test:
+`fail: missing upsert key — run fails, checkpoint intact, fix + rerun
+recovers`._
+
+**Follow-up candidate.** A definition- or preflight-time check against the
+schema snapshot (the target's `primaryKey`/`unique` extras are already
+inspectable) could turn this into an `ETL_INVALID_JOB` before any SQL runs.
+
+## 2. `advance()` accepts any marker — including unaligned and backward ones
+
+**Failure.** The checkpoint substrate treats watermarks as opaque; an operator
+(or a buggy script) can park the watermark mid-bucket or rewind it.
+
+**Today.** Both are absorbed safely: an **unaligned** watermark makes the next
+window floor to its bucket edge and refold the _whole_ bucket (never a partial
+tail — a mid-bucket window would overwrite full counts with an undercount, which
+is exactly what the v0.10 window math was fixed to prevent); a **rewound**
+watermark just refolds forward idempotently until it reconverges.
+
+**Recovery.** None needed beyond running — but the refold consumes one run per
+grain step, so rewinding a year-old minute-grain job means half a million
+no-op-ish windows. Prefer `backfill(range)` for intentional reprocessing.
+_Tests:
+`fail: hand-advanced unaligned watermark — whole bucket refolds, no
+undercount`
+· `fail: watermark rewound to the beginning — idempotent refold
+converges`._
+
+## 3. Late-arriving events are silently invisible to `run()`
+
+**Failure.** An event written into an already-folded bucket sits behind the
+watermark; `run()` reports `up-to-date` and the target is **silently stale**.
+This is the sharpest operational edge in the v0.10 model.
+
+**Today.** No detection. The data is not lost — the source still has it — but
+nothing tells you a folded bucket no longer matches its source.
+
+**Recovery.** `replay(db, job, bucketStart)` re-derives the affected bucket —
+but the operator must _know which bucket_ the late rows landed in (e.g. by
+querying the source for `occurred_at < watermark AND ingested_at > folded
+time`,
+which requires an ingestion timestamp the schema may not have). _Test:
+`fail: late-arriving events land behind the watermark — replay
+recovers`._
+
+**Follow-up candidate.** A lateness allowance (fold `[from, until)` only when
+`until <= now - lateness`) and/or a drift check (`status` comparing a folded
+bucket's source count against the target).
+
+## 4. A wrong clock parks the job as "up-to-date"
+
+**Failure.** `run()` trusts the injected/ambient clock. A runner whose clock is
+behind the watermark (skew, or a watermark advanced from a faster machine)
+reports plain `up-to-date` forever — indistinguishable from genuinely being
+current.
+
+**Today.** `status()` is the observability hook: `next === null` while
+`checkpoint.updatedAt` stops moving is the parked-job signature. Nothing alerts
+on its own.
+
+**Recovery.** Fix the clock; no state repair is needed (nothing was written).
+_Test:
+`fail: clock behind the watermark — job parks as up-to-date, status
+shows it`._
+
+## 5. The lock is a time-based lease, not a session lock
+
+**Failure.** A runner that crashes while holding the lock leaves a lock row
+behind; a runner that is alive but **slower than its TTL** (default 30 s) can be
+raced by a second claimant that reaps the "expired" lease.
+
+**Today.** Crash recovery is automatic — the next claimant reaps the expired
+lease and proceeds, no operator action (verified with a 100 ms TTL). The
+slow-holder race is real but bounded: even if two runners interleave, the
+grain-keyed upsert and the atomic advance keep the target and checkpoint
+consistent (the concurrent-race acceptance test pins this).
+
+**Recovery / practice.** Size `options.lock.ttlMs` above the worst-case window
+fold; long backfills hold the lock for the whole range. _Tests:
+`fail: crashed lock holder — the lease expires and the next runner
+self-heals` ·
+features suite `etl: a concurrent race never double-counts`._
+
+## 6. The rollup can only add or overwrite — it can never zero a bucket
+
+**Failure.** `rollup()` is insert-from-select: a window whose source rows are
+gone (pruned, or deleted upstream) upserts **nothing**. An
+`unsafeAllowPrunedReplay` replay over a pruned window therefore "succeeds" while
+leaving the stale counts untouched — it cannot shrink or clear them. Deletions
+upstream never propagate to the target.
+
+**Today.** The `ORM_REPLAY_PRUNED` guard refuses the pruned window by default,
+and the unsafe override warns loudly — but the override's actual semantics are
+"re-derive from whatever source exists," which for an empty source is a no-op,
+not a zeroing.
+
+**Recovery.** Restore the source rows, `DELETE` the target rows for the window,
+then replay — re-derivation then reproduces the correct counts. _Test:
+`fail: source rows pruned — unsafe replay CANNOT zero a bucket
+(add/overwrite only)`._
+
+**Follow-up candidate.** A `replay(..., { clear: true })` shape that deletes the
+window's target rows in the same batch as the refold.
+
+## 7. Schema drift between runs fails loudly but only at run time
+
+**Failure.** A target column dropped (or retyped) after the job was defined
+fails the next window's insert with a database error.
+
+**Today.** Typed failure, watermark intact, resume-at-failed-window after the
+schema is restored — the checkpoint's atomicity contract holds under drift. The
+capability gate (`assertJobSupported`) probes the _renderer_, not the live
+schema, so it cannot catch this pre-flight. _Test:
+`fail: schema drift mid-life — typed error, resume after restore`._
+
+## 8. Fine grains make catch-up chatty
+
+**Observation.** Each window is one lock acquire + checkpoint read + one atomic
+batch: ~0.3 s per window against local PostgreSQL. A minute-grain job that fell
+a day behind needs 1 440 sequential runs (~7 min of round trips); the 90-window
+drain in the battery takes ~26 s. Wide-window `backfill` has the same per-window
+shape by design (deterministic, resumable), so it does not shortcut this.
+
+**Practice.** Choose the coarsest grain the product tolerates; for bulk history,
+prefer seeding + `backfill` over letting `run()` crawl; run catch-ups near the
+database (latency dominates). _Test:
+`limit: minute grain — 90 windows catch up in one drain`._
+
+## Verified limits (the happy-path edges that hold)
+
+From the same battery: 50 k events across 25 hourly windows reconcile exactly;
+global rollups (no group keys) with composite `sql` aggregates and
+`countDistinct` work; two jobs multiplex one checkpoint/lock table without
+interference; events exactly on a bucket edge land in exactly one window
+(half-open discipline); month grain agrees with `date_trunc` across calendar
+lengths; 200-character job names fit the checkpoint/lock caps; bigint group keys
+beyond 2^53 round-trip exactly as strings.
+```
+
+### docs/etl-scheduling.md
+
+URL: https://gilvandovieira.github.io/sisal/etl-scheduling.html
+
+```md
+---
+title: ETL scheduling
+---
+
+# Scheduling Sisal ETL jobs
+
+Sisal ETL is deliberately **not** a scheduler
+([v0.10 non-goals](v0.10.0-roadmap.md#non-goals)). The division of labor:
+
+```
+external scheduler (cron / systemd timer / CI / Deno.cron)   ← decides WHEN
+  → the Sisal runner: run(db, job)                           ← decides WHAT ONE RUN MEANS
+      → lock → checkpoint → next window → pushed-down SQL → atomic advance
+```
+
+`run(db, job)` folds **one** closed window and exits. That contract is what
+makes any trigger safe:
+
+- **Overlaps are serialized.** Two wake-ups racing on the same job contend on
+  the advisory lock (`sisal:etl:<name>`); the loser returns
+  `{ ran: false, reason: "locked" }` and exits. No corruption, no double-fold.
+- **Misfires are caught up.** The checkpoint remembers where the job stopped; a
+  missed tick just means the next one has more windows to fold.
+- **Re-runs are idempotent.** The rollup upserts on the grain key, so a window
+  folded twice overwrites rather than double-counts.
+- **Early fires are no-ops.** A wake-up before the next bucket closes returns
+  `{ ran: false, reason: "up-to-date" }`.
+
+## The runner script and the catch-up loop
+
+Every scheduler below invokes the same thing — a small script that drains all
+closed buckets (`run()` does one window per call, so loop until it steps aside):
+
+```ts
+// etl_run.ts
+import { connect } from "@sisal/pg";
+import { run } from "@sisal/etl";
+import { job } from "./job.ts"; // your defineJob(...)
+
+const db = await connect({ url: Deno.env.get("DATABASE_URL")! });
+try {
+  while (true) {
+    const outcome = await run(db, job);
+    if (!outcome.ran) break; // "up-to-date" or "locked"
+    console.log(`folded [${outcome.window.from}, ${outcome.window.until})`);
+  }
+} finally {
+  await db.close();
+}
+```
+
+Schedule it a few minutes **after** the bucket edge (e.g. minute 5 for an `hour`
+grain) so late-arriving rows near the edge are already committed when the window
+folds.
+
+## cron / crontab
+
+```cron
+# m h dom mon dow  command
+5 * * * *  cd /srv/app && DATABASE_URL=postgres://… \
+  deno run --allow-env --allow-net --allow-read etl_run.ts >> /var/log/etl.log 2>&1
+```
+
+## systemd timer
+
+`/etc/systemd/system/sisal-etl.service`:
+
+```ini
+[Unit]
+Description=Sisal ETL hourly rollup (one catch-up run)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/app
+Environment=DATABASE_URL=postgres://…
+ExecStart=/usr/bin/deno run --allow-env --allow-net --allow-read etl_run.ts
+```
+
+`/etc/systemd/system/sisal-etl.timer`:
+
+```ini
+[Unit]
+Description=Run the Sisal ETL rollup hourly
+
+[Timer]
+OnCalendar=*-*-* *:05:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+`Persistent=true` fires a missed tick at boot — and the catch-up loop folds
+however many buckets accumulated while the machine was down.
+
+## GitHub Actions
+
+```yaml
+name: etl-hourly-rollup
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch: {} # manual catch-up/backfill trigger
+
+jobs:
+  rollup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno run --allow-env --allow-net --allow-read etl_run.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+```
+
+GitHub schedules are best-effort (ticks can be delayed or skipped under load) —
+which is exactly why the checkpoint model assumes nothing about the trigger's
+punctuality.
+
+## Deno.cron (in-process / Deno Deploy)
+
+For a long-lived Deno process — or a Deno Deploy deployment, where `Deno.cron`
+is managed — the scheduler can live in the same process as the runner:
+
+```ts
+Deno.cron("post-hourly-stats rollup", "5 * * * *", async () => {
+  while ((await run(db, job)).ran) { /* drain closed buckets */ }
+});
+```
+
+On the CLI this needs the `--unstable-cron` flag. The runnable version — schema,
+seeded events, immediate backlog catch-up, then the hourly `Deno.cron` — lives
+at
+[`examples/postgres-family-etl-cron`](../examples/postgres-family-etl-cron/mod.ts):
+
+```sh
+# print the generated rollup SQL (no database):
+deno run --allow-read examples/postgres-family-etl-cron/mod.ts
+# connect, catch up, and keep folding hourly:
+DATABASE_URL=postgres://... \
+  deno run --unstable-cron --allow-env --allow-net --allow-read \
+  examples/postgres-family-etl-cron/mod.ts
+```
+
+Even in-process, the model is unchanged: `Deno.cron` decides _when_, `run()`
+decides _what one run means_ — and the advisory lock still serializes against
+any _other_ runner (a second deployment, an operator's manual catch-up).
+
+## pg_cron — optional, never the only path
+
+PostgreSQL's `pg_cron` extension runs SQL _inside_ the database, so it cannot
+invoke the TypeScript runner — and with it you give up the runner's
+checkpoint/lock/window machinery. What it _can_ do is re-fold a **fixed, known**
+window with the exact statement `explain(job, window)` prints (the window bounds
+are the two trailing parameters):
+
+```sql
+select cron.schedule('refold-latest-hour', '5 * * * *',
+  $$ insert into post_hourly_stats (...) select ... $$);
+```
+
+Treat that as an acceleration for one pinned window, not as the scheduler:
+`pg_cron` is Postgres-only, and per the
+[v0.10 model](v0.10.0-roadmap.md#the-execution-model-the-whole-v010-runtime) it
+**must never be the only path** — the external-scheduler + runner model above is
+the default on every engine.
+
+## Operational notes
+
+- **One schedule per job.** The lock serializes concurrent runners, but the
+  intended shape is a single trigger per job; parallelism across _jobs_ is free
+  (each has its own lock and checkpoint).
+- **Backfills are manual, not scheduled.** `backfill(db, job, range)` re-derives
+  an explicit historical range deterministically; run it from an operator's
+  shell or a one-off CI dispatch, not a recurring trigger.
+- **Observability.** `status(db, job)` is read-only and lock-free — point
+  dashboards and health checks at it; an `updatedAt` that stops advancing means
+  the scheduler stopped firing.
+- **Retention.** Prune consolidated source rows with the checkpoint substrate
+  (`etlCheckpoint(db, job.name).prune(before, [deletes])` from `@sisal/orm`);
+  `replay`/`backfill` refuse windows behind the horizon it records.
+```
+
 ### docs/feature-matrix.md
 
 URL: https://gilvandovieira.github.io/sisal/feature-matrix.html
@@ -7199,6 +8258,7 @@ genuine dialect limit · — not applicable.
 | Write outcome (inserted vs conflicted/claimed)                           |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 | Read CTE (WITH on SELECT)                                                |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
 | Recursive CTE (WITH RECURSIVE; MySQL 8+/MariaDB)                         |    ✅     |  ✅   |    ✅    |       ✅        |        ✅        |        ✅         |
+| Recursive CTE `SEARCH`/`CYCLE` clauses (PostgreSQL 14+)                  |    ✅     |  ✅   |    [❌](#postgresql-only-limits)    |       [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)        |        [❌](#postgresql-only-limits)         |
 
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
@@ -7243,6 +8303,7 @@ surface at all:
 - **Array operators (`@>` / `<@` / `&&`)** — No array type or operators (`@>`/`<@`/`&&`) in the SQLite or MySQL families. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 - **Typed function caller (`db.call`)** — No stored-function caller off Postgres; `defineFunction`/`db.call` render PostgreSQL `SELECT * FROM fn(args)`.
 - **Data-modifying CTE (`WITH … INSERT/UPDATE/DELETE … RETURNING`)** — Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) are PostgreSQL-only; SQLite-family and MySQL-family CTEs are `SELECT`-only. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
+- **Recursive CTE `SEARCH`/`CYCLE` clauses (PostgreSQL 14+)** — The standard `SEARCH DEPTH|BREADTH FIRST` / `CYCLE` clauses are PostgreSQL-only (server >= 14); the portable spelling stays an explicit depth column + `WHERE depth < n` guard. Rendering it for a SQLite-family or MySQL-family dialect throws a typed `OrmError` at render time, before execution.
 
 ## Reproduce
 
@@ -7339,6 +8400,20 @@ reads the affected-row count (no usable `RETURNING` on the portable no-op
 CTEs have per-engine coverage (recursive needs **MySQL 8.0+ / MariaDB**);
 data-modifying CTEs are guarded off (PostgreSQL-only). All are in the
 [feature matrix](feature-matrix.md).
+
+**Affected-row semantics — found-rows disabled.** The bundled `@sisal/mysql`
+pools connect with `CLIENT_FOUND_ROWS` **off** (mysql2 `flags: ["-FOUND_ROWS"]`,
+MariaDB connector `foundRows: false`). This is required for `tryInsert` and the
+advisory-lock claim to distinguish an insert from a conflicting no-op upsert —
+with found-rows on, both report one affected row, which double-grants the lock
+([SEC-008](security.md#sec-008)). The one visible consequence: a plain `UPDATE`
+that sets a row to the value it already holds reports **0** affected rows (rows
+_changed_), where PostgreSQL and SQLite report the number of rows _matched_. If
+you rely on matched-row counts on the MySQL family, compare against the row
+before writing, or inject your own pool (Sisal does not force found-rows off on
+an injected `pool`/`client`, so an injected pool that leaves it on will make
+`tryInsert` unreliable — the advisory lock stays correct regardless, because it
+verifies ownership by reading the row back).
 
 ## Column types via the DDL test
 
@@ -8485,7 +9560,7 @@ can carry them without hacks. The public packages don't arrive until v0.10+.
 | **v0.7**   | [Analytics Readiness & MySQL Support](v0.7.0-roadmap.md)              | Design the analytical IR; **and** build the `@sisal/mysql` adapter (from v0.6)                                                                     | `@sisal/mysql`     |
 | **v0.8**   | [Advanced SQL IR & Expression Stabilization](v0.8.0-roadmap.md)       | Stabilize the IR + extract `@sisal/core` so ETL/analytics can compile in safely                                                                    | `@sisal/core`      |
 | **v0.9**   | [Adapter Hardening & Capability Matrix](v0.9.0-roadmap.md)            | Harden all five adapters (pg/neon/sqlite/libsql/**mysql**) per v0.6–v0.7 findings; explicit capability surface                                     | hardening          |
-| **v0.10**  | [`@sisal/etl` Preview](v0.10.0-roadmap.md)                            | First ETL package: job + runner + checkpoint, SQL-pushdown, Postgres-first                                                                         | `@sisal/etl`       |
+| **v0.10**  | [`@sisal/etl` Preview](v0.10.0-roadmap.md)                            | First ETL package: job + runner + checkpoint, SQL-pushdown, Postgres-first; close the 0.9.0 security-audit findings (SEC-008–SEC-016)              | `@sisal/etl`       |
 | **v0.11**  | [`@sisal/analytics` Preview](v0.11.0-roadmap.md)                      | First analytics package: metrics/dimensions/windows, Postgres-first                                                                                | `@sisal/analytics` |
 | **v0.12**  | [`@sisal/dashboard` Preview](v0.12.0-roadmap.md)                      | Semantic presentation models; **no rendering**                                                                                                     | `@sisal/dashboard` |
 | **v0.13+** | [DuckDB / External OLAP Engine Investigation](v0.13.0-roadmap.md)     | DuckDB as a later compiler/execution target for the analytics IR; **npm publishing if demand + a chosen name**                                     | no                 |
@@ -8575,9 +9650,307 @@ into the database. It is **not** a scheduler or worker platform.
 
 ## Status legend
 
-| Symbol | Meaning                                                    |
-| ------ | ---------------------------------------------------------- |
-| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG |
+| Symbol | Meaning                                                                             |
+| ------ | ----------------------------------------------------------------------------------- |
+| 🔴     | Not started · 🟡 In progress · 🟢 Done — move to CHANGELOG · ⏸️ deferred past v0.10 |
+
+## Priority summary — security hardening (0.9.0 audit)
+
+The [0.9.0 security-audit refresh](security.md) (2026-07-02) left nine open
+findings plus one residual; all are scheduled here as T1–T10. **All ten have now
+landed** (🟢) — each finding is resolved in [docs/security.md](security.md) and
+pinned by a test (see the CHANGELOG). Two sat on this release's own correctness
+spine and are therefore P1 prerequisites of the acceptance criteria below:
+**T1** (SEC-008 — without it, the "concurrent runs are serialized by the lock
+strategy" criterion is unsatisfiable on the MySQL family) and **T5** (SEC-012 —
+the checkpoint the runner ships must not be able to prune ahead of its own
+horizon). The ETL feature tasklist — the release headline — is drawn up below as
+**T11–T23**.
+
+| ID  | Task                                                                       | Stream                 | Priority | Effort | Status |
+| --- | -------------------------------------------------------------------------- | ---------------------- | -------- | ------ | ------ |
+| T1  | MySQL-family found-rows fix — make `tryInsert`/lock claims trustworthy     | Security · SEC-008     | P1       | L      | 🟢     |
+| T2  | TLS options for the MySQL/MariaDB URL + pool paths                         | Security · SEC-009     | P1       | M      | 🟢     |
+| T3  | Sanitize driver-attached error properties (`parameters`/`sql`/config)      | Security · SEC-010     | P1       | M      | 🟢     |
+| T4  | Redaction gaps: `encryptionKey`, URL userinfo, `NeonError`, `details.sql`  | Security · SEC-011     | P2       | S      | 🟢     |
+| T5  | Checkpoint prune: horizon-first order, loud override, generic fail-closed  | Security · SEC-012     | P1       | S      | 🟢     |
+| T6  | Namespace the MySQL migration lock by database                             | Security · SEC-013     | P2       | S      | 🟢     |
+| T7  | Digest-pin workflow service/example images; drop `--no-lock` from `perf:*` | Security · SEC-014     | P2       | S      | 🟢     |
+| T8  | Tag-publish main-ancestry guard; pre-commit hook `--allow-run=deno`        | Security · SEC-015     | P2       | S      | 🟢     |
+| T9  | Core DDL: reject params in portable expressions; validate constraint names | Security · SEC-016     | P2       | S      | 🟢     |
+| T10 | Migration splitter: `E'…'` escape strings + nested block comments          | Security · SEC-007 res | P2       | S      | 🟢     |
+
+Each task's full analysis, failure scenario, and fix direction live in the
+finding's section of [docs/security.md](security.md); when a task lands, move
+its finding to **Addressed** there and check off its follow-up item.
+
+- **T1 (SEC-008, High).** Connect with found-rows off (mysql2
+  `flags: ["-FOUND_ROWS"]`, MariaDB `foundRows: false`) or move the claim path
+  to an unambiguous strategy; audit every `UPDATE` row-count consumer first
+  (`AdvisoryLock.renew` flips from "matched" to "changed" semantics); add
+  live-conflict integration scenarios (two claimants, one winner) for MySQL and
+  MariaDB, plus found-rows-shaped unit fixtures.
+- **T2 (SEC-009, Medium).** Add TLS options to `MysqlConnectionOptions`,
+  forwarded identically by `createMysqlPool`, `createMariadbPool`, and the
+  migrate driver; stop silently dropping `ssl-mode` URL params (forward or
+  reject); document strict-TLS examples.
+- **T3 (SEC-010, Medium).** Sanitize enumerable properties on preserved driver
+  causes (drop/summarize `parameters`, `sql`, `config`; recurse nested causes
+  and `AggregateError`); disable value-echoing driver options by default; pin
+  with adapter-shaped error fixtures (mysql2, MariaDB, postgres.js, libSQL,
+  Neon).
+- **T4 (SEC-011, Low).** Broaden `redactSecrets` (`encryptionKey`, reserved
+  characters in URL userinfo); route `NeonError` through `SisalError`; redact
+  `MigrationError.details.sql`.
+- **T5 (SEC-012, Low).** Advance the retention horizon before deleting in
+  `prune`; log when `unsafeAllowPrunedReplay` suppresses the guard; fail closed
+  on the `generic` dialect.
+- **T6 (SEC-013, Low).** `GET_LOCK('sisal:migrate:<database>')` instead of the
+  server-global name.
+- **T7 (SEC-014, Low).** Digest-pin `mysql:8.4`/`mariadb:11` in
+  `integration.yml` `services:` and the example compose images; add a CI check
+  rejecting `image:` without `@sha256:`; remove `--no-lock` from the `perf:*`
+  tasks.
+- **T8 (SEC-015, Low).** Add
+  `git merge-base --is-ancestor "$GITHUB_SHA" origin/main` to the tag-push
+  publish path; narrow the installed pre-commit hook to `--allow-run=deno`.
+- **T9 (SEC-016, Low).** Make `renderPortableExpression` reject expressions
+  carrying bound parameters (no dangling `$1` in DDL); validate
+  index/unique/check constraint names with the identifier rules.
+- **T10 (SEC-007 residual, Low).** Teach `splitSqlStatements` PostgreSQL `E'…'`
+  backslash escapes and nested block comments; regression tests.
+  Correctness-only (inputs are trusted migration files).
+
+## Priority summary — ETL feature tasks (`@sisal/etl` — the release headline)
+
+The build tasklist for `@sisal/etl`, **T11–T23**, drawn from the
+[scope](#scope--initial-features), the
+[execution model](#the-execution-model-the-whole-v010-runtime), and the
+[acceptance criteria](#acceptance-criteria). Each task **consumes the v0.9
+substrate rather than re-inventing it**: the validated checkpoint/watermark
+contract (v0.9 T13) and its prune/replay-refusal (v0.9 T14), the portable
+advisory-lock abstraction (v0.9 T11) and atomic load+advance (v0.9 T12), and the
+`tryInsert`/`WriteOutcome` claim signal (v0.9 T15) — the last of which only
+becomes trustworthy on the MySQL family once **T1 (SEC-008)** lands, which is
+why the runner is Postgres-first. **All thirteen have now landed** (🟢) — the
+package, job model, rollup SQL, checkpoint consumption, window math, runner,
+backfill/replay/status/dry-run APIs, capability gate, scheduler docs, and the
+Postgres-verified integration suite; see the CHANGELOG.
+
+| ID  | Task                                                                                                                                                     | Stream               | Priority | Effort | Status |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | -------- | ------ | ------ |
+| T11 | `@sisal/etl` package scaffold — core-only dep, injectable executor, subpath exports, boundary lint (no `@sisal/orm` edge)                                | ETL · package        | P1       | M      | 🟢     |
+| T12 | `defineJob()` — typed job model: source, target, grain, window column, transform/aggregates (inferred from the v0.8 IR + snapshot)                       | ETL · job model      | P1       | L      | 🟢     |
+| T13 | `rollup()` generated pushdown SQL — insert-from-select + date bucket + filtered aggregates + upsert-from-select                                          | ETL · rollup SQL     | P1       | L      | 🟢     |
+| T14 | Checkpoint store — consume the v0.9-validated `sisal_etl_checkpoints` contract (read / advance / prune)                                                  | ETL · checkpoint     | P1       | M      | 🟢     |
+| T15 | Next-window computation — half-open `[from, until)`, `<= now` discipline, bucket-edge off-by-one invariants                                              | ETL · runner         | P1       | M      | 🟢     |
+| T16 | `run(job)` — single-window runner: acquire lock (v0.9 T11) → pushdown SQL → atomic checkpoint advance (v0.9 T12); resolve the txn-boundary open question | ETL · runner         | P1       | L      | 🟢     |
+| T17 | `backfill(job, range)` — deterministic historical range over successive windows                                                                          | ETL · API            | P1       | M      | 🟢     |
+| T18 | `replay(job, window)` — idempotent re-run; refuses windows behind `pruned_before` via v0.9 T14 (`ORM_REPLAY_PRUNED`) + `unsafe` override                 | ETL · API            | P1       | M      | 🟢     |
+| T19 | `status(job)` — report checkpoint + last-run state                                                                                                       | ETL · API            | P2       | S      | 🟢     |
+| T20 | `dry-run` / `explain` — print generated SQL without executing; golden-SQL snapshot per dialect                                                           | ETL · API            | P1       | M      | 🟢     |
+| T21 | Capability-gating — Postgres-first; other engines expose the supported subset or return a typed "unsupported job shape," never silently degrade          | ETL · dialects       | P1       | M      | 🟢     |
+| T22 | External-scheduler docs — cron / systemd-timer / GitHub-Actions / `pg_cron` (never the sole path)                                                        | ETL · docs           | P2       | S      | 🟢     |
+| T23 | `post_events → post_hourly_stats` example + gated integration suite (idempotency / resume / backfill / lock-contention)                                  | ETL · examples/tests | P1       | L      | 🟢     |
+
+**P1 spine (the acceptance-criteria critical path).** T11→T16 build the package,
+job model, rollup SQL, checkpoint, window math, and the single-window runner —
+the minimum that makes `defineJob` + `run` execute a pushed-down rollup. T17
+(backfill), T18 (idempotent replay), T20 (dry-run verification), T21
+(capability-gating), and T23 (the Postgres example + gated integration suite)
+each discharge a **named acceptance criterion**. T19 (status) and T22 (scheduler
+docs) are required for the release but sit off the correctness spine. Dependency
+order: **T11 → T12 → T13 → T14 → T15 → T16**, then T17/T18/T19/T20 fan out from
+the runner, with T21 and T23 closing the release.
+
+- **T11 — package scaffold.** 🟢 Landed as `packages/etl` (single `.` export).
+  Per the edge recorded in [architecture](architecture.md), the job-model and
+  SQL-compilation tiers are `@sisal/core`-only while `runner.ts` alone takes the
+  `etl → orm` runtime edge (checkpoint + lock substrate); execution goes through
+  the caller-injected `Database`, so unit tests stay network/FFI-free.
+  `packages/etl/boundary_test.ts` pins that core/orm/migrate never import
+  `@sisal/etl`, that `@sisal/etl` never imports an adapter, a driver, or
+  `@sisal/migrate`, and that only the runner tier imports `@sisal/orm`.
+- **T12 — `defineJob()`.** The typed job declaration — source table, target
+  rollup table, grain (bucket width), window/watermark column, and the transform
+  (group keys + filtered aggregates). Types flow from the v0.8 IR and the schema
+  snapshot so the target columns and aggregates are checked at definition.
+- **T13 — `rollup()` generated SQL.** The extract→aggregate→upsert shape as one
+  (or few) pushed-down statements: insert-from-select + date-bucket +
+  `FILTER`/`CASE WHEN` aggregates + upsert-from-select keyed on the grain. This
+  is the v0.6 PoC promoted to the v0.8 IR. Postgres-first; no row round-trips.
+- **T14 — checkpoint store.** Read/advance/prune against the **already-decided**
+  `sisal_etl_checkpoints` contract (`job`, `window_end`, `pruned_before`,
+  `updated_at`), consuming the v0.9 T13 validation and the v0.9 T14
+  prune/`assertReplayable` helpers. v0.10 only consumes ownership; it does not
+  re-decide it. 🟢 `read`/`advance` are consumed by `run()`, `assertReplayable`
+  by `backfill`/`replay`, and `readState` by `status`. Retention pruning itself
+  deliberately stays a substrate call (`etlCheckpoint(db, job).prune(...)` from
+  `@sisal/orm`) — v0.10's scope has no prune API of its own, and the
+  horizon-first ordering is the substrate's invariant (SEC-012).
+- **T15 — window computation.** Compute the next half-open window
+  `[from, until)` from the checkpoint watermark + grain, holding the `<= now`
+  and bucket-edge invariants the risk register calls out; this is where
+  off-by-one double-counting is prevented.
+- **T16 — `run(job)`.** The whole single-window runtime: read job → read
+  checkpoint → compute window → **acquire the v0.9 portable lock** → send the
+  T13 SQL → **advance the checkpoint atomically with the load** (v0.9 T12) →
+  exit. Resolves the open question of whether `run()` owns the transaction
+  boundary or composes with the caller's, and the multi-statement shape
+  (`db.batch` sequence vs one CTE). 🟢 **Resolved: `run()` owns the boundary** —
+  the rollup statement and the watermark upsert commit together as one
+  `db.batch` (the checkpoint substrate's atomic load+advance); `run()` must not
+  be composed into a caller's transaction. The lock is acquired _before_ the
+  checkpoint read (never compute a window from a checkpoint another runner may
+  still advance); `locked` and `up-to-date` are typed non-run outcomes, not
+  errors.
+- **T17 — `backfill(job, range)`.** Deterministically re-run an explicit
+  historical range as successive windows — same generated SQL, same idempotent
+  upsert, no dependence on wall-clock "now."
+- **T18 — `replay(job, window)`.** Idempotently re-run a single window; refuse
+  windows that begin before the job's `pruned_before` horizon with the v0.9
+  `ORM_REPLAY_PRUNED` typed error, with the explicit unsafe override that
+  acknowledges re-derivation from a restored source.
+- **T19 — `status(job)`.** Report the checkpoint position, retention horizon,
+  and last-run state — the read-only observability surface.
+- **T20 — dry-run / explain.** Emit the exact generated SQL without executing,
+  and pin it with a golden-SQL snapshot per dialect. This is also how the
+  acceptance criterion "generated, pushed-down SQL" is verified.
+- **T21 — capability-gating.** Postgres is first-class (full pushdown +
+  `pg_advisory_lock`). SQLite/libSQL run the rollups they support with the
+  lock-row strategy and `FILTER`→`CASE WHEN`; Neon runs via the WebSocket Pool
+  favoring one round trip; MySQL is gated by SEC-008 until T1. Unsupported job
+  shapes return a typed error — **never a silently-degraded runner.** 🟢 Landed
+  as `supportsJob`/`assertJobSupported` (`ETL_UNSUPPORTED_JOB`, the core-only
+  tier): an engine allowlist (`postgres`/`sqlite`/`mysql` — the dialects
+  carrying the lock + checkpoint substrate; `generic` fails closed) plus a
+  **render probe** — the job's rollup is rendered for the exact
+  `(dialect, variant, version)` identity so every render-time dialect guard in
+  an aggregate refuses **pre-flight**. `run`/`backfill`/`replay` apply the gate
+  before the lock, the checkpoint, and the SQL; a refused job sends nothing to
+  the driver. With T1 (SEC-008) landed, the MySQL family is enabled rather than
+  gated.
+- **T22 — external-scheduler docs.** How an external cron / systemd-timer /
+  GitHub-Actions / `pg_cron` trigger drives one run; `pg_cron` is optional and
+  must never be the only path. 🟢 Landed as
+  [docs/etl-scheduling.md](etl-scheduling.md): the runner-script + catch-up loop
+  pattern, crontab, systemd timer (`Persistent=true` catch-up), GitHub Actions,
+  `Deno.cron` (with the runnable `examples/postgres-family-etl-cron` example —
+  schema, seeded events, startup catch-up, hourly cron), and `pg_cron` scoped to
+  re-folding a pinned window from `explain()` output, explicitly never the sole
+  path. The doc spells out why any cadence is safe: lock-serialized overlaps,
+  checkpoint-based misfire catch-up, idempotent re-runs, up-to-date no-ops.
+- **T23 — example + integration suite.** A runnable
+  `post_events → post_hourly_stats` rollup (Postgres-first), plus the gated
+  integration suite modeled on the existing `*-rising-feed` tests: idempotency,
+  resume, backfill, and lock-contention (two runners, one wins). 🟢 The runnable
+  example is `examples/postgres-family-etl-cron` (landed with T22); the suite is
+  `integration/etl_features_test.ts`, gated on `DATABASE_URL` and verified
+  against PostgreSQL 16 and 18: dry-run SQL executing verbatim,
+  one-window-per-run resume with checkpoint advance, byte-identical replay,
+  wipe-and-backfill determinism, deterministic held-lock refusal plus a
+  concurrent two-runner race that must not double-count, and the
+  `ORM_REPLAY_PRUNED` horizon refusal with the loud unsafe override. All markers
+  are fixed instants with `now` injected, so the suite is deterministic. A
+  second battery, `integration/etl_limits_test.ts`, deliberately breaks things —
+  schema drift, hand-edited watermarks, late-arriving events, clock skew,
+  crashed lock holders, pruned sources, 50k-event pushdown,
+  grain/identifier/bigint edges — and pins the failure shape and recovery of
+  each; the catalogue is [docs/etl-pain-points.md](etl-pain-points.md). The
+  battery surfaced and fixed one window-math bug: an unaligned watermark now
+  refolds its whole bucket instead of overwriting it with a partial-tail
+  undercount.
+
+## Carried-forward — v0.9 [Phase 6](v0.9.0-roadmap.md) deferrals
+
+[v0.9 Phase 6](v0.9.0-roadmap.md) recorded seven items as _explicitly deferred —
+record, do not build in v0.9_. They are triaged here. Three align with this
+release's **Postgres-first ETL** theme and are scheduled as active v0.10 tasks
+(**CF1–CF3**); the other four remain deferred by the release-sequencing
+discipline in [roadmap.md](roadmap.md) (npm publish is v0.13+; the rest are
+backlog optimizations off the Postgres-first path) and are tracked here only so
+nothing is lost (**CF4–CF7**).
+
+| ID  | Task                                                                       | v0.9 origin       | Disposition                    | Effort | Status |
+| --- | -------------------------------------------------------------------------- | ----------------- | ------------------------------ | ------ | ------ |
+| CF1 | `postgres.js` as the default `@sisal/pg` driver (+ upstream `setNoDelay`)  | Phase 6 · perf    | **v0.10** · P1                 | M      | 🟢     |
+| CF2 | Materialized-view DDL for Postgres rollup acceleration (investigate→build) | Phase 6 · rollup  | **v0.10** · P2                 | M      | 🟢     |
+| CF3 | Recursive-CTE `CYCLE`/`SEARCH` clause (contract 07), portable depth-guard  | Phase 6 · IR      | **v0.10** · P2                 | M      | 🟢     |
+| CF4 | MySQL prepared-statement binary-protocol mode (v0.7 B3/B4 opt-in)          | Phase 6 · MySQL   | Backlog (post-v0.10)           | M      | ⏸️     |
+| CF5 | Typed `CREATE FUNCTION` emission (v0.5 item 7 residual)                    | Phase 6 · DDL     | Backlog (post-v0.10)           | M      | ⏸️     |
+| CF6 | Transformable AST over the reserved `SqlChunk.meta` seam (v0.8 item 4)     | Phase 6 · IR      | Backlog · later bump           | L      | ⏸️     |
+| CF7 | npm / Node dual publish (blocked on a chosen npm name)                     | Phase 6 · release | → [v0.13+](v0.13.0-roadmap.md) | L      | ⏸️     |
+
+_Status legend adds ⏸️ = recorded, deliberately deferred past v0.10._
+
+**Scheduled into v0.10:**
+
+- **CF1 — `postgres.js` default driver.** v0.10 is Postgres-first and its
+  dialect notes _"favor one round trip"_; the current default `jsr:@db/postgres`
+  carries a ~40 ms Nagle stall per round trip that directly caps ETL pushdown
+  throughput (a prototype swap measured 120 → ~6,800 rps). Make `postgres.js`
+  the default while keeping `@db/postgres` selectable, land the upstream
+  `setNoDelay(true)` fix, and reconcile the one known divergence (`bigint`
+  decoding — now that v0.9 T7 coerces `int8` → string on the pg family, confirm
+  parity holds). Re-pin the `@sisal/pg` adapter tests against the new default.
+  🟢 Landed: URL connections default to postgres.js (lazily imported);
+  `driver: "db-postgres"` keeps the pure-JSR driver selectable
+  (`DEFAULT_PG_DRIVER`/`resolvePgDriverKind` pin the default in unit tests).
+  Re-verified 49/49 on PostgreSQL 16/17/18 with the new default plus 49/49 on
+  the `db-postgres` opt-out (suite wall-clock ~7 s → ~0.6 s); `bigint`
+  int8→string parity confirmed on both drivers. The migrate boundary stays on
+  `@db/postgres` (short-lived, latency-insensitive, keeps the CLI npm-free). The
+  upstream `@db/postgres` `setNoDelay(true)` fix remains an external follow-up
+  tracked in `perf/PG_ADAPTER_PERF_REPORT.md` — the default swap removes Sisal's
+  exposure either way.
+- **CF2 — Materialized-view rollup acceleration.** An alternative to the
+  insert-from-select + upsert rollup where Postgres can maintain the aggregate
+  itself. Per v0.6/v0.7 discipline this is **investigate first**: does a
+  `CREATE MATERIALIZED VIEW` + `REFRESH` path beat the generated-SQL rollup for
+  the `post_events → post_hourly_stats` shape, and can it be capability-gated to
+  Postgres (SQLite has no equivalent) without a silently-degraded runner? Build
+  only if the probe justifies it; otherwise record the decision and defer. 🟢
+  **Investigated — recorded defer with benchmark evidence**
+  (`perf/pg_matview_probe.ts`, report `perf/PG_MATVIEW_ROLLUP_PROBE.md`,
+  PostgreSQL 18.4): steady-state the matview is **7.5–16.5× slower** than the
+  incremental window fold (`REFRESH` recomputes all retained history — O(total)
+  vs the runner's O(window) — with only 24 h retained; months of history widen
+  the gap unboundedly), it cannot express checkpoint/resume/backfill/replay,
+  plain `REFRESH` blocks readers, `CONCURRENTLY` needs a unique index and was
+  slower still, and it is Postgres-only (a per-engine forked runner — the
+  forbidden shape). One recorded counter-point: for a from-scratch full
+  recompute `REFRESH` beat the upsert rebuild ~2× — if a whole-history rebuild
+  verb is ever added, probe `TRUNCATE` + plain insert-select as an explicit
+  maintenance verb. Revisit only if incremental matview maintenance ships in
+  core PostgreSQL.
+- **CF3 — Recursive-CTE `CYCLE`/`SEARCH`.** The portable depth-guard surface
+  shipped in v0.9 (T17); this adds the standard `SEARCH`/`CYCLE` clauses as a
+  new construct, capability-gated per engine/version. Not ETL-critical — lands
+  as general IR completeness alongside the ETL work. 🟢 Landed:
+  `db.$withRecursive(...).searchDepthFirst(by, set)` /
+  `.searchBreadthFirst(by, set)` / `.cycle(by, set, using)` — immutable builder
+  steps validated at definition time (BY columns must come from the declared
+  list; SET/USING names must be fresh; one clause of each kind), rendered after
+  the CTE body behind the new `recursiveSearchCycle` capability
+  (PostgreSQL-only; SQLite/MySQL families throw typed
+  `ORM_DIALECT_UNSUPPORTED`). The set columns are typed on the CTE returned by
+  `.as()` but not on `self` (the standard forbids them inside the recursive
+  body). Gated by **dialect**, not server version: the pg adapter does not
+  populate `dialectIdentity.version`, so a fail-closed `minVersion: "14"` would
+  break every live connection — the ≥ 14 server floor is documented instead (all
+  verified majors, 16/17/18, qualify). Verified live against a cyclic fixture
+  (CYCLE alone terminates a 1→2→3→1 loop, `SEARCH DEPTH FIRST` orders it) on
+  pg16/17/18; new `docs/feature-matrix.md` row backed by the
+  `recursive search/cycle` scenario.
+
+**Deferred past v0.10 (recorded, not scheduled):** CF4 (MySQL binary protocol)
+and CF5 (typed `CREATE FUNCTION`) are backlog optimizations off the
+Postgres-first path; CF6 (transformable AST) stays a later non-breaking bump on
+the reserved `SqlChunk.meta` seam; CF7 (npm dual publish) is fixed at **v0.13+**
+by [roadmap.md](roadmap.md) and blocked on a chosen npm name. Pulling any of
+these into v0.10 would violate the release's own non-goals and the documented
+sequencing — they are listed so the Phase 6 backlog stays visible, not to commit
+them here.
 
 ## Goal
 
@@ -8656,24 +10029,43 @@ Rust/native engine; **no DuckDB dependency required** for v0.10.
   default with evidence and records the resulting dependency edge in
   [architecture](architecture.md). v0.10 consumes the settled boundary; it does
   not decide ownership for the first time.
-- Does `run()` own transaction boundaries, or compose with the caller's?
-- Multi-statement jobs: a typed `db.batch`-style sequence, or one CTE statement?
+- ~~Does `run()` own transaction boundaries, or compose with the caller's?~~
+  **Answered by T16:** `run()` owns the boundary — one `db.batch` commits the
+  rollup and the watermark together; composing into a caller's transaction is
+  out of scope for v0.10.
+- ~~Multi-statement jobs: a typed `db.batch`-style sequence, or one CTE
+  statement?~~ **Answered by T16:** a `db.batch` sequence (the checkpoint
+  substrate's `advance(until, load)` shape); a v0.10 job compiles to a single
+  rollup statement anyway.
 
 ## Acceptance criteria
 
 - `defineJob` + `run` execute the `post_events → post_hourly_stats` rollup on
-  PostgreSQL as **generated, pushed-down SQL** (verified by `dry-run` output).
+  PostgreSQL as **generated, pushed-down SQL** (verified by `dry-run` output). —
+  **T12, T13, T16, T20**
 - A run is **idempotent** (replay a window → identical target state) and
-  **resumable** (checkpoint advances; a second run does the next window).
-- `backfill(range)` reproduces a historical range deterministically.
+  **resumable** (checkpoint advances; a second run does the next window). —
+  **T14, T15, T18**
+- `backfill(range)` reproduces a historical range deterministically. — **T17**
 - Concurrent runs are serialized by the lock strategy — using the
   **v0.9-tested** portable lock abstraction, not a model first built here. Where
   an engine's ETL lock/checkpoint isn't supported, the API is **capability-gated
   to Postgres-first** and returns a typed "unsupported job shape," never a
-  silently-degraded runner.
+  silently-degraded runner. — **T16, T21**
 - Checkpoint-table ownership is **already decided** (v0.6 default, v0.9
-  validation); v0.10 only consumes it.
-- `@sisal/orm` has **no** dependency on `@sisal/etl`.
+  validation); v0.10 only consumes it. — **T14**
+- `@sisal/orm` has **no** dependency on `@sisal/etl`. — **T11**
+- The 0.9.0 security-audit follow-ups (**T1–T10** above) are 🟢 and their
+  findings moved to **Addressed** in [docs/security.md](security.md) — or a task
+  is explicitly re-triaged there with a rationale. **T1 (SEC-008)** is a hard
+  prerequisite of the lock-serialization criterion on the MySQL family; **T5
+  (SEC-012)** of the checkpoint/replay criteria.
+- The carried-forward v0.9 Phase 6 items scheduled here (**CF1–CF3**) are 🟢 or
+  carry a recorded re-triage decision. **CF1 (`postgres.js` default)** must not
+  regress the pg adapter's `bigint` behavior or its parity tests; **CF2** must
+  land as either a capability-gated implementation _or_ a recorded defer with
+  benchmark evidence, never a silently-degraded rollup path. CF4–CF7 remain
+  deferred and are **not** release-gating.
 
 ## Affected packages
 
@@ -13324,6 +14716,13 @@ test**; v0.9 pins their behavior (no new constructs)._
   `docs/feature-matrix.md` (generated).
 
 ### Phase 6 — Explicitly deferred (record, do not build in v0.9)
+
+> **Now triaged into v0.10.** All seven items below are tracked as
+> [v0.10 roadmap](v0.10.0-roadmap.md) tasks **CF1–CF7**: `postgres.js` default
+> driver (CF1), materialized-view rollup acceleration (CF2), and recursive-CTE
+> `CYCLE`/`SEARCH` (CF3) are scheduled into v0.10; the MySQL binary protocol
+> (CF4), typed `CREATE FUNCTION` (CF5), transformable AST (CF6), and npm dual
+> publish (CF7, → v0.13+) stay recorded-but-deferred.
 
 - **Recursive-CTE `CYCLE`/`SEARCH`** (contract 07) — a new construct; v0.10+/
   backlog (keep the portable depth-guard surface).

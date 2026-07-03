@@ -45,6 +45,7 @@ export type {
   MysqlDriverRows,
   MysqlPool,
   MysqlResultHeader,
+  MysqlTlsOptions,
 } from "./pool.ts";
 export { createMysqlPool } from "./pool.ts";
 export { adaptMariadbPool, createMariadbPool } from "./mariadb_pool.ts";

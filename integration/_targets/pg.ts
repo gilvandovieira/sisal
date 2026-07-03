@@ -13,7 +13,11 @@ import type {
 } from "../_shared/target.ts";
 
 const URL = env("DATABASE_URL");
-const DRIVER = env("SISAL_PG_DRIVER") === "postgres-js"
+// Default (unset) exercises the package default — postgres.js since v0.10;
+// SISAL_PG_DRIVER=db-postgres re-runs the suite on the pure-JSR driver.
+const DRIVER = env("SISAL_PG_DRIVER") === "db-postgres"
+  ? "db-postgres" as PgDriverKind
+  : env("SISAL_PG_DRIVER") === "postgres-js"
   ? "postgres-js" as PgDriverKind
   : undefined;
 

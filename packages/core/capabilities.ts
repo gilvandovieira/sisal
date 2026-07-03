@@ -130,6 +130,18 @@ export const DIALECT_CAPABILITIES = {
     unsupported: [{ dialect: "mysql", variant: "mariadb" }],
   },
   /**
+   * The standard `SEARCH DEPTH|BREADTH FIRST` / `CYCLE` clauses on a
+   * recursive CTE — PostgreSQL only (server ≥ 14; every major Sisal verifies,
+   * 16/17/18, qualifies). The SQLite and MySQL families parse neither clause;
+   * their portable spelling stays the explicit depth column +
+   * `WHERE depth < n` guard.
+   */
+  recursiveSearchCycle: {
+    id: "recursive-search-cycle",
+    construct: "a recursive CTE SEARCH/CYCLE clause",
+    unsupported: ["sqlite", "mysql"],
+  },
+  /**
    * `GROUPS` window frames — PostgreSQL-first: the MySQL family has no
    * `GROUPS` unit at all, and SQLite added it in 3.28 (version-gated, fail
    * closed — a detected SQLite ≥ 3.28 identity lights it). `ROWS`/`RANGE`

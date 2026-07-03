@@ -40,10 +40,23 @@ switch (command) {
     console.log(pkg.entrypoints.join("\n"));
     break;
   }
+  case "check-entrypoints": {
+    // Everything the root `deno task check` type-checks: each workspace
+    // package's export entrypoints plus the examples, benchmarks, and perf
+    // probes that live outside the workspace packages. Discovered instead of
+    // hard-coded so new packages/examples/probes cannot silently drift out
+    // of the check.
+    const entrypoints = [
+      ...packages.flatMap((pkg) => pkg.entrypoints),
+      ...await rootEntrypoints(),
+    ];
+    console.log(entrypoints.join("\n"));
+    break;
+  }
   default:
     console.error(
       "Usage: deno run --allow-read tools/workspace_packages.ts " +
-        "[matrix|paths|entrypoints <package-path>]",
+        "[matrix|paths|entrypoints <package-path>|check-entrypoints]",
     );
     Deno.exit(1);
 }
@@ -143,6 +156,47 @@ function isPublishDisabled(config: DenoConfig): boolean {
   }
 
   return config.publish?.exclude?.includes("**/*") ?? false;
+}
+
+// Entrypoints outside the workspace packages: every example's mod.ts, the
+// benchmark suite, and the perf probes (their *_test.ts files belong to the
+// test task, not the check task).
+async function rootEntrypoints(): Promise<string[]> {
+  const entrypoints: string[] = [];
+
+  for await (const example of Deno.readDir("examples")) {
+    if (!example.isDirectory) {
+      continue;
+    }
+
+    const modPath = `examples/${example.name}/mod.ts`;
+    if (await isFile(modPath)) {
+      entrypoints.push(modPath);
+    }
+  }
+
+  if (await isFile("benchmarks/mod.ts")) {
+    entrypoints.push("benchmarks/mod.ts");
+  }
+
+  for await (const probe of Deno.readDir("perf")) {
+    if (
+      probe.isFile && probe.name.endsWith(".ts") &&
+      !probe.name.endsWith("_test.ts")
+    ) {
+      entrypoints.push(`perf/${probe.name}`);
+    }
+  }
+
+  return entrypoints.sort();
+}
+
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(path)).isFile;
+  } catch {
+    return false;
+  }
 }
 
 async function readJson<T>(path: string): Promise<T> {

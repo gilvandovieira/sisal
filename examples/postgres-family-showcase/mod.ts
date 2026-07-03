@@ -10,7 +10,7 @@
  * It also **executes** against a live server when `DATABASE_URL` is set, inside
  * a transaction that is rolled back so your database is left untouched. The same
  * live path runs over any PostgreSQL-family driver — pick with `SISAL_ADAPTER`
- * (`pg` (default) | `pg-postgres-js` | `neon`); `NeonDatabase` ≡ `PgDatabase`,
+ * (`pg` (default) | `pg-db-postgres` | `neon`); `NeonDatabase` ≡ `PgDatabase`,
  * so the body is identical. See `examples/sqlite-family-showcase` for the
  * SQLite-family twin.
  *
@@ -390,11 +390,11 @@ function databaseUrl(): string | undefined {
 }
 
 /** Which PostgreSQL-family driver the live run uses, from `SISAL_ADAPTER`. */
-function pgAdapter(): "pg" | "pg-postgres-js" | "neon" {
+function pgAdapter(): "pg" | "pg-db-postgres" | "neon" {
   const raw = (readEnv("SISAL_ADAPTER") ?? "pg").trim();
-  if (raw === "pg" || raw === "pg-postgres-js" || raw === "neon") return raw;
+  if (raw === "pg" || raw === "pg-db-postgres" || raw === "neon") return raw;
   throw new Error(
-    `Unknown SISAL_ADAPTER "${raw}"; use "pg", "pg-postgres-js", or "neon".`,
+    `Unknown SISAL_ADAPTER "${raw}"; use "pg", "pg-db-postgres", or "neon".`,
   );
 }
 
@@ -418,8 +418,8 @@ async function openDb(url: string): Promise<PgDatabase> {
     }
     return await connectNeon({ url });
   }
-  if (adapter === "pg-postgres-js") {
-    return await connectPg({ url, driver: "postgres-js" });
+  if (adapter === "pg-db-postgres") {
+    return await connectPg({ url, driver: "db-postgres" });
   }
   return await connectPg({ url });
 }
@@ -431,7 +431,7 @@ async function main(): Promise<void> {
   if (url === undefined) {
     console.log(
       "\n(Set DATABASE_URL to also execute this against a scratch Postgres; " +
-        "SISAL_ADAPTER=pg|pg-postgres-js|neon picks the driver.)",
+        "SISAL_ADAPTER=pg|pg-db-postgres|neon picks the driver.)",
     );
     return;
   }

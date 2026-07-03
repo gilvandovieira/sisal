@@ -136,22 +136,26 @@ Deno.test("checkpoint: advance commits load + watermark as one atomic batch", as
   );
 });
 
-Deno.test("checkpoint: prune advances the horizon atomically with the delete", async () => {
+Deno.test("checkpoint: prune raises the horizon before the delete (SEC-012)", async () => {
   const { driver, executed, batched } = recordingDriver();
   const db = createDatabase({ driver, dialect: "postgres" });
 
   const del = sql`delete from src where ts < '2026-02-01'`;
   await etlCheckpoint(db, "job").prune("2026-02-01", [del]);
 
-  // One atomic batch, source delete first, horizon upsert last.
+  // One batch. The horizon upsert runs FIRST, the source delete LAST —
+  // defense in depth on top of db.batch's atomic-or-throw contract: should a
+  // driver's own batch ever run non-atomically, a crash between them leaves
+  // the horizon ahead of the delete (conservative), never behind it (which
+  // would let a replay overwrite the rollup with pruned data).
   assertEquals(batched.length, 1);
   assertEquals(batched[0].length, 2);
-  assertStringIncludes(batched[0][0].text.toLowerCase(), "delete from src");
-  const horizon = batched[0][1];
+  const horizon = batched[0][0];
   assertStringIncludes(horizon.text.toLowerCase(), "sisal_etl_checkpoints");
   assertStringIncludes(horizon.text.toLowerCase(), "pruned_before");
   assertStringIncludes(horizon.text.toLowerCase(), "on conflict");
   assert(horizon.params.some((p) => p === "2026-02-01"));
+  assertStringIncludes(batched[0][1].text.toLowerCase(), "delete from src");
   // Table ensured outside the atomic batch.
   assertStringIncludes(
     executed[0].text.toLowerCase(),
@@ -178,8 +182,28 @@ Deno.test("checkpoint: assertReplayable enforces the retention horizon", async (
   // At / after the horizon → allowed.
   await cp.assertReplayable("2026-02-01");
   await cp.assertReplayable("2026-02-15");
-  // Explicit override bypasses the refusal.
-  await cp.assertReplayable("2026-01-15", { unsafeAllowPrunedReplay: true });
+
+  // Explicit override bypasses the refusal — but never silently: it warns.
+  const originalWarn = console.warn;
+  const warnings: string[] = [];
+  console.warn = (...args: unknown[]) => void warnings.push(String(args[0]));
+  try {
+    await cp.assertReplayable("2026-01-15", { unsafeAllowPrunedReplay: true });
+  } finally {
+    console.warn = originalWarn;
+  }
+  assertEquals(warnings.length, 1);
+  assertStringIncludes(warnings[0], "unsafeAllowPrunedReplay");
+});
+
+Deno.test("checkpoint: fails closed on the generic dialect (SEC-012)", () => {
+  const { driver } = recordingDriver();
+  const db = createDatabase({ driver, dialect: "generic" });
+  assertThrows(
+    () => etlCheckpoint(db, "job"),
+    OrmError,
+    "generic",
+  );
 });
 
 Deno.test("checkpoint: assertReplayable allows any window when the horizon is unset", async () => {

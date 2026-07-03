@@ -48,7 +48,9 @@ import {
   cteBodySql,
   type CteBuilder,
   cteColumnKeys,
+  type CteCycleClause,
   type CteOperand,
+  type CteSearchClause,
   type DeleteBuilder,
   type InsertBuilder,
   type RecursiveCteBuilder,
@@ -96,6 +98,14 @@ export interface OrmDriver {
     query: SqlQuery,
   ): Promise<OrmQueryResult>;
 
+  /**
+   * Runs `fn` inside one database transaction, committing on return and
+   * rolling back on a throw. Optional in the contract, but a driver that
+   * omits it cannot provide atomicity: {@link Database.transaction} (and
+   * {@link Database.batch}, absent a native `batch`) then **throw**
+   * `ORM_TRANSACTION_UNSUPPORTED` instead of silently running statements
+   * non-atomically.
+   */
   transaction?<T>(
     fn: (tx: OrmTransaction) => Promise<T>,
   ): Promise<T>;
@@ -105,7 +115,8 @@ export interface OrmDriver {
    * (`begin; …; commit`). A driver may collapse this into a single round trip
    * where its client supports one; the built-in adapters run the statements
    * sequentially inside one transaction. Optional: when a driver omits it,
-   * {@link Database.batch} falls back to {@link transaction}.
+   * {@link Database.batch} falls back to {@link transaction}; when both are
+   * missing, `Database.batch` throws rather than losing atomicity.
    */
   batch?(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]>;
 
@@ -253,6 +264,14 @@ export interface Database<
     table: TTable,
   ): DeleteBuilder<TTable>;
 
+  /**
+   * Runs `fn` against a transaction-scoped facade: the callback's statements
+   * commit together and roll back together. Requires driver transaction
+   * support — a driver without it makes this throw
+   * `ORM_TRANSACTION_UNSUPPORTED` instead of silently running the callback
+   * non-atomically. Inside a transaction callback, a nested `transaction()`
+   * joins the enclosing transaction.
+   */
   transaction<T>(
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T>;
@@ -264,7 +283,9 @@ export interface Database<
    * builder, a `` sql`...` `` fragment, or rendered SQL; they commit together and
    * roll back on any failure, returning one result per statement. No statement
    * may depend on a previous one's result (that is what `transaction()` and
-   * database functions are for).
+   * database functions are for). Atomicity is guaranteed: a driver with
+   * neither `batch` nor `transaction` support makes this throw
+   * `ORM_TRANSACTION_UNSUPPORTED` instead of running statements sequentially.
    */
   batch(statements: readonly BatchStatement[]): Promise<OrmQueryResult[]>;
 
@@ -588,55 +609,7 @@ class SisalDatabase<
         { code: "ORM_INVALID_QUERY" },
       );
     }
-    return {
-      as: <TResult>(
-        build: (
-          self: Cte<{ readonly [K in TColumn]: SelectColumnRef }>,
-        ) => CteOperand<TResult>,
-      ): Cte<{ readonly [K in TColumn]: SelectColumnRef }> => {
-        // The self-reference exists before the body: its columns are the
-        // declared list, and its definition is filled in after the callback
-        // builds the body (the WeakMap entry is shared by reference).
-        const columns: Record<string, SelectColumnRef> = {};
-        for (const key of columnNames) {
-          columns[key] = {
-            name: key,
-            tableName: name,
-            dataType: "unknown",
-          } as unknown as SelectColumnRef;
-        }
-        // Register the reference first so `from(self)` works inside `build`.
-        CTE_DEFINITIONS.set(columns, {
-          name,
-          query: emptySql(),
-          recursive: true,
-          columnNames,
-        });
-        const self = columns as Cte<
-          { readonly [K in TColumn]: SelectColumnRef }
-        >;
-        const body = build(self);
-        // Guard: the recursive step must reference the self-reference in its
-        // FROM (via `from(self)`). Referencing it only in SELECT/WHERE renders a
-        // step whose FROM omits the CTE — invalid recursive SQL on every engine.
-        if (!CTE_FROM_SOURCES.has(columns)) {
-          throw new OrmError(
-            `recursive CTE "${name}" never uses its self-reference as a FROM ` +
-              `source — call \`from(self)\` in the recursive step (referencing ` +
-              `\`self\` only in SELECT/WHERE renders SQL where the CTE is ` +
-              `absent from the FROM clause)`,
-            { code: "ORM_INVALID_QUERY" },
-          );
-        }
-        CTE_DEFINITIONS.set(columns, {
-          name,
-          query: cteBodySql(body),
-          recursive: true,
-          columnNames,
-        });
-        return self;
-      },
-    };
+    return makeRecursiveCteBuilder<TColumn, never>(name, columnNames, {});
   }
 
   with(...ctes: Cte[]): WithQueryBuilder {
@@ -747,37 +720,40 @@ class SisalDatabase<
   async transaction<T>(
     fn: (tx: Database<TSchema, TRelations>) => Promise<T>,
   ): Promise<T> {
+    // Fail closed: silently running the callback outside a transaction would
+    // discard the atomicity the caller asked for.
+    if (this.#driver.transaction === undefined) {
+      throw new OrmError("Driver does not support transactions", {
+        code: "ORM_TRANSACTION_UNSUPPORTED",
+      });
+    }
+
     const startedAt = performance.now();
     if (this.#log.settings.metadata) {
       this.#debug("orm.transaction", undefined, "orm transaction started");
     }
 
     try {
-      let result: T;
-      if (this.#driver.transaction === undefined) {
-        result = await fn(this);
-      } else {
-        result = await this.#driver.transaction(async (tx) => {
-          const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
-            driver: transactionToDriver(tx),
-            dialect: this.dialect,
-            ...(this.dialectIdentity.variant === undefined
-              ? {}
-              : { variant: this.dialectIdentity.variant }),
-            ...(this.dialectIdentity.version === undefined
-              ? {}
-              : { version: this.dialectIdentity.version }),
-            log: this.#log,
-            ...(this.#schema === undefined ? {} : { schema: this.#schema }),
-            ...(this.#relations === undefined
-              ? {}
-              : { relations: this.#relations }),
-            temporal: this.#temporal,
-          });
-
-          return await fn(transactionDatabase);
+      const result = await this.#driver.transaction(async (tx) => {
+        const transactionDatabase = new SisalDatabase<TSchema, TRelations>({
+          driver: transactionToDriver(tx),
+          dialect: this.dialect,
+          ...(this.dialectIdentity.variant === undefined
+            ? {}
+            : { variant: this.dialectIdentity.variant }),
+          ...(this.dialectIdentity.version === undefined
+            ? {}
+            : { version: this.dialectIdentity.version }),
+          log: this.#log,
+          ...(this.#schema === undefined ? {} : { schema: this.#schema }),
+          ...(this.#relations === undefined
+            ? {}
+            : { relations: this.#relations }),
+          temporal: this.#temporal,
         });
-      }
+
+        return await fn(transactionDatabase);
+      });
 
       if (this.#log.settings.metadata) {
         this.#debug(
@@ -865,12 +841,12 @@ class SisalDatabase<
         return results;
       });
     }
-    // A minimal driver with no transaction: run sequentially (not atomic).
-    const results: OrmQueryResult[] = [];
-    for (const query of queries) {
-      results.push(await this.#driver.execute(query));
-    }
-    return results;
+    // Fail closed: running the statements sequentially would silently drop
+    // the commit-together/roll-back-together contract of db.batch.
+    throw new OrmError(
+      "Driver supports neither batch nor transactions; db.batch requires an atomic unit",
+      { code: "ORM_TRANSACTION_UNSUPPORTED" },
+    );
   }
 
   tryAdvisoryLock(
@@ -986,7 +962,7 @@ class SisalDatabase<
 }
 
 function transactionToDriver(transaction: OrmTransaction): OrmDriver {
-  return {
+  const driver: OrmDriver = {
     query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>> {
       return transaction.query<T>(query);
     },
@@ -994,7 +970,16 @@ function transactionToDriver(transaction: OrmTransaction): OrmDriver {
     execute(query: SqlQuery): Promise<OrmQueryResult> {
       return transaction.execute(query);
     },
+
+    // A transaction facade cannot open a new driver-level transaction; a
+    // nested transaction() (or batch()) joins the enclosing one and commits
+    // or rolls back with it.
+    transaction<T>(fn: (tx: OrmTransaction) => Promise<T>): Promise<T> {
+      return fn(driver);
+    },
   };
+
+  return driver;
 }
 
 function elapsedMs(startedAt: number): number {
@@ -1098,4 +1083,204 @@ export function defineAtomicOperation<TInput, TOutput>(
       return db.transaction((tx) => config.body(tx, input));
     },
   });
+}
+
+/** Pending PostgreSQL-only clauses accumulated by a recursive CTE builder. */
+interface RecursiveCteClauses {
+  readonly search?: CteSearchClause;
+  readonly cycle?: CteCycleClause;
+}
+
+// The immutable builder behind `db.$withRecursive`: each SEARCH/CYCLE call
+// validates against the declared column list and returns a new builder;
+// `.as()` registers the definition (clauses included) and — when clauses added
+// output columns — returns a widened CTE reference carrying them.
+function makeRecursiveCteBuilder<
+  TColumn extends string,
+  TExtra extends string,
+>(
+  name: string,
+  columnNames: readonly TColumn[],
+  clauses: RecursiveCteClauses,
+): RecursiveCteBuilder<TColumn, TExtra> {
+  // Every name already claimed by the CTE: declared columns plus the output
+  // columns of previously added clauses. New SET/USING names must be fresh —
+  // PostgreSQL rejects collisions with its own error, but failing at
+  // definition time keeps the mistake near its source.
+  const claimedNames = (): Set<string> => {
+    const names = new Set<string>(columnNames);
+    if (clauses.search !== undefined) {
+      names.add(clauses.search.set);
+    }
+    if (clauses.cycle !== undefined) {
+      names.add(clauses.cycle.set);
+      names.add(clauses.cycle.using);
+    }
+    return names;
+  };
+
+  const assertByColumns = (
+    by: readonly string[],
+    clause: string,
+  ): readonly string[] => {
+    if (by.length === 0) {
+      throw new OrmError(
+        `recursive CTE "${name}": ${clause} requires at least one BY column`,
+        { code: "ORM_INVALID_QUERY" },
+      );
+    }
+    for (const column of by) {
+      if (!(columnNames as readonly string[]).includes(column)) {
+        throw new OrmError(
+          `recursive CTE "${name}": ${clause} BY column "${column}" is not ` +
+            `in the declared column list (${columnNames.join(", ")})`,
+          { code: "ORM_INVALID_QUERY" },
+        );
+      }
+    }
+    return [...by];
+  };
+
+  const assertFreshName = (
+    column: string,
+    label: string,
+    taken: Set<string>,
+  ): string => {
+    if (typeof column !== "string" || column.trim().length === 0) {
+      throw new OrmError(
+        `recursive CTE "${name}": ${label} requires a non-empty column name`,
+        { code: "ORM_INVALID_QUERY" },
+      );
+    }
+    if (taken.has(column)) {
+      throw new OrmError(
+        `recursive CTE "${name}": ${label} column "${column}" collides with ` +
+          `a declared or clause-set column`,
+        { code: "ORM_INVALID_QUERY" },
+      );
+    }
+    return column;
+  };
+
+  const addSearch = (
+    order: "depth" | "breadth",
+    by: readonly TColumn[],
+    set: string,
+  ): RecursiveCteClauses => {
+    if (clauses.search !== undefined) {
+      throw new OrmError(
+        `recursive CTE "${name}" already declares a SEARCH clause`,
+        { code: "ORM_INVALID_QUERY" },
+      );
+    }
+    const clause = `SEARCH ${order.toUpperCase()} FIRST`;
+    return {
+      ...clauses,
+      search: {
+        order,
+        by: assertByColumns(by, clause),
+        set: assertFreshName(set, `${clause} SET`, claimedNames()),
+      },
+    };
+  };
+
+  return {
+    searchDepthFirst: (by, set) =>
+      makeRecursiveCteBuilder(name, columnNames, addSearch("depth", by, set)),
+    searchBreadthFirst: (by, set) =>
+      makeRecursiveCteBuilder(name, columnNames, addSearch("breadth", by, set)),
+    cycle: (by, set, using) => {
+      if (clauses.cycle !== undefined) {
+        throw new OrmError(
+          `recursive CTE "${name}" already declares a CYCLE clause`,
+          { code: "ORM_INVALID_QUERY" },
+        );
+      }
+      const taken = claimedNames();
+      const setName = assertFreshName(set, "CYCLE SET", taken);
+      taken.add(setName);
+      return makeRecursiveCteBuilder(name, columnNames, {
+        ...clauses,
+        cycle: {
+          by: assertByColumns(by, "CYCLE"),
+          set: setName,
+          using: assertFreshName(using, "CYCLE USING", taken),
+        },
+      });
+    },
+    as: <TResult>(
+      build: (
+        self: Cte<{ readonly [K in TColumn]: SelectColumnRef }>,
+      ) => CteOperand<TResult>,
+    ): Cte<{ readonly [K in TColumn | TExtra]: SelectColumnRef }> => {
+      // The self-reference exists before the body: its columns are the
+      // declared list, and its definition is filled in after the callback
+      // builds the body (the WeakMap entry is shared by reference).
+      const columns: Record<string, SelectColumnRef> = {};
+      for (const key of columnNames) {
+        columns[key] = {
+          name: key,
+          tableName: name,
+          dataType: "unknown",
+        } as unknown as SelectColumnRef;
+      }
+      // Register the reference first so `from(self)` works inside `build`.
+      CTE_DEFINITIONS.set(columns, {
+        name,
+        query: emptySql(),
+        recursive: true,
+        columnNames,
+      });
+      const self = columns as Cte<
+        { readonly [K in TColumn]: SelectColumnRef }
+      >;
+      const body = build(self);
+      // Guard: the recursive step must reference the self-reference in its
+      // FROM (via `from(self)`). Referencing it only in SELECT/WHERE renders a
+      // step whose FROM omits the CTE — invalid recursive SQL on every engine.
+      if (!CTE_FROM_SOURCES.has(columns)) {
+        throw new OrmError(
+          `recursive CTE "${name}" never uses its self-reference as a FROM ` +
+            `source — call \`from(self)\` in the recursive step (referencing ` +
+            `\`self\` only in SELECT/WHERE renders SQL where the CTE is ` +
+            `absent from the FROM clause)`,
+          { code: "ORM_INVALID_QUERY" },
+        );
+      }
+      const definition = {
+        name,
+        query: cteBodySql(body),
+        recursive: true,
+        columnNames,
+        ...(clauses.search === undefined ? {} : { search: clauses.search }),
+        ...(clauses.cycle === undefined ? {} : { cycle: clauses.cycle }),
+      };
+      CTE_DEFINITIONS.set(columns, definition);
+      if (clauses.search === undefined && clauses.cycle === undefined) {
+        return self as Cte<
+          { readonly [K in TColumn | TExtra]: SelectColumnRef }
+        >;
+      }
+      // SEARCH/CYCLE output columns are visible OUTSIDE the CTE only (the
+      // standard forbids referencing them in the recursive body), so the
+      // returned reference is a widened copy; `self` stays narrow.
+      const widened: Record<string, SelectColumnRef> = { ...columns };
+      const extras = [
+        clauses.search?.set,
+        clauses.cycle?.set,
+        clauses.cycle?.using,
+      ].filter((column): column is string => column !== undefined);
+      for (const key of extras) {
+        widened[key] = {
+          name: key,
+          tableName: name,
+          dataType: "unknown",
+        } as unknown as SelectColumnRef;
+      }
+      CTE_DEFINITIONS.set(widened, definition);
+      return widened as Cte<
+        { readonly [K in TColumn | TExtra]: SelectColumnRef }
+      >;
+    },
+  };
 }

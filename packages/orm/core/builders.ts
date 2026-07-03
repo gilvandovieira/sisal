@@ -99,13 +99,21 @@ export interface KeysetOptions<
 /** A page returned by a keyset query: the rows plus the cursor for the next page. */
 export interface KeysetPage<TRow, TCursor> {
   readonly rows: TRow[];
-  /** Cursor for the next page, or `null` when this was the last (partial) page. */
+  /**
+   * Cursor for the next page, or `null` when this was the last page — even
+   * when the last page is exactly `limit` rows long (the query probes one row
+   * past the page to know).
+   */
   readonly nextCursor: TCursor | null;
 }
 
 /** A keyset-paginated select; set the page size with `.limit(n)` then run it. */
 export interface KeysetSelectBuilder<TRow, TCursor> {
-  /** Sets the page size. Required to derive a `nextCursor`. */
+  /**
+   * Sets the page size. Required to derive a `nextCursor`. The rendered query
+   * fetches `count + 1` rows — the extra probe row (never returned) is what
+   * signals that a next page exists.
+   */
   limit(count: number): KeysetSelectBuilder<TRow, TCursor>;
   toSql(): Sql;
   execute(): Promise<KeysetPage<TRow, TCursor>>;
@@ -334,25 +342,94 @@ export interface CteBuilder {
 }
 
 /**
+ * The `SEARCH DEPTH|BREADTH FIRST BY … SET …` clause of a recursive CTE
+ * (contract 07 / v0.10 CF3). PostgreSQL-only at render time
+ * (`recursiveSearchCycle` capability; server ≥ 14).
+ */
+export interface CteSearchClause {
+  /** Traversal order the sequence column encodes. */
+  readonly order: "depth" | "breadth";
+  /** Row-identity columns (from the CTE's declared column list). */
+  readonly by: readonly string[];
+  /** New output column receiving the orderable sequence. */
+  readonly set: string;
+}
+
+/**
+ * The `CYCLE … SET … USING …` clause of a recursive CTE (contract 07 /
+ * v0.10 CF3). PostgreSQL-only at render time (`recursiveSearchCycle`
+ * capability; server ≥ 14).
+ */
+export interface CteCycleClause {
+  /** Row-identity columns (from the CTE's declared column list). */
+  readonly by: readonly string[];
+  /** New output column: `true` on the row that closed a cycle. */
+  readonly set: string;
+  /** New output column receiving the visited-path array. */
+  readonly using: string;
+}
+
+/**
  * Intermediate returned by {@link Database.$withRecursive}; complete it with
  * `.as((self) => …)`. The declared column list types `self`, the CTE's own
- * reference inside its body.
+ * reference inside its body. `TExtra` accumulates the output columns added
+ * by {@link RecursiveCteBuilder.searchDepthFirst} /
+ * {@link RecursiveCteBuilder.searchBreadthFirst} /
+ * {@link RecursiveCteBuilder.cycle} — visible on the CTE returned by `.as`,
+ * but not on `self` (the standard forbids referencing them inside the
+ * recursive body).
  */
-export interface RecursiveCteBuilder<TColumn extends string> {
+export interface RecursiveCteBuilder<
+  TColumn extends string,
+  TExtra extends string = never,
+> {
+  /**
+   * Adds `SEARCH DEPTH FIRST BY by SET set` — `set` becomes an output column
+   * that orders rows in depth-first traversal order (`ORDER BY set`).
+   * PostgreSQL-only (server ≥ 14; `ORM_DIALECT_UNSUPPORTED` elsewhere) — the
+   * portable spelling stays an explicit depth/path column. Immutable: returns
+   * a new builder; at most one search clause per CTE.
+   */
+  searchDepthFirst<TSet extends string>(
+    by: readonly TColumn[],
+    set: TSet,
+  ): RecursiveCteBuilder<TColumn, TExtra | TSet>;
+  /**
+   * Adds `SEARCH BREADTH FIRST BY by SET set` — like
+   * {@link RecursiveCteBuilder.searchDepthFirst} with breadth-first order.
+   */
+  searchBreadthFirst<TSet extends string>(
+    by: readonly TColumn[],
+    set: TSet,
+  ): RecursiveCteBuilder<TColumn, TExtra | TSet>;
+  /**
+   * Adds `CYCLE by SET set USING using` — PostgreSQL stops following a path
+   * once a row repeats (`by`-column identity), marks the repeating row with
+   * `set = true`, and records the visited path in `using`. The engine-native
+   * alternative to the portable `WHERE depth < n` guard. PostgreSQL-only
+   * (server ≥ 14; `ORM_DIALECT_UNSUPPORTED` elsewhere). Immutable: returns a
+   * new builder; at most one cycle clause per CTE.
+   */
+  cycle<TSet extends string, TUsing extends string>(
+    by: readonly TColumn[],
+    set: TSet,
+    using: TUsing,
+  ): RecursiveCteBuilder<TColumn, TExtra | TSet | TUsing>;
   /**
    * Binds the recursive CTE body. `build` receives the CTE's self-reference
    * (usable in `from()` / mutation sources like any CTE) and must return the
    * classic recursive shape: a base `SELECT` compounded with the recursive
    * step, e.g. `base.unionAll(step)`. Every supported engine renders
    * `WITH RECURSIVE` at Sisal's version floors; bound the recursion with an
-   * explicit depth column and `WHERE depth < n` predicate in the step — the
-   * portable cycle guard (PostgreSQL 14's `CYCLE` clause is not rendered).
+   * explicit depth column and `WHERE depth < n` predicate in the step (the
+   * portable guard), or with the PostgreSQL-only
+   * {@link RecursiveCteBuilder.cycle} clause.
    */
   as<TResult>(
     build: (
       self: Cte<{ readonly [K in TColumn]: SelectColumnRef }>,
     ) => CteOperand<TResult>,
-  ): Cte<{ readonly [K in TColumn]: SelectColumnRef }>;
+  ): Cte<{ readonly [K in TColumn | TExtra]: SelectColumnRef }>;
 }
 
 /** Query root seeded with CTEs, returned by {@link Database.with}. */
@@ -571,6 +648,10 @@ interface CteDefinition {
    * recursive CTEs, whose self-reference exists before the body's projection.
    */
   readonly columnNames?: readonly string[];
+  /** `SEARCH … FIRST BY … SET …` clause (PostgreSQL-only, guarded). */
+  readonly search?: CteSearchClause;
+  /** `CYCLE … SET … USING …` clause (PostgreSQL-only, guarded). */
+  readonly cycle?: CteCycleClause;
 }
 
 /** The set operations Sisal can compound two queries with. */
@@ -669,6 +750,7 @@ function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
             raw(" as ("),
             cte.query,
             raw(")"),
+            cteSearchCycleSql(cte),
           ],
           emptySql(),
         )
@@ -677,6 +759,41 @@ function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
     ),
     raw(" "),
   ], emptySql());
+}
+
+// Renders the standard post-body SEARCH/CYCLE clauses (SEARCH first, per the
+// SQL grammar), behind the PostgreSQL-only capability guard so the SQLite and
+// MySQL families fail typed at render time instead of with a parse error.
+function cteSearchCycleSql(cte: CteDefinition): Sql {
+  if (cte.search === undefined && cte.cycle === undefined) {
+    return emptySql();
+  }
+  const chunks: Sql[] = [
+    capabilityGuard(DIALECT_CAPABILITIES.recursiveSearchCycle),
+  ];
+  if (cte.search !== undefined) {
+    chunks.push(
+      raw(
+        cte.search.order === "depth"
+          ? " search depth first by "
+          : " search breadth first by ",
+      ),
+      joinSql(cte.search.by.map((column) => identifier(column)), raw(", ")),
+      raw(" set "),
+      identifier(cte.search.set),
+    );
+  }
+  if (cte.cycle !== undefined) {
+    chunks.push(
+      raw(" cycle "),
+      joinSql(cte.cycle.by.map((column) => identifier(column)), raw(", ")),
+      raw(" set "),
+      identifier(cte.cycle.set),
+      raw(" using "),
+      identifier(cte.cycle.using),
+    );
+  }
+  return joinSql(chunks, emptySql());
 }
 
 // MariaDB accepts a `WITH` prefix only on SELECT — attaching one to
@@ -1305,10 +1422,14 @@ class SisalKeysetSelectBuilder<TRow, TCursor>
   }
 
   limit(count: number): KeysetSelectBuilder<TRow, TCursor> {
+    const pageSize = normalizePositiveInteger(count, "limit");
+    // Fetch one row past the page: its presence is the only reliable
+    // "another page exists" signal, so an exact final page yields a null
+    // nextCursor instead of a cursor to an empty page.
     return new SisalKeysetSelectBuilder<TRow, TCursor>(
-      this.#builder.limit(count),
+      this.#builder.limit(pageSize + 1),
       this.#keys,
-      Math.floor(count),
+      pageSize,
     );
   }
 
@@ -1317,25 +1438,19 @@ class SisalKeysetSelectBuilder<TRow, TCursor>
   }
 
   async execute(): Promise<KeysetPage<TRow, TCursor>> {
-    const rows = await this.#builder.execute();
-    return { rows, nextCursor: this.#nextCursor(rows) };
-  }
-
-  // A nextCursor exists only when a full page came back (rows.length === limit);
-  // a short page is the last page.
-  #nextCursor(rows: readonly TRow[]): TCursor | null {
-    if (
-      this.#limit === undefined || rows.length === 0 ||
-      rows.length < this.#limit
-    ) {
-      return null;
+    const fetched = await this.#builder.execute();
+    // Without the extra probe row the fetched page is the last page.
+    if (this.#limit === undefined || fetched.length <= this.#limit) {
+      return { rows: fetched, nextCursor: null };
     }
+
+    const rows = fetched.slice(0, this.#limit);
     const last = rows[rows.length - 1] as Record<string, unknown>;
     const cursor: Record<string, unknown> = {};
     for (const key of this.#keys) {
       cursor[key] = last[key];
     }
-    return cursor as TCursor;
+    return { rows, nextCursor: cursor as TCursor };
   }
 }
 
@@ -2045,6 +2160,18 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
             joinSql(
               columnNames.map((name) => {
                 const value = (row as Record<string, unknown>)[name];
+                // A row omitting a column another row provides must not bind
+                // NULL — that would override the column's database default.
+                // The standard DEFAULT keyword keeps the omitted-column
+                // semantics; the SQLite family has no DEFAULT in VALUES, so
+                // it fails closed (provide every column explicitly there).
+                if (value === undefined) {
+                  return dialectSql("INSERT … VALUES with omitted columns", {
+                    postgres: raw("default"),
+                    mysql: raw("default"),
+                    generic: raw("default"),
+                  });
+                }
                 // A `Sql` expression (e.g. sql`now()`) renders inline; any
                 // other value binds as a parameter.
                 return isSql(value) ? value : paramSql(value);
@@ -2464,23 +2591,23 @@ function normalizeOrderDirection(direction: "asc" | "desc"): "asc" | "desc" {
 }
 
 function normalizePositiveInteger(value: number, field: string): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new OrmError(`${field} must be greater than zero`, {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new OrmError(`${field} must be a positive integer`, {
       code: "ORM_INVALID_QUERY",
-      details: { field },
+      details: { field, value },
     });
   }
 
-  return Math.floor(value);
+  return value;
 }
 
 function normalizeNonNegativeInteger(value: number, field: string): number {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new OrmError(`${field} must be zero or greater`, {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new OrmError(`${field} must be a non-negative integer`, {
       code: "ORM_INVALID_QUERY",
-      details: { field },
+      details: { field, value },
     });
   }
 
-  return Math.floor(value);
+  return value;
 }

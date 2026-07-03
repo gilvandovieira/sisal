@@ -20,8 +20,8 @@ tree, no moderation UI. Just the database/feed mechanics.
 
 | `SISAL_ADAPTER`  | Adapter       | Driver             | Runtime shape                | Note                                             |
 | ---------------- | ------------- | ------------------ | ---------------------------- | ------------------------------------------------ |
-| `pg` (default)   | `@sisal/pg`   | `jsr:@db/postgres` | regular TCP Postgres session | pure-JSR baseline; interactive transactions fine |
-| `pg-postgres-js` | `@sisal/pg`   | `npm:postgres`     | regular TCP, `TCP_NODELAY`   | the fast driver (0.5.1+)                         |
+| `pg` (default)   | `@sisal/pg`   | `npm:postgres`     | regular TCP, `TCP_NODELAY`   | default since v0.10; fast parameterized queries  |
+| `pg-db-postgres` | `@sisal/pg`   | `jsr:@db/postgres` | regular TCP Postgres session | pure-JSR opt-out; interactive transactions fine  |
 | `neon`           | `@sisal/neon` | `@neon/serverless` | WebSocket / serverless       | single-statement-friendly; transactions still ok |
 
 All three speak the same PostgreSQL dialect, so the schema, queries, and

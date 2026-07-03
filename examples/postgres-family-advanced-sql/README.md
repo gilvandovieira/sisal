@@ -20,7 +20,7 @@ SISAL_POSTGRES_ADVANCED_SQL_IT=1 \
   deno task test:db
 ```
 
-`SISAL_ADAPTER` accepts `pg`, `pg-postgres-js`, or `neon`. The live run executes
+`SISAL_ADAPTER` accepts `pg`, `pg-db-postgres`, or `neon`. The live run executes
 inside a transaction and deliberately rolls it back.
 
 ## Coverage

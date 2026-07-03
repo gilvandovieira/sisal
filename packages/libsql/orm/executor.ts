@@ -105,8 +105,12 @@ class SisalLibsqlExecutor implements LibsqlSqlExecutor {
   async transaction<T>(
     fn: (tx: LibsqlSqlExecutor) => Promise<T>,
   ): Promise<T> {
+    // Fail closed: running the callback on the plain client would silently
+    // drop the commit/rollback semantics the caller asked for.
     if (this.#client.transaction === undefined) {
-      return await fn(this);
+      throw new OrmError("libSQL client does not support transactions", {
+        code: "ORM_TRANSACTION_UNSUPPORTED",
+      });
     }
 
     const transaction = await this.#client.transaction("write");

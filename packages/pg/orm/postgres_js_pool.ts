@@ -1,18 +1,19 @@
 /**
  * postgres.js-backed connection pool for `@sisal/pg`.
  *
- * The bundled `jsr:@db/postgres` driver stalls ~40 ms per parameterized query on
- * its extended-protocol path (no `TCP_NODELAY` + un-coalesced writes → Nagle ×
+ * The `jsr:@db/postgres` driver stalls ~40 ms per parameterized query on its
+ * extended-protocol path (no `TCP_NODELAY` + un-coalesced writes → Nagle ×
  * delayed-ACK). This pool implements the same {@link PgPool}/{@link PgClient}
  * contract over `npm:postgres` (postgres.js), which sets `TCP_NODELAY` and
  * pipelines the protocol — dropping per-query latency ~100× with **no change to
- * `@sisal/orm` or the executor**. Select it with
- * `connect({ url, driver: "postgres-js" })`, or inject it directly through
+ * `@sisal/orm` or the executor**. **The default URL driver since v0.10**
+ * (CF1); select the pure-JSR `@db/postgres` instead with
+ * `connect({ url, driver: "db-postgres" })`, or inject any pool through
  * `connect({ pool })`.
  *
  * postgres.js is imported lazily (like `@sisal/libsql`'s `@libsql/client`), so
- * it is only loaded when this driver is actually chosen; the default
- * `@db/postgres` path stays pure-JSR.
+ * it is only loaded on the first actual connect; choosing `"db-postgres"`
+ * keeps the process npm-free.
  *
  * @module
  */
