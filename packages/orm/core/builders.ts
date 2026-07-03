@@ -2160,6 +2160,18 @@ export class SisalInsertBuilder<TTable extends TableDefinition>
             joinSql(
               columnNames.map((name) => {
                 const value = (row as Record<string, unknown>)[name];
+                // A row omitting a column another row provides must not bind
+                // NULL — that would override the column's database default.
+                // The standard DEFAULT keyword keeps the omitted-column
+                // semantics; the SQLite family has no DEFAULT in VALUES, so
+                // it fails closed (provide every column explicitly there).
+                if (value === undefined) {
+                  return dialectSql("INSERT … VALUES with omitted columns", {
+                    postgres: raw("default"),
+                    mysql: raw("default"),
+                    generic: raw("default"),
+                  });
+                }
                 // A `Sql` expression (e.g. sql`now()`) renders inline; any
                 // other value binds as a parameter.
                 return isSql(value) ? value : paramSql(value);
