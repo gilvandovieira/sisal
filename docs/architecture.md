@@ -6,13 +6,12 @@ title: Package Architecture (long-term)
 
 Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for
 **relational** data access. It is not becoming an object-first ORM. As the
-surface grows from OLTP query building toward ETL, analytics, and dashboard
-mapping, the packages stay strictly layered so the OLTP core never pays for the
-analytical ambitions.
+surface grows from OLTP query building toward ETL and analytics, the packages
+stay strictly layered so the OLTP core never pays for the analytical ambitions.
 
 This document describes the **target** package graph and the one rule that keeps
 it honest. It is aspirational: most of these packages do not exist yet. The
-release roadmaps (`v0.6` → `v0.14+`) stage the work that gets us here. See the
+release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See the
 [roadmap overview](roadmap.md) for sequencing.
 
 ## Workload model, not a compliance protocol
@@ -21,8 +20,8 @@ Sisal distinguishes **OLTP** (transactional, row-at-a-time, latency-sensitive
 reads/writes) from **OLAP** (analytical, set-at-a-time, scan/aggregate-heavy) as
 **workload models that shape an API**, not as standards to certify against. The
 query builder is tuned for OLTP; ETL bridges OLTP data into OLAP-ready shapes;
-analytics queries those shapes; dashboard maps the results for presentation.
-Each is a thin, typed layer over the same core primitives.
+analytics queries those shapes. Each is a thin, typed layer over the same core
+primitives.
 
 ## The packages
 
@@ -38,7 +37,6 @@ Each is a thin, typed layer over the same core primitives.
 | **`@sisal/mysql`** _(v0.7)_       | MySQL / MariaDB adapter. The `"mysql"` dialect is latent in the renderer today (backtick quoting, `?` placeholders); the adapter ships in [v0.7](v0.7.0-roadmap.md).                                        | core, orm, migrate             |
 | **`@sisal/etl`** _(future)_       | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ an adapter to execute) |
 | **`@sisal/analytics`** _(future)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter)            |
-| **`@sisal/dashboard`** _(future)_ | Renderer-agnostic semantic presentation models (KPI, time series, bar, leaderboard, …).                                                                                                                     | core, analytics types          |
 
 ## The one rule: dependency direction
 
@@ -46,30 +44,26 @@ Each is a thin, typed layer over the same core primitives.
               ┌──────────────┐
               │  @sisal/core │  schema · SQL IR · expressions · dialect
               └──────┬───────┘
-     ┌───────────────┼────────────────────────────┐
-     │               │                             │
-┌────▼────┐    ┌─────▼──────┐   ┌────────┐   ┌──────▼──────┐   ┌───────────┐
-│   orm   │    │  migrate   │   │  etl   │   │  analytics  │   │ dashboard │
-│ (OLTP)  │    │            │   │(future)│   │  (future)   │   │ (future)  │
-└────┬────┘    └─────┬──────┘   └───┬────┘   └──────┬──────┘   └─────┬─────┘
-     └───────┬───────┘              │               │                │
-     ┌───────▼────────┐             │   (etl/analytics may use an    │
-     │   pg · neon    │◄────────────┴───  adapter to execute SQL) ───┘
+     ┌───────────────┼───────────────────────────┐
+     │               │                            │
+┌────▼────┐    ┌─────▼──────┐   ┌────────┐   ┌─────▼───────┐
+│   orm   │    │  migrate   │   │  etl   │   │  analytics  │
+│ (OLTP)  │    │            │   │(future)│   │  (future)   │
+└────┬────┘    └─────┬──────┘   └───┬────┘   └──────┬──────┘
+     └───────┬───────┘              │               │
+     ┌───────▼────────┐             │  (etl/analytics may use an
+     │   pg · neon    │◄────────────┴──  adapter to execute SQL)
      │ sqlite · libsql│
      │  mysql (v0.7)  │
      └────────────────┘
 ```
 
-- **ETL, Analytics, and Dashboard depend on `@sisal/core`** (and, to execute, on
-  an adapter). They may consume ORM/analytics _types_.
-- **`@sisal/orm` must never depend on ETL, Analytics, or Dashboard.** The OLTP
-  core stays clean; an app that only does CRUD pulls in none of the analytical
-  surface.
+- **ETL and Analytics depend on `@sisal/core`** (and, to execute, on an
+  adapter). They may consume ORM _types_.
+- **`@sisal/orm` must never depend on ETL or Analytics.** The OLTP core stays
+  clean; an app that only does CRUD pulls in none of the analytical surface.
 - **Adapters never import each other** and expose their **dialect capabilities**
   explicitly (see [v0.9](v0.9.0-roadmap.md)).
-- **Dashboard does not render.** It maps analytical result sets into semantic
-  models that D3 / Recharts / ECharts / Vega / custom renderers consume. The
-  motto: _analytics computes, dashboard maps, renderer renders._
 
 ### v0.9 ETL substrate lives in `@sisal/orm` (A3 decision held)
 

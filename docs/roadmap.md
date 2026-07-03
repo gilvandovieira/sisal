@@ -17,8 +17,7 @@ package over shared core primitives — and the OLTP core never depends on the
 analytical layers (see [architecture](architecture.md)):
 
 > **ORM** handles OLTP. **ETL** bridges OLTP data into OLAP-ready shapes.
-> **Analytics** queries those shapes with a typed OLAP API. **Dashboard** maps
-> analytical results into renderer-agnostic presentation models.
+> **Analytics** queries those shapes with a typed OLAP API.
 
 The discipline that keeps this realistic: **investigate before building, and
 build the substrate before the feature.** v0.6 and v0.7 are _readiness_
@@ -27,29 +26,33 @@ can carry them without hacks. The public packages don't arrive until v0.10+.
 
 ## Release line
 
-| Release    | Title                                                                 | Theme                                                                                                                                              | Ships a package?   |
-| ---------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| **v0.5**   | [Multi-Dialect OLTP Compatibility](v0.5.0-roadmap.md)                 | Make the OLTP builder boringly correct across pg/neon/sqlite/libsql                                                                                | hardening          |
-| **v0.6**   | [Foundations & Readiness — ETL + MySQL groundwork](v0.6.0-roadmap.md) | Minimum core changes for `@sisal/etl`; **investigate MySQL support**; an [npm-release readiness report](npm-release-readiness.md) (build deferred) | no                 |
-| **v0.7**   | [Analytics Readiness & MySQL Support](v0.7.0-roadmap.md)              | Design the analytical IR; **and** build the `@sisal/mysql` adapter (from v0.6)                                                                     | `@sisal/mysql`     |
-| **v0.8**   | [Advanced SQL IR & Expression Stabilization](v0.8.0-roadmap.md)       | Stabilize the IR + extract `@sisal/core` so ETL/analytics can compile in safely                                                                    | `@sisal/core`      |
-| **v0.9**   | [Adapter Hardening & Capability Matrix](v0.9.0-roadmap.md)            | Harden all five adapters (pg/neon/sqlite/libsql/**mysql**) per v0.6–v0.7 findings; explicit capability surface                                     | hardening          |
-| **v0.10**  | [`@sisal/etl` Preview](v0.10.0-roadmap.md)                            | First ETL package: job + runner + checkpoint, SQL-pushdown, Postgres-first; close the 0.9.0 security-audit findings (SEC-008–SEC-016)              | `@sisal/etl`       |
-| **v0.11**  | [`@sisal/analytics` Preview](v0.11.0-roadmap.md)                      | First analytics package: metrics/dimensions/windows, Postgres-first                                                                                | `@sisal/analytics` |
-| **v0.12**  | [`@sisal/dashboard` Preview](v0.12.0-roadmap.md)                      | Semantic presentation models; **no rendering**                                                                                                     | `@sisal/dashboard` |
-| **v0.13+** | [DuckDB / External OLAP Engine Investigation](v0.13.0-roadmap.md)     | DuckDB as a later compiler/execution target for the analytics IR; **npm publishing if demand + a chosen name**                                     | no                 |
-| **v0.14+** | [Optional Native/Rust Acceleration Investigation](v0.14.0-roadmap.md) | Native acceleration **only** if benchmarks prove a bottleneck                                                                                      | no                 |
+| Release   | Title                                                                 | Theme                                                                                                                                              | Ships a package?   |
+| --------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| **v0.5**  | [Multi-Dialect OLTP Compatibility](v0.5.0-roadmap.md)                 | Make the OLTP builder boringly correct across pg/neon/sqlite/libsql                                                                                | hardening          |
+| **v0.6**  | [Foundations & Readiness — ETL + MySQL groundwork](v0.6.0-roadmap.md) | Minimum core changes for `@sisal/etl`; **investigate MySQL support**; an [npm-release readiness report](npm-release-readiness.md) (build deferred) | no                 |
+| **v0.7**  | [Analytics Readiness & MySQL Support](v0.7.0-roadmap.md)              | Design the analytical IR; **and** build the `@sisal/mysql` adapter (from v0.6)                                                                     | `@sisal/mysql`     |
+| **v0.8**  | [Advanced SQL IR & Expression Stabilization](v0.8.0-roadmap.md)       | Stabilize the IR + extract `@sisal/core` so ETL/analytics can compile in safely                                                                    | `@sisal/core`      |
+| **v0.9**  | [Adapter Hardening & Capability Matrix](v0.9.0-roadmap.md)            | Harden all five adapters (pg/neon/sqlite/libsql/**mysql**) per v0.6–v0.7 findings; explicit capability surface                                     | hardening          |
+| **v0.10** | [`@sisal/etl` Preview](v0.10.0-roadmap.md)                            | First ETL package: job + runner + checkpoint, SQL-pushdown, Postgres-first; close the 0.9.0 security-audit findings (SEC-008–SEC-016)              | `@sisal/etl`       |
+| **v0.11** | [`@sisal/analytics` Preview](v0.11.0-roadmap.md)                      | First analytics package: metrics/dimensions/windows, Postgres-first                                                                                | `@sisal/analytics` |
+
+> **Post-v0.11 is deliberately unplanned.** The DuckDB/external-OLAP,
+> native/Rust-acceleration, and `@sisal/dashboard` milestones that once sat here
+> were **dropped in July 2026**. Sisal stays a relational OLTP→analytics stack:
+> it does **not** pursue native acceleration or a presentation-mapping layer,
+> and **DuckDB specifically is off the table**. A future **external database
+> target** — for example a **time-series database** — remains a _possible_
+> post-v0.11 direction, but **nothing is planned now**; what comes after the
+> analytics preview is decided once it ships. npm publishing, previously parked
+> alongside DuckDB, is now a versionless cross-cutting track (see below).
 
 ## Release discipline (non-negotiable)
 
 - **v0.6 prepares for ETL; it does not become ETL.** No public `@sisal/etl`.
 - **v0.7 prepares for analytics; it does not become analytics.** No public
   `@sisal/analytics`.
-- **v0.10 starts ETL. v0.11 starts analytics. v0.12 starts dashboard mapping.**
-- **DuckDB comes after the analytics IR exists** (v0.13+), as an execution
-  target — never as the first analytics milestone.
-- **Rust/native comes only after benchmark evidence** (v0.14+) that SQL pushdown
-  and DuckDB cannot solve a specific hot path cleanly.
+- **v0.10 starts ETL. v0.11 starts analytics.** The analytics preview is the
+  last planned feature milestone; what follows it is decided after it ships.
 - The first ETL model is a **job definition + a single-run runner**, triggered
   by an **external** cron/scheduler — not a worker platform, not
   Airflow/Temporal.
@@ -57,8 +60,8 @@ can carry them without hacks. The public packages don't arrive until v0.10+.
   insert-from-select, upsert). PostgreSQL is the strongest pushdown target.
 - **MySQL is investigated in v0.6, implemented in v0.7.** It joins as a fifth
   dialect/adapter; PostgreSQL remains the ETL/analytics reference.
-- **Node.js/npm is a deferred, demand-driven concern (v0.13+), not a release
-  workstream.** v0.6 produces an
+- **Node.js/npm is a deferred, demand-driven concern, not a release workstream**
+  (a versionless cross-cutting track — see below). v0.6 produces an
   [npm-release readiness report](npm-release-readiness.md) and ships no npm
   package; the build + dual publish is enabled by the v0.8 `@sisal/core`
   extraction and gated on a chosen npm name.
@@ -100,6 +103,8 @@ nearest readiness milestone rather than owning a version:
 - **Runtime & packaging (Node.js + npm)** — **investigated, not built, in
   [v0.6](v0.6.0-roadmap.md)**: it produces an
   [npm-release readiness report](npm-release-readiness.md) and ships no npm
-  package. The actual build + dual publish is **deferred to v0.13+, on demand**
-  — it sits on no gate, is enabled by the v0.8 `@sisal/core` extraction, and is
-  blocked until a real npm name is chosen (the `@sisal` scope is taken on npm).
+  package. The actual build + dual publish is **deferred and demand-driven** —
+  it owns **no version on the release line** (it was previously parked in the
+  now-dropped v0.13 slot), sits on no gate, is enabled by the v0.8 `@sisal/core`
+  extraction, and is blocked until a real npm name is chosen (the `@sisal` scope
+  is taken on npm). Trigger: real Node-user demand **and** a chosen name.

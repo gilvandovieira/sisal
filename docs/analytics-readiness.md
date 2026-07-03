@@ -64,9 +64,15 @@ interface AnalyticalQueryIr {
   derivedFields: Readonly<Record<string, DerivedFieldIr>>;
   order: readonly AnalyticalOrderTerm[];
   limit?: number;
-  executionPreference?: "primary" | "postgres" | "duckdb-later";
+  executionPreference?: "primary" | "postgres";
 }
 ```
+
+> **Note (July 2026):** an earlier draft of this field carried a
+> `"duckdb-later"` variant anticipating a DuckDB execution target. The DuckDB /
+> external-OLAP milestone was **dropped**, so that variant is removed;
+> `executionPreference` now only distinguishes pushdown against the primary
+> adapter vs. a dedicated Postgres target.
 
 Where:
 
