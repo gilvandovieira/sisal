@@ -68,3 +68,37 @@ Deno.test("splitSqlStatements: dollar-quoted bodies stay whole", () => {
     ],
   );
 });
+
+Deno.test("splitSqlStatements: E'' escape strings keep backslash-escaped quotes (SEC-007)", () => {
+  // `\'` inside an escape string is an escaped quote, not a terminator — the
+  // `;` after it must not split the statement.
+  assertEquals(
+    splitSqlStatements("insert into t values (E'a\\';b'); select 2;"),
+    ["insert into t values (E'a\\';b');", "select 2;"],
+  );
+  // A doubled backslash is a literal backslash; the following `'` still closes.
+  assertEquals(
+    splitSqlStatements("select E'a\\\\'; select 2;"),
+    ["select E'a\\\\';", "select 2;"],
+  );
+  // Lowercase `e'…'` is also an escape string.
+  assertEquals(
+    splitSqlStatements("select e'x\\';y'; select 2;"),
+    ["select e'x\\';y';", "select 2;"],
+  );
+  // A column/identifier ending in `e` is not an escape-string prefix, so the
+  // following literal is a plain string (backslash is literal there).
+  assertEquals(
+    splitSqlStatements("select code'a'; select 2;").length,
+    2,
+  );
+});
+
+Deno.test("splitSqlStatements: nested block comments swallow internal semicolons (SEC-007)", () => {
+  // The inner `*/` must not end the outer comment, so the `;` inside stays
+  // hidden and does not split the statement early.
+  assertEquals(
+    splitSqlStatements("select 1 /* a /* b; */ c; */ + 2; select 3;"),
+    ["select 1 /* a /* b; */ c; */ + 2;", "select 3;"],
+  );
+});

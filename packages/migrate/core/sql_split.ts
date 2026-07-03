@@ -21,20 +21,32 @@ function dollarTagAt(text: string, index: number): string | undefined {
   return match !== null ? match[0] : undefined;
 }
 
+// True for a character that may appear in an identifier — used to tell a
+// standalone `E`/`e` escape-string prefix from the tail of an identifier.
+function isIdentifierChar(char: string | undefined): boolean {
+  return char !== undefined && /[A-Za-z0-9_$]/.test(char);
+}
+
 /**
  * Splits a SQL script into individual statements on top-level `;`, ignoring
- * semicolons inside string literals, quoted identifiers, line/block comments,
- * and PostgreSQL dollar-quoted bodies (`$$ … $$`, `$tag$ … $tag$`). Each
- * returned statement is trimmed; empty statements (and a trailing `;`) are
+ * semicolons inside string literals (including PostgreSQL `E'…'` escape strings
+ * with backslash escapes), quoted identifiers, line comments, **nested** block
+ * comments, and PostgreSQL dollar-quoted bodies (`$$ … $$`, `$tag$ … $tag$`).
+ * Each returned statement is trimmed; empty statements (and a trailing `;`) are
  * dropped.
  */
 export function splitSqlStatements(text: string): string[] {
   const statements: string[] = [];
   let start = 0;
   let singleQuoted = false;
+  // The open single-quoted string is a Postgres escape string (`E'…'`), in which
+  // a backslash escapes the next character.
+  let escapeString = false;
   let doubleQuoted = false;
   let lineComment = false;
-  let blockComment = false;
+  // Postgres block comments nest (`/* a /* b */ c */`), so track depth, not a
+  // boolean — a `;` stays hidden until the outermost comment closes.
+  let blockDepth = 0;
   // The open dollar-quote delimiter (`$$`, `$tag$`), or undefined outside one.
   // Postgres treats everything inside a dollar-quoted body verbatim, `;` too.
   let dollarTag: string | undefined;
@@ -50,9 +62,12 @@ export function splitSqlStatements(text: string): string[] {
       continue;
     }
 
-    if (blockComment) {
-      if (char === "*" && next === "/") {
-        blockComment = false;
+    if (blockDepth > 0) {
+      if (char === "/" && next === "*") {
+        blockDepth += 1;
+        index += 1;
+      } else if (char === "*" && next === "/") {
+        blockDepth -= 1;
         index += 1;
       }
       continue;
@@ -68,10 +83,15 @@ export function splitSqlStatements(text: string): string[] {
     }
 
     if (singleQuoted) {
-      if (char === "'" && next === "'") {
+      if (escapeString && char === "\\") {
+        // Skip the escaped character (a quote or backslash included), so a
+        // `\'` inside `E'…'` does not end the string.
+        index += 1;
+      } else if (char === "'" && next === "'") {
         index += 1;
       } else if (char === "'") {
         singleQuoted = false;
+        escapeString = false;
       }
       continue;
     }
@@ -92,7 +112,7 @@ export function splitSqlStatements(text: string): string[] {
     }
 
     if (char === "/" && next === "*") {
-      blockComment = true;
+      blockDepth = 1;
       index += 1;
       continue;
     }
@@ -108,6 +128,10 @@ export function splitSqlStatements(text: string): string[] {
 
     if (char === "'") {
       singleQuoted = true;
+      // A Postgres escape string is written `E'…'` / `e'…'`, where the prefix is
+      // a standalone token (not the tail of an identifier).
+      escapeString = (text[index - 1] === "E" || text[index - 1] === "e") &&
+        !isIdentifierChar(text[index - 2]);
       continue;
     }
 
