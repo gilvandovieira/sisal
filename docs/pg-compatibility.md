@@ -35,6 +35,13 @@ helper (`advance`/`prune`/`assertReplayable`), and the `tryInsert` write-outcome
 PostgreSQL/Neon-only capability) now have per-engine execution coverage; all are
 in the [feature matrix](feature-matrix.md).
 
+**v0.10 additions.** The standard recursive-CTE `SEARCH DEPTH|BREADTH FIRST` /
+`CYCLE` clauses (`$withRecursive(...).searchDepthFirst(...)/.cycle(...)`) render
+on PostgreSQL only (server ≥ 14 — every major verified here qualifies) and are
+verified live against a cyclic fixture; the SQLite and MySQL families fail typed
+(`ORM_DIALECT_UNSUPPORTED`) — their portable spelling stays the explicit depth
+column + `WHERE depth < n` guard.
+
 ## Column types proven by the DDL test
 
 A single table exercises every generated type; the `CREATE TABLE` is executed on

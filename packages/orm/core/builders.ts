@@ -334,25 +334,94 @@ export interface CteBuilder {
 }
 
 /**
+ * The `SEARCH DEPTH|BREADTH FIRST BY … SET …` clause of a recursive CTE
+ * (contract 07 / v0.10 CF3). PostgreSQL-only at render time
+ * (`recursiveSearchCycle` capability; server ≥ 14).
+ */
+export interface CteSearchClause {
+  /** Traversal order the sequence column encodes. */
+  readonly order: "depth" | "breadth";
+  /** Row-identity columns (from the CTE's declared column list). */
+  readonly by: readonly string[];
+  /** New output column receiving the orderable sequence. */
+  readonly set: string;
+}
+
+/**
+ * The `CYCLE … SET … USING …` clause of a recursive CTE (contract 07 /
+ * v0.10 CF3). PostgreSQL-only at render time (`recursiveSearchCycle`
+ * capability; server ≥ 14).
+ */
+export interface CteCycleClause {
+  /** Row-identity columns (from the CTE's declared column list). */
+  readonly by: readonly string[];
+  /** New output column: `true` on the row that closed a cycle. */
+  readonly set: string;
+  /** New output column receiving the visited-path array. */
+  readonly using: string;
+}
+
+/**
  * Intermediate returned by {@link Database.$withRecursive}; complete it with
  * `.as((self) => …)`. The declared column list types `self`, the CTE's own
- * reference inside its body.
+ * reference inside its body. `TExtra` accumulates the output columns added
+ * by {@link RecursiveCteBuilder.searchDepthFirst} /
+ * {@link RecursiveCteBuilder.searchBreadthFirst} /
+ * {@link RecursiveCteBuilder.cycle} — visible on the CTE returned by `.as`,
+ * but not on `self` (the standard forbids referencing them inside the
+ * recursive body).
  */
-export interface RecursiveCteBuilder<TColumn extends string> {
+export interface RecursiveCteBuilder<
+  TColumn extends string,
+  TExtra extends string = never,
+> {
+  /**
+   * Adds `SEARCH DEPTH FIRST BY by SET set` — `set` becomes an output column
+   * that orders rows in depth-first traversal order (`ORDER BY set`).
+   * PostgreSQL-only (server ≥ 14; `ORM_DIALECT_UNSUPPORTED` elsewhere) — the
+   * portable spelling stays an explicit depth/path column. Immutable: returns
+   * a new builder; at most one search clause per CTE.
+   */
+  searchDepthFirst<TSet extends string>(
+    by: readonly TColumn[],
+    set: TSet,
+  ): RecursiveCteBuilder<TColumn, TExtra | TSet>;
+  /**
+   * Adds `SEARCH BREADTH FIRST BY by SET set` — like
+   * {@link RecursiveCteBuilder.searchDepthFirst} with breadth-first order.
+   */
+  searchBreadthFirst<TSet extends string>(
+    by: readonly TColumn[],
+    set: TSet,
+  ): RecursiveCteBuilder<TColumn, TExtra | TSet>;
+  /**
+   * Adds `CYCLE by SET set USING using` — PostgreSQL stops following a path
+   * once a row repeats (`by`-column identity), marks the repeating row with
+   * `set = true`, and records the visited path in `using`. The engine-native
+   * alternative to the portable `WHERE depth < n` guard. PostgreSQL-only
+   * (server ≥ 14; `ORM_DIALECT_UNSUPPORTED` elsewhere). Immutable: returns a
+   * new builder; at most one cycle clause per CTE.
+   */
+  cycle<TSet extends string, TUsing extends string>(
+    by: readonly TColumn[],
+    set: TSet,
+    using: TUsing,
+  ): RecursiveCteBuilder<TColumn, TExtra | TSet | TUsing>;
   /**
    * Binds the recursive CTE body. `build` receives the CTE's self-reference
    * (usable in `from()` / mutation sources like any CTE) and must return the
    * classic recursive shape: a base `SELECT` compounded with the recursive
    * step, e.g. `base.unionAll(step)`. Every supported engine renders
    * `WITH RECURSIVE` at Sisal's version floors; bound the recursion with an
-   * explicit depth column and `WHERE depth < n` predicate in the step — the
-   * portable cycle guard (PostgreSQL 14's `CYCLE` clause is not rendered).
+   * explicit depth column and `WHERE depth < n` predicate in the step (the
+   * portable guard), or with the PostgreSQL-only
+   * {@link RecursiveCteBuilder.cycle} clause.
    */
   as<TResult>(
     build: (
       self: Cte<{ readonly [K in TColumn]: SelectColumnRef }>,
     ) => CteOperand<TResult>,
-  ): Cte<{ readonly [K in TColumn]: SelectColumnRef }>;
+  ): Cte<{ readonly [K in TColumn | TExtra]: SelectColumnRef }>;
 }
 
 /** Query root seeded with CTEs, returned by {@link Database.with}. */
@@ -571,6 +640,10 @@ interface CteDefinition {
    * recursive CTEs, whose self-reference exists before the body's projection.
    */
   readonly columnNames?: readonly string[];
+  /** `SEARCH … FIRST BY … SET …` clause (PostgreSQL-only, guarded). */
+  readonly search?: CteSearchClause;
+  /** `CYCLE … SET … USING …` clause (PostgreSQL-only, guarded). */
+  readonly cycle?: CteCycleClause;
 }
 
 /** The set operations Sisal can compound two queries with. */
@@ -669,6 +742,7 @@ function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
             raw(" as ("),
             cte.query,
             raw(")"),
+            cteSearchCycleSql(cte),
           ],
           emptySql(),
         )
@@ -677,6 +751,41 @@ function withPrefixSql(ctes: readonly CteDefinition[]): Sql {
     ),
     raw(" "),
   ], emptySql());
+}
+
+// Renders the standard post-body SEARCH/CYCLE clauses (SEARCH first, per the
+// SQL grammar), behind the PostgreSQL-only capability guard so the SQLite and
+// MySQL families fail typed at render time instead of with a parse error.
+function cteSearchCycleSql(cte: CteDefinition): Sql {
+  if (cte.search === undefined && cte.cycle === undefined) {
+    return emptySql();
+  }
+  const chunks: Sql[] = [
+    capabilityGuard(DIALECT_CAPABILITIES.recursiveSearchCycle),
+  ];
+  if (cte.search !== undefined) {
+    chunks.push(
+      raw(
+        cte.search.order === "depth"
+          ? " search depth first by "
+          : " search breadth first by ",
+      ),
+      joinSql(cte.search.by.map((column) => identifier(column)), raw(", ")),
+      raw(" set "),
+      identifier(cte.search.set),
+    );
+  }
+  if (cte.cycle !== undefined) {
+    chunks.push(
+      raw(" cycle "),
+      joinSql(cte.cycle.by.map((column) => identifier(column)), raw(", ")),
+      raw(" set "),
+      identifier(cte.cycle.set),
+      raw(" using "),
+      identifier(cte.cycle.using),
+    );
+  }
+  return joinSql(chunks, emptySql());
 }
 
 // MariaDB accepts a `WITH` prefix only on SELECT — attaching one to

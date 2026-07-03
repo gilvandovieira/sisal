@@ -48,6 +48,9 @@ Deno.test("capabilities: the six-target truth table", () => {
     arrayOperators: ["pg", "neon"],
     dataModifyingCte: ["pg", "neon"],
     mutationCte: ["pg", "neon", "sqlite", "libsql", "mysql"],
+    // SEARCH/CYCLE clauses: PostgreSQL only (server ≥ 14, documented floor —
+    // dialect-gated because the pg adapter does not report a server version).
+    recursiveSearchCycle: ["pg", "neon"],
     // Version-gated on sqlite (3.28+) — fail closed on the bare target.
     windowGroupsFrame: ["pg", "neon"],
     // MariaDB's parser rejects lag/lead's third argument (live, 11.8.8).

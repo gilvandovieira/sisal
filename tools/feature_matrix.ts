@@ -133,6 +133,10 @@ const DM_CTE =
   "Data-modifying CTEs (`INSERT`/`UPDATE`/`DELETE` inside `WITH`) " +
   "are PostgreSQL-only; SQLite-family and MySQL-family CTEs are " +
   "`SELECT`-only." + PG_ONLY;
+const SEARCH_CYCLE =
+  "The standard `SEARCH DEPTH|BREADTH FIRST` / `CYCLE` clauses are " +
+  "PostgreSQL-only (server >= 14); the portable spelling stays an explicit " +
+  "depth column + `WHERE depth < n` guard." + PG_ONLY;
 const DATE_TRUNC =
   "No `date_trunc`; `dateTrunc` renders via `strftime`, which " +
   "returns the truncated timestamp as an ISO-8601 `TEXT` string (PostgreSQL " +
@@ -400,6 +404,12 @@ export const FEATURE_MATRIX: FeatureRow[] = [
   allTested(
     "Recursive CTE (WITH RECURSIVE; MySQL 8+/MariaDB)",
     "recursive cte",
+  ),
+  capabilityRow(
+    "Recursive CTE `SEARCH`/`CYCLE` clauses (PostgreSQL 14+)",
+    DIALECT_CAPABILITIES.recursiveSearchCycle,
+    "recursive search/cycle",
+    SEARCH_CYCLE,
   ),
 ];
 
