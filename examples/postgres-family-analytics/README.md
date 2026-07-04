@@ -71,6 +71,38 @@ moving-average frame, and `viewsPrevious`/`viewsDelta` period-comparison
 columns). With `DATABASE_URL`, it also prints the top rising-feed rows and the
 daily-trend row count.
 
+## Sisal API pressure points
+
+This is a **resolved destination**: every query in `mod.ts` is a fully typed
+`@sisal/analytics` descriptor — dimensions, metrics, `windows`,
+`compareToPreviousWindow`, `orderBy`/`limit` — and renders to parameterized SQL
+with **no raw `sql` anywhere** (contrast the hand-written `/rising` feed in
+[`postgres-family-feed`](../postgres-family-feed/README.md)). The remaining
+limits are about reach, not escape hatches:
+
+1. **Windowed analytics are Postgres-first; there is no MySQL/SQLite analytics
+   yet** — SQL/dialect limitation (honest scope). `movingAvg`, `rank`, and
+   `compareToPreviousWindow` (`mod.ts:88`–`99`) render window functions;
+   `supportsQuery(query, { dialect: "postgres" })` preflights each
+   (`mod.ts:125`) so an unsupported engine fails typed
+   (`ANALYTICS_UNSUPPORTED_QUERY`) rather than at the engine. Plain metrics ×
+   dimensions × `bucket` are portable; the windowed shapes are not.
+2. **No derived / computed metric — arithmetic over metrics isn't expressible**
+   — API gap. The weighted engagement signal is _read_ as a pre-materialized
+   column (`engagement: max(p.engagementScore)`, `mod.ts:86`); the weighting
+   (`votes*2 + comments*3 + views*0.25`) had to be folded upstream by
+   `@sisal/etl` because analytics has no way to combine `sum(votes)`,
+   `sum(comments)`, and `sum(views)` into one metric expression. The same gap
+   the ETL example hits from the write side.
+3. **pg-family `bigint` reads back as a string** — driver/engine limitation.
+   `postId` is a `bigint` (`mod.ts:48`) and comes back as a string; the example
+   prints it as-is. Consistent with the cross-adapter bigint contract, not an
+   analytics issue.
+
+Not pressure points: `sum`, `max`, `countDistinct`, `bucket`, `movingAvg`,
+`rank`, and `compareToPreviousWindow` are all analytics-native and type-infer
+the result row.
+
 ## Notes
 
 This example reads the rollup that
