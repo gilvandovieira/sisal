@@ -1,18 +1,17 @@
 ---
-title: Package Architecture (long-term)
+title: Package Architecture
 ---
 
-# Sisal package architecture — the long-term split
+# Sisal package architecture
 
 Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for
 **relational** data access. It is not becoming an object-first ORM. As the
 surface grows from OLTP query building toward ETL and analytics, the packages
 stay strictly layered so the OLTP core never pays for the analytical ambitions.
 
-This document describes the **target** package graph and the one rule that keeps
-it honest. It is aspirational: most of these packages do not exist yet. The
-release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See the
-[roadmap overview](roadmap.md) for sequencing.
+This document describes the package graph and the one rule that keeps it honest.
+The release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See
+the [roadmap overview](roadmap.md) for sequencing.
 
 ## Workload model, not a compliance protocol
 
@@ -25,18 +24,18 @@ primitives.
 
 ## The packages
 
-| Package                           | Responsibility                                                                                                                                                                                              | Depends on                     |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **`@sisal/core`**                 | Schema primitives, the serializable snapshot, the SQL IR (`Sql`/`SqlChunk` fragments), expressions/operators, and the dialect interface + renderer. The shared substrate every other package compiles into. | —                              |
-| **`@sisal/orm`**                  | The OLTP query builder: CRUD, `where`/`order`/`limit`, joins, set ops, CTEs, transactions, prepared queries, `db.batch`.                                                                                    | core                           |
-| **`@sisal/migrate`**              | Snapshot diffing, migration planning/running, the `sisal` CLI.                                                                                                                                              | core (+ orm)                   |
-| **`@sisal/pg`**                   | PostgreSQL adapter (dialect + executor + driver).                                                                                                                                                           | core, orm, migrate             |
-| **`@sisal/neon`**                 | Neon serverless-aware PostgreSQL adapter (WebSocket Pool).                                                                                                                                                  | core, orm, migrate             |
-| **`@sisal/sqlite`**               | SQLite adapter (embedded).                                                                                                                                                                                  | core, orm, migrate             |
-| **`@sisal/libsql`**               | libSQL / Turso adapter (local + remote).                                                                                                                                                                    | core, orm, migrate             |
-| **`@sisal/mysql`** _(v0.7)_       | MySQL / MariaDB adapter. The `"mysql"` dialect is latent in the renderer today (backtick quoting, `?` placeholders); the adapter ships in [v0.7](v0.7.0-roadmap.md).                                        | core, orm, migrate             |
-| **`@sisal/etl`** _(future)_       | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ an adapter to execute) |
-| **`@sisal/analytics`** _(future)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter)            |
+| Package                                  | Responsibility                                                                                                                                                                                              | Depends on                     |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **`@sisal/core`**                        | Schema primitives, the serializable snapshot, the SQL IR (`Sql`/`SqlChunk` fragments), expressions/operators, and the dialect interface + renderer. The shared substrate every other package compiles into. | —                              |
+| **`@sisal/orm`**                         | The OLTP query builder: CRUD, `where`/`order`/`limit`, joins, set ops, CTEs, transactions, prepared queries, `db.batch`.                                                                                    | core                           |
+| **`@sisal/migrate`**                     | Snapshot diffing, migration planning/running, the `sisal` CLI.                                                                                                                                              | core                           |
+| **`@sisal/pg`**                          | PostgreSQL adapter (dialect + executor + driver).                                                                                                                                                           | core, orm, migrate             |
+| **`@sisal/neon`**                        | Neon serverless-aware PostgreSQL adapter (WebSocket Pool).                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/sqlite`**                      | SQLite adapter (embedded).                                                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/libsql`**                      | libSQL / Turso adapter (local + remote).                                                                                                                                                                    | core, orm, migrate             |
+| **`@sisal/mysql`**                       | MySQL / MariaDB adapter.                                                                                                                                                                                    | core, orm, migrate             |
+| **`@sisal/etl`**                         | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ orm runner substrate)  |
+| **`@sisal/analytics`** _(v0.11 preview)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter to execute) |
 
 ## The one rule: dependency direction
 
@@ -48,7 +47,7 @@ primitives.
      │               │                            │
 ┌────▼────┐    ┌─────▼──────┐   ┌────────┐   ┌─────▼───────┐
 │   orm   │    │  migrate   │   │  etl   │   │  analytics  │
-│ (OLTP)  │    │            │   │(future)│   │  (future)   │
+│ (OLTP)  │    │            │   │        │   │             │
 └────┬────┘    └─────┬──────┘   └───┬────┘   └──────┬──────┘
      └───────┬───────┘              │               │
      ┌───────▼────────┐             │  (etl/analytics may use an
@@ -58,8 +57,12 @@ primitives.
      └────────────────┘
 ```
 
-- **ETL and Analytics depend on `@sisal/core`** (and, to execute, on an
-  adapter). They may consume ORM _types_.
+- **Analytics depends on `@sisal/core`** and executes through a structurally
+  injected adapter database. It must not import `@sisal/orm`, adapters, drivers,
+  migrate, or ETL runtime code.
+- **ETL's job model and SQL compilation depend on `@sisal/core`;** its runner
+  consumes the v0.9 checkpoint/advisory-lock substrate from `@sisal/orm` and
+  executes through an injected adapter database.
 - **`@sisal/orm` must never depend on ETL or Analytics.** The OLTP core stays
   clean; an app that only does CRUD pulls in none of the analytical surface.
 - **Adapters never import each other** and expose their **dialect capabilities**
@@ -85,8 +88,11 @@ reconcile.
 
 ## Where we are today (the honest baseline)
 
-As of v0.8, **`@sisal/core` exists** as the extracted lower tier. It owns the
-schema primitives/snapshots, SQL fragment IR, expression operators, capability
+As of v0.11 development, **`@sisal/core` exists** as the extracted lower tier
+and `@sisal/etl` exists as the first downstream package that compiles into it.
+`@sisal/analytics` is being built as the second: a typed semantic layer over
+core expressions/windows and the core statement assembler. Core owns the schema
+primitives/snapshots, SQL fragment IR, expression operators, capability
 registry, renderer, structured errors, and logger contracts. The fluent
 builders, `Database` facade, relations, and typed function caller remain in
 `@sisal/orm`, which re-exports the full core surface so existing imports keep

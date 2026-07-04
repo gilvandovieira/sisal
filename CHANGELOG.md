@@ -11,6 +11,42 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **`@sisal/analytics` (v0.11 preview) — the typed analytical query spine,
+  Postgres-first percentiles, and capability-gated execution** (roadmap T1–T12).
+  New workspace package `packages/analytics` with a single `.` export:
+  - `from(source)` — an immutable analytical query builder over a table, rollup,
+    or subquery fragment. `dimensions`, `metrics`, `windows`, `where`,
+    `orderBy`, and `limit` compile to `@sisal/core` `assembleSelect()` output
+    without importing `@sisal/orm`, adapters, drivers, migrate, or ETL runtime
+    code.
+  - `bucket(width, source)` — a typed time-dimension helper over core
+    `dateTrunc`/`dateBin`, marking the comparison axis for period-over-period
+    queries.
+  - windowed metrics: `movingAvg`, `rank`, `denseRank`, `rowNumber`, `lag`,
+    `lead`, and `delta`, all lowering to the v0.8 core window primitives while
+    preserving result-row inference.
+  - `compareToPreviousWindow(metric)` — adds typed previous-window and delta
+    fields, defaulting to the query's single `bucket()` dimension and failing
+    typed on missing/ambiguous axes.
+  - experimental Postgres-first `percentileCont` / `percentileDisc` helpers,
+    backed by the new core `percentileAggregates` capability and failing closed
+    off Postgres.
+  - `render(identity)`, `execute(db)`, `supportsQuery`, and
+    `assertQuerySupported` — dry-run and execution surfaces over a structural
+    adapter executor. Unsupported analytical shapes are refused before execution
+    with `ANALYTICS_UNSUPPORTED_QUERY`, not raw engine errors.
+  - Boundary, golden-SQL, type-inference, validation, capability, and dry-run
+    example tests now pin the package spine:
+    `packages/analytics/boundary_test.ts`, `query_test.ts`,
+    `capability_test.ts`, and `examples_test.ts`. The five v0.11 examples render
+    through the public analytics API, including the `/rising` velocity feed
+    (`movingAvg` + `rank` + `compareToPreviousWindow`) with no raw SQL in the
+    analytics package.
+- **v0.11 roadmap tasklist from the v0.5→v0.10 review.**
+  `docs/v0.11.0-roadmap.md` now records the prerequisite trail from v0.5 dialect
+  honesty through v0.10 ETL, and tracks concrete analytics tasks T1–T18 instead
+  of a broad feature brief. `docs/architecture.md` now reflects the current ETL
+  package and the v0.11 analytics preview boundary.
 - **`@sisal/etl` (v0.10 preview) — the typed job model, generated rollup,
   single-window runner, the backfill/replay/status/dry-run API, and
   capability-gating** (roadmap T11–T21). New workspace package `packages/etl`

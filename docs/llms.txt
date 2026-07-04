@@ -2,7 +2,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.10.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.10.0, 0.11.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -19,7 +19,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Benchmarks](https://gilvandovieira.github.io/sisal/benchmarks.html): Sisal benchmarks measure the work the **library** does — building SQL, rendering it, and turning driver rows into typed results — in isolation from the database and the network. A query's wall-clock time is dominated...
 - [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
 - [Analytics Readiness](https://gilvandovieira.github.io/sisal/analytics-readiness.html): **Date:** 2026-07-01 · **Status:** A1-A4 🟢 · **Scope:** investigation and type prototype only. No @sisal/analytics package, renderer, runtime, dashboard helper, public export, or generated feature-matrix claim ships...
-- [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL and...
+- [Package Architecture](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL and...
 - [@sisal/core — the compile-target contract](https://gilvandovieira.github.io/sisal/core-ir.html): The documented, versioned public surface downstream packages (@sisal/etl, @sisal/analytics) compile into — the v0.8 item-3 stamp. What this page declares public is a compatibility commitment; everything else is not.
 - [@sisal/core extraction — migration notes](https://gilvandovieira.github.io/sisal/core-migration.html): v0.8 extracted @sisal/orm's lower tier into **@sisal/core** (roadmap item 2): the schema primitives, fragment SQL IR, expression operators, the dialect capability registry, and the dialect-aware renderer. The fluent...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
@@ -48,6 +48,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [@sisal/orm](https://jsr.io/@sisal/orm): Driverless schema, typed SQL, and ORM primitives for Sisal. Exports: ., ./core, ./error, ./logger, ./schema.
 - [@sisal/migrate](https://jsr.io/@sisal/migrate): Migration planning, diffing, and running primitives for Sisal. Exports: ., ./cli, ./core, ./workflow.
 - [@sisal/etl](https://jsr.io/@sisal/etl): SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs. Exports: ..
+- [@sisal/analytics](https://jsr.io/@sisal/analytics): Typed analytical queries for Sisal: metrics × dimensions × windows over rollup tables, Postgres-first. Exports: ..
 - [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL and Turso adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.

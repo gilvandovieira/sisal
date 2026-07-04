@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.10.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.10.0, 0.11.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -25,7 +25,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Benchmarks](https://gilvandovieira.github.io/sisal/benchmarks.html): Sisal benchmarks measure the work the **library** does — building SQL, rendering it, and turning driver rows into typed results — in isolation from the database and the network. A query's wall-clock time is dominated...
 - [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
 - [Analytics Readiness](https://gilvandovieira.github.io/sisal/analytics-readiness.html): **Date:** 2026-07-01 · **Status:** A1-A4 🟢 · **Scope:** investigation and type prototype only. No @sisal/analytics package, renderer, runtime, dashboard helper, public export, or generated feature-matrix claim ships...
-- [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL and...
+- [Package Architecture](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL and...
 - [@sisal/core — the compile-target contract](https://gilvandovieira.github.io/sisal/core-ir.html): The documented, versioned public surface downstream packages (@sisal/etl, @sisal/analytics) compile into — the v0.8 item-3 stamp. What this page declares public is a compatibility commitment; everything else is not.
 - [@sisal/core extraction — migration notes](https://gilvandovieira.github.io/sisal/core-migration.html): v0.8 extracted @sisal/orm's lower tier into **@sisal/core** (roadmap item 2): the schema primitives, fragment SQL IR, expression operators, the dialect capability registry, and the dialect-aware renderer. The fluent...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
@@ -54,6 +54,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [@sisal/orm](https://jsr.io/@sisal/orm): Driverless schema, typed SQL, and ORM primitives for Sisal. Exports: ., ./core, ./error, ./logger, ./schema.
 - [@sisal/migrate](https://jsr.io/@sisal/migrate): Migration planning, diffing, and running primitives for Sisal. Exports: ., ./cli, ./core, ./workflow.
 - [@sisal/etl](https://jsr.io/@sisal/etl): SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs. Exports: ..
+- [@sisal/analytics](https://jsr.io/@sisal/analytics): Typed analytical queries for Sisal: metrics × dimensions × windows over rollup tables, Postgres-first. Exports: ..
 - [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL and Turso adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
@@ -109,6 +110,15 @@ Exports:
 SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs.
 
 Package path: `./packages/etl`
+
+Exports:
+- `.` -> `./mod.ts`
+
+### @sisal/analytics 0.11.0
+
+Typed analytical queries for Sisal: metrics × dimensions × windows over rollup tables, Postgres-first.
+
+Package path: `./packages/analytics`
 
 Exports:
 - `.` -> `./mod.ts`
@@ -1298,6 +1308,52 @@ Define a rollup job in TypeScript and execute **one** safe, idempotent window pe
 - `windowAt` (function): The one-grain window starting at the **grain-aligned** instant from — [from, from + grain). The shape replay re-runs. Throws ETL_INVALID_WINDOW for an unparsable or unaligned from.
 - `windowsInRange` (function): Enumerates the successive one-grain windows covering the half-open range [range.from, range.until) — the deterministic backfill walk, with no dependence on wall-clock now. Both bounds must be grain-aligned and from <...
 
+### @sisal/analytics . (packages/analytics/mod.ts)
+
+A Postgres-first OLAP layer over the @sisal/core IR: define **metrics × dimensions × windows** as typed descriptor maps, get back one correct SQL statement and a result-row type inferred from the definition. It...
+
+- `AnalyticsExecutor` (interface): The executor an analytics query runs against — structurally satisfied by every adapter's Database (the query never imports one): a detected dialect identity plus execute.
+- `AnalyticsOrderTerm` (interface): An explicit ordering term produced by {@link ascending} / {@link descending} — a key or expression plus a direction.
+- `AnalyticsQuery` (class): A typed, immutable analytical query — see the module doc for the model. Build with {@link from}; every method returns a new query.
+- `AnalyticsQuerySupport` (typeAlias): The verdict returned by {@link supportsQuery}.
+- `AnalyticsRow` (typeAlias): The exact result-row type of an analytics query: dimension and metric entries via the core projection inference, windowed metrics via {@link WindowedMetricValue}. This is the v0.7 InferAnalyticsRow prototype, shipped.
+- `AnalyticsSource` (typeAlias): An analytics source: a table/rollup definition or a subquery fragment.
+- `AnyWindowedMetric` (typeAlias): Any windowed-metric descriptor referencing at most the keys TKey.
+- `ascending` (function): Orders by a dimension/metric/window key or expression, ascending — orderBy(ascending("bucket")).
+- `assertQuerySupported` (function): The throwing form of {@link supportsQuery}: refuses an unsupported query shape with the typed ANALYTICS_UNSUPPORTED_QUERY error (status 400, details carrying the identity and reason) — call it pre-flight when a raw...
+- `avg` (function): avg(column) aggregate expression.
+- `bucket` (function): A time-bucket dimension: bucket("hour", stats.columns.bucket) floors to a calendar grain, bucket({ minutes: 5 }, …) to a fixed-width interval. Use it as a dimension value; it groups, projects, and orders like any...
+- `CompareToPreviousWindowOptions` (interface): Options for {@link AnalyticsQuery.compareToPreviousWindow}.
+- `count` (function): count(*) (no argument) or count(column) aggregate expression.
+- `countDistinct` (function): count(distinct column) aggregate expression.
+- `delta` (function): The difference between the metric's current and previous window rows — metric - lag(metric) over (…). Nullable: the first row of every partition has no previous row.
+- `DeltaMetric` (interface): A period-over-period delta — metric - lag(metric) over (…), the difference between the current and previous window row.
+- `denseRank` (function): Ranking without gaps — dense_rank() over (…).
+- `descending` (function): Orders by a dimension/metric/window key or expression, descending — rank({ orderBy: [descending("engagementScore")] }).
+- `from` (function): Starts a typed analytical query over a source — a table/rollup definition or a subquery fragment:
+- `isAnalyticsOrderTerm` (function): Returns true when a value is an {@link AnalyticsOrderTerm}.
+- `isTimeBucket` (function): Returns true when a dimension value was produced by {@link bucket}.
+- `lag` (function): The metric's value offset window rows before the current row — lag("votes", { partitionBy: ["postId"], orderBy: ["bucket"] }). The result row infers the referenced metric's value type, nullable.
+- `lead` (function): The metric's value offset window rows after the current row.
+- `max` (function): max(column) aggregate expression.
+- `min` (function): min(column) aggregate expression.
+- `movingAvg` (function): A trailing moving average of a metric over the last rows window rows (current row included) — the /rising feed's velocity score: movingAvg("votes", { partitionBy: ["postId"], orderBy: ["bucket"], rows: 6 })....
+- `MovingAvgMetric` (interface): A trailing moving average over a metric — compiles to avg(metric) over (partition by … order by … rows between N-1 preceding and current row).
+- `OffsetMetric` (interface): A lag()/lead() windowed metric. TRef keeps the referenced metric key's literal type so the result row infers the referenced metric's value type (nullable — the offset row may fall outside the partition).
+- `percentileCont` (function): Continuous percentile — percentile_cont(fraction) within group (order by source), interpolating between adjacent values: percentileCont(0.5, stats.columns.score) is the median. PostgreSQL-only (capability-gated);...
+- `percentileDisc` (function): Discrete percentile — percentile_disc(fraction) within group (order by source), returning an actual input value (no interpolation), so the result carries the source column's value type. PostgreSQL-only...
+- `PreviousWindowMetrics` (typeAlias): The two comparison columns {@link compareToPreviousWindow} adds for a metric key K: ` ${K}Previous (the previous window's value) and ${K}Delta ` (current minus previous).
+- `rank` (function): Ranking with gaps over the window order — rank() over (…): rank({ partitionBy: ["bucket"], orderBy: [descending("engagement")] }).
+- `RankingMetric` (interface): A ranking windowed metric — rank()/dense_rank()/row_number().
+- `rowNumber` (function): Sequential row numbering — row_number() over (…).
+- `sum` (function): sum(column) aggregate expression.
+- `supportsQuery` (function): Decides whether query renders on the engine identity (a bare dialect or the full db.dialectIdentity), without executing anything. Returns { supported: false, reason } when the query contains a construct the...
+- `WindowedMetricMap` (typeAlias): Map of result key → windowed-metric descriptor.
+- `WindowedMetricSpec` (interface): The partition/order options shared by every windowed-metric descriptor. Keys reference the query's dimensions and metrics; the window itself evaluates after grouping, so a referenced metric inlines its aggregate...
+- `WindowedMetricValue` (typeAlias): The value a windowed metric contributes to the result row, resolved against the row the query's dimensions and metrics project: rankings are number; moving averages and deltas are number | null; lag/lead carry the...
+- `WindowOperand` (typeAlias): A value a windowed metric may reference: the string key of a dimension or metric declared on the same query, a column reference, or a SQL expression.
+- `WindowOrderOperand` (typeAlias): An ordering entry inside a window specification or the query-level orderBy(...): a bare operand (ascending) or an explicit {@link ascending}/{@link descending} term.
+
 ### @sisal/pg . (packages/pg/mod.ts)
 
 PostgreSQL adapter package for Sisal.
@@ -2322,6 +2378,42 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- **`@sisal/analytics` (v0.11 preview) — the typed analytical query spine,
+  Postgres-first percentiles, and capability-gated execution** (roadmap T1–T12).
+  New workspace package `packages/analytics` with a single `.` export:
+  - `from(source)` — an immutable analytical query builder over a table, rollup,
+    or subquery fragment. `dimensions`, `metrics`, `windows`, `where`,
+    `orderBy`, and `limit` compile to `@sisal/core` `assembleSelect()` output
+    without importing `@sisal/orm`, adapters, drivers, migrate, or ETL runtime
+    code.
+  - `bucket(width, source)` — a typed time-dimension helper over core
+    `dateTrunc`/`dateBin`, marking the comparison axis for period-over-period
+    queries.
+  - windowed metrics: `movingAvg`, `rank`, `denseRank`, `rowNumber`, `lag`,
+    `lead`, and `delta`, all lowering to the v0.8 core window primitives while
+    preserving result-row inference.
+  - `compareToPreviousWindow(metric)` — adds typed previous-window and delta
+    fields, defaulting to the query's single `bucket()` dimension and failing
+    typed on missing/ambiguous axes.
+  - experimental Postgres-first `percentileCont` / `percentileDisc` helpers,
+    backed by the new core `percentileAggregates` capability and failing closed
+    off Postgres.
+  - `render(identity)`, `execute(db)`, `supportsQuery`, and
+    `assertQuerySupported` — dry-run and execution surfaces over a structural
+    adapter executor. Unsupported analytical shapes are refused before execution
+    with `ANALYTICS_UNSUPPORTED_QUERY`, not raw engine errors.
+  - Boundary, golden-SQL, type-inference, validation, capability, and dry-run
+    example tests now pin the package spine:
+    `packages/analytics/boundary_test.ts`, `query_test.ts`,
+    `capability_test.ts`, and `examples_test.ts`. The five v0.11 examples render
+    through the public analytics API, including the `/rising` velocity feed
+    (`movingAvg` + `rank` + `compareToPreviousWindow`) with no raw SQL in the
+    analytics package.
+- **v0.11 roadmap tasklist from the v0.5→v0.10 review.**
+  `docs/v0.11.0-roadmap.md` now records the prerequisite trail from v0.5 dialect
+  honesty through v0.10 ETL, and tracks concrete analytics tasks T1–T18 instead
+  of a broad feature brief. `docs/architecture.md` now reflects the current ETL
+  package and the v0.11 analytics preview boundary.
 - **`@sisal/etl` (v0.10 preview) — the typed job model, generated rollup,
   single-window runner, the backfill/replay/status/dry-run API, and
   capability-gating** (roadmap T11–T21). New workspace package `packages/etl`
@@ -7426,20 +7518,19 @@ URL: https://gilvandovieira.github.io/sisal/architecture.html
 
 ```md
 ---
-title: Package Architecture (long-term)
+title: Package Architecture
 ---
 
-# Sisal package architecture — the long-term split
+# Sisal package architecture
 
 Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for
 **relational** data access. It is not becoming an object-first ORM. As the
 surface grows from OLTP query building toward ETL and analytics, the packages
 stay strictly layered so the OLTP core never pays for the analytical ambitions.
 
-This document describes the **target** package graph and the one rule that keeps
-it honest. It is aspirational: most of these packages do not exist yet. The
-release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See the
-[roadmap overview](roadmap.md) for sequencing.
+This document describes the package graph and the one rule that keeps it honest.
+The release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See
+the [roadmap overview](roadmap.md) for sequencing.
 
 ## Workload model, not a compliance protocol
 
@@ -7452,18 +7543,18 @@ primitives.
 
 ## The packages
 
-| Package                           | Responsibility                                                                                                                                                                                              | Depends on                     |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **`@sisal/core`**                 | Schema primitives, the serializable snapshot, the SQL IR (`Sql`/`SqlChunk` fragments), expressions/operators, and the dialect interface + renderer. The shared substrate every other package compiles into. | —                              |
-| **`@sisal/orm`**                  | The OLTP query builder: CRUD, `where`/`order`/`limit`, joins, set ops, CTEs, transactions, prepared queries, `db.batch`.                                                                                    | core                           |
-| **`@sisal/migrate`**              | Snapshot diffing, migration planning/running, the `sisal` CLI.                                                                                                                                              | core (+ orm)                   |
-| **`@sisal/pg`**                   | PostgreSQL adapter (dialect + executor + driver).                                                                                                                                                           | core, orm, migrate             |
-| **`@sisal/neon`**                 | Neon serverless-aware PostgreSQL adapter (WebSocket Pool).                                                                                                                                                  | core, orm, migrate             |
-| **`@sisal/sqlite`**               | SQLite adapter (embedded).                                                                                                                                                                                  | core, orm, migrate             |
-| **`@sisal/libsql`**               | libSQL / Turso adapter (local + remote).                                                                                                                                                                    | core, orm, migrate             |
-| **`@sisal/mysql`** _(v0.7)_       | MySQL / MariaDB adapter. The `"mysql"` dialect is latent in the renderer today (backtick quoting, `?` placeholders); the adapter ships in [v0.7](v0.7.0-roadmap.md).                                        | core, orm, migrate             |
-| **`@sisal/etl`** _(future)_       | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ an adapter to execute) |
-| **`@sisal/analytics`** _(future)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter)            |
+| Package                                  | Responsibility                                                                                                                                                                                              | Depends on                     |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **`@sisal/core`**                        | Schema primitives, the serializable snapshot, the SQL IR (`Sql`/`SqlChunk` fragments), expressions/operators, and the dialect interface + renderer. The shared substrate every other package compiles into. | —                              |
+| **`@sisal/orm`**                         | The OLTP query builder: CRUD, `where`/`order`/`limit`, joins, set ops, CTEs, transactions, prepared queries, `db.batch`.                                                                                    | core                           |
+| **`@sisal/migrate`**                     | Snapshot diffing, migration planning/running, the `sisal` CLI.                                                                                                                                              | core                           |
+| **`@sisal/pg`**                          | PostgreSQL adapter (dialect + executor + driver).                                                                                                                                                           | core, orm, migrate             |
+| **`@sisal/neon`**                        | Neon serverless-aware PostgreSQL adapter (WebSocket Pool).                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/sqlite`**                      | SQLite adapter (embedded).                                                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/libsql`**                      | libSQL / Turso adapter (local + remote).                                                                                                                                                                    | core, orm, migrate             |
+| **`@sisal/mysql`**                       | MySQL / MariaDB adapter.                                                                                                                                                                                    | core, orm, migrate             |
+| **`@sisal/etl`**                         | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ orm runner substrate)  |
+| **`@sisal/analytics`** _(v0.11 preview)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter to execute) |
 
 ## The one rule: dependency direction
 
@@ -7475,7 +7566,7 @@ primitives.
      │               │                            │
 ┌────▼────┐    ┌─────▼──────┐   ┌────────┐   ┌─────▼───────┐
 │   orm   │    │  migrate   │   │  etl   │   │  analytics  │
-│ (OLTP)  │    │            │   │(future)│   │  (future)   │
+│ (OLTP)  │    │            │   │        │   │             │
 └────┬────┘    └─────┬──────┘   └───┬────┘   └──────┬──────┘
      └───────┬───────┘              │               │
      ┌───────▼────────┐             │  (etl/analytics may use an
@@ -7485,8 +7576,12 @@ primitives.
      └────────────────┘
 ```
 
-- **ETL and Analytics depend on `@sisal/core`** (and, to execute, on an
-  adapter). They may consume ORM _types_.
+- **Analytics depends on `@sisal/core`** and executes through a structurally
+  injected adapter database. It must not import `@sisal/orm`, adapters, drivers,
+  migrate, or ETL runtime code.
+- **ETL's job model and SQL compilation depend on `@sisal/core`;** its runner
+  consumes the v0.9 checkpoint/advisory-lock substrate from `@sisal/orm` and
+  executes through an injected adapter database.
 - **`@sisal/orm` must never depend on ETL or Analytics.** The OLTP core stays
   clean; an app that only does CRUD pulls in none of the analytical surface.
 - **Adapters never import each other** and expose their **dialect capabilities**
@@ -7512,8 +7607,11 @@ reconcile.
 
 ## Where we are today (the honest baseline)
 
-As of v0.8, **`@sisal/core` exists** as the extracted lower tier. It owns the
-schema primitives/snapshots, SQL fragment IR, expression operators, capability
+As of v0.11 development, **`@sisal/core` exists** as the extracted lower tier
+and `@sisal/etl` exists as the first downstream package that compiles into it.
+`@sisal/analytics` is being built as the second: a typed semantic layer over
+core expressions/windows and the core statement assembler. Core owns the schema
+primitives/snapshots, SQL fragment IR, expression operators, capability
 registry, renderer, structured errors, and logger contracts. The fluent
 builders, `Database` facade, relations, and typed function caller remain in
 `@sisal/orm`, which re-exports the full core surface so existing imports keep
@@ -10156,34 +10254,159 @@ the `@sisal/core` IR, infers result-row types from the metric/dimension set, and
 renders correct SQL — Postgres-first, with other dialects exposing only the
 subset they support correctly.
 
+## What v0.5 → v0.10 already delivered
+
+v0.11 should **consume** the previous roadmap substrate, not redesign it:
+
+- **v0.5** made the OLTP builder dialect-honest: typed dialect guards, the
+  generated feature matrix, `filter()` aggregates, `dateTrunc()`/`dateBin()`,
+  date math, data-modifying CTEs, typed raw-query mapping, and numeric fixes
+  that analytics math depends on.
+- **v0.6** proved the ETL rollup spine and handed off the genuine analytics
+  gaps: window functions, arrays/set-returning shapes, period comparisons, and
+  rollup-query ergonomics.
+- **v0.7** designed analytics without shipping it: the analytical IR sketch,
+  metric/dimension → row inference prototype, and the decision that core owns
+  grammar-level windows while `@sisal/analytics` owns the semantic API.
+- **v0.8** shipped the compile target analytics needs: `@sisal/core`,
+  `SQL_IR_VERSION`, `expr()`, `assembleSelect()`, `assembleInsertFromSelect()`,
+  `over()`, frames, `rank`/`rowNumber`/`lag`/`lead`, `dateDiff()`, and the
+  capability registry.
+- **v0.9** made dialect truth authoritative: `(engine, variant, version)`
+  identities, matrix cells backed by `capabilitySupported(...)`, numeric/date
+  round-trip truth, and real per-engine verification for the IR shapes analytics
+  will wrap.
+- **v0.10** shipped `@sisal/etl`: typed rollup jobs, generated pushdown SQL,
+  checkpoints, `run`/`backfill`/`replay`, dry-run, scheduler docs, and the
+  `post_events → post_hourly_stats` example. Analytics queries those rollups; it
+  does not own ETL runtime behavior.
+
 ## Package boundary
 
 `@sisal/analytics` depends on `@sisal/core` (and an adapter to execute).
 **`@sisal/orm` must not depend on `@sisal/analytics`.**
 
-## Scope — initial features
+The package may accept an adapter `Database` structurally at execution time, but
+it must not import adapters, database drivers, `@sisal/orm`, `@sisal/migrate`,
+or ETL runtime code. Core changes are allowed only when they are shared
+compile-target additions (for example, a new capability descriptor entry);
+window grammar already lives in core from v0.8.
+
+## Priority summary — v0.11 tasks
+
+| ID  | Task                                                                                    | Source / dependency                | Priority | Effort | Status |
+| --- | --------------------------------------------------------------------------------------- | ---------------------------------- | -------- | ------ | ------ |
+| T1  | `@sisal/analytics` package scaffold, exports, README, workspace metadata, boundary test | v0.7 A3 · v0.8 core extraction     | P1       | M      | 🟢     |
+| T2  | Descriptor model + exact result-row inference (`dimensions × metrics × windows`)        | v0.7 A2 prototype                  | P1       | M      | 🟢     |
+| T3  | Immutable `from()` query builder over table/rollup/subquery sources                     | v0.7 IR sketch · v0.8 assembler    | P1       | L      | 🟢     |
+| T4  | Dimension helpers, including `bucket()` over `dateTrunc`/`dateBin`                      | v0.5 item 9 · v0.6 buckets         | P1       | S      | 🟢     |
+| T5  | Aggregate metric surface (`count`/`sum`/`avg`/`min`/`max`/`countDistinct`)              | v0.5 aggregates · v0.8 `expr()`    | P1       | S      | 🟢     |
+| T6  | Windowed metric surface (`movingAvg`, ranking, `lag`/`lead`, `delta`)                   | v0.8 item 10                       | P1       | L      | 🟢     |
+| T7  | `compareToPreviousWindow()` period-over-period helper                                   | v0.7 IR sketch · contracts 05/06   | P1       | M      | 🟢     |
+| T8  | Percentile investigation + Postgres-first helpers/capability entry                      | v0.7 A4 portability classification | P2       | M      | 🟢     |
+| T9  | `render()` / dry-run API and `execute()` through a structural adapter executor          | v0.8 core IR · v0.10 `explain()`   | P1       | M      | 🟢     |
+| T10 | Analytics capability gate (`supportsQuery`/`assertQuerySupported`)                      | v0.9 capability descriptor         | P1       | M      | 🟢     |
+| T11 | Unit + golden SQL tests for Postgres SQL and type-level inference                       | v0.8 golden-SQL discipline         | P1       | M      | 🟢     |
+| T12 | Per-dialect capability tests: supported subset vs typed unsupported errors              | v0.9 matrix truth                  | P1       | M      | 🟢     |
+| T13 | Five runnable Postgres-first examples / gated integration scenarios                     | v0.11 examples list · v0.10 ETL    | P1       | L      | 🟢     |
+| T14 | `/rising` feed velocity expressed through analytics or explicitly documented gap        | v0.5/v0.6 rising-feed pressure     | P1       | M      | 🟢     |
+| T15 | Advanced-SQL contract graduation/triage for contracts 02–06                             | v0.7 analytics contracts           | P2       | M      | 🔴     |
+| T16 | Feature matrix + compatibility docs for shipped analytics rows                          | v0.5/v0.9 matrix discipline        | P1       | M      | 🔴     |
+| T17 | Rollup-first performance docs and ETL handoff guidance                                  | v0.10 ETL                          | P2       | S      | 🟡     |
+| T18 | Release hygiene: docs coverage, llms docs, changelog, publish dry-run                   | workspace release discipline       | P1       | M      | 🟡     |
+
+**P1 spine.** T1 → T14 are now in place for the package API, compile path,
+capability gate, unit/golden proof, and dry-run example proof. T16/T18 close the
+release. T15/T17 may record a scoped defer if the example work shows a helper
+would over-expand the preview.
+
+## Task detail
+
+- **T1 — Package scaffold. ✅ Done.** New `packages/analytics` with a small
+  `mod.ts`, public docs, JSR metadata, root workspace wiring, and a boundary
+  test proving `@sisal/core`/`@sisal/orm`/`@sisal/migrate` never import
+  analytics and analytics never imports adapters, drivers, ORM, migrate, or ETL
+  runtime code.
+- **T2 — Descriptor model + result inference. ✅ Done.** Graduate the v0.7
+  `analytics_result_inference_test.ts` prototype into the real package. The row
+  type must be inferred from dimension, metric, and window maps, preserving
+  aggregate nullability and offset-window nullability.
+- **T3 — Query builder. ✅ Done.** `from(source)` accepts a table, rollup table,
+  or subquery fragment; `where`, `dimensions`, `metrics`, `windows`, `orderBy`,
+  and `limit` are immutable; duplicate keys and unknown references fail with
+  typed `OrmError`s.
+- **T4 — Dimensions and buckets. ✅ Done.** `bucket(width, source)` wraps core
+  `dateTrunc`/`dateBin`, marks the time axis for period comparison, and
+  documents the value-shape differences (`timestamp` on Postgres, text on the
+  SQLite/MySQL families).
+- **T5 — Aggregate metrics. ✅ Done.** Re-export core aggregate helpers for the
+  common metric surface and allow any typed `SqlExpression<T>` as a metric
+  value. Metric references inside windows inline the aggregate expression,
+  because SQL window evaluation happens after grouping.
+- **T6 — Windowed metrics. ✅ Done.** Wrap core `over()` primitives into
+  analytics descriptors: trailing `movingAvg`, `rank`, `denseRank`, `rowNumber`,
+  `lag`, `lead`, and `delta`. Validate required ordering and frame sizes at
+  definition time.
+- **T7 — Period comparison. ✅ Done.** `compareToPreviousWindow(metric)` finds
+  the single `bucket()` dimension by default, partitions by non-time dimensions,
+  and adds previous/delta fields. Ambiguous or missing time axes fail typed.
+- **T8 — Percentiles. ✅ Done.** `percentileCont`/`percentileDisc` ship as
+  experimental public helpers with a single core capability entry for
+  ordered-set aggregates. They fail closed off Postgres until
+  MySQL/MariaDB/SQLite variants are probed.
+- **T9 — Render and execute. ✅ Done.** `toSql()` compiles to core
+  `assembleSelect()`; `render(identity)` is the dry-run surface; `execute(db)`
+  accepts a structural executor with `dialectIdentity` and returns typed rows
+  without importing an adapter.
+- **T10 — Capability gate. ✅ Done.** `supportsQuery` and `assertQuerySupported`
+  must render-probe the exact query against the exact identity before execution.
+  Unsupported shapes throw `ANALYTICS_UNSUPPORTED_QUERY`, not raw engine errors.
+- **T11 — Unit/golden tests. ✅ Done.** Pin Postgres SQL for a query containing
+  dimensions, metrics, a windowed metric, comparison fields, `orderBy`, and
+  `limit`; add type-level tests for exact row inference and runtime validation
+  tests for duplicate/unknown keys.
+- **T12 — Dialect capability tests. ✅ Done.** Exercise the supported window
+  subset on SQLite/libSQL/MySQL when renderable, and assert typed failures for
+  percentiles, unsupported frame units, and any future analytics-only construct.
+- **T13 — Runnable examples / integration scenarios. ✅ Done.** The five roadmap
+  examples are pinned as Postgres dry-run tests in
+  `packages/analytics/examples_test.ts`: post engagement over time, active users
+  by day, top posts by engagement, `/rising` velocity, and presentation-ready
+  chart rows from rollups. Future live integration can build on these exact
+  shapes.
+- **T14 — `/rising` proof. ✅ Done.** The recent-velocity query is expressed
+  through analytics descriptors (`movingAvg`, `rank`, and
+  `compareToPreviousWindow`) without raw SQL in the analytics package.
+- **T15 — Advanced-SQL contract graduation.** Revisit contracts 02 (window
+  analytics), 03 (sessionization), 04 (top-N per group), 05 (cohort retention),
+  and 06 (funnel analysis). Mark each as builder-native, analytics-native, still
+  raw, or explicitly deferred with the missing helper named.
+- **T16 — Matrix and compatibility docs.** Add feature-matrix rows only for
+  integration-backed analytics scenarios; update compatibility docs with the
+  Postgres-first support story and typed unsupported behavior.
+- **T17 — Rollup-first guidance. 🟡 Partial.** The package README states the
+  rollup-first model and ETL handoff. Dedicated docs/examples still need to land
+  with T13/T14. Materialized views from v0.10 are an acceleration option, not an
+  analytics runtime dependency.
+- **T18 — Release hygiene. 🟡 Partial.** `CHANGELOG.md`, package README/module
+  docs, generated LLM docs, docs coverage, type checks, unit tests, and publish
+  dry-runs are current for T1–T14. It stays partial until T15–T17/T16 are either
+  done or explicitly deferred.
+
+## Initial public surface
 
 - **typed analytical `from()`** — a source (table / rollup / subquery).
-- **dimensions** — typed group keys (incl. `bucket()` time dimensions).
-- **metrics** — typed aggregate/window expressions: `count()`, `sum()`, `avg()`,
-  `min()`, `max()`, `countDistinct()`.
-- **windowed metrics** — `movingAvg()`, `rank()`, `lag()`, `lead()`.
-- **`bucket()`** — time bucketing (built on the v0.6/v0.8 bucket abstraction).
-- **percentile investigation** — `percentile_cont`/`disc` as a
-  prototype/Postgres-first feature (may stay experimental).
-- **`compareToPreviousWindow()`** — period-over-period comparison.
-- **result typing for computed metrics** — `{dimensions, metrics}` → typed row.
-
-## Examples to include
-
-- **post engagement over time** (time series from `post_hourly_stats`).
-- **active users by day** (countDistinct over a day bucket).
-- **top posts by engagement** (rank/order over a rollup).
-- **`/rising` feed using recent velocity** — the moving-window score the
-  `*-rising-feed` examples hand-write today, now expressed via the analytics
-  API.
-- **presentation-ready time series** from rollup tables (typed rows an app can
-  hand directly to a chart renderer).
+- **dimensions** — typed group keys, including `bucket()` time dimensions.
+- **metrics** — typed aggregate expressions: `count()`, `sum()`, `avg()`,
+  `min()`, `max()`, `countDistinct()`, and typed custom expressions.
+- **windowed metrics** — `movingAvg()`, `rank()`, `denseRank()`, `rowNumber()`,
+  `lag()`, `lead()`, and `delta()`.
+- **`compareToPreviousWindow()`** — period-over-period comparison over a time
+  bucket axis.
+- **percentiles** — experimental Postgres-first `percentile_cont`/`disc` helpers
+  with typed capability failures elsewhere.
+- **result typing** — `{ dimensions, metrics, windows }` infers a typed result
+  row.
 
 ## Non-goals
 
@@ -10212,33 +10435,49 @@ time-series DB, is a _possible_ later direction but is **not** planned.)
   grammar-level window expressions (`over()`, frames, `rank`/`row_number`/
   `lag`/`lead`) are core primitives; analytics wraps them in the semantic layer
   (named windows, moving averages, period comparisons).
-- Percentiles: ship Postgres-first now, or keep experimental?
-- How much of the API can SQLite/libSQL honestly support (modern SQLite has
-  window functions; PARTITION/frame/percentile coverage varies)?
+- ~~**Percentiles:** ship Postgres-first helpers now, or keep them explicitly
+  experimental?~~ **Answered by T8:** ship public experimental
+  `percentileCont`/`percentileDisc`, backed by a core ordered-set-aggregate
+  capability and fail-closed elsewhere.
+- **SQLite/libSQL/MySQL support level:** which windowed analytics are truly
+  supported at Sisal's version floors, and which stay typed capability gaps? T12
+  and T16 must close this with tests/docs.
+- **Contract helpers:** do sessionization, cohort retention, and funnel analysis
+  need first-event helpers (`firstValue`/`minBy`/dedicated funnel descriptors),
+  or should v0.11 stop at the five preview examples and record those as future
+  product helpers? T15 must answer without expanding the P1 spine silently.
 
 ## Acceptance criteria
 
 - A typed analytical query (dimensions + metrics + a windowed metric) compiles
   to correct PostgreSQL and returns a **typed** result row inferred from its
-  definition.
-- `compareToPreviousWindow()` produces correct period-over-period results.
+  definition. — **T2/T3/T6/T11**
+- `compareToPreviousWindow()` produces correct period-over-period results. —
+  **T7/T11/T13**
 - The `/rising` velocity feed is expressible through the API (or the doc states
-  precisely which sub-feature still needs raw SQL).
+  precisely which sub-feature still needs raw SQL). — **T14**
 - Unsupported analytics on SQLite/libSQL fail with a typed capability error, not
-  a raw engine error.
-- `@sisal/orm` has **no** dependency on `@sisal/analytics`.
+  a raw engine error. — **T10/T12/T16**
+- The five preview examples are runnable Postgres-first, gated integration
+  scenarios or documented dry-run examples where no database is needed. —
+  **T13**
+- `@sisal/orm` has **no** dependency on `@sisal/analytics`. — **T1**
 
 ## Affected packages
 
-New `@sisal/analytics`; depends on `@sisal/core` + an adapter. Possibly minimal
-window primitives added to `@sisal/core` (shared). No `@sisal/orm` change.
+New `@sisal/analytics`; depends on `@sisal/core` and accepts an adapter executor
+structurally. `@sisal/core` may receive analytics-relevant capability registry
+entries, but not analytics-domain builders. No `@sisal/orm` dependency or
+analytics import is allowed.
 
 ## Required examples / tests
 
-- The five examples above as runnable, Postgres-first, gated integration tests.
-- Type-level tests pinning metric→row inference.
-- Per-dialect capability tests (supported / typed-error) for
-  windows/percentiles.
+- Unit/golden tests for T2–T11, including type-level row inference.
+- Per-dialect capability tests for T12.
+- The five preview examples from T13 as runnable, Postgres-first, gated
+  integration tests or dry-run examples with exact SQL.
+- Contract triage updates for advanced-SQL contracts 02–06.
+- Boundary/import tests proving dependency direction.
 
 ## Dialect compatibility notes
 
@@ -10246,6 +10485,17 @@ window primitives added to `@sisal/core` (shared). No `@sisal/orm` change.
 (serverless caveats from v0.9). SQLite/libSQL expose only the window/aggregate
 subset they support correctly; everything else is a typed capability gap, not a
 silent degradation.
+
+Feature-matrix rows must be added only after named integration scenarios exist.
+Until then, the compatibility docs should describe analytics as preview,
+Postgres-first, and capability-gated.
+
+## Tracking
+
+When a task lands, update the tests/docs named above, flip it to 🟢, and record
+the user-visible change under `Unreleased` in [CHANGELOG.md](../CHANGELOG.md).
+v0.11 is complete only when T1–T18 are either 🟢 or explicitly deferred with the
+reason and non-goal recorded here.
 ```
 
 ### docs/v0.4.0-roadmap.md
