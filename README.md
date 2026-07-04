@@ -418,21 +418,21 @@ prepared rollups instead of rescanning raw event streams on every request.
 - Structured `SisalError`, `OrmError`, and `MigrationError` classes plus
   configurable logger contracts.
 
-The v0.9 release also landed the substrate the ETL layer builds on — a portable
+Sisal also includes the substrate the ETL layer builds on: a portable
 advisory-lock/claim abstraction, an atomic load-and-advance checkpoint, and a
 replay-vs-retention guard. The `@sisal/etl` preview (a typed rollup job + a
-single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are current
-roadmap milestones — lightweight by design, per the scope note above.
+single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are
+lightweight by design, per the scope note above.
 
 ## Packages
 
 Core packages:
 
-| Package          | Purpose                                                                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@sisal/core`    | The public driverless base (extracted in v0.8): schema primitives, the SQL IR, expression operators, the capability registry, and the dialect renderer. |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging.                                       |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.                                        |
+| Package          | Purpose                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `@sisal/core`    | The public driverless base: schema primitives, the SQL IR, expression operators, the capability registry, and the dialect renderer. |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging.                   |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.                    |
 
 `@sisal/core` is a public JSR package, but `@sisal/orm` re-exports its entire
 surface — most projects install `@sisal/orm` + `@sisal/migrate` + one adapter
@@ -503,6 +503,8 @@ SISAL_MYSQL_IT=1 MYSQL_URL=mysql://... deno test -A integration/mysql_features_t
 SISAL_MARIADB_IT=1 MARIADB_URL=mysql://... deno test -A integration/mariadb_features_test.ts
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
   integration/pg_migrate_apply_test.ts
+DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
+  integration/analytics_features_test.ts
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
   --allow-ffi integration/cross_adapter_parity_test.ts
 ```

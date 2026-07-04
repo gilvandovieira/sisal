@@ -489,6 +489,11 @@
           "jsr:@std/assert@1"
         ]
       },
+      "examples/postgres-family-analytics": {
+        "dependencies": [
+          "jsr:@std/assert@1"
+        ]
+      },
       "examples/postgres-family-feed": {
         "dependencies": [
           "jsr:@std/assert@1"

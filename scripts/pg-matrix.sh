@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #
-# Runs the Sisal PostgreSQL feature suite against PostgreSQL 16, 17, and 18 and
-# prints a per-feature compatibility matrix.
+# Runs the Sisal PostgreSQL feature suite plus PostgreSQL-family analytics
+# integration proof against PostgreSQL 16, 17, and 18 and prints a per-feature
+# compatibility matrix.
 #
 # Requires Docker and a local Deno. Brings the servers up with
-# docker/compose.yaml, runs integration/pg_features_test.ts against each over a
-# published port, then tears the servers down.
+# docker/compose.yaml, runs integration/pg_features_test.ts and
+# integration/analytics_features_test.ts against each over a published port,
+# then tears the servers down.
 #
 #   scripts/pg-matrix.sh                 # run the full matrix
 #   KEEP_UP=1 scripts/pg-matrix.sh       # leave servers running afterwards
@@ -55,6 +57,10 @@ for v in "${VERSIONS[@]}"; do
   url="postgres://postgres:postgres@localhost:${PORT[$v]}/sisal"
   if ! DATABASE_URL="$url" deno test --allow-net --allow-env --allow-read \
     integration/pg_features_test.ts 2>&1 | strip_ansi | tee ".pg-matrix/pg$v.log"; then
+    failed=1
+  fi
+  if ! DATABASE_URL="$url" deno test --allow-net --allow-env --allow-read \
+    integration/analytics_features_test.ts 2>&1 | strip_ansi | tee -a ".pg-matrix/pg$v.log"; then
     failed=1
   fi
 done
