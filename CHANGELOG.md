@@ -9,6 +9,10 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ## Unreleased
 
+_No unreleased changes._
+
+## 0.11.0 - 2026-07-04
+
 ### Added
 
 - Reworked the root README's advanced Sisal example into a staged product-feed
@@ -19,6 +23,33 @@ Sisal-specific history after that baseline through `1f05448`.
   recommended for production deployments, and clarifies that advanced query
   building is a core strength while ETL/analytics are entry points rather than
   deep data-platform replacements.
+- **Full `examples/` review for the v0.11 capstone.** The examples directory is
+  now a coherent learning path (basic → showcase → feed → advanced SQL → ETL +
+  analytics → logging), documented in a rewritten
+  [`examples/README.md`](examples/README.md) with a per-example capability
+  matrix and explicit dry-run / live-DB / permission / Postgres-only notes.
+  - New runnable
+    [`examples/postgres-family-analytics`](examples/postgres-family-analytics/)
+    — the first first-class `@sisal/analytics` example (dimensions, `bucket`,
+    `movingAvg`, `rank`, `compareToPreviousWindow`, `supportsQuery`), reading
+    the **same `post_hourly_stats` rollup** that `postgres-family-etl-cron`
+    writes. Added to the workspace and the network-free `deno task test`
+    (`analytics_test.ts`).
+  - `postgres-family-etl-cron` now folds `community_id` and a weighted
+    `engagement_score` so ETL and analytics share one vocabulary; both examples
+    cross-link (ETL builds the rollups, analytics reads them).
+  - `basic` examples now show a full insert → select → update → delete cycle;
+    the `logging` example demonstrates parameter/DSN/token redaction and both
+    redaction modes; every example family gained a normalized README, and the
+    `feed`/showcase examples gained consistent `run` tasks (dry-run or a clear
+    "set env var" message).
+  - Triaged all twelve `advanced-sql-contracts` against today's surface (a new
+    v0.11 status table mapping each to `builder-native` / `analytics-native` /
+    `etl-native` / raw / obsolete), and refreshed the advanced-SQL example
+    READMEs that still described builder-native shapes as raw SQL.
+  - Fixed stale `neon-hot-feed` naming/paths, clarified `activity-vectors` is
+    feature vectors (not pgvector), and moved the network-free feed/hot-feed/
+    vector unit tests into the root `deno task test`.
 - **`@sisal/analytics` (v0.11 preview) — the typed analytical query spine,
   Postgres-first percentiles, and capability-gated execution** (roadmap T1–T12).
   New workspace package `packages/analytics` with a single `.` export:
@@ -50,6 +81,28 @@ Sisal-specific history after that baseline through `1f05448`.
     through the public analytics API, including the `/rising` velocity feed
     (`movingAvg` + `rank` + `compareToPreviousWindow`) with no raw SQL in the
     analytics package.
+- **Live PostgreSQL analytics proof.** Added
+  `integration/analytics_features_test.ts`, which creates a rollup-like
+  `post_hourly_stats` table, seeds multiple posts and buckets, renders a
+  parameterized analytics query, and executes dimensions, `bucket`, aggregate
+  metrics, `movingAvg`, `rank`, `compareToPreviousWindow`, ordering, and limit
+  through the real PostgreSQL adapter. `scripts/pg-matrix.sh` now runs this
+  proof beside the PostgreSQL feature suite.
+- **PostgreSQL-family analytics example.** Added
+  `examples/postgres-family-analytics`, a dry-run/live example reading the same
+  `post_hourly_stats` rollup produced by `examples/postgres-family-etl-cron`.
+  The ETL cron example now writes `community_id` and `engagement_score` so the
+  analytics example can demonstrate velocity and per-community ranking over
+  prepared rollups.
+- **Workspace boundary pin.** Added `tools/lint/package_boundary_test.ts`,
+  covering the full layered graph: `@sisal/core` stays driverless, ORM/migrate
+  stay below preview layers, analytics stays core-only, ETL keeps its documented
+  runtime ORM edge, adapters only reuse documented adapter boundaries, and
+  examples import public package surfaces.
+- **Example and package documentation hardening.** Added/expanded README files
+  for logging, basic/showcase examples, package adapter checklists, and the
+  examples index so release readers can see drivers, permissions, migrations,
+  transactions/batch, ETL/analytics compatibility, and security caveats.
 - **v0.11 roadmap tasklist from the v0.5→v0.10 review.**
   `docs/v0.11.0-roadmap.md` now records the prerequisite trail from v0.5 dialect
   honesty through v0.10 ETL, and tracks concrete analytics tasks T1–T18 instead
@@ -153,8 +206,32 @@ Sisal-specific history after that baseline through `1f05448`.
 - Bumped workspace package and example manifest versions to `0.11.0`, refreshed
   README install pins, and updated the migration CLI's default adapter version
   prompts to `^0.11.0`.
+- `bucket()` now returns text consistently across supported SQL families. The
+  PostgreSQL rendering wraps `date_trunc`/`date_bin` output with `to_char(...)`
+  so the runtime value matches the public `SqlExpression<string>` contract and
+  analytics result-row type.
+- CI/root release gates now run the workspace test suite, dependency audit,
+  image pinning check, docs checks, feature-matrix check, type check, and
+  publish dry-run. The root `deno task test` also includes network-free
+  feed/hot/activity-vector/analytics example tests.
+- `docs/feature-matrix.md` now includes a generated analytics preview support
+  table that distinguishes live PostgreSQL proof, golden SQL/render-proven
+  support, capability-gated unsupported percentiles, and deferred non-PostgreSQL
+  live execution.
+- `docs/v0.11.0-roadmap.md` now reflects release truth: analytics is the final
+  roadmap milestone, the package remains intentionally flat for this release,
+  advanced-SQL contracts are triaged, rollup-first guidance is documented, and
+  deferred analytics ambitions are recorded as non-goals/future work.
 
 ### Security
+
+The v0.11 security refresh updates `SECURITY.md` and `docs/security.md` for the
+entire workspace, including `@sisal/core`, `@sisal/orm`, `@sisal/migrate`,
+`@sisal/etl`, `@sisal/analytics`, every adapter, tools, examples, integration
+suites, CI workflows, manifests, and `deno.lock`. The docs now distinguish live
+integration-proven support from render/golden-SQL support and call out raw SQL,
+trusted migration config, Deno permissions, TLS/DSN handling, logging/error
+redaction, checkpoint/lock safety, and supply-chain gates.
 
 Resolves every open finding from the 0.9.0 security audit (SEC-008 through
 SEC-016; see [`docs/security.md`](docs/security.md)). Each fix is pinned by a
