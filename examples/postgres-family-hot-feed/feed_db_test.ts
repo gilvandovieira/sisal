@@ -8,7 +8,7 @@
  *
  *   SISAL_NEON_HOT_FEED_IT=1 \
  *     DATABASE_URL="postgres://user:pw@ep-xxx.neon.tech/db?sslmode=require" \
- *     deno test -A examples/neon-hot-feed/feed_db_test.ts
+ *     deno test -A examples/postgres-family-hot-feed/feed_db_test.ts
  *
  * Covers: vote_post create / switch / remove, score+aggregate consistency,
  * stored hot_score matching the TypeScript model, stable hot ordering, and
