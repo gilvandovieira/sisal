@@ -64,6 +64,33 @@ migration diffs, and every builder shape rendered as Postgres SQL. With
 `DATABASE_URL`, a live transaction that inserts, joins, round-trips
 jsonb/arrays, and then rolls back.
 
+## Sisal API pressure points
+
+Honest gaps this example ran into, and the places where a raw escape hatch was
+_not_ needed. This is the richest, cleanest showcase — Postgres backs almost the
+whole builder surface natively — so the friction here is small.
+
+1. **Intentional transaction rollback needs a thrown-sentinel workaround, not a
+   first-class `tx.rollback()`.** _API gap._ `db.transaction(...)` has no way to
+   abort and return normally, so the live path defines a `Rollback` error,
+   throws it to unwind the transaction (`mod.ts:308`, `mod.ts:367`), and then
+   has to walk the `cause` chain because the ORM re-wraps callback errors in an
+   `OrmError` (`isRollback`, `mod.ts:312`–`mod.ts:321`). A first-class
+   `tx.rollback()` / abort primitive would remove the sentinel and the
+   cause-chain walk.
+2. **The Neon local-proxy wiring reaches into an untyped `neonConfig` global.**
+   _Driver/engine limitation (correctly NOT a Sisal gap)._ Enabling the local
+   WebSocket proxy casts the `@neon/serverless` module `as unknown` to poke
+   `neonConfig.wsProxy` (`mod.ts:411`–`mod.ts:413`). That is the third-party
+   serverless driver's own global configuration, not the Sisal ORM surface, and
+   only matters for the local `NEON_WS_PROXY` test path.
+3. **Native `ILIKE`, `jsonb`, `text[]`, and `bytea` are builder-native — no raw
+   SQL at all.** _Notably NOT a pressure point._ The file imports no `sql` tag;
+   `ilike(...)` renders native (`mod.ts:234`–`mod.ts:241`) and jsonb + arrays
+   round-trip parsed and typed over the live driver (`mod.ts:360`–`mod.ts:365`).
+   Everything the SQLite and MySQL twins have to degrade or guard is expressed
+   here through the plain fluent builder.
+
 ## Notes
 
 Columns are nullable by default; `.notNull()` opts out and `.primaryKey()`

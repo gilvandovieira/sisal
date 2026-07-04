@@ -57,6 +57,32 @@ your own server.
 The generated `CREATE TABLE sisal_basic_users (...)` DDL, then (with a URL) the
 selected `#id name`, and the post-delete count.
 
+## Sisal API pressure points
+
+The one place a basic CRUD cycle diverges on the MySQL family is `RETURNING`,
+and it is correctly a driver/engine limitation, not a Sisal gap:
+
+1. **MySQL proper has no `INSERT ... RETURNING`, so the inserted row is read
+   back with a separate typed select.** Driver/engine limitation: MySQL 8/9 has
+   no `RETURNING` clause, so the example inserts, then selects the serial `id`
+   and `name` back by the unique `email` (`mod.ts:64-69`). Correctly not a Sisal
+   gap — and Sisal already ships the builder-native answer for "give me the rows
+   I just inserted": `@sisal/mysql`'s `insertReturning(db, table, values)`,
+   which tries real `RETURNING` (lit on MariaDB ≥ 10.5) and otherwise does a
+   fetch-by-key fallback, recovering an `AUTO_INCREMENT` / `serial` id via
+   `LAST_INSERT_ID`. The basic example does the manual select on purpose, to
+   keep the first-five-minutes flow transparent and engine-agnostic.
+2. **The update has no `RETURNING` either, so it does not read its new row
+   back.** Driver/engine limitation: base MySQL has no `UPDATE ... RETURNING`
+   (MariaDB's is version-gated), so the example updates by `email` and moves on
+   without a returned row (`mod.ts:71-73`). `insertReturning` covers inserts but
+   not updates; a returned-row update on base MySQL would need a follow-up
+   select. Correctly not a Sisal gap.
+3. **The post-delete count is a raw `sql` query, not a builder helper — not a
+   gap.** As in the sibling basics, `db.$count(users)` covers this count
+   builder-native; the raw `count(*)` (`mod.ts:80-82`) is kept only to show the
+   `sql` / `db.query` escape hatch.
+
 ## Notes
 
 `update`/`delete` with no `where` throw unless you first call

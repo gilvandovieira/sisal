@@ -57,6 +57,27 @@ libSQL may write a local file.
 The generated `CREATE TABLE "notes" (...)` DDL, then the selected title, the
 archived flag (`1`), and the post-delete count (`0`).
 
+## Sisal API pressure points
+
+Like the PostgreSQL basic, this is the clean happy path — the builder carried
+the full CRUD cycle, and SQLite supports `RETURNING`, so the update reads its
+new row back builder-native (`mod.ts:58-59`). The only friction is inherent
+dialect/driver behavior, not a Sisal gap:
+
+1. **Booleans round-trip as `0`/`1`, so the archived flag prints `1`, not
+   `true`.** Driver/engine limitation: SQLite (and therefore libSQL) has no
+   native boolean type, so `archived` comes back as `1` (`mod.ts:57-60`). The
+   example just prints it; no workaround is needed. Correctly not a Sisal gap.
+2. **The native drivers need broad permissions (`-A` / FFI, libSQL also
+   `--allow-sys`).** Driver/engine limitation: `@db/sqlite` loads a native
+   library via FFI and the native libSQL client probes CPU/arch, so the tasks
+   run with `-A`. Nothing in the ORM code works around it; it is a runtime
+   permission fact, not a Sisal gap.
+3. **The post-delete count is a raw `sql` query, not a builder helper — not a
+   gap.** As in the PostgreSQL basic, `db.$count(notes)` covers this count
+   builder-native; the raw `count(*)` (`mod.ts:66-68`) is kept only to
+   demonstrate the `sql` / `db.query` escape hatch.
+
 ## Notes
 
 `update`/`delete` with no `where` throw unless you first call

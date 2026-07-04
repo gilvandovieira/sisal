@@ -58,6 +58,20 @@ NEON_WS_PROXY=     # optional; for a local neon-proxy under SISAL_ADAPTER=neon
 The generated `CREATE TABLE "users" (...)` DDL, then (with `DATABASE_URL`) the
 selected row, the updated name, and the post-delete count.
 
+## Sisal API pressure points
+
+This basic example is the clean happy path. The fluent builder carried the whole
+CRUD cycle — insert, typed select, `update(...).returning()`, delete — with no
+dialect guards, driver quirks, or raw-SQL workarounds in the mutation code.
+PostgreSQL supports `RETURNING`, so the update reads its new row back
+builder-native (`mod.ts:73-74`). One honest, non-gap note:
+
+1. **The post-delete count is a raw `sql` query, not a builder helper — not a
+   gap.** `db.$count(users)` is builder-native and covers exactly this count;
+   the example keeps the raw `count(*)` query (`mod.ts:82-84`) only to show the
+   parameterized `sql` / `db.query` escape hatch exists. Correctly not a Sisal
+   gap.
+
 ## Notes
 
 `update`/`delete` with no `where` throw unless you first call

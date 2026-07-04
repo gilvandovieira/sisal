@@ -61,6 +61,53 @@ secret-looking value (`"password=swordfish"`) shows as
 `{ "type": "string", "length": 18, "redacted": true }` — the value never
 appears. With `parameters: "off"`, the bind events carry no summaries at all.
 
+## Sisal API pressure points
+
+Honest gaps this example ran into. Each is a candidate for future Sisal work.
+The redaction posture itself is the happy path — Sisal does the parameter, DSN,
+token, and error-cause scrubbing for you — so the friction here is almost
+entirely in **bridging Sisal's `Logger` contract to a real sink**, not in the
+logging behavior.
+
+1. **No built-in logger bridges — every sink is hand-wired.** Sisal accepts a
+   `Logger` but ships no adapter for the common ones, so each of the three
+   loggers here is a hand-written shim: the console logger (`mod.ts:24-37`), the
+   `@std/log` bridge (`std_log.ts:30-55`), and the Pino bridge
+   (`pino.ts:17-38`). A first-party `@sisal/logger-std` / Pino/Pequi bridge
+   would delete all of this glue. _API gap._
+2. **`LoggerMethod`'s dual call signature forces an `as LoggerMethod` cast.**
+   The contract is an overloaded interface — `(message)` **and**
+   `(record, message)` (`packages/core/logger.ts:65-68`) — which a single arrow
+   function can't satisfy structurally, so both shims that build a method from
+   scratch cast their closure (`mod.ts:27`, `std_log.ts:27`). A helper that
+   adapts a plain `(record?, message) => void` into a `LoggerMethod` would
+   remove the unsafe cast. _API gap._
+3. **`@std/log`'s argument order is reversed, so the bridge reorders by hand.**
+   Sisal calls `(record, message)` for structured events, but `@std/log`'s
+   methods are `(message, ...args)`; the shim has to detect the one-arg case and
+   swap the operands (`std_log.ts:17-28`). Pino happens to be record-first, so
+   its methods bind directly (`pino.ts:31-37`) — the mismatch is purely the
+   third-party signature, not something Sisal can normalize away.
+   _Driver/runtime limitation._
+4. **`@std/log` has no `trace` level, so `trace` is folded into `debug`.**
+   Sisal's `Logger.trace` is optional (`packages/core/logger.ts:76`), but
+   `@std/log` bottoms out at `DEBUG`, so the bridge maps both Sisal levels onto
+   `logger.debug` (`std_log.ts:49`) and loses the trace/debug distinction at the
+   sink. _Driver/runtime limitation._
+5. **Pino is `npm:` and drags in extra Deno permissions and config.** Pino is
+   imported as `npm:pino` (`deno.json:8`), and because it reads the host
+   environment the tasks need `--allow-sys=hostname` (`deno.json:12-13`) and the
+   logger sets `base: undefined` to suppress the pid/hostname fields Sisal never
+   asked for (`pino.ts:21`). The pure-JSR `@std/log` path needs neither.
+   _Driver/runtime limitation._
+6. **`memoryOrmDriver()` can only demonstrate the parameter-redaction half.**
+   The demo runs against the memory driver (`shared.ts:32-33`), which has no
+   connection string and never raises a driver error — so it can exercise SQL
+   text and bind-parameter redaction but **cannot** show the DSN, token, and
+   driver-error-cause scrubbing the Notes below advertise (`README.md:113-116`,
+   SEC-010 / SEC-011 / SEC-003). Seeing those redactions in action requires a
+   real adapter. _Driver/runtime limitation._
+
 ## Notes
 
 This aligns with [`docs/security.md`](../../docs/security.md) and

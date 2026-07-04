@@ -70,6 +70,56 @@ Sectioned output: generated DDL, classified migration diffs, builder SQL
 — with a URL — a live tour that creates, queries, upserts, folds a rollup, then
 drops its tables.
 
+## Sisal API pressure points
+
+Honest gaps this example ran into, kept distinct from the MySQL-family dialect
+limits Sisal guards for you. The MySQL divergences below are authoritative per
+the "MySQL-family divergences" bullet in `CLAUDE.md`.
+
+1. **Base-MySQL `.returning()` is a typed guard; the example uses the
+   `insertReturning` fetch-by-key fallback.** _Driver/engine limitation
+   (correctly NOT a Sisal gap)._ Rendering `insert(...).returning()` raises an
+   `OrmError` that the demo catches and prints (`mod.ts:158`–`mod.ts:164`,
+   `mod.ts:286`–`mod.ts:298`); live code reaches for
+   `insertReturning(db, users,
+   {...})` instead (`mod.ts:355`). MariaDB lights
+   real `RETURNING` up through detected identity — the fallback is only for
+   MySQL proper.
+2. **Arithmetic in the rollup's `engagement` column falls back to the raw `sql`
+   template.** _API gap._ `votes * 2.0 + comments * 3.0` has no
+   expression-arithmetic builder, so it is hand-written through the `sql` tag
+   inside an otherwise fully builder-native insert-from-select (`mod.ts:316`–
+   `mod.ts:318`, and again live at `mod.ts:463`–`mod.ts:465`). Numeric
+   expression operators are the primitive that would close it.
+3. **A data-modifying CTE needs a hand-written branch on
+   `db.dialectIdentity.variant`.** _Driver/engine limitation (the branch is the
+   friction)._ MariaDB parses `WITH` only on `SELECT`, so a CTE-prefixed
+   mutation is a typed guard; the example branches to a derived-table
+   `update(posts).from(big)` for MariaDB versus `db.with(big).update(posts)` for
+   MySQL (`mod.ts:429`–`mod.ts:443`). The divergence is a real engine limit, but
+   the manual `variant` switch is the workaround Sisal makes you write.
+4. **Table teardown uses raw `drop table if exists` — the DDL pipeline is
+   additive-only.** _API gap (by design)._ Cleanup drops the five tables via
+   `raw(...)` (`mod.ts:483`–`mod.ts:489`) because generators emit only additive
+   SQL and withhold destructive changes; there is no programmatic drop builder
+   to express the teardown that MySQL's implicit DDL commit forces here.
+5. **MySQL timestamps are hand-formatted in TypeScript.** _API gap (ergonomic)._
+   `timestamp({ mode: "string" })` columns need `YYYY-MM-DD HH:MM:SS.ffffff`, so
+   the example ships a `mysqlTimestamp(new
+   Date())` helper
+   (`mod.ts:491`–`mod.ts:493`) used by both `$onUpdate` (`mod.ts:91`) and
+   inserts (`mod.ts:295`). The Postgres twin passed `new Date()` straight into a
+   `mode: "date"` column; a MySQL `mode: "date"` that formats on write would
+   remove the helper.
+6. **`ILIKE` degrades to `LIKE`, `text[]` has no native MySQL type, `dateTrunc`
+   returns text.** _Driver/engine limitations (correctly NOT Sisal gaps)._
+   `ilike(...)` renders as `LIKE` (`mod.ts:252`–`mod.ts:260`);
+   `tags:
+   columns.text().array()` has no native array type to map to
+   (`mod.ts:88`); and the rollup's `dateTrunc("hour", ...)` returns text
+   (`mod.ts:308`). All three are engine behavior Sisal reports faithfully, not
+   missing primitives.
+
 ## Notes
 
 Columns are nullable by default; `.notNull()` opts out. Check the feature matrix
