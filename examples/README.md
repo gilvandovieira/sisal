@@ -1,57 +1,156 @@
 # Sisal examples
 
-This directory holds two kinds of thing, kept deliberately separate:
+These examples are part of the product surface: they teach the package
+architecture, adapter boundaries, the ORM/query builder, migrations, ETL,
+analytics, logging, and dialect portability — honestly. Each **runnable**
+example is a Deno workspace package (its own `deno.json` + `mod.ts`, listed in
+the root `deno.json` workspace) and is type-checked by `deno task check`.
 
-1. **Runnable examples** — real Deno workspace packages (each has a `deno.json`
-   - `mod.ts`), listed in the root `deno.json` `workspace` array and
-     type-checked by `deno task check`. You can run them against a real
-     database.
-2. **Documentation-only future contracts** — Markdown-only scaffolds that
-   preserve advanced-SQL example ideas before the features they need exist. They
-   are **not runnable and not part of the workspace**.
+## How to read these examples
 
-## Runnable examples
+1. Start with **basic** — connect and do typed CRUD.
+2. Move to **showcase** — the broad tour of schema + query features.
+3. Read **feed** for app-style usage (keyset pagination, ranking).
+4. Read **advanced SQL** for serious query shapes (windows, recursive CTEs, …).
+5. Read **ETL + analytics** together — ETL builds rollups, analytics reads them.
+6. Use **logging** when debugging or wiring production observability.
 
-Each is a workspace package; see its own `README` (where present) and
-`deno.json` tasks for how to run it.
+## Families
 
-| Example                                                                          | Engine            | What it shows                                                                                                                                                                                                                                                |
-| -------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`postgres-family-basic`](postgres-family-basic/)                                | PostgreSQL family | Minimal DDL + connect/CRUD over `@sisal/pg` (`@db/postgres` or postgres.js) or `@sisal/neon` via `SISAL_ADAPTER`. Consolidates `basic-postgres`.                                                                                                             |
-| [`sqlite-family-basic`](sqlite-family-basic/)                                    | SQLite family     | Minimal DDL + connect/CRUD over embedded `@sisal/sqlite` or `@sisal/libsql` via `SISAL_ADAPTER`. Consolidates `basic-sqlite` + `basic-libsql`.                                                                                                               |
-| [`mysql-family-basic`](mysql-family-basic/)                                      | MySQL family      | Minimal DDL + connect/CRUD over `@sisal/mysql` on `mysql2` or the MariaDB connector via `SISAL_ADAPTER`.                                                                                                                                                     |
-| [`postgres-family-showcase`](postgres-family-showcase/)                          | PostgreSQL family | Full feature tour; generation-first, plus a live run over `pg` / `pg-db-postgres` / `neon` via `SISAL_ADAPTER`.                                                                                                                                              |
-| [`sqlite-family-showcase`](sqlite-family-showcase/)                              | SQLite family     | Full feature tour, executed over embedded `@sisal/sqlite` or `@sisal/libsql` via `SISAL_ADAPTER`.                                                                                                                                                            |
-| [`mysql-family-showcase`](mysql-family-showcase/)                                | MySQL family      | Generation-first MySQL/MariaDB feature tour; optional live run over `mysql2` or the MariaDB connector via `SISAL_ADAPTER`, with explicit `RETURNING`, DDL, and timestamp caveats.                                                                            |
-| [`logging`](logging/)                                                            | Driverless        | Concrete `Logger` adapters for `@std/log` and Pino, using `memoryOrmDriver()` so SQL/result/bind logging can be inspected without a real database.                                                                                                           |
-| [`postgres-family-advanced-sql`](postgres-family-advanced-sql/)                  | PostgreSQL family | Runnable advanced-SQL contract graduation over `@sisal/pg` / `@sisal/neon`: builder ETL + locking, raw parameterized windows, recursive CTEs, JSON-table extraction, and richer DDL pressure cases.                                                          |
-| [`mysql-family-advanced-sql`](mysql-family-advanced-sql/)                        | MySQL family      | MySQL/MariaDB advanced-SQL contract graduation: builder ETL + locking, raw parameterized windows/recursive CTEs/`JSON_TABLE`, generated columns, ODKU upsert pressure cases, and typed `RETURNING` guards.                                                   |
-| [`sqlite-family-advanced-sql`](sqlite-family-advanced-sql/)                      | SQLite family     | Conservative SQLite/libSQL advanced-SQL subset with capability-probed windows, recursive CTEs, CAS queue claims, `json_each`, generated columns, and explicit skipped first-pass contracts.                                                                  |
-| [`postgres-family-hot-feed`](postgres-family-hot-feed/README.md)                 | PostgreSQL family | Stored, indexed `hot_score`; atomic vote; keyset — over `pg` / `pg-db-postgres` / `neon` via `SISAL_ADAPTER`.                                                                                                                                                |
-| [`postgres-family-feed`](postgres-family-feed/README.md)                         | PostgreSQL family | `/rising` feed over `@sisal/pg` (`@db/postgres` or postgres.js) or `@sisal/neon` via `SISAL_ADAPTER`; two recompute strategies (DB functions + builder CTEs). Consolidates the former `postgres-rising-feed` + `neon-rising-feed` + `neon-rising-feed-ctes`. |
-| [`sqlite-family-feed`](sqlite-family-feed/README.md)                             | SQLite family     | The `/rising` counterpart over `@sisal/libsql` or embedded `@sisal/sqlite` via `SISAL_ADAPTER`.                                                                                                                                                              |
-| [`mysql-family-feed`](mysql-family-feed/README.md)                               | MySQL family      | The `/rising` counterpart over `@sisal/mysql` on MySQL or MariaDB via `SISAL_ADAPTER`; TypeScript and builder-CTE recompute paths expose MySQL/MariaDB v0.8 IR pressure points.                                                                              |
-| [`postgres-family-activity-vectors`](postgres-family-activity-vectors/README.md) | PostgreSQL family | Advanced-SQL analytics: events → buckets → stats → activity vector + similarity (the v0.6 ETL-readiness PoC); over `pg` / `pg-db-postgres` / `neon`.                                                                                                         |
+### Basic
 
-These are the source of truth for "what Sisal can do today." If you change one,
-keep it runnable and keep its row in the root `deno.json` workspace.
+The first five minutes: `defineTable`, generated DDL, and one insert → select →
+update → delete cycle with bound parameters and a clean dispose path.
+[`postgres-family-basic`](postgres-family-basic/) ·
+[`sqlite-family-basic`](sqlite-family-basic/) ·
+[`mysql-family-basic`](mysql-family-basic/)
+
+### Showcase
+
+The broad "what Sisal can do today" tour — types, constraints, migration diffs,
+operators, joins, aggregates, upserts, transactions, relations, CTEs — with
+dialect honesty (Postgres is richest; SQLite executes in-memory; MySQL shows its
+gaps and typed guards). [`postgres-family-showcase`](postgres-family-showcase/)
+· [`sqlite-family-showcase`](sqlite-family-showcase/) ·
+[`mysql-family-showcase`](mysql-family-showcase/)
+
+### Feed
+
+The canonical app-style example: users/posts/activity, a `/new` and `/rising`
+timeline backed by a stored ranking value, keyset (cursor) pagination, and
+cursor-correctness tests. [`postgres-family-feed`](postgres-family-feed/) ·
+[`sqlite-family-feed`](sqlite-family-feed/) ·
+[`mysql-family-feed`](mysql-family-feed/)
+
+### Advanced SQL
+
+Proof that Sisal is a serious SQL builder: window functions, recursive CTEs,
+top-N per group, sessionization, cohort/funnel shapes, JSON-table extraction,
+row locking — builder-native where the surface exists, safe parameterized `sql`
+where it doesn't.
+[`postgres-family-advanced-sql`](postgres-family-advanced-sql/) ·
+[`sqlite-family-advanced-sql`](sqlite-family-advanced-sql/) ·
+[`mysql-family-advanced-sql`](mysql-family-advanced-sql/). The
+[`advanced-sql-contracts`](advanced-sql-contracts/README.md) directory holds the
+documentation-only future contracts and their v0.11 triage.
+
+### ETL
+
+[`postgres-family-etl-cron`](postgres-family-etl-cron/) — `@sisal/etl`: a typed
+rollup job (`defineJob`) folded one checkpointed window per `run()`, scheduled
+with `Deno.cron`. Folds `post_events` → `post_hourly_stats`.
+
+### Analytics
+
+[`postgres-family-analytics`](postgres-family-analytics/) — `@sisal/analytics`:
+typed metrics × dimensions × windows (`bucket`, `movingAvg`, `rank`,
+`compareToPreviousWindow`) over the **same `post_hourly_stats` rollup the ETL
+example writes**. Read the two together: ETL builds the rollups; analytics reads
+them.
+
+### Logging
+
+[`logging`](logging/) — safe observability: `@std/log` and Pino adapters, SQL
+text logging, and parameter/DSN/token redaction, over `memoryOrmDriver()` so it
+needs no database.
+
+## Dialect families
+
+### PostgreSQL family
+
+Includes `@sisal/pg` and `@sisal/neon`. `NeonDatabase` ≡ `PgDatabase`, so one
+body runs over both; pick with `SISAL_ADAPTER` (`pg` | `pg-db-postgres` |
+`neon`). The **ETL, analytics, hot-feed, and activity-vectors** examples are
+Postgres-only — they rely on Postgres-first surfaces (stored functions,
+`FILTER`, window functions, arrays, the ETL/analytics preview packages).
+
+### SQLite family
+
+Includes `@sisal/sqlite` (embedded, FFI) and `@sisal/libsql` (libSQL/Turso).
+`SqliteDatabase` ≡ `LibsqlDatabase`; pick with `SISAL_ADAPTER` (`sqlite` |
+`libsql`). These examples run with **no server** (in-memory or a local file) but
+need FFI/write permissions (`-A`).
+
+### MySQL family
+
+Includes `@sisal/mysql`, covering both MySQL and MariaDB via one adapter with
+detected identity; pick with `SISAL_ADAPTER` (`mysql2` | `mariadb`). The live
+paths need an external MySQL/MariaDB server (`docker/compose.yaml` does not
+provide one).
+
+## What each example proves
+
+| Example                                                               | Dialect    | Runs without external DB? | Uses live DB?          | Shows migrations? | Shows ORM? | Shows ETL?      | Shows analytics? |
+| --------------------------------------------------------------------- | ---------- | ------------------------- | ---------------------- | ----------------- | ---------- | --------------- | ---------------- |
+| [postgres-family-basic](postgres-family-basic/)                       | PostgreSQL | ✅ prints DDL             | optional               | DDL gen           | ✅         | —               | —                |
+| [sqlite-family-basic](sqlite-family-basic/)                           | SQLite     | ✅ in-memory              | ✅ (embedded)          | DDL gen           | ✅         | —               | —                |
+| [mysql-family-basic](mysql-family-basic/)                             | MySQL      | ✅ prints DDL             | optional               | DDL gen           | ✅         | —               | —                |
+| [postgres-family-showcase](postgres-family-showcase/)                 | PostgreSQL | ✅ generation             | optional (rolled back) | ✅ diffs          | ✅         | —               | —                |
+| [sqlite-family-showcase](sqlite-family-showcase/)                     | SQLite     | ✅ executes in-memory     | ✅ (embedded)          | ✅ diffs          | ✅         | —               | —                |
+| [mysql-family-showcase](mysql-family-showcase/)                       | MySQL      | ✅ generation             | optional               | ✅ diffs          | ✅         | rollup shape    | —                |
+| [postgres-family-feed](postgres-family-feed/)                         | PostgreSQL | message only              | ✅ required            | ✅ SQL files      | ✅         | —               | —                |
+| [sqlite-family-feed](sqlite-family-feed/)                             | SQLite     | ✅ local file             | ✅ (embedded)          | ✅ SQL file       | ✅         | —               | —                |
+| [mysql-family-feed](mysql-family-feed/)                               | MySQL      | message only              | ✅ required            | ✅ SQL file       | ✅         | —               | —                |
+| [postgres-family-advanced-sql](postgres-family-advanced-sql/)         | PostgreSQL | ✅ render                 | optional (rolled back) | DDL gen           | ✅         | rollup shape    | window shapes    |
+| [sqlite-family-advanced-sql](sqlite-family-advanced-sql/)             | SQLite     | ✅ render + in-memory     | ✅ (embedded)          | DDL gen           | ✅         | rollup shape    | window shapes    |
+| [mysql-family-advanced-sql](mysql-family-advanced-sql/)               | MySQL      | ✅ render                 | optional               | DDL gen           | ✅         | rollup shape    | window shapes    |
+| [postgres-family-hot-feed](postgres-family-hot-feed/)                 | PostgreSQL | message only              | ✅ required            | schema-gen DDL    | ✅         | —               | —                |
+| [postgres-family-activity-vectors](postgres-family-activity-vectors/) | PostgreSQL | ⚠️ needs DB               | ✅ required            | ✅ SQL files      | ✅         | builder rollups | feature vectors  |
+| [postgres-family-etl-cron](postgres-family-etl-cron/)                 | PostgreSQL | ✅ prints rollup SQL      | optional (cron)        | DDL gen           | ✅         | ✅              | —                |
+| [postgres-family-analytics](postgres-family-analytics/)               | PostgreSQL | ✅ render                 | optional               | DDL gen           | ✅         | reads rollup    | ✅               |
+| [logging](logging/)                                                   | driverless | ✅ memory driver          | —                      | —                 | ✅         | —               | —                |
+
+### How to run each
+
+- **Dry-run / render-only (no external service):** the `basic` (DDL), `showcase`
+  (generation), `advanced-sql` (render), `etl-cron`, and `analytics` examples
+  all produce useful output with **no database** — `deno task run` (or
+  `render`/`ddl`). `logging` runs entirely on `memoryOrmDriver()`.
+- **Need `DATABASE_URL` (PostgreSQL):** the live paths of every `postgres-*`
+  example, plus the feed/hot-feed/activity-vectors demos. `SISAL_ADAPTER` picks
+  `pg` / `pg-db-postgres` / `neon`; `NEON_WS_PROXY` points `neon` at a local
+  proxy. `postgres-family-feed` / `hot-feed` also read `DATABASE_DIRECT_URL`.
+- **Need SQLite/libSQL (FFI, no server):** the `sqlite-*` examples run in-memory
+  or against a local file and need `-A` (native FFI + file writes). Set
+  `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` (or `SISAL_LIBSQL_URL` /
+  `SISAL_SQLITE_PATH`) to target Turso or a specific path.
+- **Need a MySQL/MariaDB service:** the live paths of the `mysql-*` examples
+  want `MYSQL_URL` / `MARIADB_URL` (or `DATABASE_URL`). `docker/compose.yaml`
+  does not currently provide these servers.
+- **Postgres-only, and why:** `etl-cron`, `analytics`, `hot-feed`, and
+  `activity-vectors` are PostgreSQL-family only — they depend on Postgres-first
+  surfaces (the ETL/analytics preview packages, stored functions, `FILTER`,
+  window functions, arrays). The feed trio, by contrast, ships one shape per
+  dialect family.
+
+Examples that need a live database and have no dry-run print a clear message
+naming the required environment variable rather than crashing.
 
 ## Documentation-only future contracts
 
 [`advanced-sql-contracts/`](advanced-sql-contracts/README.md) — Markdown specs,
-not runnable themselves and not in the workspace. Their first runnable
-graduation is now the `*-family-advanced-sql` trio above. The specs still
-preserve the original product-shaped target and map each missing primitive to
-the roadmap release that must build it properly.
-
-They exist so future planning can point at a concrete, product-shaped target
-without pretending the feature already ships. When one becomes buildable, it
-graduates into a real runnable example here (with its own `deno.json` +
-`mod.ts`, added to the workspace) — at which point its contract becomes the
-example's spec. Genuine per-dialect limits surfaced by a contract are tracked,
-when the feature lands, as `❌` rows in
-[`docs/feature-matrix.md`](../docs/feature-matrix.md).
-
-> **Not part of `deno task check`.** `advanced-sql-contracts/` has no `mod.ts`
-> and is intentionally excluded from the root workspace, so adding contracts
-> never touches the type-check or test surface.
+**not runnable and not in the workspace**. They preserve product-shaped
+advanced-SQL targets and now carry a v0.11 **triage table** mapping each
+contract to its best current Sisal API (builder-native, `@sisal/etl`,
+`@sisal/analytics`, or still-raw). When a contract becomes buildable it
+graduates into a runnable example here.
