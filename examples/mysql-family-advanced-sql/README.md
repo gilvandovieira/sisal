@@ -29,8 +29,16 @@ MySQL and MariaDB DDL implicitly commits, so the live run creates namespaced
 
 ## Coverage
 
-- Builder-native: ETL rollup, row locking, ODKU upsert rendering.
-- Parameterized raw SQL: windows, sessionization, top-N, cohorts, funnels,
-  recursive CTEs, `JSON_TABLE`, and generated columns.
-- Guarded/documented: base MySQL `RETURNING`, partial indexes, and older
+- Builder-native: ETL rollup (`insert().select()` + `filter` → `CASE`), window
+  analytics (`over`/`rank`), sessionization, top-N (`over(rowNumber)`), cohorts,
+  funnels, recursive CTEs (`$withRecursive`), `jsonTable(...)` → `JSON_TABLE`,
+  row locking (`.for("update", { skipLocked })`), and ODKU upsert rendering.
+  Some cases keep a documented residual inline `sql` fragment (interval math, a
+  CTE-to-CTE join).
+- Guarded/documented: base MySQL `RETURNING` (a typed `OrmError`), partial
+  indexes (no MySQL equivalent), generated-column DDL, and older
   windowless/recursive-less server versions.
+
+See the [contracts triage](../advanced-sql-contracts/README.md#triage-v0110):
+contract 01 is now best served by `@sisal/etl` and 02 by `@sisal/analytics`;
+this example keeps the hand-built forms for comparison.

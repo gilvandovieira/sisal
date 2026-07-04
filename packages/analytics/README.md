@@ -1,6 +1,6 @@
 # @sisal/analytics
 
-Typed analytical queries for [Sisal](https://jsr.io/@sisal) (v0.11 preview):
+Typed analytical queries for [Sisal](https://jsr.io/@sisal) preview packages:
 describe dimensions, aggregate metrics, and windowed metrics over rollup tables,
 then render one parameterized SQL statement through `@sisal/core`.
 
@@ -53,8 +53,9 @@ TypeScript row type.
 The package is Postgres-first and rollup-first. It pairs with `@sisal/etl`: ETL
 builds tables such as `post_hourly_stats`; analytics queries those prepared
 tables for dashboards, feeds, and time series. Querying raw event streams is
-allowed but can be expensive, and Sisal analytics is not intended to replace a
-warehouse or BI engine.
+allowed but can be expensive. Use this package to test the waters for analytical
+reads over prepared tables; it is not a deep analytics platform, warehouse, BI
+engine, or de facto OLAP solution.
 
 Execution is adapter-neutral through a structural executor boundary.
 `execute(db)` accepts any object with a `dialectIdentity` and `execute(Sql)`

@@ -1,8 +1,6 @@
 # @sisal/mysql
 
-MySQL and MariaDB adapter boundaries for [Sisal](https://jsr.io/@sisal/orm) —
-the fifth Sisal dialect, built from the v0.6 readiness investigation
-(`docs/mysql-readiness.md`).
+MySQL and MariaDB adapter boundaries for [Sisal](https://jsr.io/@sisal/orm).
 
 **One adapter, both engines:** MySQL ≥ 8.0.16 is the baseline; MariaDB ≥ 10.10
 runs on the same adapter. Variant-gated capabilities (e.g. MariaDB
@@ -33,6 +31,18 @@ re-viewed as plain `Uint8Array`s; `BOOLEAN` (`TINYINT(1)`) round-trips as
 (`connect({ executor })`), so unit tests stay network-free — the same seam every
 Sisal adapter uses.
 
-The migration boundary (`@sisal/mysql/migrate`, `@sisal/mysql/ddl`) ships with
-the v0.7 B5/B6 roadmap tasks; the DDL design it implements is
-`docs/mysql-ddl-mapping.md`.
+The migration boundary (`@sisal/mysql/migrate`, `@sisal/mysql/ddl`) implements
+the DDL design documented in `docs/mysql-ddl-mapping.md`.
+
+## Adapter checklist
+
+| Question            | Answer                                                                                                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Driver              | Lazy `npm:mysql2/promise` by default; optional lazy MariaDB Connector/Node.js with `driver: "mariadb"`.                                                                                            |
+| Permissions         | `--allow-env` for DSNs, `--allow-net=<host>:<port>` for live connections, and `--allow-read` when loading local config/migrations.                                                                 |
+| Migrations          | Yes: `@sisal/mysql/migrate`, MySQL/MariaDB history store, named locks, and `@sisal/mysql/ddl`.                                                                                                     |
+| Transactions/batch  | Interactive transactions are supported; `db.batch` runs as one transaction. MySQL/MariaDB DDL itself is not transactional, so migration rollback expectations should stay conservative.            |
+| Dialect limitations | MySQL proper has no general `RETURNING`; MariaDB support is version-gated. Partial indexes, expression indexes, generated columns, and functional indexes follow engine capability gates.          |
+| Security caveats    | TLS options are explicit and TLS URL params are rejected instead of ignored; DSNs and tokens are redacted; `CLIENT_FOUND_ROWS` ambiguity is disabled; migration SQL is trusted code.               |
+| ETL                 | Portable ETL rollups render for MySQL/MariaDB shapes and run where locks/checkpoints/batch support are available; live claims require named MySQL/MariaDB integration scenarios.                   |
+| Analytics           | Basic analytics SQL renders for MySQL-family targets where supported; percentiles are PostgreSQL-only and non-PostgreSQL analytics execution is not claimed live without a named integration test. |

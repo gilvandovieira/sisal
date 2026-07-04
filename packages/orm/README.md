@@ -20,3 +20,21 @@ const rendered = renderSql(query, { dialect: "postgres" });
 ```
 
 Use `@sisal/pg` or `@sisal/sqlite` when you need a concrete database driver.
+
+Release-safety notes:
+
+- `@sisal/orm` is driverless and must not import adapters, ETL, analytics, or
+  migration execution code.
+- `raw(...)`, `sql.raw(...)`-style escape hatches, and `db.execute("...")` are
+  for trusted SQL only. Runtime values belong in `sql\`...\${value}\`` so the
+  renderer binds them as parameters.
+- `update` and `delete` require a `where` clause unless `.unsafeAllowAllRows()`
+  is called explicitly.
+- Insert/update builders reject unknown object keys instead of mass-assigning
+  them into SQL.
+- Logging and structured errors redact parameter values, DSNs, auth tokens, and
+  driver error causes. Use the `logging.sql.parameters` setting to choose
+  redacted summaries or no bind summaries at all.
+- `Database` exposes `dialectIdentity`, `transaction`, and `batch` so preview
+  layers such as ETL and analytics can capability-gate work without depending on
+  adapters.

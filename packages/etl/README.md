@@ -1,8 +1,8 @@
 # @sisal/etl
 
-SQL-pushdown ETL for [Sisal](https://jsr.io/@sisal) (v0.10 preview): define a
-rollup job in TypeScript and execute **one** safe, idempotent window per
-invocation. The database does the heavy lifting — the runner sends a single
+SQL-pushdown ETL for [Sisal](https://jsr.io/@sisal) preview packages: define a
+lightweight rollup job in TypeScript and execute **one** safe, idempotent window
+per invocation. The database does the heavy lifting — the runner sends a single
 generated `INSERT ... SELECT ... ON CONFLICT DO UPDATE` statement; no row ever
 round-trips through the process.
 
@@ -59,10 +59,12 @@ Around the runner:
   refusal applied pre-flight by every runner entry point, never a
   silently-degraded run.
 
-Deliberately **not** a scheduler, worker queue, or orchestration platform — an
-external trigger (cron, systemd timer, GitHub Actions, `Deno.cron`) decides
-_when_; see [docs/etl-scheduling.md](../../docs/etl-scheduling.md) and the
-runnable
+Deliberately **not** a scheduler, worker queue, full ETL transformation engine,
+or data warehouse loader. Use it to test the waters for rollups and lightweight
+database-native transforms; do not treat it as the de facto solution for complex
+multi-stage ETL. An external trigger (cron, systemd timer, GitHub Actions,
+`Deno.cron`) decides _when_; see
+[docs/etl-scheduling.md](../../docs/etl-scheduling.md) and the runnable
 [`examples/postgres-family-etl-cron`](../../examples/postgres-family-etl-cron/mod.ts).
 
 The job model and SQL compilation depend on `@sisal/core` only; the runner

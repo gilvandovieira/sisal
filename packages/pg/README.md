@@ -21,13 +21,13 @@ builder and executor — the only difference is the connection option, so
 application code is identical:
 
 ```ts
-// Default (since v0.10): postgres.js (`npm:postgres`), imported lazily on the
+// Default: postgres.js (`npm:postgres`), imported lazily on the
 // first connect. Sets TCP_NODELAY and pipelines the protocol — ~100× faster
 // per parameterized query than `@db/postgres`'s extended-protocol path. Set
 // `prepare: false` for PgBouncer/Neon-pooled endpoints.
 const db = await createPgDb({ url });
 
-// Pure-JSR `jsr:@db/postgres` (the pre-v0.10 default) — select it to keep the
+// Pure-JSR `jsr:@db/postgres` — select it to keep the
 // process npm-free.
 const jsrOnly = await createPgDb({ url, driver: "db-postgres" });
 ```
@@ -43,3 +43,16 @@ For only DDL generation:
 ```ts
 import { generatePostgresUpStatements } from "@sisal/pg/ddl";
 ```
+
+## Adapter checklist
+
+| Question            | Answer                                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Driver              | ORM connections use lazy `npm:postgres` by default or `jsr:@db/postgres` when `driver: "db-postgres"` is selected. Migration execution uses `@db/postgres`.                |
+| Permissions         | `--allow-env` for DSNs, `--allow-net=<host>:<port>` for live connections, and `--allow-read` when loading local config/migrations.                                         |
+| Migrations          | Yes: `@sisal/pg/migrate`, PostgreSQL history store, advisory locks, and `@sisal/pg/ddl`.                                                                                   |
+| Transactions/batch  | Interactive transactions and atomic `db.batch` are supported through scoped executors.                                                                                     |
+| Dialect limitations | PostgreSQL-family features are capability-gated by `dialectIdentity`; `int8` decodes as string to avoid precision loss.                                                    |
+| Security caveats    | Treat DSNs as secrets, prefer TLS for remote hosts, and keep raw SQL/migration files developer-authored. Driver errors are redacted before surfacing through Sisal errors. |
+| ETL                 | Works with `@sisal/etl`; PostgreSQL is the primary live-proven ETL target.                                                                                                 |
+| Analytics           | Works with `@sisal/analytics`; PostgreSQL has live integration proof for bucket/window/previous-window analytics.                                                          |
