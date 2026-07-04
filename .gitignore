@@ -4,3 +4,9 @@
 .env
 .env.local
 .env.*.local
+
+# Local SQLite/libSQL databases created by running examples.
+examples/**/*.db
+examples/**/*.db-shm
+examples/**/*.db-wal
+examples/**/*.sqlite
