@@ -15,15 +15,18 @@ import type { Logger } from "@sisal/orm";
 import { runSisalLoggingDemo } from "./shared.ts";
 
 function createPinoLogger(): Logger {
-  const logger = pino({
-    level: "trace",
-    base: undefined,
-    formatters: {
-      level(_label, number) {
-        return { severity: number };
+  const logger = pino(
+    {
+      level: "trace",
+      base: undefined,
+      formatters: {
+        level(_label, number) {
+          return { severity: number };
+        },
       },
     },
-  }).child({ component: "sisal" });
+    pino.destination({ sync: true }),
+  ).child({ component: "sisal" });
 
   return {
     trace: logger.trace.bind(logger),

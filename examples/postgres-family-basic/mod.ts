@@ -3,7 +3,7 @@
  *
  * Generates the schema DDL with zero setup (prints it), then — if `DATABASE_URL`
  * is set — connects over the selected PostgreSQL-family driver and runs a tiny
- * CRUD (create table, insert, count). The dialect + builder are shared and
+ * CRUD (create, read, update, delete). The dialect + builder are shared and
  * `NeonDatabase` ≡ `PgDatabase`, so the same code runs over any driver; pick one
  * with `SISAL_ADAPTER`:
  *
@@ -24,7 +24,13 @@
  * @module
  */
 
-import { columns, createSchemaSnapshot, defineTable, sql } from "@sisal/orm";
+import {
+  columns,
+  createSchemaSnapshot,
+  defineTable,
+  eq,
+  sql,
+} from "@sisal/orm";
 import { connect as connectPg, type PgDatabase } from "@sisal/pg";
 import { connect as connectNeon } from "@sisal/neon";
 import { generatePostgresUpStatements } from "@sisal/pg/ddl";
@@ -46,16 +52,39 @@ if (url !== undefined) {
   const db = await openDb(url, adapter);
   try {
     for (const statement of statements) await db.execute(statement);
+
+    // CREATE — all values bind as parameters; nothing is string-interpolated.
+    const id = crypto.randomUUID();
     await db.insert(users).values({
-      id: crypto.randomUUID(),
+      id,
       email: "ada@example.com",
       name: "Ada Lovelace",
       createdAt: new Date(),
     }).execute();
+
+    // READ — a typed select builder (row keys map back to the JS-side names).
+    const found = await db.select({
+      name: users.columns.name,
+      email: users.columns.email,
+    }).from(users).where(eq(users.columns.id, id)).execute();
+    console.log(`\nselected: ${found[0]?.name} <${found[0]?.email}>`);
+
+    // UPDATE — `.set(...)` with a where; RETURNING gives back the new row.
+    const renamed = await db.update(users).set({ name: "Ada, Countess" })
+      .where(eq(users.columns.id, id)).returning().execute();
+    console.log(`updated:  ${renamed.rows[0]?.name}`);
+
+    // DELETE — a where is required. `update`/`delete` with no `where` throw
+    // unless you first call `.unsafeAllowAllRows()`; that safety rail is why
+    // an accidental "delete everything" can't happen silently.
+    await db.delete(users).where(eq(users.columns.id, id)).execute();
+
     const result = await db.query<{ count: number }>(
       sql`select count(*)::int as count from users`,
     );
-    console.log(`\nusers: ${Number(result.rows[0].count)} (via ${adapter})`);
+    console.log(
+      `users after delete: ${Number(result.rows[0].count)} (via ${adapter})`,
+    );
   } finally {
     await db.close();
   }
