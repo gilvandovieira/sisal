@@ -16,7 +16,7 @@ import {
 
 const rising = from(postHourlyStats)
   .dimensions({
-    postId: postHourlyStats.columns.post_id,
+    postId: postHourlyStats.columns.postId,
     bucket: bucket("hour", postHourlyStats.columns.bucket),
   })
   .metrics({
@@ -50,16 +50,19 @@ properties. `compareToPreviousWindow("votes")` adds `votesPrevious` and
 The package is Postgres-first and rollup-first. It pairs with `@sisal/etl`: ETL
 builds tables such as `post_hourly_stats`; analytics queries those prepared
 tables for dashboards, feeds, and time series. Querying raw event streams is
-allowed but can be expensive.
+allowed but can be expensive, and Sisal analytics is not intended to replace a
+warehouse or BI engine.
 
-Execution is adapter-neutral. `execute(db)` accepts any object with a
-`dialectIdentity` and `execute(Sql)` method, so `@sisal/analytics` does not
-import adapters, database drivers, `@sisal/orm`, `@sisal/migrate`, or
-`@sisal/etl`. Unsupported constructs are preflighted with `supportsQuery()` /
-`assertQuerySupported()` and fail as `ANALYTICS_UNSUPPORTED_QUERY`, not as raw
-engine errors.
+Execution is adapter-neutral through a structural executor boundary.
+`execute(db)` accepts any object with a `dialectIdentity` and `execute(Sql)`
+method, so `@sisal/analytics` does not import adapters, database drivers,
+`@sisal/orm`, `@sisal/migrate`, or `@sisal/etl`. Unsupported constructs are
+preflighted with `supportsQuery()` / `assertQuerySupported()` and fail as
+`ANALYTICS_UNSUPPORTED_QUERY`, not as raw engine errors.
 
 Percentiles (`percentileCont` / `percentileDisc`) are experimental
 Postgres-first helpers in this preview. They render ordered-set aggregates on
-Postgres and are capability-gated elsewhere until variant-specific behavior is
-probed and documented.
+Postgres and are capability-gated elsewhere. Basic dimensions, aggregate
+metrics, and windowed metrics are portable at the SQL-rendering layer for the
+supported SQL families, but live support claims are made only where integration
+tests exist.

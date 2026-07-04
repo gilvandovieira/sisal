@@ -4737,37 +4737,40 @@ source layout. Sisal is a Deno-first database toolkit, published to JSR, with a
 driverless core, a driverless ORM facade, adapter-neutral migration tooling, and
 explicit database adapters.
 
-| Package          | Import root      | Responsibility                                     |
-| ---------------- | ---------------- | -------------------------------------------------- |
-| `@sisal/core`    | `@sisal/core`    | Schema primitives, SQL IR, operators, capabilities |
-| `@sisal/orm`     | `@sisal/orm`     | Database facade, fluent builders, relations, calls |
-| `@sisal/migrate` | `@sisal/migrate` | Migration definitions, planning, workflow, CLI     |
-| `@sisal/etl`     | `@sisal/etl`     | Rollup jobs, window math, runner APIs, status      |
-| `@sisal/pg`      | `@sisal/pg`      | PostgreSQL ORM, migration adapter, DDL             |
-| `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL ORM/migrations          |
-| `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite ORM, migration adapter, DDL                 |
-| `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
-| `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
+| Package            | Import root        | Responsibility                                     |
+| ------------------ | ------------------ | -------------------------------------------------- |
+| `@sisal/core`      | `@sisal/core`      | Schema primitives, SQL IR, operators, capabilities |
+| `@sisal/orm`       | `@sisal/orm`       | Database facade, fluent builders, relations, calls |
+| `@sisal/migrate`   | `@sisal/migrate`   | Migration definitions, planning, workflow, CLI     |
+| `@sisal/etl`       | `@sisal/etl`       | Rollup jobs, window math, runner APIs, status      |
+| `@sisal/analytics` | `@sisal/analytics` | Analytical dimensions, metrics, windows, execution |
+| `@sisal/pg`        | `@sisal/pg`        | PostgreSQL ORM, migration adapter, DDL             |
+| `@sisal/neon`      | `@sisal/neon`      | Neon serverless PostgreSQL ORM/migrations          |
+| `@sisal/sqlite`    | `@sisal/sqlite`    | SQLite ORM, migration adapter, DDL                 |
+| `@sisal/libsql`    | `@sisal/libsql`    | libSQL/Turso ORM, migration adapter, SQLite DDL    |
+| `@sisal/mysql`     | `@sisal/mysql`     | MySQL/MariaDB ORM, migration adapter, DDL          |
 
 The manifests in this workspace are currently `0.11.0`; this page reflects the
-current tree, including the v0.10 ETL package and v0.9 API additions such as
-structured logging controls and `await using` disposal aliases.
+current tree, including the ETL and analytics preview packages plus API
+additions such as structured logging controls and `await using` disposal
+aliases.
 
 ## Subpath Exports
 
 Each package exposes smaller import boundaries:
 
-| Package          | Subpaths                                         |
-| ---------------- | ------------------------------------------------ |
-| `@sisal/core`    | `.`, `./schema`, `./unstable-internal`           |
-| `@sisal/orm`     | `.`, `./core`, `./schema`, `./error`, `./logger` |
-| `@sisal/migrate` | `.`, `./core`, `./workflow`, `./cli`             |
-| `@sisal/etl`     | `.`                                              |
-| `@sisal/pg`      | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/neon`    | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/sqlite`  | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/libsql`  | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/mysql`   | `.`, `./orm`, `./migrate`, `./ddl`               |
+| Package            | Subpaths                                         |
+| ------------------ | ------------------------------------------------ |
+| `@sisal/core`      | `.`, `./schema`, `./unstable-internal`           |
+| `@sisal/orm`       | `.`, `./core`, `./schema`, `./error`, `./logger` |
+| `@sisal/migrate`   | `.`, `./core`, `./workflow`, `./cli`             |
+| `@sisal/etl`       | `.`                                              |
+| `@sisal/analytics` | `.`                                              |
+| `@sisal/pg`        | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/neon`      | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/sqlite`    | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/libsql`    | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/mysql`     | `.`, `./orm`, `./migrate`, `./ddl`               |
 
 `@sisal/core/unstable-internal` is exported for Sisal packages. Application code
 should treat it as internal plumbing.
@@ -5263,6 +5266,81 @@ outside the package boundary.
 - `backfill(db, job, range, options?)` replays a deterministic historical range.
 - `replay(db, job, window, options?)` re-runs one idempotent window.
 - `status(db, job, options?)` reports checkpoint state and the next run window.
+
+---
+
+# `@sisal/analytics`
+
+`@sisal/analytics` is the typed analytical query descriptor layer. It is
+Postgres-first and rollup-first: ETL or application code prepares tables such as
+hourly stats, then analytics describes dimensions, aggregate metrics, windowed
+metrics, period-over-period comparisons, ordering, and limits over those
+prepared shapes.
+
+The package depends on `@sisal/core` only. `execute(db)` uses a structural
+executor boundary: the object must provide `dialectIdentity` and `execute(Sql)`.
+That keeps analytics free of ORM, adapter, driver, migrate, and ETL runtime
+imports while still letting adapter `Database` instances execute rendered
+queries.
+
+## Query Builder
+
+| Symbol           | Purpose                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| `from(source)`   | Start an immutable analytical query over a table, rollup, or source                                      |
+| `AnalyticsQuery` | Query type with `dimensions`, `metrics`, `windows`, `where`, `orderBy`, `limit`, `render`, and `execute` |
+
+`render(identity)` returns `{ text, params }` without executing. `execute(db)`
+first applies the capability gate with `db.dialectIdentity`, then sends one
+parameterized SQL statement to the structural executor.
+
+## Dimensions And Metrics
+
+| Symbol                  | Purpose                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| `bucket(width, source)` | Time-bucket dimension helper over `dateTrunc`/`dateBin` |
+| `count`                 | Count aggregate, re-exported from `@sisal/core`         |
+| `sum`                   | Sum aggregate                                           |
+| `avg`                   | Average aggregate                                       |
+| `min`                   | Minimum aggregate                                       |
+| `max`                   | Maximum aggregate                                       |
+| `countDistinct`         | Distinct-count aggregate                                |
+| `percentileCont`        | PostgreSQL ordered-set continuous percentile            |
+| `percentileDisc`        | PostgreSQL ordered-set discrete percentile              |
+
+The basic aggregate helpers render across the SQL families supported by the core
+renderer. `percentileCont` and `percentileDisc` are experimental Postgres-first
+helpers and fail closed elsewhere through `ANALYTICS_UNSUPPORTED_QUERY`.
+
+## Windowed Metrics And Ordering
+
+| Symbol       | Purpose                                      |
+| ------------ | -------------------------------------------- |
+| `movingAvg`  | Moving average over an existing metric       |
+| `rank`       | SQL `rank()` window metric                   |
+| `denseRank`  | SQL `dense_rank()` window metric             |
+| `rowNumber`  | SQL `row_number()` window metric             |
+| `lag`        | Previous-row value for a dimension or metric |
+| `lead`       | Next-row value for a dimension or metric     |
+| `delta`      | Difference between current and offset value  |
+| `ascending`  | Analytics order term by descriptor key       |
+| `descending` | Descending analytics order term by key       |
+
+`compareToPreviousWindow(metricKey)` adds typed previous-window and delta fields
+along the query's single `bucket()` dimension. Missing or ambiguous bucket axes
+are rejected at declaration time.
+
+## Capability Gates
+
+| Symbol                                  | Purpose                                                                |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| `supportsQuery(query, identity)`        | Dry-run support report for a dialect identity                          |
+| `assertQuerySupported(query, identity)` | Throws `ANALYTICS_UNSUPPORTED_QUERY` before execution when unsupported |
+
+Current analytics support is intentionally honest: PostgreSQL is the primary
+target, portable render support is unit/golden-SQL proven for the non-percentile
+subset, and live integration coverage is called out separately in the feature
+matrix once present.
 
 ---
 
