@@ -64,6 +64,35 @@ ON CONFLICT … DO UPDATE` statement plus its
 parameters, then a hint. With `DATABASE_URL` it creates the tables, seeds demo
 events, logs each folded window, and schedules the hourly cron.
 
+## Sisal API pressure points
+
+`@sisal/etl` carries the whole rollup: `defineJob` validates the job at
+definition time, `explain`/`run`/`status` render and drive it, and the
+advisory-lock + checkpoint substrate needs no raw SQL. The residual gaps are
+narrow:
+
+1. **No typed surface for arithmetic over aggregates** — API gap. The individual
+   `FILTER` aggregates are builder-native
+   (`filter(count(), eq(e.kind, "vote"))`), but the weighted `engagement_score`
+   — `votes*2 + comments*3 + views*0.25` — is a raw `sql` template stitching
+   those aggregates together (`mod.ts:99`–`101`). A derived / computed-aggregate
+   metric would let the whole `aggregates` map stay typed. This is the same gap
+   the analytics reader hits from the other side (it reads the pre-folded column
+   rather than combining metrics).
+2. **`@sisal/etl` scope is Postgres here** — SQL/dialect limitation (honest
+   scope, not a gap). The job model and generated rollup are dialect-neutral and
+   `assertJobSupported` gates the rest, but this example renders Postgres
+   `count(*) FILTER (…)` + `ON CONFLICT … DO UPDATE`; MySQL would render
+   `CASE` + `ON DUPLICATE KEY UPDATE`. A documented per-dialect lowering.
+3. **pg-family `bigint` inserts and reads as a string** — driver/engine
+   limitation. `post_id` is `String(...)`-built on insert (`mod.ts:167`), the
+   same normalization the analytics reader applies. Consistent with the
+   documented cross-adapter bigint contract.
+
+Not pressure points: the single-window runner, the idempotent upsert keyed on
+the `(post_id, community_id, bucket)` grain, and the additive DDL from
+`generatePostgresUpStatements` are all `@sisal/etl`/builder-native.
+
 ## Notes
 
 The rollup this job writes is exactly what
