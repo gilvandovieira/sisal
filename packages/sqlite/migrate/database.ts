@@ -40,6 +40,7 @@ export async function openSqliteDatabase(
   const { Database } = await import("jsr:@db/sqlite@^0.12");
 
   return new Database(options.path ?? ":memory:", {
+    int64: true,
     readonly: options.readonly ?? false,
   }) as unknown as SqliteLikeDatabase;
 }

@@ -206,6 +206,9 @@ _No unreleased changes._
 - Bumped workspace package and example manifest versions to `0.11.0`, refreshed
   README install pins, and updated the migration CLI's default adapter version
   prompts to `^0.11.0`.
+- The SQLite adapter now opens `@db/sqlite` with `int64` support so stored
+  INTEGER values above 32-bit range (for example `4200000000`) no longer decode
+  through a signed 32-bit wraparound in live SQLite integration.
 - `bucket()` now returns text consistently across supported SQL families. The
   PostgreSQL rendering wraps `date_trunc`/`date_bin` output with `to_char(...)`
   so the runtime value matches the public `SqlExpression<string>` contract and
