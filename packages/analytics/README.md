@@ -45,7 +45,10 @@ const rows = await rising.execute(db);
 The result row is inferred from the query definition: dimension values,
 aggregate metric nullability, and windowed metric values all become typed row
 properties. `compareToPreviousWindow("votes")` adds `votesPrevious` and
-`votesDelta` fields along the query's `bucket()` time axis.
+`votesDelta` fields along the query's `bucket()` time axis. `bucket()` values
+read back as strings on every supported SQL family; PostgreSQL buckets are
+formatted with `to_char(...)` to keep the runtime value aligned with the
+TypeScript row type.
 
 The package is Postgres-first and rollup-first. It pairs with `@sisal/etl`: ETL
 builds tables such as `post_hourly_stats`; analytics queries those prepared

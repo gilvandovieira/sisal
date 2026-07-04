@@ -110,32 +110,35 @@ Deno.test("analytics: row inference compiles exactly", () => {
 
 Deno.test("analytics: dimensions, metrics, windows, comparison render", () => {
   const rendered = pg(risingQuery.toSql());
+  const hourBucket =
+    `to_char(date_trunc('hour', "post_hourly_stats"."bucket"), ` +
+    `'YYYY-MM-DD HH24:MI:SS')`;
   assertEquals(
     rendered.text,
     'select "post_hourly_stats"."post_id" as "postId", ' +
-      `date_trunc('hour', "post_hourly_stats"."bucket") as "bucket", ` +
+      `${hourBucket} as "bucket", ` +
       'sum("post_hourly_stats"."views") as "views", ' +
       'sum("post_hourly_stats"."votes") as "votes", ' +
       'count(distinct "post_hourly_stats"."post_id") as "activePosts", ' +
       'avg(sum("post_hourly_stats"."votes")) over (' +
       'partition by "post_hourly_stats"."post_id" ' +
-      `order by date_trunc('hour', "post_hourly_stats"."bucket") ` +
+      `order by ${hourBucket} ` +
       'rows between 2 preceding and current row) as "voteMa3h", ' +
       "rank() over (" +
-      `partition by date_trunc('hour', "post_hourly_stats"."bucket") ` +
+      `partition by ${hourBucket} ` +
       'order by sum("post_hourly_stats"."votes") desc) as "position", ' +
       'lag(sum("post_hourly_stats"."votes"), 1) over (' +
       'partition by "post_hourly_stats"."post_id" ' +
-      `order by date_trunc('hour', "post_hourly_stats"."bucket")) ` +
+      `order by ${hourBucket}) ` +
       'as "votesPrevious", ' +
       'sum("post_hourly_stats"."votes") - ' +
       'lag(sum("post_hourly_stats"."votes"), 1) over (' +
       'partition by "post_hourly_stats"."post_id" ' +
-      `order by date_trunc('hour', "post_hourly_stats"."bucket")) ` +
+      `order by ${hourBucket}) ` +
       'as "votesDelta" from "post_hourly_stats" ' +
       'where "post_hourly_stats"."bucket" >= $1 ' +
       'group by "post_hourly_stats"."post_id", ' +
-      `date_trunc('hour', "post_hourly_stats"."bucket") ` +
+      `${hourBucket} ` +
       'order by "voteMa3h" desc limit $2',
   );
   assertEquals(rendered.params, [SINCE, 20]);

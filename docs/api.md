@@ -583,6 +583,9 @@ parameterized SQL statement to the structural executor.
 The basic aggregate helpers render across the SQL families supported by the core
 renderer. `percentileCont` and `percentileDisc` are experimental Postgres-first
 helpers and fail closed elsewhere through `ANALYTICS_UNSUPPORTED_QUERY`.
+`bucket()` projects text on every supported SQL family; on PostgreSQL it wraps
+the core timestamp bucket in `to_char(...)` so the runtime row value matches the
+typed `string` result.
 
 ## Windowed Metrics And Ordering
 

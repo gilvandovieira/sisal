@@ -60,6 +60,10 @@ Deno.test("capability: basic analytics window renders on all SQL families", () =
 
   assertStringIncludes(
     portableWindowQuery.render({ dialect: "postgres" }).text,
+    "to_char(date_trunc('day'",
+  );
+  assertStringIncludes(
+    portableWindowQuery.render({ dialect: "postgres" }).text,
     "rows between 6 preceding and current row",
   );
   assertStringIncludes(

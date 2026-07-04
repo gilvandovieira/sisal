@@ -5,14 +5,15 @@
  * dimension** so `compareToPreviousWindow()` can find the period axis
  * without being told.
  *
- * Round-trip: PostgreSQL yields a `timestamp`; the SQLite family yields
- * ISO-8601 `TEXT`; MySQL yields formatted text. All order and group
- * identically — the row type is `string`.
+ * Round-trip: analytics buckets are projected as text on every supported SQL
+ * family. PostgreSQL wraps the core timestamp bucket in `to_char(...)`, while
+ * SQLite and MySQL already render text buckets. All order and group
+ * identically because the format is most-significant component first.
  *
  * @module
  */
 
-import { dateBin, dateTrunc } from "@sisal/core";
+import { dateBin, dateTrunc, dialectSql, raw, sql } from "@sisal/core";
 import type { DateDuration, DateTruncField, SqlExpression } from "@sisal/core";
 
 // Expressions minted by bucket(), so compareToPreviousWindow() can recognize
@@ -34,8 +35,13 @@ export function bucket(
   const expression = typeof width === "string"
     ? dateTrunc(width, source)
     : dateBin(width, source);
-  TIME_BUCKETS.add(expression);
-  return expression;
+  const textBucket = dialectSql("analyticsBucket", {
+    postgres: sql`to_char(${expression}, ${raw("'YYYY-MM-DD HH24:MI:SS'")})`,
+    sqlite: expression,
+    mysql: expression,
+  }) as SqlExpression<string>;
+  TIME_BUCKETS.add(textBucket);
+  return textBucket;
 }
 
 /** Returns true when a dimension value was produced by {@link bucket}. */
