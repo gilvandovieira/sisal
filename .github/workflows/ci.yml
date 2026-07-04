@@ -26,7 +26,7 @@ jobs:
         run: deno install --frozen
 
       - name: Check formatting
-        run: deno fmt --check
+        run: deno task --frozen fmt:check
 
       - name: Lint
         run: deno lint
@@ -45,6 +45,12 @@ jobs:
 
       - name: Type check workspace
         run: deno task --frozen check
+
+      - name: Test workspace
+        run: deno task --frozen test
+
+      - name: Audit dependencies
+        run: deno task --frozen audit
 
       - name: Validate workspace publish
         run: deno publish --dry-run
