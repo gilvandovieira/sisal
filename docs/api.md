@@ -21,7 +21,7 @@ explicit database adapters.
 | `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
 | `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
 
-The manifests in this workspace are currently `0.10.0`; this page reflects the
+The manifests in this workspace are currently `0.11.0`; this page reflects the
 current tree, including the v0.10 ETL package and v0.9 API additions such as
 structured logging controls and `await using` disposal aliases.
 

@@ -11,6 +11,14 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Reworked the root README's advanced Sisal example into a staged product-feed
+  story: model definitions, CLI migration generation, typed feed queries,
+  advanced SQL, ETL rollups, and analytics reads, with short value notes for
+  each step. The README now frames Sisal as a collection of preview packages
+  suitable for serious investigation and non-production trials, while still not
+  recommended for production deployments, and clarifies that advanced query
+  building is a core strength while ETL/analytics are entry points rather than
+  deep data-platform replacements.
 - **`@sisal/analytics` (v0.11 preview) — the typed analytical query spine,
   Postgres-first percentiles, and capability-gated execution** (roadmap T1–T12).
   New workspace package `packages/analytics` with a single `.` export:
@@ -139,6 +147,12 @@ Sisal-specific history after that baseline through `1f05448`.
   the explicit depth column + `WHERE depth < n` guard). Verified live against a
   cyclic fixture on PostgreSQL 16/17/18; new `docs/feature-matrix.md` row backed
   by the `recursive search/cycle` scenario.
+
+### Changed
+
+- Bumped workspace package and example manifest versions to `0.11.0`, refreshed
+  README install pins, and updated the migration CLI's default adapter version
+  prompts to `^0.11.0`.
 
 ### Security
 

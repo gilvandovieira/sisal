@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.10.0, 0.11.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.11.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -63,13 +63,13 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Project Context
 
-- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first **ORM and query builder**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight ETL and analytics...
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight...
 - [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md): This is the canonical changelog for Sisal workspace releases.
 - [Repository](https://github.com/gilvandovieira/sisal): Source code, issues, examples, workflows, and package directories.
 
 ## Package Manifests
 
-### @sisal/core 0.10.0
+### @sisal/core 0.11.0
 
 Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer.
 
@@ -80,7 +80,7 @@ Exports:
 - `./schema` -> `./schema.ts`
 - `./unstable-internal` -> `./internal.ts`
 
-### @sisal/orm 0.10.0
+### @sisal/orm 0.11.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -93,7 +93,7 @@ Exports:
 - `./logger` -> `./logger.ts`
 - `./schema` -> `./schema.ts`
 
-### @sisal/migrate 0.10.0
+### @sisal/migrate 0.11.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -105,7 +105,7 @@ Exports:
 - `./core` -> `./core/mod.ts`
 - `./workflow` -> `./core/workflow.ts`
 
-### @sisal/etl 0.10.0
+### @sisal/etl 0.11.0
 
 SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs.
 
@@ -123,7 +123,7 @@ Package path: `./packages/analytics`
 Exports:
 - `.` -> `./mod.ts`
 
-### @sisal/pg 0.10.0
+### @sisal/pg 0.11.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -135,7 +135,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/sqlite 0.10.0
+### @sisal/sqlite 0.11.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -147,7 +147,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/libsql 0.10.0
+### @sisal/libsql 0.11.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -159,7 +159,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/mysql 0.10.0
+### @sisal/mysql 0.11.0
 
 MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.
 
@@ -171,7 +171,7 @@ Exports:
 - `./migrate` -> `./migrate/mod.ts`
 - `./orm` -> `./orm/mod.ts`
 
-### @sisal/neon 0.10.0
+### @sisal/neon 0.11.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -1998,14 +1998,16 @@ URL: https://github.com/gilvandovieira/sisal/blob/main/README.md
 Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
 
 > [!WARNING]
-> Sisal is still experimental. APIs, schema snapshot formats, generated DDL,
-> migration workflows, and adapter behavior may change before 1.0. Review
-> generated SQL and test migrations before using Sisal in production.
+> Sisal is a collection of preview packages. We think the core APIs, migration
+> workflow, and adapters are stable enough for serious investigation,
+> prototypes, and non-production trials, but we do not recommend production
+> deployments yet. APIs, schema snapshot formats, generated DDL, migration
+> workflows, and adapter behavior may still change before 1.0.
 
-Sisal is a Deno-first **ORM and query builder**, published to JSR — typed
-schemas, safe SQL builders, schema snapshots, migration planning, and explicit
-database adapters — with **lightweight ETL and analytics capabilities** growing
-on the same driverless core.
+Sisal is a Deno-first collection of **ORM and query-builder packages**,
+published to JSR — typed schemas, safe SQL builders, schema snapshots, migration
+planning, and explicit database adapters — with **lightweight ETL and analytics
+capabilities** growing on the same driverless core.
 
 The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
 adapter-neutral. PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB
@@ -2023,26 +2025,29 @@ including Drizzle's fluent SQL-builder style, but it is not a compatibility
 layer and keeps its own driverless core, snapshot workflow, and adapter split.
 
 > [!NOTE]
-> **Scope — a toe in the water, not a replacement.** Sisal is first an ORM and
-> query builder. Its ETL and analytics layers ([v0.10](docs/v0.10.0-roadmap.md)
-> and [v0.11](docs/v0.11.0-roadmap.md), in progress) are deliberately small: a
-> typed rollup job with a single-run runner, and a typed query API over the
-> shapes it produces — all pushed down into your existing database, no extra
-> engine. The goal is to let a project already using Sisal for OLTP do
-> lightweight in-database rollups and analytical reads **without standing up a
-> separate stack on day one**. When a project outgrows that — real
-> orchestration, streaming, a warehouse, a BI platform — Sisal is meant to hand
-> off cleanly to a specialized tool, not to become one. It will not grow into a
-> scheduler, a worker queue, or an object-first ORM.
+> **Scope — advanced queries first, ETL and analytics as an entry point.** Sisal
+> is first an ORM and serious SQL query builder: it is meant to cover typed
+> application queries as well as more advanced SQL shapes such as CTEs,
+> subqueries, window functions, aggregates, set operations, keyset pagination,
+> and safe raw fragments. Its ETL and analytics layers are more deliberately
+> modest: a typed rollup job with a single-run runner, and a typed query API
+> over the shapes it produces — all pushed down into your existing database, no
+> extra engine. They are meant to let a project already using Sisal test the
+> waters of in-database rollups and analytical reads, and to initiate the
+> software into those realms without standing up a separate stack on day one.
+> They are not intended to be the de facto solution for serious ETL
+> transformations, deep analytics, orchestration, streaming, warehouses, or BI
+> platforms. When a project reaches that point, Sisal should hand off cleanly to
+> specialized tools.
 
 ## Installing
 
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.10.0 \
-  jsr:@sisal/migrate@0.10.0 \
-  jsr:@sisal/pg@0.10.0
+deno add jsr:@sisal/orm@0.11.0 \
+  jsr:@sisal/migrate@0.11.0 \
+  jsr:@sisal/pg@0.11.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -2050,145 +2055,104 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target        | Install                                                                             |
 | ------------- | ----------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/pg@0.10.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/neon@0.10.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/sqlite@0.10.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/libsql@0.10.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/mysql@0.10.0`  |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/pg@0.11.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/neon@0.11.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/sqlite@0.11.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/libsql@0.11.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/mysql@0.11.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
 
-## PostgreSQL Walkthrough
+For the preview ETL and analytics layers, add the companion packages when you
+need them:
 
-This example defines a small feed schema, generates additive PostgreSQL DDL,
-connects through the PostgreSQL adapter with `await using` for automatic
-cleanup, writes with a batched transaction, updates with a SQL expression, and
-reads a keyset-paginated page.
+```sh
+deno add jsr:@sisal/etl@0.11.0 jsr:@sisal/analytics@0.11.0
+```
+
+## A Sisal Story
+
+Imagine a product feed that starts as normal application tables, grows a ranked
+timeline, and later needs hourly rollups for dashboards. Sisal keeps that path
+boring in the best way: one set of typed table definitions feeds the query
+builder, migration snapshots, ETL jobs, and analytical reads.
+
+### 1. Define the model once
+
+Start with the product model: users write posts, events record activity, and a
+rollup table stores one row per post per hour. The table definitions are regular
+TypeScript values, so they can be imported by application code, migration
+config, ETL declarations, tests, and docs.
 
 ```ts
 import {
   columns,
-  createSchemaSnapshot,
   defineTable,
   desc,
-  eq,
   index,
   type InferInsert,
   type InferSelect,
+  primaryKey,
   sql,
 } from "@sisal/orm";
-import { connect, generatePostgresUpStatements } from "@sisal/pg";
 
-const users = defineTable("users", {
+export const users = defineTable("users", {
   id: columns.uuid().primaryKey(),
   email: columns.text().notNull().unique(),
   displayName: columns.text().notNull(),
-  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+  createdAt: columns.timestamp({ withTimezone: true, mode: "date" })
+    .notNull(),
 });
 
-const posts = defineTable("posts", {
+export const posts = defineTable("posts", {
   id: columns.uuid().primaryKey(),
   authorId: columns.uuid().notNull().references("users", "id"),
   title: columns.text().notNull(),
   status: columns.text().notNull(),
   score: columns.integer().notNull().default(0),
-  upvotes: columns.integer().notNull().default(0),
-  downvotes: columns.integer().notNull().default(0),
-  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+  createdAt: columns.timestamp({ withTimezone: true, mode: "date" })
+    .notNull(),
 }, (t) => [
   index("posts_feed_idx")
     .where(sql`${t.status} = 'published'`)
     .on(desc(t.score), desc(t.createdAt), desc(t.id)),
 ]);
 
-type Post = InferSelect<typeof posts>;
-type NewPost = InferInsert<typeof posts>;
-
-const snapshot = createSchemaSnapshot({
-  dialect: "postgres",
-  tables: [users, posts],
+export const postEvents = defineTable("post_events", {
+  id: columns.bigserial().primaryKey(),
+  postId: columns.uuid().notNull().references("posts", "id"),
+  kind: columns.text().notNull(),
+  occurredAt: columns.timestamp({ withTimezone: true, mode: "date" })
+    .notNull(),
 });
 
-// `await using` closes the connection pool when the scope exits — including on
-// an early throw — so no try/finally is needed. (Call `await db.close()`
-// manually if you need to release it sooner.)
-await using db = await connect({
-  url: Deno.env.get("DATABASE_URL"),
-});
+export const postHourlyStats = defineTable("post_hourly_stats", {
+  postId: columns.uuid().notNull().references("posts", "id"),
+  bucket: columns.timestamp({ withTimezone: true, mode: "date" }).notNull(),
+  views: columns.integer().notNull(),
+  votes: columns.integer().notNull(),
+  comments: columns.integer().notNull(),
+  engagementScore: columns.doublePrecision().notNull(),
+}, (t) => [primaryKey({ columns: [t.postId, t.bucket] })]);
 
-const { statements, destructive } = generatePostgresUpStatements(snapshot);
-
-if (destructive.length > 0) {
-  throw new Error("Refusing to apply destructive generated changes.");
-}
-
-for (const statement of statements) {
-  await db.execute(statement);
-}
-
-const userId = crypto.randomUUID();
-const postId = crypto.randomUUID();
-
-await db.batch([
-  db.insert(users).values({
-    id: userId,
-    email: "ada@example.com",
-    displayName: "Ada",
-    createdAt: Temporal.Now.instant(),
-  }),
-  db.insert(posts).values({
-    id: postId,
-    authorId: userId,
-    title: "Portable database tooling",
-    status: "published",
-    score: 0,
-    upvotes: 3,
-    downvotes: 1,
-    createdAt: Temporal.Now.instant(),
-  }),
-]);
-
-await db.update(posts).set({
-  score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
-}).where(eq(posts.columns.id, postId)).execute();
-
-const page = await db.select({
-  id: posts.columns.id,
-  title: posts.columns.title,
-  author: users.columns.displayName,
-  score: posts.columns.score,
-  createdAt: posts.columns.createdAt,
-}).from(posts)
-  .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
-  .where(eq(posts.columns.status, "published"))
-  .keyset({
-    orderBy: [
-      desc(posts.columns.score),
-      desc(posts.columns.createdAt),
-      desc(posts.columns.id),
-    ],
-  })
-  .limit(20)
-  .execute();
-
-console.log(page.rows, page.nextCursor);
+export type Post = InferSelect<typeof posts>;
+export type NewPost = InferInsert<typeof posts>;
 ```
 
-`generatePostgresUpStatements` is intentionally additive: destructive changes
-are reported separately instead of silently emitted as ordinary migration SQL.
-For long-lived projects, use the CLI workflow below to write migration files and
-track snapshots.
+The value here is leverage. The model is not just runtime metadata and not just
+types: it is the common contract for inserts, selects, joins, generated DDL,
+rollups, and result-row inference.
 
-## CLI Task Setup
+### 2. Generate migrations with the CLI
 
-Wire the migration CLI into your application's `deno.json` so the same commands
-work locally and in CI:
+Wire the migration CLI into your application's `deno.json`, then point
+`sisal.migrate.ts` at the same tables your app imports.
 
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.10.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.11.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -2199,20 +2163,19 @@ work locally and in CI:
 ```
 
 Use `--target mysql` for MySQL/MariaDB. SQLite and libSQL/Turso tasks also need
-`--allow-ffi`. `sisal init` creates `sisal.migrate.ts`; edit that config so
-`snapshot` is built from the same table definitions your application uses.
+`--allow-ffi`. `sisal init` creates `sisal.migrate.ts`:
 
 ```ts
 import { createSchemaSnapshot } from "@sisal/orm";
 import { defineConfig } from "@sisal/migrate/workflow";
-import { posts, users } from "./src/db/schema.ts";
+import { postEvents, postHourlyStats, posts, users } from "./src/db/schema.ts";
 
 export default defineConfig({
   dir: "migrations",
   dialect: "postgres",
   snapshot: createSchemaSnapshot({
     dialect: "postgres",
-    tables: [users, posts],
+    tables: [users, posts, postEvents, postHourlyStats],
   }),
   databaseUrl: Deno.env.get("DATABASE_URL"),
   historyTable: "sisal_migrations",
@@ -2233,6 +2196,187 @@ deno task db:drift
 against `config.snapshot`, then writes paired SQL and snapshot files. `drift`
 exits with code `1` when the current schema snapshot, migration files, or
 database plan do not match.
+
+The value is reviewability. Generated SQL is checked into source control beside
+the snapshot that produced it, and destructive changes are separated instead of
+being smuggled into an ordinary migration.
+
+### 3. Query the product surface
+
+When the app needs a feed, use the same tables to build typed queries. This page
+joins authors, filters published posts, and keyset-paginates by the index order.
+
+```ts
+import { desc, eq } from "@sisal/orm";
+import type { PgDatabase } from "@sisal/pg";
+import { posts, users } from "./schema.ts";
+
+export async function getFeed(db: PgDatabase, after?: {
+  score: number;
+  createdAt: Date;
+  id: string;
+}) {
+  return await db.select({
+    id: posts.columns.id,
+    title: posts.columns.title,
+    author: users.columns.displayName,
+    score: posts.columns.score,
+    createdAt: posts.columns.createdAt,
+  }).from(posts)
+    .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
+    .where(eq(posts.columns.status, "published"))
+    .keyset({
+      orderBy: [
+        desc(posts.columns.score),
+        desc(posts.columns.createdAt),
+        desc(posts.columns.id),
+      ],
+      after,
+    })
+    .limit(20)
+    .execute();
+}
+```
+
+The value is that query shape and result shape stay together. The selected
+columns infer the row type, the cursor shape follows the keyset order, and SQL
+fragments are rendered with parameters instead of string-concatenated values.
+
+### 4. Keep advanced SQL close to the model
+
+As the feed grows, you can still reach for analytical SQL patterns without
+leaving the builder. This query ranks each post's strongest hourly buckets and
+keeps the top three windows per post.
+
+```ts
+import { desc, gte, lte, over, rowNumber } from "@sisal/orm";
+import type { PgDatabase } from "@sisal/pg";
+import { postHourlyStats } from "./schema.ts";
+
+export async function getBestHourlyWindows(db: PgDatabase, since: Date) {
+  const h = postHourlyStats.columns;
+  const ranked = db.select({
+    postId: h.postId,
+    bucket: h.bucket,
+    engagementScore: h.engagementScore,
+    rn: over(rowNumber(), {
+      partitionBy: [h.postId],
+      orderBy: [desc(h.engagementScore), desc(h.bucket)],
+    }),
+  }).from(postHourlyStats)
+    .where(gte(h.bucket, since))
+    .as("ranked");
+
+  return await db.select({
+    postId: ranked.postId,
+    bucket: ranked.bucket,
+    engagementScore: ranked.engagementScore,
+  }).from(ranked)
+    .where(lte(ranked.rn, 3))
+    .execute();
+}
+```
+
+The value is escape-hatch discipline. Sisal supports CTEs, subqueries, window
+functions, aggregates, set operations, and raw `sql` fragments, but keeps them
+inside the same typed SQL IR and adapter renderer.
+
+### 5. Turn events into rollups with ETL
+
+When raw events get too expensive to query repeatedly, define a job that folds
+one closed time window per run. An external scheduler chooses when to wake up;
+Sisal owns the checkpoint, advisory lock, generated `INSERT ... SELECT`, and
+idempotent upsert for the window.
+
+```ts
+import { count, eq, filter, sql } from "@sisal/orm";
+import { defineJob, run } from "@sisal/etl";
+import type { PgDatabase } from "@sisal/pg";
+import { postEvents, postHourlyStats } from "./schema.ts";
+
+const e = postEvents.columns;
+
+export const postHourlyStatsJob = defineJob({
+  name: "post-hourly-stats",
+  source: postEvents,
+  target: postHourlyStats,
+  window: e.occurredAt,
+  grain: "hour",
+  bucket: "bucket",
+  groupBy: { postId: e.postId },
+  aggregates: {
+    views: filter(count(), eq(e.kind, "view")),
+    votes: filter(count(), eq(e.kind, "vote")),
+    comments: filter(count(), eq(e.kind, "comment")),
+    engagementScore: sql`${filter(count(), eq(e.kind, "vote"))} * 2.0 + ${
+      filter(count(), eq(e.kind, "comment"))
+    } * 3.0`,
+  },
+  start: "2026-01-01T00:00:00.000Z",
+});
+
+export async function foldOneWindow(db: PgDatabase) {
+  return await run(db, postHourlyStatsJob);
+}
+```
+
+The value is a small ETL contract, not a new platform. `run()` folds one
+half-open window, advances the watermark atomically with the write, and exits
+cleanly if another runner already holds the job lock. See
+[`examples/postgres-family-etl-cron`](examples/postgres-family-etl-cron/mod.ts)
+for a runnable `Deno.cron` variant.
+
+### 6. Read the rollups with analytics
+
+The analytics preview sits on top of prepared tables like `post_hourly_stats`.
+It describes dimensions, metrics, and windowed metrics, then renders or executes
+one parameterized query.
+
+```ts
+import {
+  bucket,
+  descending,
+  from,
+  movingAvg,
+  rank,
+  sum,
+} from "@sisal/analytics";
+import type { PgDatabase } from "@sisal/pg";
+import { postHourlyStats } from "./schema.ts";
+
+export async function getRisingPosts(db: PgDatabase) {
+  const rising = from(postHourlyStats)
+    .dimensions({
+      postId: postHourlyStats.columns.postId,
+      bucket: bucket("hour", postHourlyStats.columns.bucket),
+    })
+    .metrics({
+      votes: sum(postHourlyStats.columns.votes),
+      comments: sum(postHourlyStats.columns.comments),
+      engagement: sum(postHourlyStats.columns.engagementScore),
+    })
+    .windows({
+      engagementMa6h: movingAvg("engagement", {
+        partitionBy: ["postId"],
+        orderBy: ["bucket"],
+        rows: 6,
+      }),
+      hourlyRank: rank({
+        partitionBy: ["bucket"],
+        orderBy: [descending("engagement")],
+      }),
+    })
+    .compareToPreviousWindow("engagement")
+    .orderBy(descending("engagementMa6h"))
+    .limit(50);
+
+  return await rising.execute(db);
+}
+```
+
+The value is a clean handoff from OLTP to lightweight OLAP. Your app keeps the
+same database and adapter boundary, while dashboards and ranked feeds query
+prepared rollups instead of rescanning raw event streams on every request.
 
 ## What You Get Today
 
@@ -2268,9 +2412,8 @@ database plan do not match.
 The v0.9 release also landed the substrate the ETL layer builds on — a portable
 advisory-lock/claim abstraction, an atomic load-and-advance checkpoint, and a
 replay-vs-retention guard. The `@sisal/etl` preview (a typed rollup job + a
-single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are the
-[v0.10](docs/v0.10.0-roadmap.md) and [v0.11](docs/v0.11.0-roadmap.md) roadmap
-milestones — lightweight by design, per the scope note above.
+single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are current
+roadmap milestones — lightweight by design, per the scope note above.
 
 ## Packages
 
@@ -2287,6 +2430,13 @@ surface — most projects install `@sisal/orm` + `@sisal/migrate` + one adapter
 and never import `@sisal/core` directly. Depend on it directly only when you
 want the schema/SQL-IR layer without the query builders (as `@sisal/migrate`
 does).
+
+Preview packages:
+
+| Package            | Purpose                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `@sisal/etl`       | SQL-pushdown rollup jobs, checkpointed single-window runs, replay/backfill helpers, and dry-run explain.      |
+| `@sisal/analytics` | Typed dimensions, metrics, windowed metrics, period-over-period helpers, and adapter-neutral query execution. |
 
 Adapter packages:
 
@@ -2378,6 +2528,14 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Added
 
+- Reworked the root README's advanced Sisal example into a staged product-feed
+  story: model definitions, CLI migration generation, typed feed queries,
+  advanced SQL, ETL rollups, and analytics reads, with short value notes for
+  each step. The README now frames Sisal as a collection of preview packages
+  suitable for serious investigation and non-production trials, while still not
+  recommended for production deployments, and clarifies that advanced query
+  building is a core strength while ETL/analytics are entry points rather than
+  deep data-platform replacements.
 - **`@sisal/analytics` (v0.11 preview) — the typed analytical query spine,
   Postgres-first percentiles, and capability-gated execution** (roadmap T1–T12).
   New workspace package `packages/analytics` with a single `.` export:
@@ -2506,6 +2664,12 @@ Sisal-specific history after that baseline through `1f05448`.
   the explicit depth column + `WHERE depth < n` guard). Verified live against a
   cyclic fixture on PostgreSQL 16/17/18; new `docs/feature-matrix.md` row backed
   by the `recursive search/cycle` scenario.
+
+### Changed
+
+- Bumped workspace package and example manifest versions to `0.11.0`, refreshed
+  README install pins, and updated the migration CLI's default adapter version
+  prompts to `^0.11.0`.
 
 ### Security
 
@@ -4585,7 +4749,7 @@ explicit database adapters.
 | `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
 | `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
 
-The manifests in this workspace are currently `0.10.0`; this page reflects the
+The manifests in this workspace are currently `0.11.0`; this page reflects the
 current tree, including the v0.10 ETL package and v0.9 API additions such as
 structured logging controls and `await using` disposal aliases.
 

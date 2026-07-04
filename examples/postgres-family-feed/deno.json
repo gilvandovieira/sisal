@@ -1,6 +1,6 @@
 {
   "name": "@sisal/example-postgres-family-feed",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "exports": "./mod.ts",
   "publish": false,
   "imports": {
