@@ -32,7 +32,19 @@ export { MIGRATION_FILES, resetSchema, runMigrations } from "./src/migrate.ts";
 export { main } from "./src/main.ts";
 
 import { main } from "./src/main.ts";
+import { readEnv } from "./src/db.ts";
 
 if (import.meta.main) {
-  await main();
+  if (readEnv("DATABASE_URL") === undefined) {
+    console.log(
+      "This example runs a live PostgreSQL /rising-feed demo. To try it:\n" +
+        "  1. docker compose up -d     # local Postgres 18\n" +
+        "  2. cp .env.example .env     # sets DATABASE_URL\n" +
+        "  3. deno task demo           # migrate + seed + run the feed\n\n" +
+        "Required env: DATABASE_URL (see .env.example). " +
+        "SISAL_ADAPTER picks pg | pg-db-postgres | neon.",
+    );
+  } else {
+    await main();
+  }
 }
