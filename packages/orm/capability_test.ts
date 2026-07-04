@@ -55,6 +55,8 @@ Deno.test("capabilities: the six-target truth table", () => {
     windowGroupsFrame: ["pg", "neon"],
     // MariaDB's parser rejects lag/lead's third argument (live, 11.8.8).
     windowOffsetDefault: ["pg", "neon", "sqlite", "libsql", "mysql"],
+    // Ordered-set percentile aggregates are Postgres-first in v0.11 analytics.
+    percentileAggregates: ["pg", "neon"],
     // Partial (WHERE) indexes: the MySQL family rejects them (DDL-level).
     partialIndex: ["pg", "neon", "sqlite", "libsql"],
     // Functional (expression) indexes: base MySQL ≥ 8.0.13 only; version-gated,

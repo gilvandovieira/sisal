@@ -164,6 +164,18 @@ export const DIALECT_CAPABILITIES = {
     unsupported: [{ dialect: "mysql", variant: "mariadb" }],
   },
   /**
+   * `percentile_cont`/`percentile_disc` ordered-set aggregates
+   * (`WITHIN GROUP (ORDER BY …)`) — PostgreSQL-first: the SQLite family has
+   * no ordered-set aggregates, and while MariaDB spells the names as window
+   * functions the grammar differs (an `OVER` clause is mandatory there), so
+   * the whole MySQL family fails closed until that form is probed.
+   */
+  percentileAggregates: {
+    id: "percentile-aggregates",
+    construct: "percentile_cont/percentile_disc ordered-set aggregates",
+    unsupported: ["sqlite", "mysql"],
+  },
+  /**
    * Partial (`WHERE`) indexes — the MySQL family (both MySQL and MariaDB)
    * rejects them; PostgreSQL and the SQLite family support them. A
    * generation-time DDL divergence rather than a render guard: the
