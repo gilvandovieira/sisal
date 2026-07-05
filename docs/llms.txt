@@ -2,13 +2,13 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.11.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.11.1. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
-Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
+Use `llms-full.txt` when you need a focused single-file package/API reference with links into the canonical documentation.
 
 ## Primary Documentation
 
-- [Full LLM Context](https://gilvandovieira.github.io/sisal/llms-full.txt): Generated combined context from Sisal docs, package manifests, and exported API docs.
+- [Focused LLM Context](https://gilvandovieira.github.io/sisal/llms-full.txt): Generated focused context from package manifests, exported API docs, and a canonical documentation map.
 - [API Reference](https://gilvandovieira.github.io/sisal/api.html): This reference is verified against the current workspace package exports and source layout. Sisal is a Deno-first database toolkit, published to JSR, with a driverless core, a driverless ORM facade, adapter-neutral...
 - [Migration Notes](https://gilvandovieira.github.io/sisal/migration-notes.html): Sisal replaces the earlier ORM and migration package direction with a focused database toolkit.
 - [Drizzle Parity](https://gilvandovieira.github.io/sisal/drizzle-parity.html): This is the guiding document for how Sisal's API evolves. It maps every relevant part of the Drizzle ORM 0.45.2 surface to Sisal, records where we intentionally diverge, and lays out the roadmap to close the gaps...
@@ -44,16 +44,16 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Package APIs
 
-- [@sisal/core](https://jsr.io/@sisal/core): Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer. Exports: ., ./schema, ./unstable-internal.
-- [@sisal/orm](https://jsr.io/@sisal/orm): Driverless schema, typed SQL, and ORM primitives for Sisal. Exports: ., ./core, ./error, ./logger, ./schema.
-- [@sisal/migrate](https://jsr.io/@sisal/migrate): Migration planning, diffing, and running primitives for Sisal. Exports: ., ./cli, ./core, ./workflow.
-- [@sisal/etl](https://jsr.io/@sisal/etl): SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs. Exports: ..
-- [@sisal/analytics](https://jsr.io/@sisal/analytics): Typed analytical queries for Sisal: metrics × dimensions × windows over rollup tables, Postgres-first. Exports: ..
-- [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
-- [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
-- [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL and Turso adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
-- [@sisal/mysql](https://jsr.io/@sisal/mysql): MySQL and MariaDB adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
-- [@sisal/neon](https://jsr.io/@sisal/neon): Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/core](https://jsr.io/@sisal/core): The driverless foundation of Sisal: schema primitives, a fragment SQL IR, expression operators, the capability registry, and the dialect-aware renderer every other package builds on. Exports: ., ./schema, ./unstable-internal.
+- [@sisal/orm](https://jsr.io/@sisal/orm): Sisal's driver-neutral ORM: type-safe schemas, safe SQL expressions, immutable query builders, relations, a typed function caller, and serializable schema snapshots. Exports: ., ./core, ./error, ./logger, ./schema.
+- [@sisal/migrate](https://jsr.io/@sisal/migrate): Schema migrations for Sisal: snapshot diffing, migration planning, additive DDL generation, checksums, and a driverless runner with drift detection. Exports: ., ./cli, ./core, ./workflow.
+- [@sisal/etl](https://jsr.io/@sisal/etl): SQL-pushdown ETL for Sisal: typed, checkpointed rollup jobs that aggregate straight in the database, one window at a time. Exports: ..
+- [@sisal/analytics](https://jsr.io/@sisal/analytics): Typed analytical queries for Sisal: compose metrics × dimensions × time windows over rollup tables. Postgres-first. Exports: ..
+- [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter for Sisal: typed ORM execution, dialect-aware SQL rendering, connection pooling, and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter for Sisal: embedded, typed ORM execution with dialect-aware SQL rendering and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL & Turso adapter for Sisal: typed ORM execution over local files, remote Turso, or embedded replicas, with migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/mysql](https://jsr.io/@sisal/mysql): MySQL & MariaDB adapter for Sisal: one adapter with engine-detected, typed ORM execution, SQL rendering, and migrations. Exports: ., ./ddl, ./migrate, ./orm.
+- [@sisal/neon](https://jsr.io/@sisal/neon): Neon serverless PostgreSQL adapter for Sisal: typed ORM execution over a WebSocket pool, plus SQL rendering and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 
 ## Project Context
 

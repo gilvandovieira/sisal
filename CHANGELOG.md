@@ -7,6 +7,23 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
+## 0.11.1 - 2026-07-05
+
+### Changed
+
+- Tightened `deno task docs:check` to match JSR-style package scoring more
+  closely: it now skips `publish: false` workspace members, requires JSDoc on
+  public members of exported package declarations, and reports missing entries
+  grouped by package. Filled the published package symbol/member docs and
+  regenerated `docs/llms.txt` / `docs/llms-full.txt`.
+- Scoped `docs/llms-full.txt` down to a focused package/API reference plus a
+  canonical documentation map instead of embedding README, changelog, and docs
+  bodies verbatim.
+- Refreshed `docs/api.md` for the current `0.11.1` package manifests, structured
+  logging helpers, `src/` package layout, and public adapter export lists.
+- Bumped workspace package manifests to `0.11.1` and updated the migration CLI
+  scaffolded adapter defaults to `^0.11.1`.
+
 ## 0.11.0 - 2026-07-04
 
 ### Added
@@ -213,6 +230,11 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **Rewrote every package `description` in `deno.json`** so the JSR scope and
+  package listings read as user-facing summaries rather than internal "adapter
+  boundaries" phrasing: each adapter now names its typed ORM execution, SQL
+  rendering, and migration support; `core`, `orm`, `migrate`, `etl`, and
+  `analytics` describe their concrete surface.
 - Moved workspace package internals into `packages/<name>/src/` and
   package-local tests into `packages/<name>/tests/`, with public subpackages
   mirrored under `src/<subpackage>/`. Root package `mod.ts` entrypoints,

@@ -9,23 +9,22 @@ source layout. Sisal is a Deno-first database toolkit, published to JSR, with a
 driverless core, a driverless ORM facade, adapter-neutral migration tooling, and
 explicit database adapters.
 
-| Package            | Import root        | Responsibility                                     |
-| ------------------ | ------------------ | -------------------------------------------------- |
-| `@sisal/core`      | `@sisal/core`      | Schema primitives, SQL IR, operators, capabilities |
-| `@sisal/orm`       | `@sisal/orm`       | Database facade, fluent builders, relations, calls |
-| `@sisal/migrate`   | `@sisal/migrate`   | Migration definitions, planning, workflow, CLI     |
-| `@sisal/etl`       | `@sisal/etl`       | Rollup jobs, window math, runner APIs, status      |
-| `@sisal/analytics` | `@sisal/analytics` | Analytical dimensions, metrics, windows, execution |
-| `@sisal/pg`        | `@sisal/pg`        | PostgreSQL ORM, migration adapter, DDL             |
-| `@sisal/neon`      | `@sisal/neon`      | Neon serverless PostgreSQL ORM/migrations          |
-| `@sisal/sqlite`    | `@sisal/sqlite`    | SQLite ORM, migration adapter, DDL                 |
-| `@sisal/libsql`    | `@sisal/libsql`    | libSQL/Turso ORM, migration adapter, SQLite DDL    |
-| `@sisal/mysql`     | `@sisal/mysql`     | MySQL/MariaDB ORM, migration adapter, DDL          |
+| Package            | Import root        | Responsibility                                      |
+| ------------------ | ------------------ | --------------------------------------------------- |
+| `@sisal/core`      | `@sisal/core`      | Driverless schema, SQL IR, operators, capabilities  |
+| `@sisal/orm`       | `@sisal/orm`       | Driver-neutral facade, builders, relations, calls   |
+| `@sisal/migrate`   | `@sisal/migrate`   | Snapshot diffing, planning, runner, workflow, CLI   |
+| `@sisal/etl`       | `@sisal/etl`       | SQL-pushdown rollup jobs and checkpointed runners   |
+| `@sisal/analytics` | `@sisal/analytics` | Metrics, dimensions, windows, capability-gated SQL  |
+| `@sisal/pg`        | `@sisal/pg`        | PostgreSQL ORM execution, pooling, migrations, DDL  |
+| `@sisal/neon`      | `@sisal/neon`      | Neon serverless PostgreSQL execution and migrations |
+| `@sisal/sqlite`    | `@sisal/sqlite`    | Embedded SQLite execution, migrations, DDL          |
+| `@sisal/libsql`    | `@sisal/libsql`    | libSQL/Turso execution, client helpers, migrations  |
+| `@sisal/mysql`     | `@sisal/mysql`     | MySQL/MariaDB execution, SQL rendering, migrations  |
 
-The manifests in this workspace are currently `0.11.0`; this page reflects the
-current tree, including the ETL and analytics preview packages plus API
-additions such as structured logging controls and `await using` disposal
-aliases.
+The manifests in this workspace are currently `0.11.1`; this page reflects the
+current tree, including the ETL and analytics preview packages, structured
+logging controls, `await using` disposal aliases, and the `src/` package layout.
 
 ## Subpath Exports
 
@@ -132,18 +131,18 @@ is narrowed by `.notNull()` or `.primaryKey()`.
 
 Column modifiers:
 
-| Modifier                         | Effect                                             |
-| -------------------------------- | -------------------------------------------------- |
-| `.named(name)`                   | Override the physical column name                  |
-| `.notNull()` / `.nullable()`     | Set read nullability                               |
-| `.optional()`                    | Omit key on insert without changing nullability    |
-| `.default(value                  | fn                                                 |
-| `.primaryKey()`                  | Primary key; implies `.notNull()`                  |
-| `.unique()`                      | Single-column unique constraint                    |
-| `.references(table, col, opts?)` | Single-column foreign key                          |
-| `.array()`                       | Array column; native on PostgreSQL, JSON elsewhere |
-| `.generatedAs(sql, { stored? })` | Generated column; trusted expression               |
-| `.$onUpdate(fn)`                 | Value applied on every ORM `UPDATE`                |
+| Modifier                         | Effect                                                              |
+| -------------------------------- | ------------------------------------------------------------------- |
+| `.named(name)`                   | Override the physical column name                                   |
+| `.notNull()` / `.nullable()`     | Set read nullability                                                |
+| `.optional()`                    | Omit key on insert without changing nullability                     |
+| `.default(value \| fn)`          | Insert default; values are serialized, functions run at insert time |
+| `.primaryKey()`                  | Primary key; implies `.notNull()`                                   |
+| `.unique()`                      | Single-column unique constraint                                     |
+| `.references(table, col, opts?)` | Single-column foreign key                                           |
+| `.array()`                       | Array column; native on PostgreSQL, JSON elsewhere                  |
+| `.generatedAs(sql, { stored? })` | Generated column; trusted expression                                |
+| `.$onUpdate(fn)`                 | Value applied on every ORM `UPDATE`                                 |
 
 Type helpers include `InferSelect`, `InferInsert`, `TableDefinition`,
 `TableColumn`, `ColumnBuilder`, `ColumnDefinition`, `ColumnDataType`,
@@ -264,14 +263,21 @@ defaults, and partial indexes.
 `severity`, `details`, redacted `cause`). `OrmError` specializes it for schema,
 SQL, driver, transaction, and batch failures.
 
-Logging exports include `Logger`, `LoggerMethod`, `SisalLoggingOptions`,
-`SisalLogSettings`, `SisalLogLevel`, `SisalLogCategory`,
-`createSisalLogEmitter`, `normalizeSisalLogSettings`, `logEnabled`,
-`emitSisalLogEvent`, `redactSqlParameter`, and `redactSqlParameters`.
+Logging exports include `Logger`, `SisalLoggingOptions`, `SisalLogSettings`,
+`SisalLogLevel`, `SisalLogLevelActive`, `SisalLogCategory`,
+`SisalLogCategorySettings`, `SisalSqlLogSettings`, `SisalSqlParameterMode`,
+`SisalLogEvent`, `SisalLogEmitter`, `NormalizedSisalLogging`,
+`CreateSisalLogEmitterOptions`, `consoleLogger`, `fromStdLog`,
+`developmentLogging`, `productionLogging`, `createSisalLogEmitter`,
+`normalizeSisalLogSettings`, `logEnabled`, `emitSisalLogEvent`,
+`renderSqlParametersForLog`, `redactSqlParameter`, `redactSqlParameters`,
+`isSisalLogLevel`, and `isSisalLogCategory`.
 
-`logging.level: "debug"` emits SQL/timing categories; `"trace"` also emits
-redacted bind summaries. The legacy `logger` option keeps the previous
-debug/error behavior without bind logs unless structured `logging` is passed.
+`logging.level: "debug"` emits SQL/timing categories; `"trace"` also emits bind
+summaries. SQL bind logging is controlled by `logging.sql.parameters`: `"off"`
+omits parameters, `"redacted"` keeps safe summaries, and `"values"` logs raw
+bind values for scoped debugging. Connection strings, DSNs, tokens, and driver
+error causes are still redacted separately.
 
 ---
 
@@ -652,14 +658,15 @@ and withhold destructive changes for explicit handling.
 
 PostgreSQL adapter. ORM exports:
 
-| Symbol                   | Purpose                      |
-| ------------------------ | ---------------------------- |
-| `connect` / `createPgDb` | Open a `PgDatabase`          |
-| `createPgOrmDriver`      | Build an ORM driver          |
-| `createPgExecutor`       | Lower-level SQL executor     |
-| `createPgPool`           | `@db/postgres` pool          |
-| `createPostgresJsPool`   | Optional `npm:postgres` pool |
-| `POSTGRES_DIALECT`       | `"postgres"`                 |
+| Symbol                                      | Purpose                            |
+| ------------------------------------------- | ---------------------------------- |
+| `connect` / `createPgDb`                    | Open a `PgDatabase`                |
+| `createPgOrmDriver`                         | Build an ORM driver                |
+| `createPgExecutor`                          | Lower-level SQL executor           |
+| `createPgPool`                              | `@db/postgres` pool                |
+| `createPostgresJsPool`                      | Optional `npm:postgres` pool       |
+| `DEFAULT_PG_DRIVER` / `resolvePgDriverKind` | Default/normalize driver selection |
+| `POSTGRES_DIALECT`                          | `"postgres"`                       |
 
 Migration exports include `createPgMigrator`, `createPgMigrationDriver`,
 `createPgMigrationHistoryStore`, `DEFAULT_PG_MIGRATION_TABLE`,
@@ -667,8 +674,7 @@ Migration exports include `createPgMigrator`, `createPgMigrationDriver`,
 
 DDL exports: `generatePostgresUpStatements`, `generatePostgresCreateTable`,
 `generatePostgresAddColumn`, `generatePostgresColumnDefinition`,
-`generatePostgresColumnType`, `generatePostgresIndexes`,
-`generatePostgresForeignKeys`, `quotePgIdent`, and `pgQualifiedName`.
+`generatePostgresColumnType`, `quotePgIdent`, and `pgQualifiedName`.
 
 ## `@sisal/neon`
 
@@ -683,7 +689,10 @@ Its defaults are serverless-oriented: `useTransaction` defaults to `false` and
 `splitStatements` defaults to `true`. `DEFAULT_NEON_MIGRATION_TABLE` matches the
 PostgreSQL history table default.
 
-`@sisal/neon/ddl` re-exports the PostgreSQL DDL helpers.
+`@sisal/neon/ddl` re-exports the public PostgreSQL DDL helpers:
+`generatePostgresUpStatements`, `generatePostgresCreateTable`,
+`generatePostgresAddColumn`, `generatePostgresColumnDefinition`,
+`generatePostgresColumnType`, `quotePgIdent`, and `pgQualifiedName`.
 
 ## `@sisal/sqlite`
 
@@ -699,9 +708,9 @@ SQLite executor/database helpers.
 
 DDL exports: `generateSqliteUpStatements`, `generateSqliteCreateTable`,
 `generateSqliteAddColumn`, `generateSqliteColumnDefinition`,
-`generateSqliteColumnType`, `generateSqliteIndexes`, and `quoteSqliteIdent`.
-SQLite DDL maps higher-level types onto SQLite affinities and withholds
-destructive changes for table-rebuild workflows.
+`generateSqliteColumnType`, and `quoteSqliteIdent`. SQLite DDL maps higher-level
+types onto SQLite affinities and withholds destructive changes for table-rebuild
+workflows.
 
 ## `@sisal/libsql`
 
