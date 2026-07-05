@@ -1,20 +1,32 @@
-# PostgreSQL compatibility matrix for Sisal.
+# Local database matrix for Sisal.
 #
-# Brings up PostgreSQL 16, 17, and 18 and (optionally) a Deno runner that
-# executes the feature suite against one of them.
+# Brings up PostgreSQL 16/17/18, a Neon WebSocket proxy, MySQL, MariaDB, and
+# (optionally) a Deno runner that executes a feature suite against one of them.
 #
-#   # bring up the three servers
-#   docker compose -f docker/compose.yaml up -d pg16 pg17 pg18
+#   # bring up everything
+#   docker compose -f docker/compose.yaml up -d \
+#     pg16 pg17 pg18 neon-pg neon-proxy mysql mariadb
 #
-#   # run the suite against one server (host Deno):
+#   # PostgreSQL suite (host Deno):
 #   DATABASE_URL=postgres://postgres:postgres@localhost:55418/sisal \
 #     deno test --allow-net --allow-env --allow-read integration/pg_features_test.ts
 #
-#   # or fully in Docker, against a chosen server:
+#   # Neon suite (WebSocket proxy in front of neon-pg):
+#   NEON_DATABASE_URL=postgres://postgres:postgres@localhost/sisal \
+#   NEON_WS_PROXY=localhost:5499 \
+#     deno test --frozen -A integration/neon_features_test.ts
+#
+#   # MySQL / MariaDB suites:
+#   SISAL_MYSQL_IT=1 MYSQL_URL=mysql://root:root@localhost:33306/sisal \
+#     deno test -A integration/mysql_features_test.ts
+#   SISAL_MARIADB_IT=1 MARIADB_URL=mysql://root:root@localhost:33307/sisal \
+#     deno test -A integration/mariadb_features_test.ts
+#
+#   # or fully in Docker, against a chosen Postgres server:
 #   DATABASE_URL=postgres://postgres:postgres@pg18:5432/sisal \
 #     docker compose -f docker/compose.yaml run --rm runner
 #
-# `scripts/pg-matrix.sh` drives all three versions and prints a summary.
+# `scripts/pg-matrix.sh` drives all three Postgres versions and prints a summary.
 name: sisal-pg-matrix
 
 x-pg: &pg
@@ -61,6 +73,32 @@ services:
     depends_on:
       neon-pg:
         condition: service_healthy
+
+  # MySQL and MariaDB share the `@sisal/mysql` adapter (detected identity). Root
+  # login + a `sisal` database; the suites connect with `root:root`.
+  mysql:
+    image: mysql:8@sha256:d36d39a64cd12a5c1cc9e6aa2bfb5f8d4c81a2f6586e0a04a9ae13939db02209
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sisal
+    ports: ["33306:3306"]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -proot --silent"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+
+  mariadb:
+    image: mariadb:11@sha256:be1ef4fe5f14589325c08a41c76334097ce66c86264b75e1d28342c742782a61
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: sisal
+    ports: ["33307:3306"]
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
 
   runner:
     build:

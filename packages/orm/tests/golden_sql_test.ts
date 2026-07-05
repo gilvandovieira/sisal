@@ -19,7 +19,6 @@
  * deno test --allow-read --allow-write packages/orm/golden_sql_test.ts -- --update
  * ```
  */
-import { assertSnapshot } from "@std/testing/snapshot";
 import {
   and,
   arrayContained,
@@ -85,6 +84,26 @@ import {
   sum,
 } from "../mod.ts";
 import type { Database, DialectIdentity, Sql, SqlDialect } from "../mod.ts";
+
+// `@std/testing/snapshot` is a Deno-test-runner feature: it resolves
+// `__snapshots__` relative to the *source* file and honors `--update`. dnt does
+// not bundle it for the Node build, so these two golden checks run under Deno
+// and are skipped under Node (where the same renders are already pinned by the
+// non-snapshot golden tests). The specifier is computed so dnt leaves it as an
+// opaque runtime import instead of trying to resolve it. Detection keys on
+// `Deno.dlopen` (FFI): dnt's Node test shim fakes `Deno.version` but not FFI, so
+// this distinguishes real Deno from Node-under-shim.
+const isRealDeno =
+  typeof (globalThis as { Deno?: { dlopen?: unknown } }).Deno?.dlopen ===
+    "function";
+
+async function loadAssertSnapshot(): Promise<
+  typeof import("@std/testing/snapshot").assertSnapshot
+> {
+  const specifier = ["@std", "testing/snapshot"].join("/");
+  const mod = await import(specifier);
+  return mod.assertSnapshot;
+}
 
 // ---- render targets ---------------------------------------------------------
 // The four render dialects plus one detected identity: MariaDB lights
@@ -584,6 +603,8 @@ const CATALOG: ReadonlyArray<readonly [string, () => Sql]> = [
 ];
 
 Deno.test("golden: every IR construct renders identically per dialect", async (t) => {
+  if (!isRealDeno) return; // snapshot mechanism is Deno-only; see above
+  const assertSnapshot = await loadAssertSnapshot();
   for (const [name, build] of CATALOG) {
     await t.step(name, async (step) => {
       await assertSnapshot(step, renderAll(build()));
@@ -595,6 +616,8 @@ Deno.test("golden: every IR construct renders identically per dialect", async (t
 // the placeholder styles ($1 vs ?) and deferred-binding order are pinned per
 // dialect facade rather than through renderAll.
 Deno.test("golden: prepared-plan placeholders per dialect", async (t) => {
+  if (!isRealDeno) return; // snapshot mechanism is Deno-only; see above
+  const assertSnapshot = await loadAssertSnapshot();
   const facades: Record<string, Database> = {
     postgres: createDatabase({ dialect: "postgres" }),
     sqlite: createDatabase({ dialect: "sqlite" }),

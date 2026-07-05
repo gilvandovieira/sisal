@@ -22,7 +22,7 @@ explicit database adapters.
 | `@sisal/libsql`    | `@sisal/libsql`    | libSQL/Turso execution, client helpers, migrations  |
 | `@sisal/mysql`     | `@sisal/mysql`     | MySQL/MariaDB execution, SQL rendering, migrations  |
 
-The manifests in this workspace are currently `0.11.1`; this page reflects the
+The manifests in this workspace are currently `0.12.0`; this page reflects the
 current tree, including the ETL and analytics preview packages, structured
 logging controls, `await using` disposal aliases, and the `src/` package layout.
 

@@ -616,6 +616,21 @@ Deno.test("sisal cli - init scaffolds config and refuses overwrite", async () =>
   assertStringIncludes(config ?? "", 'dialect: "sqlite"');
   assertStringIncludes(out.join("\n"), "Created sisal.migrate.ts");
 
+  // Scaffold targets the host runtime: npm scope + `process.env` on Node, JSR
+  // scope + `Deno.env.get` on Deno. Assert internal consistency rather than
+  // predicting the runtime — the dnt Node test shim makes `globalThis.Deno`
+  // ambiguous, so this test can't reliably guess which the shipped code chose.
+  const usesNpmScope = (config ?? "").includes(
+    'from "@sisaljs/migrate/workflow"',
+  );
+  const usesJsrScope = (config ?? "").includes(
+    'from "@sisal/migrate/workflow"',
+  );
+  assert(
+    usesNpmScope !== usesJsrScope,
+    "scaffold imports exactly one workflow scope",
+  );
+
   // Refuses to overwrite an existing config without --force.
   const second = await runSisalCli(["init"], {
     fs,
@@ -635,9 +650,14 @@ Deno.test("sisal cli - init scaffolds config and refuses overwrite", async () =>
     },
   );
   assertEquals(third, 0);
+  const pgConfig = fs.files.get("sisal.migrate.ts") ?? "";
+  assertStringIncludes(pgConfig, 'dialect: "postgres"');
+  // The `DATABASE_URL` env hint matches the scope the scaffold chose.
   assertStringIncludes(
-    fs.files.get("sisal.migrate.ts") ?? "",
-    'dialect: "postgres"',
+    pgConfig,
+    pgConfig.includes('from "@sisaljs/migrate/workflow"')
+      ? "process.env.DATABASE_URL"
+      : 'Deno.env.get("DATABASE_URL")',
   );
 });
 

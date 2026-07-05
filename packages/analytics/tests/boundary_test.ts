@@ -15,6 +15,15 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
+// This static scan walks the Deno source tree (`packages/*`); under the
+// dnt-built Node suite that tree isn't present, so it runs under Deno only. The
+// same boundary is independently enforced by the `tools/lint` package-boundary
+// plugin. Detect real Deno via FFI — dnt's Node test shim fakes `Deno.version`
+// but not `Deno.dlopen`.
+const isRealDeno =
+  typeof (globalThis as { Deno?: { dlopen?: unknown } }).Deno?.dlopen ===
+    "function";
+
 interface FileImports {
   readonly file: string;
   readonly specifiers: readonly string[];
@@ -64,6 +73,7 @@ function offenders(
 }
 
 Deno.test("boundary: core/orm/migrate/etl never import @sisal/analytics", async () => {
+  if (!isRealDeno) return; // Deno source-tree scan; see above
   for (
     const packageDir of [
       "packages/core",
@@ -85,6 +95,7 @@ Deno.test("boundary: core/orm/migrate/etl never import @sisal/analytics", async 
 });
 
 Deno.test("boundary: analytics imports only @sisal/core, std/node, and itself", async () => {
+  if (!isRealDeno) return; // Deno source-tree scan; see above
   const imports = await collectImports("packages/analytics");
   const allowed = [
     /^@sisal\/core($|\/)/,

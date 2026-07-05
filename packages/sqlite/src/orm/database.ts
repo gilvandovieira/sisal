@@ -1,3 +1,5 @@
+import { hasDenoFfi, openNodeSqlite } from "../native.ts";
+
 /** A prepared statement: `all` returns rows, `run` returns the change count. */
 export interface SqliteStatement {
   /** Returns all rows produced by the prepared statement. */
@@ -28,10 +30,11 @@ export interface SqliteConnectionOptions {
 }
 
 /**
- * Opens a SQLite database with the bundled `@db/sqlite` driver. The driver is
- * imported lazily (a dynamic import), so merely importing `@sisal/orm/sqlite`
+ * Opens a SQLite database with the runtime-native driver, imported lazily (a
+ * dynamic import): Deno uses the FFI-backed `@db/sqlite`, Node the built-in
+ * `node:sqlite` (see {@link hasDenoFfi}). Merely importing `@sisal/orm/sqlite`
  * — and running the package's fake-backed tests — needs no permissions; only a
- * real open needs `--allow-ffi`/`--allow-env`/`--allow-read` (and
+ * real Deno open needs `--allow-ffi`/`--allow-env`/`--allow-read` (and
  * `--allow-write` for a file path).
  */
 export async function openSqliteDatabase(
@@ -41,8 +44,18 @@ export async function openSqliteDatabase(
     return options.database;
   }
 
-  // deno-lint-ignore no-import-prefix
-  const { Database } = await import("jsr:@db/sqlite@^0.12");
+  if (!hasDenoFfi()) {
+    return await openNodeSqlite(
+      options.path ?? ":memory:",
+      options.readonly ?? false,
+    ) as unknown as SqliteLikeDatabase;
+  }
+
+  // Computed specifier: keeps the Deno-only FFI driver off the static module
+  // graph so the npm build (dnt) never pulls it into the Node bundle. The
+  // `hasDenoFfi()` guard above ensures we only reach here on Deno, where the
+  // import map resolves `@db/sqlite` at runtime.
+  const { Database } = await import(["@db", "sqlite"].join("/"));
 
   return new Database(options.path ?? ":memory:", {
     int64: true,

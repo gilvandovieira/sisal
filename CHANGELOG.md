@@ -7,6 +7,143 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
+## Unreleased
+
+### Added
+
+- Started the **npm distribution track** (Node.js 24+ alongside JSR). Locked the
+  npm scope to **`@sisaljs`** (org owned; reserves the whole `@sisaljs/*`
+  namespace) and added
+  [`docs/npm-distribution-plan.md`](docs/npm-distribution-plan.md), a phased
+  task breakdown (`dnt`-based per-package build, runtime-aware driver resolvers,
+  dual-runtime tests, OIDC trusted publishing with provenance). Updated
+  [`docs/npm-release-readiness.md`](docs/npm-release-readiness.md) to record the
+  `@sisaljs` decision. Docs and planning only — **no npm package is published**;
+  Deno/JSR remains the source of truth and is unchanged.
+- **`@sisal/sqlite` now selects its driver by runtime.** On Deno it keeps the
+  FFI-backed `jsr:@db/sqlite`; on Node (24+) it falls back to the built-in
+  `node:sqlite` (`DatabaseSync`). Selection keys on Deno FFI availability
+  (`Deno.dlopen`) so it is invisible to callers, and an injected `database`
+  still bypasses it. No behavior change under Deno.
+- **npm build pipeline (`tools/build_npm.ts`, `deno task build:npm[:all]`).** A
+  [`dnt`](https://jsr.io/@deno/dnt)-based, descriptor-driven build transforms
+  each workspace package into a publishable ESM npm artifact under `npm/<id>/`
+  (`@sisaljs/*` scope): `.ts` specifiers and `jsr:`/`npm:` driver schemes are
+  rewritten, siblings map to `@sisaljs/*` deps, and drivers become optional peer
+  deps. All 10 packages build deps-first; `@sisaljs/core` and `@sisaljs/sqlite`
+  (a full CRUD flow via built-in `node:sqlite`) are verified running under
+  Node 26. Output is ESM-only (the migration CLI's top-level await precludes
+  CommonJS). Build/tooling only — no package is published.
+- **Node e2e battery (`tools/npm_e2e/`).** `run.sh` builds all packages, links
+  them into a consumer with the real npm drivers, and runs DDL + CRUD +
+  aggregate + transaction-rollback through each adapter against a real database.
+  All six adapters pass on Node 26 from the built artifacts (sqlite via
+  `node:sqlite`, libsql, pg, neon, mysql, mariadb).
+- **`docker/compose.yaml` now provides `mysql` (`localhost:33306`) and `mariadb`
+  (`localhost:33307`)** with health checks, so the full local database matrix
+  (Postgres, Neon, MySQL, MariaDB) starts with a single `docker compose up`.
+- **npm manifest drift gate (`deno task npm:manifests` / `npm:check`,
+  `docs/npm-manifests.json`).** The npm package graph, sibling mappings, and
+  derived deps/peers now live in one source of truth (`tools/npm_manifest.ts`),
+  shared by the dnt build and a new freshness gate (patterned on
+  `docs:matrix:check`). `docs/npm-manifests.json` freezes each `@sisaljs/*`
+  package's manifest intent (name, version, `type`, `engines`, exported
+  subpaths, dependency/peer graph) derived from `deno.json`; `npm:check`
+  re-derives and fails on any drift without a full build, and also rejects an
+  `@sisal/*` sibling import a package doesn't declare as a dependency.
+  Build/tooling only — no package is published.
+- **Node unit-test runner (`tools/test_npm.ts`, `deno task test:node`).** Runs
+  the network-free unit suite under **Node** from the Deno sources: dnt
+  transforms each `*_test.ts` (scoped per package; siblings inlined) and its dev
+  Deno shim supplies `Deno.test` + `@std/assert`, so the idiomatic tests run on
+  Node with **no source codemod**. All 10 packages pass on Node 26 while the
+  Deno suite stays green. `sqlite/native_test`, `orm/golden_sql_test`, and the
+  `etl`/`analytics` `boundary_test`s are now dual-runtime (Deno-only mechanisms
+  — FFI detection, `@std/testing/snapshot`, source-tree scans — run under Deno
+  and skip cleanly under Node, keyed on `Deno.dlopen`). Build/tooling only.
+- **npm CLI + Node examples (npm-distribution Phase 5).** `@sisaljs/migrate`
+  ships a `sisal` **bin** (`npx sisal init/generate/migrate/status/drift`): the
+  migration CLI now runs on Node via a `node:fs/promises` filesystem
+  implementation (`nodeMigrationFileSystem`), a runtime selector
+  (`defaultMigrationFileSystem`), a `process.env` fallback for env resolution,
+  and a **runtime-aware `sisal init`** that scaffolds a Node-flavored config
+  (npm scope imports + `process.env`) off Deno. New Node examples under
+  [`examples/node/`](examples/node/) (sqlite via built-in `node:sqlite`, pg,
+  mysql) and a [`docs/node.md`](docs/node.md) "Use from Node" guide; all three
+  examples run end-to-end on Node 24.
+- **Benchmark suites for the npm-distribution work.**
+  - `deno task bench:regression` (`benchmarks/regression.ts`) benchmarks the
+    working tree against a committed baseline (default `v0.11.1`) — same suite
+    in a throwaway git worktree, interleaved rounds, **best-of-N** comparison —
+    and fails if the Deno hot path regresses past a threshold. Confirms the
+    lazy-driver / runtime-fork / computed-specifier changes carry no meaningful
+    Deno cost.
+  - `benchmarks/cross_runtime/` (`run.sh` + `bench.mjs` + `compare.ts`) compares
+    Sisal on **Node vs Bun**, separating Sisal's own render cost (CPU, no DB)
+    from a pg e2e where a raw-`postgres.js` control isolates Sisal's marginal
+    overhead from the runtime+driver+database baseline.
+  - `benchmarks/README.md` documents all three modes. Tooling only.
+
+### Fixed
+
+- **`@sisal/migrate` CLI carried a Deno shebang that broke the transpiled npm
+  build.** `packages/migrate/src/cli.ts` began with
+  `#!/usr/bin/env -S deno run …`; dnt injects runtime shims above it, leaving
+  the shebang mid-file where Node parses it as an invalid regular expression.
+  Removed it — Deno invokes the CLI via `deno task sisal`, and the Node `bin`
+  shim gets its own `#!/usr/bin/env node` at publish time. No behavior change
+  for Deno users.
+- **MySQL/MariaDB integration suite: expression-index guard assertion.** The
+  `it_rich_expr` scenario asserted the typed-guard message contained
+  `"functional indexes"`, but the shipped guard says
+  `"functional (expression)
+  indexes"`, so the assertion never matched when the
+  guard fired. Because the MySQL/MariaDB suites are Docker-gated (and
+  MySQL/MariaDB were not in `compose.yaml`), the mismatch had gone unnoticed.
+  Aligned the needle to the shipped message; both suites are now 50/50.
+
+### Changed
+
+- **`@sisal/pg` (and `@sisal/neon`) now run queries as prepared statements by
+  default.** The postgres.js pool executed rendered SQL through
+  `unsafe(text, params)` without preparing it, so Postgres re-parsed and
+  re-planned every query (~35µs each). It now threads the pool's existing
+  `prepare` option into `unsafe(text, params, { prepare })`: prepared on direct
+  connections (parse+plan once, then reuse), and still unprepared under
+  `prepare: false` for PgBouncer / Neon transaction pooling. Roughly **2×
+  point-select throughput** on a single connection (a probe measured ~12k→~25k
+  q/s); see [`perf/ORM_EXECUTE_PROFILE.md`](perf/ORM_EXECUTE_PROFILE.md).
+  Sisal's own per-query CPU is only ~6.6µs, so the win is server-side. Injected
+  pools (`connect({ pool })`) are unaffected.
+- Bumped workspace package manifests, example/benchmark manifests, README
+  install pins, generated npm manifest intent, and migration CLI scaffolded
+  adapter defaults to `0.12.0`.
+- **`@sisal/neon` and the `@sisal/mysql` MariaDB connector select their driver
+  by runtime.** Both now resolve their driver through a computed, runtime-aware
+  specifier: Deno keeps the JSR/`npm:`-scheme driver (`@neon/serverless`,
+  `npm:mariadb`), while Node resolves the npm build (`@neondatabase/serverless`,
+  `mariadb`) from an optional peer dependency. No behavior change under Deno;
+  injected pools/clients still bypass it.
+- **`@sisal/pg` loads the `db-postgres` driver lazily.** The pure-JSR
+  `jsr:@db/postgres` driver is no longer imported at module load — both the ORM
+  and migrate pools defer the import to the first connect (matching the
+  postgres.js and `@sisal/libsql`/`@sisal/mysql` pattern), removing the last
+  static driver import in the package. Selecting `driver: "db-postgres"` on a
+  non-Deno runtime now throws a clear
+  `ORM_DRIVER_MISSING`/`MIGRATION_DRIVER_MISSING` error instead of an opaque
+  module-resolution failure. The postgres.js default and injected pools are
+  unaffected.
+
+- **`@sisal/pg` loads the `db-postgres` driver lazily.** The pure-JSR
+  `jsr:@db/postgres` driver is no longer imported at module load — both the ORM
+  and migrate pools defer the import to the first connect (matching the
+  postgres.js and `@sisal/libsql`/`@sisal/mysql` pattern), removing the last
+  static driver import in the package. Selecting `driver: "db-postgres"` on a
+  non-Deno runtime now throws a clear
+  `ORM_DRIVER_MISSING`/`MIGRATION_DRIVER_MISSING` error instead of an opaque
+  module-resolution failure. The postgres.js default and injected pools are
+  unaffected.
+
 ## 0.11.1 - 2026-07-05
 
 ### Changed
