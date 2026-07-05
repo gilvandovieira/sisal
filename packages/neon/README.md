@@ -2,15 +2,22 @@
 
 Neon serverless PostgreSQL adapter boundary for Sisal.
 
-`@sisal/neon` uses `jsr:@neon/serverless` and reuses the Postgres SQL dialect,
-ORM driver, migrator, and DDL helpers from `@sisal/pg`.
+`@sisal/neon` uses the Neon serverless driver (`@neon/serverless` on JSR,
+`@neondatabase/serverless` on npm) and reuses the Postgres SQL dialect, ORM
+driver, migrator, and DDL helpers from `@sisal/pg`.
+
+> **Install** — JSR (Deno): `deno add jsr:@sisal/neon` · npm (Node 24+):
+> `npm i @sisaljs/neon @neondatabase/serverless`. Same package on both
+> registries under different scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on
+> npm**); examples use the JSR import, on npm import from `@sisaljs/neon`. The
+> serverless driver is a peer dependency you install yourself.
 
 ```ts
 import { connect } from "@sisal/neon";
 
-const db = await connect({
-  url: Deno.env.get("DATABASE_URL"),
-});
+// `url` is your Neon connection string — e.g. process.env.DATABASE_URL on Node,
+// Deno.env.get("DATABASE_URL") on Deno.
+const db = await connect({ url });
 ```
 
 For migrations:
@@ -18,9 +25,7 @@ For migrations:
 ```ts
 import { createNeonMigrator } from "@sisal/neon/migrate";
 
-const migrator = await createNeonMigrator({
-  url: Deno.env.get("DATABASE_URL"),
-});
+const migrator = await createNeonMigrator({ url });
 ```
 
 For only DDL generation:
@@ -34,7 +39,7 @@ import { generatePostgresUpStatements } from "@sisal/neon/ddl";
 | Question            | Answer                                                                                                                                                    |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Driver              | `jsr:@neon/serverless`, reusing PostgreSQL ORM, DDL, and migration behavior through the `@sisal/pg` package boundary.                                     |
-| Permissions         | `--allow-env` for DSNs/tokens and `--allow-net` for Neon HTTP/WebSocket endpoints.                                                                        |
+| Permissions (Deno)  | `--allow-env` for DSNs/tokens and `--allow-net` for Neon HTTP/WebSocket endpoints.                                                                        |
 | Migrations          | Yes: `@sisal/neon/migrate`; multi-statement SQL is split because Neon HTTP accepts one statement per call.                                                |
 | Transactions/batch  | Transactions use pooled Neon clients where supported; batch semantics follow the PostgreSQL-family adapter boundary.                                      |
 | Dialect limitations | PostgreSQL SQL rendering with Neon transport constraints; use `dialectIdentity` for capability gates.                                                     |

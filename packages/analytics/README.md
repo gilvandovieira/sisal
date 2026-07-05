@@ -4,6 +4,11 @@ Typed analytical queries for [Sisal](https://jsr.io/@sisal) preview packages:
 describe dimensions, aggregate metrics, and windowed metrics over rollup tables,
 then render one parameterized SQL statement through `@sisal/core`.
 
+> **Install** — JSR (Deno): `deno add jsr:@sisal/analytics` · npm (Node 24+):
+> `npm i @sisaljs/analytics`. Same package on both registries under different
+> scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR
+> import, on npm import from `@sisaljs/analytics`.
+
 ```ts
 import {
   bucket,

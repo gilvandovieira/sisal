@@ -6,6 +6,12 @@ SQLite adapter boundary for Sisal.
 depends on `@sisal/sqlite`. It provides SQLite database execution, migration
 history storage, migrators, and additive DDL generation.
 
+> **Install** — JSR (Deno): `deno add jsr:@sisal/sqlite` · npm (Node 24+):
+> `npm i @sisaljs/sqlite`. Same package on both registries under different
+> scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR
+> import, on npm import from `@sisaljs/sqlite`. No driver to install: it uses
+> Deno's `@db/sqlite` (FFI) on Deno and the built-in `node:sqlite` on Node.
+
 ```ts
 import { createSqliteDb } from "@sisal/sqlite";
 
@@ -23,7 +29,7 @@ import { generateSqliteUpStatements } from "@sisal/sqlite/ddl";
 | Question            | Answer                                                                                                                                                                                    |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Driver              | `@db/sqlite` through Deno FFI.                                                                                                                                                            |
-| Permissions         | `--allow-ffi`; add `--allow-read`/`--allow-write` for file-backed databases.                                                                                                              |
+| Permissions (Deno)  | `--allow-ffi`; add `--allow-read`/`--allow-write` for file-backed databases.                                                                                                              |
 | Migrations          | Yes: `@sisal/sqlite/migrate`, SQLite history store, and `@sisal/sqlite/ddl`.                                                                                                              |
 | Transactions/batch  | Interactive transactions are serialized on one connection; `db.batch` runs atomically through a transaction.                                                                              |
 | Dialect limitations | SQLite type affinity applies; booleans are stored as integers, `@db/sqlite` is opened with `int64` support, and some PostgreSQL/MySQL DDL/index features are capability-gated or omitted. |

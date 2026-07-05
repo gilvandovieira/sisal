@@ -7,6 +7,12 @@ storage, file workflow helpers, schema diff classification, and a generic
 migrator. It depends on `@sisal/core` for schema snapshot types and helpers, but
 it does not depend on PostgreSQL or SQLite drivers.
 
+> **Install** — JSR (Deno): `deno add jsr:@sisal/migrate` · npm (Node 24+):
+> `npm i @sisaljs/migrate`. Same package on both registries under different
+> scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR
+> import, on npm import from `@sisaljs/migrate`. On npm the package ships a
+> `sisal` bin — run it with `npx sisal <command>`.
+
 ```ts
 import {
   createMigrator,
@@ -35,9 +41,17 @@ execution, and DDL generation.
 
 ## CLI
 
-`@sisal/migrate/cli` provides the `sisal` command runner:
+`@sisal/migrate/cli` provides the `sisal` command runner. On Node (npm), use the
+bundled `sisal` bin; on Deno, run the JSR entry directly:
 
 ```sh
+# Node (npm) — the @sisaljs/migrate bin:
+npx sisal generate initial
+npx sisal migrate
+npx sisal status
+npx sisal drift
+
+# Deno (JSR) — least-privilege permissions per command:
 deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \
   jsr:@sisal/migrate/cli generate initial
 deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi \

@@ -7,6 +7,18 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
+## Unreleased
+
+### Changed
+
+- **Package READMEs are now registry-neutral.** Each package README documents
+  both distributions — dual install commands (`deno add jsr:@sisal/<pkg>` /
+  `npm i @sisaljs/<pkg>`), a note that the scope differs by registry (`@sisal/*`
+  on JSR, `@sisaljs/*` on npm), driver peer-dep hints for the adapters,
+  `npx sisal` CLI usage for `@sisaljs/migrate`, and Deno-only permission flags
+  relabeled as such. They ship to npm on the next release (build copies each
+  `packages/<id>/README.md` into the npm artifact).
+
 ## 0.12.0 - 2026-07-05
 
 ### Added

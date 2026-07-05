@@ -6,6 +6,11 @@ per invocation. The database does the heavy lifting — the runner sends a singl
 generated `INSERT ... SELECT ... ON CONFLICT DO UPDATE` statement; no row ever
 round-trips through the process.
 
+> **Install** — JSR (Deno): `deno add jsr:@sisal/etl` · npm (Node 24+):
+> `npm i @sisaljs/etl`. Same package on both registries under different scopes
+> (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR import,
+> on npm import from `@sisaljs/etl`.
+
 ```ts
 import { defineJob, run } from "@sisal/etl";
 import { count, eq, filter, sum } from "@sisal/core";

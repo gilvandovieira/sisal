@@ -6,12 +6,18 @@ PostgreSQL adapter boundary for Sisal.
 depends on `@sisal/pg`. It provides PostgreSQL database execution, connection
 pooling, migration history storage, migrators, and additive DDL generation.
 
+> **Install** — JSR (Deno): `deno add jsr:@sisal/pg` · npm (Node 24+):
+> `npm i @sisaljs/pg postgres`. Same package on both registries under different
+> scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR
+> import, on npm import from `@sisaljs/pg`. The `postgres` (postgres.js) driver
+> is a peer dependency you install yourself.
+
 ```ts
 import { createPgDb } from "@sisal/pg";
 
-const db = await createPgDb({
-  url: Deno.env.get("DATABASE_URL"),
-});
+// `url` is your PostgreSQL connection string — e.g. process.env.DATABASE_URL on
+// Node, Deno.env.get("DATABASE_URL") on Deno.
+const db = await createPgDb({ url });
 ```
 
 ## Choosing a driver
@@ -49,7 +55,7 @@ import { generatePostgresUpStatements } from "@sisal/pg/ddl";
 | Question            | Answer                                                                                                                                                                     |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Driver              | ORM connections use lazy `npm:postgres` by default or `jsr:@db/postgres` when `driver: "db-postgres"` is selected. Migration execution uses `@db/postgres`.                |
-| Permissions         | `--allow-env` for DSNs, `--allow-net=<host>:<port>` for live connections, and `--allow-read` when loading local config/migrations.                                         |
+| Permissions (Deno)  | `--allow-env` for DSNs, `--allow-net=<host>:<port>` for live connections, and `--allow-read` when loading local config/migrations.                                         |
 | Migrations          | Yes: `@sisal/pg/migrate`, PostgreSQL history store, advisory locks, and `@sisal/pg/ddl`.                                                                                   |
 | Transactions/batch  | Interactive transactions and atomic `db.batch` are supported through scoped executors.                                                                                     |
 | Dialect limitations | PostgreSQL-family features are capability-gated by `dialectIdentity`; `int8` decodes as string to avoid precision loss.                                                    |
