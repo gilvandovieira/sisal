@@ -296,22 +296,34 @@ are now 50/50).
 
 ### Phase 6 — CI & release automation
 
-- [ ] **NPM-20 — CI Node leg.** Add a Node 24 job: `deno task build:npm` +
-      `deno task npm:check` + Node test run. _Accept:_ PRs are gated on the npm
-      build + Node suite.
-- [ ] **NPM-21 — Trusted Publishing setup.** Register the repo + release
-      workflow as a trusted publisher for `@sisaljs` in npm settings (OIDC).
-      _Accept:_ a dry-run publish authenticates with no `NPM_TOKEN` secret.
-- [ ] **NPM-22 — Release workflow.** On the same version tag that drives
-      `deno publish`: build, then
-      `npm publish ./npm/<pkg> --provenance
-  --access public` in **dependency
-      order** (`core` → `orm`,`migrate` → adapters → `etl`,`analytics`).
-      Idempotent (npm rejects existing versions). _Accept:_ a tagged pre-release
-      publishes JSR + npm at identical versions.
-- [ ] **NPM-23 — npm advisory audit.** Add `npm audit` / osv over the npm
-      dependency set to the audit task. _Accept:_ `deno task audit` (or a
-      sibling) covers npm deps.
+- [x] **NPM-20 — CI Node leg.** ✅ Done — a `npm / Node` job in `ci.yml` (Deno +
+      Node 24) runs `deno task npm:check` (drift gate) → `build:npm:all` (all 10
+      packages build) → `test:node` (the full Node unit suite). PRs are now
+      gated on the npm build + Node suite.
+- [x] **NPM-21 — Trusted Publishing setup.** ✅ Workflow-ready — `publish.yml`
+      has `permissions: id-token: write`, sets up Node with
+      `registry-url: https://registry.npmjs.org`, and publishes with
+      `--provenance` and **no `NPM_TOKEN`**, so auth is OIDC. _Manual external
+      step remaining:_ register this repo + the Publish workflow as a **trusted
+      publisher** for the `@sisaljs` scope on npmjs.com before the first publish
+      (it cannot be done from the repo). Until then a tokened publish is the
+      fallback.
+- [x] **NPM-22 — Release workflow.** ✅ Done — `tools/npm_publish.ts`
+      (`deno task npm:publish[:dry]`) publishes `./npm/<pkg>` in **dependency
+      order** (core → orm,migrate → adapters → etl,analytics) with
+      `--provenance --access public`, **idempotently** (a version already on the
+      registry is skipped, so re-runs are safe). `publish.yml` runs it right
+      after `deno publish` (same tag/branch gate) so JSR + npm ship identical
+      versions; the `workflow_dispatch` dry-run path runs it with `--dry-run`.
+      _Verified:_ `npm:publish:dry` walks all 10 packages in order against the
+      registry locally.
+- [x] **NPM-23 — npm advisory audit.** ✅ Done — `tools/check_advisories.ts`
+      folds the driver **peer deps** from the package descriptors (`postgres`,
+      `mysql2`, `@libsql/client`, `@neondatabase/serverless`, `mariadb`) into
+      the OSV query, so `deno task audit` covers what a Node consumer installs —
+      not just what Deno resolves into `deno.lock` (the Node-only peers never
+      appear there). _Verified:_ the audit now lists
+      `@neondatabase/serverless@1.0.0` and `mariadb@3.5.3`; no known advisories.
 
 ### Phase 7 — First release & verification
 

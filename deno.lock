@@ -33,6 +33,7 @@
     "jsr:@std/path@^1.1.5": "1.1.5",
     "jsr:@std/testing@^1.0.19": "1.0.19",
     "jsr:@std/yaml@*": "1.1.1",
+    "jsr:@std/yaml@1": "1.1.1",
     "jsr:@ts-morph/bootstrap@0.27": "0.27.0",
     "jsr:@ts-morph/common@0.27": "0.27.0",
     "npm:@libsql/client@~0.17.4": "0.17.4",

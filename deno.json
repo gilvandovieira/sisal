@@ -48,6 +48,8 @@
     "build:npm:all": "deno run -A tools/build_npm.ts all",
     "npm:manifests": "deno run --allow-read --allow-write tools/generate_npm_manifests.ts",
     "npm:check": "deno run --allow-read tools/generate_npm_manifests.ts --check",
+    "npm:publish": "deno run -A tools/npm_publish.ts",
+    "npm:publish:dry": "deno run -A tools/npm_publish.ts --dry-run",
     "test:node": "deno run -A tools/test_npm.ts all",
     "bench": "deno bench benchmarks/mod.ts",
     "bench:regression": "deno run -A benchmarks/regression.ts",

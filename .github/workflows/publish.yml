@@ -37,6 +37,16 @@ jobs:
         with:
           deno-version: v2.9.0
 
+      # Node + npm for the paired npm publish. `registry-url` wires npm to the
+      # public registry; auth is OIDC Trusted Publishing (no NPM_TOKEN), which
+      # needs the `id-token: write` permission above and `@sisaljs` registered as
+      # a trusted publisher for this repo+workflow on npmjs.com (NPM-21).
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
       - name: Install dependencies
         run: deno install --frozen
 
@@ -71,6 +81,12 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: deno publish --dry-run
 
+      - name: Dry run npm publish
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          deno task --frozen build:npm:all
+          deno run -A tools/npm_publish.ts --dry-run
+
       - name: Refuse manual publish outside main
         if: >-
           ${{
@@ -92,7 +108,7 @@ jobs:
             exit 1
           fi
 
-      - name: Publish workspace
+      - name: Publish workspace (JSR)
         if: >-
           ${{
             github.event_name == 'push' ||
@@ -103,3 +119,20 @@ jobs:
             )
           }}
         run: deno publish
+
+      # Paired npm publish at the identical version, in dependency order, with
+      # provenance. Idempotent: versions already on the registry are skipped, so
+      # a re-run (or a JSR-only-succeeded run) is safe (NPM-22).
+      - name: Publish workspace (npm)
+        if: >-
+          ${{
+            github.event_name == 'push' ||
+            (
+              github.event_name == 'workflow_dispatch' &&
+              !inputs.dry_run &&
+              github.ref == 'refs/heads/main'
+            )
+          }}
+        run: |
+          deno task --frozen build:npm:all
+          deno run -A tools/npm_publish.ts

@@ -61,6 +61,15 @@ Sisal-specific history after that baseline through `1f05448`.
   `etl`/`analytics` `boundary_test`s are now dual-runtime (Deno-only mechanisms
   — FFI detection, `@std/testing/snapshot`, source-tree scans — run under Deno
   and skip cleanly under Node, keyed on `Deno.dlopen`). Build/tooling only.
+- **npm CI + release automation (npm-distribution Phase 6).** A `npm / Node` CI
+  job (`ci.yml`) gates PRs on the manifest drift gate, `build:npm:all`, and the
+  Node unit suite (`test:node`). `publish.yml` publishes to npm right after
+  `deno publish` (same tag/branch gate) via `tools/npm_publish.ts`
+  (`deno task npm:publish`) — dependency order, `--provenance`, idempotent
+  (skips versions already on the registry) — over **OIDC Trusted Publishing**
+  (no `NPM_TOKEN`; the scope must be registered as a trusted publisher on
+  npmjs.com first). `deno task audit` now also OSV-checks the npm driver peer
+  deps (`@neondatabase/serverless`, `mariadb`, …) that never reach `deno.lock`.
 - **npm CLI + Node examples (npm-distribution Phase 5).** `@sisaljs/migrate`
   ships a `sisal` **bin** (`npx sisal init/generate/migrate/status/drift`): the
   migration CLI now runs on Node via a `node:fs/promises` filesystem
