@@ -481,11 +481,17 @@ export function now(): SqlExpression<string> {
  * units (not a fixed number of seconds) and are rejected by {@link dateBin}.
  */
 export interface DateDuration {
+  /** Calendar years in the duration. */
   readonly years?: number;
+  /** Calendar months in the duration. */
   readonly months?: number;
+  /** Calendar days in the duration. */
   readonly days?: number;
+  /** Clock hours in the duration. */
   readonly hours?: number;
+  /** Clock minutes in the duration. */
   readonly minutes?: number;
+  /** Clock seconds in the duration. */
   readonly seconds?: number;
 }
 

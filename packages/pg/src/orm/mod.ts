@@ -48,10 +48,12 @@ export type { PostgresJsPoolOptions } from "./postgres_js_pool.ts";
 
 /** PostgreSQL-specialized database facade. */
 export interface PgDatabase extends Database {
+  /** Executes SQL through this pg database. */
   execute<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
   ): Promise<OrmQueryResult<T>>;
+  /** Runs a query through this pg database. */
 
   query<T = unknown>(
     query: SqlInput,
@@ -61,8 +63,11 @@ export interface PgDatabase extends Database {
 
 /** Options for opening a PostgreSQL-backed database facade. */
 export interface CreatePgDbOptions extends PgOrmDriverOptions {
+  /** Logging options used by this create pg db options. */
   readonly logger?: Logger;
+  /** Temporal parsing options used by this create pg db options. */
   readonly logging?: SisalLoggingOptions;
+  /** Temporal parsing options used by this create pg db options. */
   readonly temporal?: TemporalParsingOptions;
 }
 

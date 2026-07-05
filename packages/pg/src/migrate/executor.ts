@@ -11,29 +11,38 @@ import {
 
 /** Rows and affected-row count returned by a PostgreSQL migration executor. */
 export interface QueryResult<Row = Record<string, unknown>> {
+  /** Row count reported by this query result. */
   readonly rows: Row[];
+  /** Row count reported by this query result. */
   readonly rowCount: number;
 }
 
 /** Pinned PostgreSQL execution session held across multiple executor calls. */
 export interface SqlExecutorSession {
+  /** Executes SQL through this sql executor session. */
   execute<Row = Record<string, unknown>>(
     sql: string,
     params?: readonly unknown[],
   ): Promise<QueryResult<Row>>;
+  /** Releases this sql executor session back to its owner. */
 
   release(): Promise<void>;
 }
 
 /** Minimal SQL executor used by the PostgreSQL migration adapter. */
 export interface SqlExecutor {
+  /** Executes SQL through this sql executor. */
   execute<Row = Record<string, unknown>>(
     sql: string,
     params?: readonly unknown[],
   ): Promise<QueryResult<Row>>;
+  /** Runs work inside a transaction for this sql executor. */
 
+  /** Acquires a session for this sql executor. */
   transaction?<T>(fn: (tx: SqlExecutor) => Promise<T>): Promise<T>;
+  /** Closes resources held by this sql executor. */
   acquireSession?(): Promise<SqlExecutorSession>;
+  /** Closes resources held by this sql executor. */
   close?(): Promise<void>;
 }
 

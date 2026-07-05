@@ -12,7 +12,9 @@ export const DEFAULT_LIBSQL_MIGRATION_TABLE = "sisal_migrations";
 
 /** Options for creating a libSQL-backed migration history store. */
 export interface LibsqlMigrationHistoryStoreOptions {
+  /** History table name used by this libsql migration history store options. */
   readonly executor: SqlExecutor;
+  /** History table name used by this libsql migration history store options. */
   readonly tableName?: string;
 }
 

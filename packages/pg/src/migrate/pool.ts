@@ -11,27 +11,38 @@ export interface PgDriverResult<Row = Record<string, unknown>> {
 
 /** Minimal PostgreSQL client surface used by the migration adapter. */
 export interface PgClient {
+  /** query object for this pg client. */
   queryObject<Row = Record<string, unknown>>(
     query: string,
     args?: unknown[],
   ): Promise<PgDriverResult<Row>>;
+  /** Releases this pg client back to its owner. */
 
+  /** Closes resources held by this pg client. */
   release?(): void;
+  /** Closes resources held by this pg client. */
   end?(): Promise<void>;
 }
 
 /** Minimal PostgreSQL pool surface used by the migration adapter. */
 export interface PgPool {
+  /** Closes resources held by this pg pool. */
   connect(): Promise<PgClient>;
+  /** Closes resources held by this pg pool. */
   end?(): Promise<void>;
 }
 
 /** Connection options accepted by PostgreSQL migration adapter factories. */
 export interface PgConnectionOptions {
+  /** pool for this pg connection options. */
   readonly url?: string;
+  /** client for this pg connection options. */
   readonly pool?: PgPool;
+  /** pool size for this pg connection options. */
   readonly client?: PgClient;
+  /** lazy for this pg connection options. */
   readonly poolSize?: number;
+  /** lazy for this pg connection options. */
   readonly lazy?: boolean;
 }
 

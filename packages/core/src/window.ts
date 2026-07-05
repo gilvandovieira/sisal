@@ -45,7 +45,9 @@ export type FrameBound =
 export interface WindowFrame {
   /** Frame unit; `"groups"` is capability-gated (PostgreSQL-first). */
   readonly unit: "rows" | "range" | "groups";
+  /** Closes resources held by this window frame. */
   readonly start: FrameBound;
+  /** Closes resources held by this window frame. */
   readonly end: FrameBound;
 }
 
@@ -54,8 +56,11 @@ export interface WindowFrame {
  * (`asc()`/`desc()` or bare columns/expressions), and an optional frame.
  */
 export interface WindowSpec {
+  /** Expressions that partition rows before the window function runs. */
   readonly partitionBy?: readonly unknown[];
+  /** Expressions that order rows within each partition. */
   readonly orderBy?: readonly unknown[];
+  /** Optional frame bounds for the ordered window. */
   readonly frame?: WindowFrame;
 }
 

@@ -76,30 +76,47 @@ export type ReferentialAction =
 
 /** Options accepted by {@link ColumnBuilder.references}. */
 export interface ReferentialOptions {
+  /** Referential update action for this referential options. */
   readonly onDelete?: ReferentialAction;
+  /** Referential update action for this referential options. */
   readonly onUpdate?: ReferentialAction;
 }
 
 /** Column metadata used by table definitions and future adapters. */
 export interface ColumnDefinition<T> {
+  /** data type for this column definition. */
   readonly name?: ColumnName;
+  /** value mode for this column definition. */
   readonly dataType: ColumnDataType;
+  /** length for this column definition. */
   readonly valueMode?: ColumnValueMode;
+  /** precision for this column definition. */
   readonly length?: number;
+  /** scale for this column definition. */
   readonly precision?: number;
+  /** array for this column definition. */
   readonly scale?: number;
+  /** dialect type for this column definition. */
   readonly array?: boolean;
+  /** Whether this column definition accepts null values. */
   readonly dialectType?: string;
+  /** Whether has default applies to this column definition. */
   readonly nullable: boolean;
+  /** primary key used by this column definition. */
   readonly hasDefault: boolean;
+  /** Whether this column definition has a unique constraint. */
   readonly primaryKey: boolean;
+  /** Referenced columns or table for this column definition. */
   readonly unique: boolean;
+  /** Referenced columns or table for this column definition. */
   readonly references?: {
     readonly table: string;
     readonly column: string;
     readonly onDelete?: ReferentialAction;
     readonly onUpdate?: ReferentialAction;
+    /** Default value configured for this column definition. */
   };
+  /** Default value configured for this column definition. */
   readonly defaultValue?: T | (() => T);
   /**
    * A SQL-expression default emitted into DDL verbatim (`DEFAULT now()`), set by
@@ -118,7 +135,9 @@ export interface ColumnDefinition<T> {
    * defaults to `true` (the only form PostgreSQL supports; the SQLite and
    * MySQL families also accept `VIRTUAL`).
    */
+  /** Referential update action for this column definition. */
   readonly generatedAs?: { readonly sql: Sql; readonly stored: boolean };
+  /** Referential update action for this column definition. */
   readonly onUpdate?: () => unknown;
 }
 
@@ -133,8 +152,11 @@ export interface CustomColumnTypeOptions {
   readonly kind: string;
   /** Raw dialect type emitted verbatim into DDL instead of `kind`. */
   readonly dialectType?: string;
+  /** precision for this custom column type options. */
   readonly length?: number;
+  /** scale for this custom column type options. */
   readonly precision?: number;
+  /** scale for this custom column type options. */
   readonly scale?: number;
 }
 
@@ -143,13 +165,20 @@ export interface ColumnBuilder<
   T,
   TOptional extends boolean = false,
   THasDefault extends boolean = false,
-> {
+> /** definition for this column builder. */ {
+  /** optional insert for this column builder. */
   readonly definition: ColumnDefinition<T>;
+  /** default insert for this column builder. */
   readonly optionalInsert: TOptional;
+  /** default insert for this column builder. */
   readonly defaultInsert: THasDefault;
+  /** named for this column builder. */
 
+  /** not null for this column builder. */
   named(name: string): ColumnBuilder<T, TOptional, THasDefault>;
+  /** Whether this column builder accepts null values. */
   notNull(): ColumnBuilder<NonNullable<T>, TOptional, THasDefault>;
+  /** Whether this column builder accepts null values. */
   nullable(): ColumnBuilder<T | null, TOptional, THasDefault>;
   /**
    * Marks the column omittable on insert — an **insert-only** axis. It does not
@@ -169,7 +198,9 @@ export interface ColumnBuilder<
   default(value: T | (() => T) | Sql): ColumnBuilder<T, TOptional, true>;
   /** Adds the column to the primary key. Implies `.notNull()`. */
   primaryKey(): ColumnBuilder<NonNullable<T>, TOptional, THasDefault>;
+  /** Referenced columns or table for this column builder. */
   unique(): ColumnBuilder<T, TOptional, THasDefault>;
+  /** Referenced columns or table for this column builder. */
   references(
     table: string,
     column: string,
@@ -759,6 +790,7 @@ export function cloneColumnDefinition<T>(
   };
 }
 
+/** Returns true when a value is a Sisal column builder. */
 export function isColumnBuilder(
   value: unknown,
 ): value is ColumnBuilder<unknown> {

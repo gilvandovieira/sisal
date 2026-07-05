@@ -46,9 +46,12 @@ export type RelationMode = "one" | "many";
 export interface RelationConfig<
   TSource extends TableDefinition,
   TTarget extends TableDefinition,
-> {
+> /** Local relation fields for this relation config. */ {
+  /** Referenced columns or table for this relation config. */
   readonly fields?: readonly TableColumn<TSource>[];
+  /** relation name for this relation config. */
   readonly references?: readonly TableColumn<TTarget>[];
+  /** relation name for this relation config. */
   readonly relationName?: string;
 }
 
@@ -58,14 +61,22 @@ export interface RelationDefinition<
   TTarget extends TableDefinition = AnyTableDefinition,
   TMode extends RelationMode = RelationMode,
   TName extends string = string,
-> {
+> /** Discriminator for this relation definition. */ {
+  /** mode for this relation definition. */
   readonly kind: "relation";
+  /** Name used by this relation definition. */
   readonly mode: TMode;
+  /** source table for this relation definition. */
   readonly name?: TName;
+  /** target table for this relation definition. */
   readonly sourceTable: TSource;
+  /** Local relation fields for this relation definition. */
   readonly targetTable: TTarget;
+  /** Referenced columns or table for this relation definition. */
   readonly fields?: readonly TableColumn<TSource>[];
+  /** relation name for this relation definition. */
   readonly references?: readonly TableColumn<TTarget>[];
+  /** relation name for this relation definition. */
   readonly relationName?: string;
 }
 
@@ -91,18 +102,23 @@ type NamedRelationDefinitionMap<TConfig extends Record<string, unknown>> = {
 export interface TableRelations<
   TTable extends TableDefinition = AnyTableDefinition,
   TRelations extends RelationDefinitionMap = RelationDefinitionMap,
-> {
+> /** Discriminator for this table relations. */ {
+  /** table for this table relations. */
   readonly kind: "table_relations";
+  /** relations for this table relations. */
   readonly table: TTable;
+  /** relations for this table relations. */
   readonly relations: TRelations;
 }
 
 /** Helpers passed to {@link relations}. */
 export interface RelationHelpers<TSource extends TableDefinition> {
+  /** one for this relation helpers. */
   one<TTarget extends TableDefinition>(
     table: TTarget,
     config: RelationConfig<TSource, TTarget>,
   ): RelationDefinition<TSource, TTarget, "one">;
+  /** many for this relation helpers. */
 
   many<TTarget extends TableDefinition>(
     table: TTarget,
@@ -220,8 +236,10 @@ export interface RelationalFindOptions<
   TTable extends TableDefinition,
   TRelationMap extends RelationDefinitionMap = RelationDefinitionMap,
   TRelations extends RelationsList = RelationsList,
-> {
+> /** Columns selected or configured by this relational find options. */ {
+  /** Nested relation selections for this relational find options. */
   readonly columns?: RelationalColumnSelection<TTable>;
+  /** Nested relation selections for this relational find options. */
   readonly with?: {
     readonly [K in keyof TRelationMap]?:
       | true
@@ -231,10 +249,15 @@ export interface RelationalFindOptions<
         RelationsForTable<RelationTarget<TRelationMap[K]>, TRelations>,
         TRelations
       >;
+    /** Adds a filtering predicate to this relational find options. */
   };
+  /** Adds ordering expressions to this relational find options. */
   readonly where?: Condition;
+  /** Limits the number of rows for this relational find options. */
   readonly orderBy?: unknown | readonly unknown[];
+  /** Skips rows before returning results from this relational find options. */
   readonly limit?: number;
+  /** Skips rows before returning results from this relational find options. */
   readonly offset?: number;
 }
 
@@ -258,7 +281,8 @@ export type RelationalQueryResult<
 export interface RelationalTableQuery<
   TTable extends TableDefinition,
   TRelations extends RelationsList = RelationsList,
-> {
+> /** Finds all matching rows for this relational table query. */ {
+  /** Finds all matching rows for this relational table query. */
   findMany<
     TConfig extends RelationalFindOptions<
       TTable,
@@ -268,6 +292,7 @@ export interface RelationalTableQuery<
   >(
     config?: TConfig,
   ): Promise<Array<RelationalQueryResult<TTable, TRelations, TConfig>>>;
+  /** Finds the first matching row for this relational table query. */
 
   findFirst<
     TConfig extends RelationalFindOptions<

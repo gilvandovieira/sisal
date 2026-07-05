@@ -91,10 +91,14 @@ type FunctionReturnMeta =
 export interface FunctionDefinition<
   TArgsInput = Record<string, unknown>,
   TRow = unknown,
-> {
+> /** Discriminator for this function definition. */ {
+  /** Name used by this function definition. */
   readonly kind: "function";
+  /** Bound parameters used by this function definition. */
   readonly name: string;
+  /** returns for this function definition. */
   readonly args: readonly FunctionArgMeta[];
+  /** returns for this function definition. */
   readonly returns: FunctionReturnMeta;
   /** Phantom carrier for the inferred argument-input type (compile-time only). */
   readonly __argsInput?: TArgsInput;

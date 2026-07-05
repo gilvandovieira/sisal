@@ -48,10 +48,12 @@ export type { SqliteOrmDriverOptions } from "./driver.ts";
 
 /** SQLite-specialized database facade. */
 export interface SqliteDatabase extends Database {
+  /** Executes SQL through this sqlite database. */
   execute<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
   ): Promise<OrmQueryResult<T>>;
+  /** Runs a query through this sqlite database. */
 
   query<T = unknown>(
     query: SqlInput,
@@ -63,8 +65,11 @@ export interface SqliteDatabase extends Database {
 export interface CreateSqliteDbOptions extends SqliteConnectionOptions {
   /** Use an existing SQLite SQL executor instead of opening a database. */
   readonly executor?: import("./executor.ts").SqliteSqlExecutor;
+  /** Logging options used by this create sqlite db options. */
   readonly logger?: Logger;
+  /** Temporal parsing options used by this create sqlite db options. */
   readonly logging?: SisalLoggingOptions;
+  /** Temporal parsing options used by this create sqlite db options. */
   readonly temporal?: TemporalParsingOptions;
 }
 

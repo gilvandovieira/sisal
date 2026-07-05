@@ -84,15 +84,19 @@ export type { AdvisoryLock, AdvisoryLockOptions };
 
 /** Result returned by ORM drivers and database execution methods. */
 export interface OrmQueryResult<T = unknown> {
+  /** Row count reported by this orm query result. */
   readonly rows: T[];
+  /** Row count reported by this orm query result. */
   readonly rowCount?: number;
 }
 
 /** Async-first driver contract for future database adapters. */
 export interface OrmDriver {
+  /** Runs a query through this orm driver. */
   query<T = unknown>(
     query: SqlQuery,
   ): Promise<OrmQueryResult<T>>;
+  /** Executes SQL through this orm driver. */
 
   execute(
     query: SqlQuery,
@@ -119,13 +123,16 @@ export interface OrmDriver {
    * missing, `Database.batch` throws rather than losing atomicity.
    */
   batch?(queries: readonly SqlQuery[]): Promise<OrmQueryResult[]>;
+  /** Closes resources held by this orm driver. */
 
   close?(): Promise<void>;
 }
 
 /** Driver transaction facade exposed to transaction callbacks. */
 export interface OrmTransaction {
+  /** Executes SQL through this orm transaction. */
   query<T = unknown>(query: SqlQuery): Promise<OrmQueryResult<T>>;
+  /** Executes SQL through this orm transaction. */
   execute(query: SqlQuery): Promise<OrmQueryResult>;
 }
 
@@ -171,10 +178,15 @@ export type ColumnMap = Record<string, ColumnMapping>;
  * existing column metadata instead of a restated row type.
  */
 export interface MappableQueryResult<T = unknown>
-  extends Promise<OrmQueryResult<T>> {
+  extends
+    /** as for this mappable query result. */
+    Promise<OrmQueryResult<T>> {
+  /** as for this mappable query result. */
   as<TTable extends TableDefinition>(
     table: TTable,
+    /** as for this mappable query result. */
   ): Promise<InferSelect<TTable>[]>;
+  /** as for this mappable query result. */
   as<TRow = Record<string, unknown>>(map: ColumnMap): Promise<TRow[]>;
 }
 
@@ -203,7 +215,8 @@ export type DatabaseQuery<
 export interface Database<
   TSchema extends DatabaseSchema = Record<never, AnyTableDefinition>,
   TRelations extends RelationsList = readonly [],
-> {
+> /** dialect for this database. */ {
+  /** dialect for this database. */
   readonly dialect: SqlDialect;
   /**
    * The full `(engine, variant, version)` identity queries render under.
@@ -211,15 +224,19 @@ export interface Database<
    * identified the server (e.g. MariaDB behind the `mysql` dialect), which is
    * what lets version-gated capabilities light up (see `dialectGuard`).
    */
+  /** Runs a query through this database. */
   readonly dialectIdentity: DialectIdentity;
+  /** Runs a query through this database. */
   readonly query: DatabaseQuery<TSchema, TRelations>;
+  /** Executes SQL through this database. */
 
   execute<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
   ): Promise<OrmQueryResult<T>>;
-
+  /** Select clause or selection produced by this database. */
   select(): SelectBuilder<unknown, unknown>;
+  /** Starts a select builder with an explicit projection. */
   select<TProjection extends SelectProjection>(
     projection: TProjection,
   ): SelectBuilder<unknown, InferProjection<TProjection>>;
@@ -251,14 +268,17 @@ export interface Database<
     fn: FunctionDefinition<TArgsInput, TRow>,
     args: TArgsInput,
   ): FunctionCall<TRow>;
+  /** insert for this database. */
 
   insert<TTable extends TableDefinition>(
     table: TTable,
   ): InsertBuilder<TTable>;
+  /** update for this database. */
 
   update<TTable extends TableDefinition>(
     table: TTable,
   ): UpdateBuilder<TTable>;
+  /** delete for this database. */
 
   delete<TTable extends TableDefinition>(
     table: TTable,
@@ -315,6 +335,7 @@ export interface Database<
     name: string,
     options?: AdvisoryLockOptions,
   ): Promise<AdvisoryLock>;
+  /** Closes resources held by this database. */
 
   close(): Promise<void>;
 
@@ -330,14 +351,18 @@ export interface Database<
 export interface DatabaseOptions<
   TSchema extends DatabaseSchema = Record<never, AnyTableDefinition>,
   TRelations extends RelationsList = readonly [],
-> {
+> /** Driver used by this database options. */ {
+  /** dialect for this database options. */
   readonly driver?: OrmDriver;
+  /** dialect for this database options. */
   readonly dialect?: SqlDialect;
   /** Engine variant behind the dialect (e.g. `"mariadb"`); see {@link DialectIdentity}. */
   readonly variant?: string;
   /** Server version string; see {@link DialectIdentity}. */
   readonly version?: string;
+  /** Logging options used by this database options. */
   readonly logger?: Logger;
+  /** Logging options used by this database options. */
   readonly logging?: SisalLoggingOptions;
   /** Optional schema map that enables `db.query.<schemaKey>`. */
   readonly schema?: TSchema;
@@ -349,6 +374,7 @@ export interface DatabaseOptions<
 
 /** Options for the in-memory ORM driver. */
 export interface MemoryOrmDriverOptions {
+  /** tables for this memory orm driver options. */
   readonly tables?: Record<string, Array<Record<string, unknown>>>;
 }
 
@@ -1049,7 +1075,9 @@ export type AtomicOperationBody<TInput, TOutput> = (
  * the same way on every engine.
  */
 export interface AtomicOperationConfig<TInput, TOutput> {
+  /** Interactive implementation that runs on every adapter. */
   readonly body: AtomicOperationBody<TInput, TOutput>;
+  /** Optional single-statement implementation for adapters that support it. */
   readonly singleStatement?: (
     db: Database,
     input: TInput,

@@ -62,10 +62,12 @@ export { POSTGRES_DIALECT } from "@sisal/pg/orm";
 
 /** Neon-specialized database facade. */
 export interface NeonDatabase extends Database {
+  /** Executes SQL through this neon database. */
   execute<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
   ): Promise<OrmQueryResult<T>>;
+  /** Runs a query through this neon database. */
 
   query<T = unknown>(
     query: SqlInput,
@@ -75,8 +77,11 @@ export interface NeonDatabase extends Database {
 
 /** Options for opening a Neon-backed database facade. */
 export interface CreateNeonDbOptions extends NeonExecutorOptions {
+  /** Logging options used by this create neon db options. */
   readonly logger?: Logger;
+  /** Temporal parsing options used by this create neon db options. */
   readonly logging?: SisalLoggingOptions;
+  /** Temporal parsing options used by this create neon db options. */
   readonly temporal?: TemporalParsingOptions;
 }
 

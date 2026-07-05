@@ -13,18 +13,24 @@ import { toLibsqlOrmError } from "./errors.ts";
 
 /** Rows and affected-row count returned by a libSQL executor. */
 export interface LibsqlQueryResult<Row = Record<string, unknown>> {
+  /** Row count reported by this libsql query result. */
   readonly rows: Row[];
+  /** Row count reported by this libsql query result. */
   readonly rowCount: number;
 }
 
 /** Minimal SQL executor used by the libSQL ORM adapter. */
 export interface LibsqlSqlExecutor {
+  /** Executes SQL through this libsql sql executor. */
   execute<Row = Record<string, unknown>>(
     sql: string,
     params?: readonly unknown[],
   ): Promise<LibsqlQueryResult<Row>>;
+  /** Runs work inside a transaction for this libsql sql executor. */
 
+  /** Closes resources held by this libsql sql executor. */
   transaction?<T>(fn: (tx: LibsqlSqlExecutor) => Promise<T>): Promise<T>;
+  /** Closes resources held by this libsql sql executor. */
   close?(): Promise<void>;
 }
 

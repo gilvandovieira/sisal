@@ -14,6 +14,7 @@ import type { PgConnectionOptions } from "./pool.ts";
 
 /** Options for creating a PostgreSQL-backed ORM driver. */
 export interface PgOrmDriverOptions extends PgConnectionOptions {
+  /** Executor used by this pg orm driver options. */
   readonly executor?: PgSqlExecutor;
 }
 

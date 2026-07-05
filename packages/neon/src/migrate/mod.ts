@@ -73,8 +73,11 @@ export type NeonMigrator = PgMigrator;
 
 /** Options for creating a Neon migration facade. */
 export interface CreateNeonMigratorOptions extends NeonExecutorOptions {
+  /** Logging options used by this create neon migrator options. */
   readonly logger?: Logger;
+  /** History table name used by this create neon migrator options. */
   readonly logging?: SisalLoggingOptions;
+  /** History table name used by this create neon migrator options. */
   readonly historyTable?: string;
   /**
    * Wrap each migration in a transaction. Defaults to `false`: the Neon HTTP

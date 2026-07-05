@@ -12,18 +12,24 @@ import { normalizeTemporalSqlValue } from "@sisal/orm";
 
 /** Rows and affected-row count returned by a Neon executor. */
 export interface NeonSqlResult<Row = Record<string, unknown>> {
+  /** Row count reported by this neon sql result. */
   readonly rows: Row[];
+  /** Row count reported by this neon sql result. */
   readonly rowCount: number;
 }
 
 /** Minimal SQL executor used by Sisal's Neon compatibility package. */
 export interface NeonSqlExecutor {
+  /** Executes SQL through this neon sql executor. */
   execute<Row = Record<string, unknown>>(
     sql: string,
     params?: readonly unknown[],
   ): Promise<NeonSqlResult<Row>>;
+  /** Runs work inside a transaction for this neon sql executor. */
 
+  /** Closes resources held by this neon sql executor. */
   transaction?<T>(fn: (tx: NeonSqlExecutor) => Promise<T>): Promise<T>;
+  /** Closes resources held by this neon sql executor. */
   close?(): Promise<void>;
 }
 

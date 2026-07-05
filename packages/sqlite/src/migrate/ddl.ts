@@ -208,7 +208,10 @@ export function generateSqliteAddColumn(
 
 /** Safe (additive) up statements plus the destructive changes that were withheld. */
 export interface SqliteUpStatements {
+  /** Whether this sqlite up statements includes destructive changes. */
+  /** Whether this libsql up statements includes destructive changes. */
   readonly statements: readonly string[];
+  /** Whether this libsql up statements includes destructive changes. */
   readonly destructive: readonly SchemaChange[];
 }
 

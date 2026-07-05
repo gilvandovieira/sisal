@@ -22,8 +22,11 @@ import { createSqliteMigrationHistoryStore } from "./history.ts";
 
 /** SQLite convenience migration definition with inferred programmatic kind. */
 export interface SqliteMigrationDefinition extends MigrationBase {
+  /** Forward migration SQL or callback for this sqlite migration definition. */
   readonly kind?: never;
+  /** Rollback SQL or callback for this sqlite migration definition. */
   readonly up: MigrationStep;
+  /** Rollback SQL or callback for this sqlite migration definition. */
   readonly down?: MigrationStep;
 }
 
@@ -32,25 +35,33 @@ export type SqliteMigrationInput = Migration | SqliteMigrationDefinition;
 
 /** Options for applying pending SQLite migrations. */
 export interface SqliteMigrateOptions extends MigrationRunOptions {
+  /** Migration input used by this sqlite migrate options. */
   readonly migrations: readonly SqliteMigrationInput[];
 }
 
 /** Options for rolling back SQLite migrations. */
 export interface SqliteRollbackOptions extends MigrationDownOptions {
+  /** Migration input used by this sqlite rollback options. */
   readonly migrations: readonly SqliteMigrationInput[];
 }
 
 /** Options for planning SQLite migrations without executing them. */
 export interface SqliteMigrationPlanOptions {
+  /** Migration input used by this sqlite migration plan options. */
   readonly migrations: readonly SqliteMigrationInput[];
 }
 
 /** SQLite migration facade backed by the core migrator. */
 export interface SqliteMigrator {
+  /** Rolls back this sqlite migrator. */
   migrate(options: SqliteMigrateOptions): Promise<MigrationResult>;
+  /** Builds a migration plan for this sqlite migrator. */
   rollback(options: SqliteRollbackOptions): Promise<MigrationResult>;
+  /** Lists applied migrations for this sqlite migrator. */
   plan(options: SqliteMigrationPlanOptions): Promise<MigrationPlan>;
+  /** Closes resources held by this sqlite migrator. */
   applied(): Promise<AppliedMigration[]>;
+  /** Closes resources held by this sqlite migrator. */
   close(): Promise<void>;
 
   /** Async-disposal alias for {@link close} — enables `await using`. */
@@ -59,10 +70,15 @@ export interface SqliteMigrator {
 
 /** Options for creating a SQLite migration facade. */
 export interface CreateSqliteMigratorOptions extends SqliteConnectionOptions {
+  /** Logger used by this create sqlite migrator options. */
   readonly executor?: SqlExecutor;
+  /** Logging options used by this create sqlite migrator options. */
   readonly logger?: Logger;
+  /** History table name used by this create sqlite migrator options. */
   readonly logging?: SisalLoggingOptions;
+  /** Transaction behavior for this create sqlite migrator options. */
   readonly historyTable?: string;
+  /** Transaction behavior for this create sqlite migrator options. */
   readonly useTransaction?: boolean;
 }
 

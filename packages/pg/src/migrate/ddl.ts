@@ -239,7 +239,9 @@ export function generatePostgresAddColumn(
 
 /** Safe (additive) up statements plus the destructive changes that were withheld. */
 export interface PostgresUpStatements {
+  /** Whether this postgres up statements includes destructive changes. */
   readonly statements: readonly string[];
+  /** Whether this postgres up statements includes destructive changes. */
   readonly destructive: readonly SchemaChange[];
 }
 

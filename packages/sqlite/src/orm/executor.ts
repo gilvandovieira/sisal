@@ -5,18 +5,24 @@ import { type SqliteLikeDatabase, statementReturnsRows } from "./database.ts";
 
 /** Rows and affected-row count returned by a SQLite executor. */
 export interface SqliteQueryResult<Row = Record<string, unknown>> {
+  /** Row count reported by this sqlite query result. */
   readonly rows: Row[];
+  /** Row count reported by this sqlite query result. */
   readonly rowCount: number;
 }
 
 /** Minimal SQL executor used by the SQLite ORM adapter. */
 export interface SqliteSqlExecutor {
+  /** Executes SQL through this sqlite sql executor. */
   execute<Row = Record<string, unknown>>(
     sql: string,
     params?: readonly unknown[],
   ): Promise<SqliteQueryResult<Row>>;
+  /** Runs work inside a transaction for this sqlite sql executor. */
 
+  /** Closes resources held by this sqlite sql executor. */
   transaction?<T>(fn: (tx: SqliteSqlExecutor) => Promise<T>): Promise<T>;
+  /** Closes resources held by this sqlite sql executor. */
   close?(): Promise<void>;
 }
 

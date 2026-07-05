@@ -63,8 +63,11 @@ export const SQL_DIALECTS = [
  * too — a bare dialect means "base engine, version unknown".
  */
 export interface DialectIdentity {
+  /** SQL dialect family for the connected engine. */
   readonly dialect: SqlDialect;
+  /** Optional engine variant, such as `mariadb`. */
   readonly variant?: string;
+  /** Optional server version used for capability checks. */
   readonly version?: string;
 }
 
@@ -96,8 +99,11 @@ export type DialectGuardTarget = SqlDialect | {
  * numerically ≥ 8.0.13 so it would wrongly clear the floor.
  */
 export interface DialectGuardException {
+  /** Dialect family the exception can lift. */
   readonly dialect?: SqlDialect;
+  /** Optional variant the exception is scoped to. */
   readonly variant?: string;
+  /** Minimum known server version required to lift the guard. */
   readonly minVersion?: string;
   /** Lift only for the base engine (no `variant`) — excludes variants like MariaDB. */
   readonly baseEngine?: boolean;
@@ -145,7 +151,9 @@ export type SqlParameter =
 
 /** Driver-ready SQL text and parameter array. */
 export interface SqlQuery {
+  /** Dialect-rendered SQL text with placeholders. */
   readonly text: string;
+  /** Bound parameters matched to placeholders in {@link text}. */
   readonly params: readonly SqlParameter[];
 }
 
@@ -156,7 +164,9 @@ export type SqlInput = Sql | SqlQuery | string;
 
 /** SQL fragment made from safe chunks and separate parameters. */
 export interface Sql {
+  /** Discriminator for Sisal SQL fragments. */
   readonly kind: "sql";
+  /** Ordered SQL chunks that render into text and parameters. */
   readonly chunks: readonly SqlChunk[];
 }
 
@@ -243,7 +253,9 @@ export function expr<T>(fragment: Sql): SqlExpression<T> {
 
 /** Boolean SQL condition wrapper used by query builders. */
 export interface Condition {
+  /** Discriminator for condition wrappers. */
   readonly kind: "condition";
+  /** Predicate SQL fragment represented by this condition. */
   readonly sql: Sql;
 }
 
@@ -253,13 +265,17 @@ export interface Condition {
  * result type for that projected key.
  */
 export interface SqlExpression<T = unknown> extends Sql {
+  /** Phantom marker preserving the expression result type. */
   readonly __exprType?: T;
 }
 
 /** A column reference usable in a select projection. */
 export interface SelectColumnRef {
+  /** Column name on the source table. */
   readonly name: ColumnName;
+  /** Source table name for the column. */
   readonly tableName: string;
+  /** Optional default value metadata carried with the column. */
   readonly defaultValue?: unknown;
 }
 
@@ -627,6 +643,7 @@ function makeSql(chunks: SqlChunk[]): Sql {
   });
 }
 
+/** Wraps a runtime value as a bound SQL parameter fragment. */
 export function paramSql(value: unknown): Sql {
   return makeSql([{
     kind: "param",
@@ -668,7 +685,9 @@ type PreparedParam =
 
 /** A query rendered to driver text plus its ordered parameter slots. */
 export interface PreparedPlan {
+  /** Bound parameters used by this prepared plan. */
   readonly text: string;
+  /** Bound parameters used by this prepared plan. */
   readonly params: readonly PreparedParam[];
 }
 
@@ -968,6 +987,7 @@ export function dialectSql(
   }]);
 }
 
+/** Creates a condition wrapper around a SQL predicate fragment. */
 export function createCondition(conditionSql: Sql): Condition {
   return Object.freeze({
     kind: "condition",
@@ -975,6 +995,7 @@ export function createCondition(conditionSql: Sql): Condition {
   });
 }
 
+/** Asserts that a value is a Sisal condition. */
 export function assertCondition(value: Condition): void {
   if (!isCondition(value)) {
     throw new OrmError("Expected a condition", {
@@ -987,6 +1008,7 @@ function isCondition(value: unknown): value is Condition {
   return isRecord(value) && value.kind === "condition" && isSql(value.sql);
 }
 
+/** Converts a column-like operand into a SQL fragment. */
 export function columnToSql(column: unknown): Sql {
   if (isSql(column)) {
     return column;
@@ -1096,10 +1118,12 @@ function hasControlCharacter(value: string): boolean {
   return false;
 }
 
+/** Returns true when a value is a non-null record. */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/** Clones rendered SQL text, parameters, and result metadata. */
 export function cloneSqlQuery(query: SqlQuery): SqlQuery {
   const cloned = {
     text: query.text,

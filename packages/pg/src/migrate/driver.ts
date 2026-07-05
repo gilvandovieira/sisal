@@ -10,7 +10,9 @@ import type { PgConnectionOptions } from "./pool.ts";
 
 /** Options for creating a PostgreSQL-backed migration driver. */
 export interface PgMigrationDriverOptions extends PgConnectionOptions {
+  /** Migration store used by this pg migration driver options. */
   readonly executor?: SqlExecutor;
+  /** Migration store used by this pg migration driver options. */
   readonly transactionStoreFactory?: (executor: SqlExecutor) => MigrationStore;
 }
 

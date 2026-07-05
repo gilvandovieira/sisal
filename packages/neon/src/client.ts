@@ -33,6 +33,7 @@ export type NeonErrorCode =
  * (SEC-011).
  */
 export class NeonError extends SisalError {
+  /** Stable Neon compatibility error code. */
   declare readonly code: NeonErrorCode;
 
   /** Creates a Neon compatibility error with optional details and cause. */
@@ -55,12 +56,15 @@ export class NeonError extends SisalError {
 
 /** Result shape returned by Neon query-capable handles. */
 export interface NeonQueryResult<Row = Record<string, unknown>> {
+  /** Row count reported by this neon query result. */
   readonly rows: Row[];
+  /** Row count reported by this neon query result. */
   readonly rowCount?: number | null;
 }
 
 /** Minimal Neon query surface used by the adapter. */
 export interface NeonQueryable {
+  /** Runs a query through this neon queryable. */
   query<Row = Record<string, unknown>>(
     query: string,
     args?: unknown[],
@@ -69,23 +73,29 @@ export interface NeonQueryable {
 
 /** Minimal Neon client surface used by transactions. */
 export interface NeonClient extends NeonQueryable {
+  /** Closes resources held by this neon client. */
   release?(): void;
+  /** Closes resources held by this neon client. */
   end?(): Promise<void>;
 }
 
 /** Minimal Neon pool surface used by the adapter. */
 export interface NeonPool extends NeonQueryable {
+  /** Closes resources held by this neon pool. */
   connect(): Promise<NeonClient>;
+  /** Closes resources held by this neon pool. */
   end?(): Promise<void>;
 }
 
 /** Connection options forwarded to Neon `Pool`, with `url` as an alias. */
 export interface NeonPoolConnectionOptions extends NeonPoolConfig {
+  /** Connection URL used by this neon pool connection options. */
   readonly url?: string;
 }
 
 /** Connection options forwarded to Neon `Client`, with `url` as an alias. */
 export interface NeonClientConnectionOptions extends NeonClientConfig {
+  /** Connection URL used by this neon client connection options. */
   readonly url?: string;
 }
 

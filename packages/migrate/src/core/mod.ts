@@ -66,27 +66,37 @@ export type MigrationChecksum = string;
 
 /** Context passed to programmatic migrations. */
 export interface MigrationContext {
+  /** Logger used by this migration context. */
   readonly driver: MigrationDriver;
+  /** Logging options used by this migration context. */
   readonly logger?: Logger;
+  /** dry run for this migration context. */
   readonly logging?: SisalLogSettings;
+  /** Sort or migration direction for this migration context. */
   readonly dryRun: boolean;
+  /** Sort or migration direction for this migration context. */
   readonly direction: MigrationDirection;
 }
 
 /** Minimal async driver contract for future database adapters. */
 export interface MigrationDriver {
+  /** Executes SQL through this migration driver. */
   execute(sql: string): Promise<void>;
+  /** Runs work inside a transaction for this migration driver. */
 
   transaction?<T>(
     fn: (tx: MigrationTransaction) => Promise<T>,
   ): Promise<T>;
+  /** Closes resources held by this migration driver. */
 
   close?(): Promise<void>;
 }
 
 /** Driver/store scope exposed to migration transaction callbacks. */
 export interface MigrationTransaction {
+  /** Migration store used by this migration transaction. */
   readonly driver: MigrationDriver;
+  /** Migration store used by this migration transaction. */
   readonly store?: MigrationStore;
 }
 
@@ -98,23 +108,33 @@ export type MigrationStep =
 
 /** Common metadata shared by all migration definitions. */
 export interface MigrationBase {
+  /** description for this migration base. */
   readonly id: MigrationId;
+  /** checksum for this migration base. */
   readonly description?: string;
+  /** created at for this migration base. */
   readonly checksum?: MigrationChecksum;
+  /** created at for this migration base. */
   readonly createdAt?: string;
 }
 
 /** SQL migration definition. */
 export interface SqlMigration extends MigrationBase {
+  /** Forward migration SQL or callback for this sql migration. */
   readonly kind: "sql";
+  /** Rollback SQL or callback for this sql migration. */
   readonly up: string;
+  /** Rollback SQL or callback for this sql migration. */
   readonly down?: string;
 }
 
 /** Programmatic migration definition. */
 export interface ProgrammaticMigration extends MigrationBase {
+  /** Forward migration SQL or callback for this programmatic migration. */
   readonly kind: "programmatic";
+  /** Rollback SQL or callback for this programmatic migration. */
   readonly up: MigrationStep;
+  /** Rollback SQL or callback for this programmatic migration. */
   readonly down?: MigrationStep;
 }
 
@@ -123,101 +143,142 @@ export type Migration = SqlMigration | ProgrammaticMigration;
 
 /** Applied migration history record. */
 export interface AppliedMigration {
+  /** checksum for this applied migration. */
   readonly id: MigrationId;
+  /** applied at for this applied migration. */
   readonly checksum: MigrationChecksum;
+  /** Execution duration for this applied migration, in milliseconds. */
   readonly appliedAt: string;
+  /** description for this applied migration. */
   readonly executionMs?: number;
+  /** description for this applied migration. */
   readonly description?: string;
 }
 
 /** One migration's status inside a generated migration plan. */
 export interface MigrationPlanItem {
+  /** HTTP-style status associated with this migration plan item. */
   readonly migration: Migration;
+  /** checksum for this migration plan item. */
   readonly status: MigrationStatus;
+  /** Lists applied migrations for this migration plan item. */
   readonly checksum: MigrationChecksum;
+  /** reason for this migration plan item. */
   readonly applied?: AppliedMigration;
+  /** reason for this migration plan item. */
   readonly reason?: string;
 }
 
 /** Full migration plan grouped by pending, applied, and mismatched entries. */
 export interface MigrationPlan {
+  /** Pending entries in this migration plan. */
   readonly items: MigrationPlanItem[];
+  /** Lists applied migrations for this migration plan. */
   readonly pending: MigrationPlanItem[];
+  /** checksum mismatches for this migration plan. */
   readonly applied: MigrationPlanItem[];
+  /** Whether has pending applies to this migration plan. */
   readonly checksumMismatches: MigrationPlanItem[];
+  /** Whether has checksum mismatches applies to this migration plan. */
   readonly hasPending: boolean;
+  /** Whether has checksum mismatches applies to this migration plan. */
   readonly hasChecksumMismatches: boolean;
 }
 
 /** Result returned after applying or rolling back migrations. */
 export interface MigrationResult {
+  /** dry run for this migration result. */
   readonly direction: MigrationDirection;
+  /** executed for this migration result. */
   readonly dryRun: boolean;
+  /** Skipped entries in this migration result. */
   readonly executed: AppliedMigration[];
+  /** Failed entries in this migration result. */
   readonly skipped: MigrationId[];
+  /** Failed entries in this migration result. */
   readonly failed?: {
     readonly id: MigrationId;
     readonly error: unknown;
+    /** Execution duration for this migration result, in milliseconds. */
   };
+  /** Execution duration for this migration result, in milliseconds. */
   readonly executionMs: number;
 }
 
 /** Options for applying pending migrations. */
 export interface MigrationRunOptions {
+  /** steps for this migration run options. */
   readonly dryRun?: boolean;
+  /** Whether allow dirty applies to this migration run options. */
   readonly steps?: number;
+  /** Whether allow dirty applies to this migration run options. */
   readonly allowDirty?: boolean;
 }
 
 /** Options for rolling back applied migrations. */
 export interface MigrationDownOptions extends MigrationRunOptions {
+  /** to for this migration down options. */
   readonly to?: MigrationId;
 }
 
 /** Async-first store for applied migration history and optional locks. */
 export interface MigrationStore {
+  /** Lists migrations recorded by this migration store. */
   listApplied(): Promise<AppliedMigration[]>;
+  /** Looks up one applied migration in this migration store. */
 
   getApplied(
     id: MigrationId,
   ): Promise<AppliedMigration | undefined>;
+  /** Records an applied migration in this migration store. */
 
   markApplied(
     migration: AppliedMigration,
   ): Promise<void>;
+  /** Removes an applied migration record from this migration store. */
 
   unmarkApplied(
     id: MigrationId,
   ): Promise<boolean>;
+  /** acquire lock for this migration store. */
 
   acquireLock?(
     lockId?: string,
   ): Promise<boolean>;
+  /** release lock for this migration store. */
 
   releaseLock?(
     lockId?: string,
   ): Promise<void>;
+  /** clear for this migration store. */
 
   clear?(): Promise<void>;
+  /** Closes resources held by this migration store. */
 
   close?(): Promise<void>;
 }
 
 /** Public migration runner. */
 export interface Migrator {
+  /** Builds a migration plan for this migrator. */
   plan(): Promise<MigrationPlan>;
+  /** Forward migration SQL or callback for this migrator. */
 
   up(
     options?: MigrationRunOptions,
   ): Promise<MigrationResult>;
+  /** Rollback SQL or callback for this migrator. */
 
   down(
     options?: MigrationDownOptions,
   ): Promise<MigrationResult>;
+  /** Pending entries in this migrator. */
 
   pending(): Promise<Migration[]>;
+  /** Lists applied migrations for this migrator. */
 
   applied(): Promise<AppliedMigration[]>;
+  /** Closes resources held by this migrator. */
 
   close(): Promise<void>;
 
@@ -231,12 +292,19 @@ export interface Migrator {
 
 /** Options for creating a core {@link Migrator}. */
 export interface MigratorOptions {
+  /** Migration store used by this migrator options. */
   readonly migrations: Migration[];
+  /** Driver used by this migrator options. */
   readonly store?: MigrationStore;
+  /** Logger used by this migrator options. */
   readonly driver?: MigrationDriver;
+  /** Logging options used by this migrator options. */
   readonly logger?: Logger;
+  /** lock id for this migrator options. */
   readonly logging?: SisalLoggingOptions;
+  /** Transaction behavior for this migrator options. */
   readonly lockId?: string;
+  /** Transaction behavior for this migrator options. */
   readonly useTransaction?: boolean;
   /**
    * Apply each SQL migration **statement-by-statement** instead of as one
@@ -252,35 +320,49 @@ export interface MigratorOptions {
 
 /** Input snapshots for creating a schema migration plan. */
 export interface SchemaMigrationPlanInput {
+  /** to for this schema migration plan input. */
   readonly from?: SisalSchemaSnapshot;
+  /** to for this schema migration plan input. */
   readonly to: SisalSchemaSnapshot;
 }
 
 /** Normalized schema migration plan snapshot pair. */
 export interface SchemaMigrationPlan {
+  /** to for this schema migration plan. */
   readonly from?: SisalSchemaSnapshot;
+  /** to for this schema migration plan. */
   readonly to: SisalSchemaSnapshot;
 }
 
 /** Options for the in-memory migration history store. */
 export interface MemoryMigrationStoreOptions {
+  /** locked for this memory migration store options. */
   readonly applied?: AppliedMigration[];
+  /** clone values for this memory migration store options. */
   readonly locked?: boolean;
+  /** clone values for this memory migration store options. */
   readonly cloneValues?: boolean;
 }
 
 /** Options accepted when constructing a {@link MigrationError}. */
 export interface MigrationErrorOptions {
+  /** HTTP-style status associated with this migration error options. */
   readonly code?: MigrationErrorCode;
+  /** Whether this migration error options can be shown to callers. */
   readonly status?: number;
+  /** Severity level associated with this migration error options. */
   readonly expose?: boolean;
+  /** Structured diagnostic details for this migration error options. */
   readonly severity?: "debug" | "info" | "warn" | "error" | "fatal";
+  /** Original cause associated with this migration error options. */
   readonly details?: Record<string, unknown>;
+  /** Original cause associated with this migration error options. */
   readonly cause?: unknown;
 }
 
 /** Error thrown for migration validation, planning, locking, and execution. */
 export class MigrationError extends SisalError {
+  /** Creates a migration error. */
   constructor(message: string, options: MigrationErrorOptions = {}) {
     super(message, {
       code: options.code ?? "MIGRATION_UNKNOWN_ERROR",
@@ -494,9 +576,13 @@ export type SchemaChangeKind =
 
 /** One classified schema change, with a destructiveness flag. */
 export interface SchemaChange {
+  /** table for this schema change. */
   readonly kind: SchemaChangeKind;
+  /** schema for this schema change. */
   readonly table: string;
+  /** column for this schema change. */
   readonly schema?: string;
+  /** column for this schema change. */
   readonly column?: string;
   /** True when applying the change can lose data (drop/alter). */
   readonly destructive: boolean;
@@ -504,8 +590,11 @@ export interface SchemaChange {
 
 /** Result of {@link planSchemaChanges}: an ordered, classified change list. */
 export interface SchemaMigrationChanges {
+  /** Whether this schema migration changes includes destructive changes. */
   readonly changes: readonly SchemaChange[];
+  /** Whether is empty applies to this schema migration changes. */
   readonly destructive: readonly SchemaChange[];
+  /** Whether is empty applies to this schema migration changes. */
   readonly isEmpty: boolean;
 }
 

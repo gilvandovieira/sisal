@@ -7,6 +7,7 @@ import { createMariadbPool } from "./mariadb_pool.ts";
  * `DELETE`), in place of a row array.
  */
 export interface MysqlResultHeader {
+  /** Number of rows affected by the mutation. */
   readonly affectedRows: number;
   /**
    * First `AUTO_INCREMENT` id the statement generated (0 when none).
@@ -31,18 +32,23 @@ export type MysqlDriverRows<Row = Record<string, unknown>> =
  * B2 probes. A prepared-statement mode can come later as an opt-in.
  */
 export interface MysqlClient {
+  /** Runs SQL through the client connection. */
   query<Row = Record<string, unknown>>(
     sql: string,
     params?: unknown[],
   ): Promise<[MysqlDriverRows<Row>, unknown]>;
 
+  /** Releases this client back to its pool, when pooled. */
   release?(): void;
+  /** Closes the client connection. */
   end?(): Promise<void>;
 }
 
 /** Minimal MySQL pool surface used by the adapter (mysql2 `Pool`-shaped). */
 export interface MysqlPool {
+  /** Closes resources held by this mysql pool. */
   getConnection(): Promise<MysqlClient>;
+  /** Closes resources held by this mysql pool. */
   end?(): Promise<void>;
 }
 

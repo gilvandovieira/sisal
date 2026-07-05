@@ -24,16 +24,23 @@ export type OrmErrorCode =
 
 /** Options accepted when constructing an {@link OrmError}. */
 export interface OrmErrorOptions {
+  /** HTTP-style status associated with this orm error options. */
   readonly code?: OrmErrorCode;
+  /** Whether this orm error options can be shown to callers. */
   readonly status?: number;
+  /** Severity level associated with this orm error options. */
   readonly expose?: boolean;
+  /** Structured diagnostic details for this orm error options. */
   readonly severity?: "debug" | "info" | "warn" | "error" | "fatal";
+  /** Original cause associated with this orm error options. */
   readonly details?: Record<string, unknown>;
+  /** Original cause associated with this orm error options. */
   readonly cause?: unknown;
 }
 
 /** Error thrown for schema, SQL, execution, and transaction failures. */
 export class OrmError extends SisalError {
+  /** Creates an ORM error. */
   constructor(message: string, options: OrmErrorOptions = {}) {
     super(message, {
       code: options.code ?? "ORM_UNKNOWN_ERROR",

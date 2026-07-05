@@ -14,6 +14,7 @@ import type { MysqlConnectionOptions } from "./pool.ts";
 
 /** Options for creating a MySQL-backed ORM driver. */
 export interface MysqlOrmDriverOptions extends MysqlConnectionOptions {
+  /** Executor used by this mysql orm driver options. */
   readonly executor?: MysqlSqlExecutor;
 }
 
