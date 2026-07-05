@@ -17,16 +17,19 @@ otherwise.
 ## Supported versions
 
 Sisal is a `0.x` workspace; security fixes land on the latest published minor
-(currently `0.9.x`). Pin a version and upgrade promptly when a fix is released.
+(currently `0.11.x`). Pin a version and upgrade promptly when a fix is released.
 
 ## Security model (summary)
 
-Sisal is a **driverless ORM and migration toolkit that runs inside your
+Sisal is a **collection of Deno-first preview packages that run inside your
 application process** — it has no network surface, sessions, or auth of its own.
-The full audit and roadmap live in [`docs/security.md`](docs/security.md); the
-latest refresh (2026-07-02, v0.9.0) found no injection path, and every finding
-it raised (SEC-008 through SEC-016) is now **resolved**, each pinned by a test.
-In short:
+The v0.11.0 workspace includes `@sisal/core`, `@sisal/orm`, `@sisal/migrate`,
+`@sisal/etl`, `@sisal/analytics`, and the PostgreSQL, Neon, SQLite, libSQL, and
+MySQL/MariaDB adapters. The full audit and roadmap live in
+[`docs/security.md`](docs/security.md); the latest refresh (2026-07-04, v0.11.0
+release prep) covers the full workspace, including the ETL and analytics preview
+packages. The earlier v0.9/v0.10 findings (SEC-008 through SEC-016) are
+resolved, each pinned by a test. In short:
 
 - **Values are always bound parameters** — never concatenated into SQL.
 - **Identifiers are validated and quoted**, so a value cannot break out of a
@@ -42,6 +45,10 @@ In short:
   **escape hatches** — as are the pre-rendered statement lists accepted by
   `db.batch` and a checkpoint's `advance`/`prune`. Pass only developer-authored
   SQL through them, never untrusted input.
+- `@sisal/etl` and `@sisal/analytics` are preview layers. Their generated SQL is
+  capability-gated and parameterized, but they are intended for lightweight
+  rollups and analytical reads over prepared tables, not as a replacement for a
+  dedicated ETL orchestrator, warehouse, or BI security boundary.
 
 These invariants are pinned by `packages/orm/security_test.ts`.
 

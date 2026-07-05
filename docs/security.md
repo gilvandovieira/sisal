@@ -13,17 +13,75 @@ private disclosure, see
 > **Headline:** the 0.3.0 audit confirmed **no Critical or High-severity
 > issues**, and every finding it raised is **resolved** ([SEC-001](#sec-001)
 > through [SEC-007](#sec-007)). The **0.9.0 refresh** (2026-07-02) re-audited
-> the surface added since — the `@sisal/core` extraction, the MySQL/MariaDB
-> adapter, the opt-in postgres.js driver, and the v0.9 ETL substrate — and found
-> **no injection path**: the ORM query path remains the strongest control
-> surface (values are bound parameters, identifiers are validated before
-> quoting, prepared plans never inline values). The refresh raised **one High**
-> ([SEC-008](#sec-008): the MySQL family's `CLIENT_FOUND_ROWS` default breaks
-> `tryInsert` and advisory-lock mutual exclusion), **two Medium**
-> ([SEC-009](#sec-009) MySQL-family TLS, [SEC-010](#sec-010) bind values in
-> driver error properties), and six Low findings. **All nine are now resolved**
-> (the v0.10 hardening pass, tests pinning each) — every finding this document
-> has ever raised is closed.
+> the surface added since and found **no injection path**; the findings it did
+> raise ([SEC-008](#sec-008) through [SEC-016](#sec-016)) are all resolved and
+> test-pinned. The **v0.11.0 release refresh** (2026-07-04) expands the reviewed
+> posture to the full capstone workspace, including `@sisal/etl` and
+> `@sisal/analytics`. No new security finding is recorded in this document as
+> open, but v0.11 compatibility claims are deliberately scoped: analytics is
+> Postgres-first and currently unit/golden-SQL proven except where live
+> integration coverage is explicitly named.
+
+## v0.11.0 security refresh addendum
+
+The v0.11.0 refresh treats Sisal as a full workspace release, not only an
+analytics package release. The review scope is:
+
+- `packages/core`
+- `packages/orm`
+- `packages/migrate`
+- `packages/etl`
+- `packages/analytics`
+- `packages/pg`
+- `packages/neon`
+- `packages/sqlite`
+- `packages/libsql`
+- `packages/mysql`
+- `tools`
+- `examples`
+- `integration`
+- `.github/workflows`
+- root/package manifests
+- `deno.lock`
+
+Package-by-package security posture:
+
+| Area                       | Primary concerns                                                                                      | Current posture for v0.11.0                                                                                                                                                                                                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@sisal/core`              | SQL injection, identifier validation, raw SQL escape hatches, dialect capability registry             | Values render as bound parameters; identifiers are validated/quoted; `raw()` and DDL expressions remain trusted-code escape hatches; capability registry tests pin dialect/render consistency, including percentile support.                                                                                         |
+| `@sisal/orm`               | Destructive update/delete safety, mass assignment, raw query escape hatches, logging/error redaction  | Where-less `update`/`delete` throw unless explicitly unsafe; unknown insert/update keys are rejected; `db.execute`/`db.query` accept trusted SQL only; logs/errors redact values, DSNs, tokens, and driver error causes.                                                                                             |
+| `@sisal/migrate`           | Trusted config boundary, migration SQL parsing/execution, Deno permissions, checksums/history         | `sisal.migrate.ts` is trusted local code; migration files are developer-authored SQL; splitter tests cover strings/comments/dollar quotes; docs recommend narrowing CLI permissions; checksums/history/drift are unit-tested.                                                                                        |
+| `@sisal/etl`               | Checkpoint integrity, advisory locks, replay/prune safety, idempotence                                | Runner uses advisory-lock + checkpoint substrate; rollups are generated insert-from-select/upsert statements; replay/backfill refuse pruned windows unless explicitly overridden; unit and PostgreSQL integration tests cover lock/checkpoint/failure behavior.                                                      |
+| `@sisal/analytics`         | Generated aggregate/window SQL, capability-gated dialect behavior, structural executor trust boundary | Query descriptors compile through `@sisal/core`; unsupported percentile/window shapes fail closed before execution; `execute(db)` trusts a structural executor with `dialectIdentity` and `execute(Sql)`; current support is Postgres-first, with live PostgreSQL proof in `integration/analytics_features_test.ts`. |
+| PostgreSQL / Neon adapters | TLS/DSN handling, driver errors, transactions/batch semantics, dialect identity                       | PostgreSQL family keeps execution in adapter packages; Temporal params are normalized; transaction executors are isolated; dialect identity is exposed for ETL/analytics gates. Live PostgreSQL coverage exists for ORM/migrate/ETL surfaces and the analytics feature path.                                         |
+| SQLite / libSQL adapters   | FFI/native permissions, remote token handling, transaction/batch semantics, dialect identity          | SQLite requires `--allow-ffi`; libSQL/Turso requires URL/token env handling; transaction executors are tested; dialect identity is exposed. Compatibility claims distinguish render/unit support from live integration scenarios.                                                                                    |
+| MySQL / MariaDB adapter    | TLS, DSN handling, driver error redaction, affected-row semantics, transaction/batch semantics        | TLS options are explicit and TLS URL params are rejected rather than ignored; bundled pools disable found-rows ambiguity; migration locks are namespaced; MariaDB/MySQL dialect identity drives capability gates.                                                                                                    |
+| CI / release               | Pinned actions/images, vulnerable/outdated components, publish provenance, release drift              | Actions and service images are pinned; CI runs docs, matrix, image pinning, audit, tests, type checks, and publish dry-run; `deno task audit` checks npm packages through OSV, with JSR advisory coverage noted as an OSV limitation.                                                                                |
+
+OWASP-aligned release controls:
+
+| Concern                                     | Sisal control                                                                                                                |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Injection                                   | Values are parameterized; identifiers are validated/quoted; raw SQL APIs are explicit trusted-code boundaries.               |
+| Security misconfiguration                   | Adapter docs and CLI guidance call out permissions, TLS, DSNs, driver choices, and preview-layer limits.                     |
+| Vulnerable/outdated components              | `deno.lock` is audited through OSV for npm packages; JSR advisory coverage is not claimed where OSV lacks ecosystem support. |
+| Sensitive data exposure through logs/errors | SQL parameters, connection strings, tokens, credential-like fields, and driver causes are redacted.                          |
+| Least privilege                             | Security docs recommend separate migration/application roles and narrowed Deno permissions for CLI use.                      |
+| Supply-chain risk                           | GitHub Actions/images are pinned, generated docs/matrix are checked, and publish dry-runs run in CI/release gates.           |
+
+Coverage honesty for v0.11.0:
+
+- Live integration-proven: existing PostgreSQL, Neon, SQLite, libSQL, MySQL, and
+  MariaDB adapter feature suites where named in `integration/`; ETL PostgreSQL
+  feature/limits suites when `DATABASE_URL` is provided; and analytics
+  PostgreSQL execution in `integration/analytics_features_test.ts`.
+- Unit/golden-SQL proven: core SQL rendering, ORM builders, DDL generation, ETL
+  SQL compilation across supported render dialects, and analytics query
+  rendering/capability gates.
+- Render-proven but not yet live-proven: `@sisal/analytics` execution on
+  non-PostgreSQL adapters unless a dialect-specific integration suite is named.
+- Capability-gated unsupported: percentile helpers outside PostgreSQL and any
+  dialect identity that cannot support the exact generated construct.
 
 ## Audit basis & methodology
 
@@ -41,10 +99,19 @@ private disclosure, see
   these findings: it corroborated the High and both Medium findings, and its
   remaining items are folded into [SEC-014](#sec-014) or resolved by this
   document refresh.
-- **Scope:** `packages/{orm,migrate,pg,sqlite,libsql,neon}`, `tools`, `scripts`,
-  `.github/workflows`, `docker`, `integration`, `examples`, `benchmarks`,
-  `docs`, and the root/package manifests + `deno.lock`. Binary assets were
-  reviewed for packaging exposure only.
+- **v0.11.0 release refresh:** 2026-07-04, branch `features/v0.11.0`.
+  Workspace-wide review of the capstone release scope listed above, including
+  the new `@sisal/analytics` package, the `@sisal/etl` preview package, all
+  adapters, examples, integration tests, docs, CI/release workflows, manifests,
+  and `deno.lock`. The refresh focuses on release integrity, layering,
+  injection/escape-hatch boundaries, capability-gated SQL generation,
+  least-privilege guidance, and support-claim honesty. It does not claim that
+  analytics has live integration coverage until the dedicated integration test
+  lands.
+- **0.9.0 scope:** `packages/{orm,migrate,pg,sqlite,libsql,neon}`, `tools`,
+  `scripts`, `.github/workflows`, `docker`, `integration`, `examples`,
+  `benchmarks`, `docs`, and the root/package manifests + `deno.lock`. Binary
+  assets were reviewed for packaging exposure only.
 - **Method:** ran the quality/type/test/docs/publish gates; parsed `deno.lock`
   for the dependency inventory; queried OSV for npm advisories; and manually
   reviewed SQL construction, DDL generation, migration parsing/execution,
@@ -85,6 +152,18 @@ redaction ([SEC-010](#sec-010), [SEC-011](#sec-011)), and checkpoint pruning,
 lock namespacing, CI pinning, release provenance, and two internal DDL
 boundaries each have a Low-severity gap
 ([SEC-012](#sec-012)–[SEC-016](#sec-016)).
+
+### Validation during v0.11.0 release prep
+
+| Command                                | Result                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `deno task fmt:check`                  | Pass (467 files)                                                                                             |
+| `deno task test`                       | Pass (557 tests, 61 steps)                                                                                   |
+| `deno task audit`                      | Pass — 61 npm packages checked through OSV, **0 known npm advisories**                                       |
+| `deno publish --dry-run`               | Pass for the workspace; expected dynamic-import warnings remain for trusted CLI config/adapter loading paths |
+| OSV `JSR`/`Deno` ecosystem             | Limitation — JSR remains unindexed by OSV                                                                    |
+| Live `@sisal/analytics` integration    | Pass on PostgreSQL 18 via `integration/analytics_features_test.ts` during v0.11 release prep                 |
+| Final release gate (`deno lint`, docs) | Pending final verification pass                                                                              |
 
 ### Validation after the v0.10 hardening pass (fixes for SEC-008–SEC-016)
 
@@ -169,11 +248,11 @@ practice — each with Sisal's current status.
 ## Findings & roadmap
 
 Every audit finding (`SEC-NNN`), its severity, and current status. **Addressed**
-items are done and, where relevant, pinned by a test; **partial**/**open** items
-are the roadmap. Every open finding is scheduled for the next release:
-[SEC-008](#sec-008)–[SEC-016](#sec-016) map to
-[v0.10 roadmap](v0.10.0-roadmap.md) tasks **T1–T9**, and the [SEC-007](#sec-007)
-residual to **T10**.
+items are done and, where relevant, pinned by a test. This document currently
+has no open `SEC-` finding. The v0.10 roadmap links below are remediation
+history for [SEC-008](#sec-008) through [SEC-016](#sec-016), not current release
+blockers; any newly discovered v0.11 issue should receive a new `SEC-` id and
+package-specific scope.
 
 | ID                  | Concern                                                | Severity | Status       |
 | ------------------- | ------------------------------------------------------ | -------- | ------------ |

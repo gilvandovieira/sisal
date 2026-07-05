@@ -1,12 +1,18 @@
 /**
  * Scheduling a Sisal ETL job with `Deno.cron` (PostgreSQL family).
  *
- * The v0.10 ETL model: **Sisal defines the job and what one run means; a
+ * The ETL model: **Sisal defines the job and what one run means; a
  * scheduler decides when.** This example is the in-process variant of the
  * [external-scheduler docs](../../docs/etl-scheduling.md) — a long-lived Deno
  * process (or a Deno Deploy deployment) uses `Deno.cron` to wake the runner
  * once an hour, and every wake-up drains all closed buckets with the
  * catch-up loop (`run()` folds ONE window per call).
+ *
+ * It folds raw `post_events` into an hourly `post_hourly_stats` rollup. That is
+ * the **same table the analytics example reads** — see
+ * [`postgres-family-analytics`](../postgres-family-analytics/README.md), which
+ * queries these rollups with `@sisal/analytics` (`bucket`, `movingAvg`, `rank`,
+ * `compareToPreviousWindow`). ETL builds the rollups; analytics reads them.
  *
  * With zero setup this prints the exact pushed-down SQL the runner would
  * send (`explain`). With `DATABASE_URL` set it connects, creates the two
@@ -37,26 +43,35 @@ import {
   eq,
   filter,
   primaryKey,
+  sql,
 } from "@sisal/orm";
 import { defineJob, explain, run, status, truncateToGrain } from "@sisal/etl";
 import { connect, type PgDatabase } from "@sisal/pg";
 import { generatePostgresUpStatements } from "@sisal/pg/ddl";
 
+// Raw event stream. `kind` is one of view/vote/comment; a post always belongs
+// to exactly one community, carried through so the rollup can rank per feed.
 const postEvents = defineTable("post_events", {
   id: columns.bigserial().primaryKey(),
   post_id: columns.bigint().notNull(),
+  community_id: columns.text().notNull(),
   kind: columns.text().notNull(),
   occurred_at: columns.timestamp({ withTimezone: true, mode: "date" })
     .notNull(),
 });
 
+// Hourly rollup — the analytics example reads exactly this table. The primary
+// key `(post_id, community_id, bucket)` is the grain the idempotent upsert
+// keys on, so re-running a window overwrites instead of double-counting.
 const postHourlyStats = defineTable("post_hourly_stats", {
   post_id: columns.bigint().notNull(),
+  community_id: columns.text().notNull(),
   bucket: columns.timestamp({ withTimezone: true, mode: "date" }).notNull(),
   views: columns.integer().notNull(),
   votes: columns.integer().notNull(),
   comments: columns.integer().notNull(),
-}, (c) => [primaryKey({ columns: [c.post_id, c.bucket] })]);
+  engagement_score: columns.doublePrecision().notNull(),
+}, (c) => [primaryKey({ columns: [c.post_id, c.community_id, c.bucket] })]);
 
 const e = postEvents.columns;
 
@@ -74,11 +89,16 @@ const job = defineJob({
   window: e.occurred_at,
   grain: "hour",
   bucket: "bucket",
-  groupBy: { post_id: e.post_id },
+  groupBy: { post_id: e.post_id, community_id: e.community_id },
   aggregates: {
     views: filter(count(), eq(e.kind, "view")),
     votes: filter(count(), eq(e.kind, "vote")),
     comments: filter(count(), eq(e.kind, "comment")),
+    // A single weighted engagement metric, folded once and stored so the
+    // analytics read doesn't recompute it: votes count 2, comments 3, views ¼.
+    engagement_score: sql`${filter(count(), eq(e.kind, "vote"))} * 2.0 + ${
+      filter(count(), eq(e.kind, "comment"))
+    } * 3.0 + ${filter(count(), eq(e.kind, "view"))} * 0.25`,
   },
   start,
 });
@@ -108,7 +128,8 @@ async function catchUp(db: PgDatabase): Promise<void> {
 const url = readEnv("DATABASE_URL");
 if (url === undefined) {
   console.log(
-    "Set DATABASE_URL to run the job on a schedule with Deno.cron.",
+    "Set DATABASE_URL to run the job on a schedule with Deno.cron.\n" +
+      "Then read the rollups with examples/postgres-family-analytics.",
   );
 } else {
   const db = await connect({ url });
@@ -139,10 +160,12 @@ if (url === undefined) {
 /** A little traffic across the last three hours so the windows fold data. */
 async function seedDemoEvents(db: PgDatabase): Promise<void> {
   const kinds = ["view", "view", "view", "vote", "comment"] as const;
+  const communities = ["news", "news", "gaming"] as const;
   const now = Date.now();
-  // pg-family bigint columns read back (and insert) as strings (v0.9 T7).
+  // pg-family bigint columns read back (and insert) as strings.
   const values = Array.from({ length: 30 }, (_, i) => ({
     post_id: String((i % 3) + 1),
+    community_id: communities[i % communities.length],
     kind: kinds[i % kinds.length],
     occurred_at: new Date(now - (i % 18) * 600_000), // spread over ~3h
   }));

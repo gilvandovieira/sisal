@@ -58,6 +58,22 @@ By default it loads `sisal.migrate.ts`, which should export `default` or
 (scaffold it with `sisal init --neon`); `sisal migrate` then applies through
 `@sisal/neon` over HTTP, one statement per call.
 
+`sisal.migrate.ts` is trusted local executable code. Run the CLI with the least
+permissions your target needs:
+
+```sh
+# generate/drift without a database connection
+deno run --allow-read=. --allow-write=./migrations jsr:@sisal/migrate/cli generate initial
+
+# migrate against one configured host and one env-carried DSN
+deno run --allow-read=. --allow-env=DATABASE_URL --allow-net=db.example.com:5432 \
+  jsr:@sisal/migrate/cli migrate
+```
+
+Migration SQL files are also developer-authored trusted input. The splitter is
+tested for comments, strings, and dollar-quoted bodies, but it is not a sandbox
+for untrusted SQL.
+
 ## Serverless / single-statement apply
 
 `splitSqlStatements(sql)` splits a `.sql` script into individual statements on

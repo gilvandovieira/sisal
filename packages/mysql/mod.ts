@@ -21,14 +21,14 @@ export {
   MARIADB_VARIANT,
   MYSQL_DIALECT,
   parseMysqlServerVersion,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 export {
   createMysqlMigrateExecutor,
   createMysqlMigrationDriver,
   createMysqlMigrationHistoryStore,
   createMysqlMigrator,
   DEFAULT_MYSQL_MIGRATION_TABLE,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 export type {
   CreateMysqlMigratorOptions,
   MysqlMigrateOptions,
@@ -42,7 +42,7 @@ export type {
   QueryResult,
   SqlExecutor,
   SqlExecutorSession,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 export {
   generateMysqlAddColumn,
   generateMysqlColumnDefinition,
@@ -53,8 +53,8 @@ export {
   generateMysqlUpStatements,
   mysqlQualifiedName,
   quoteMysqlIdent,
-} from "./migrate/ddl.ts";
-export type { MysqlUpStatements } from "./migrate/ddl.ts";
+} from "./src/migrate/ddl.ts";
+export type { MysqlUpStatements } from "./src/migrate/ddl.ts";
 export type {
   CreateMysqlDbOptions,
   MysqlClient,
@@ -68,4 +68,4 @@ export type {
   MysqlResultHeader,
   MysqlServerIdentity,
   MysqlSqlExecutor,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";

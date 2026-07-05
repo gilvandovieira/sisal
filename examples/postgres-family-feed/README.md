@@ -128,6 +128,53 @@ clarity, not maximum production sophistication. At scale you'd:
   window can never affect a score again; delete or roll them up periodically so
   `post_activity_buckets` doesn't grow without bound.
 
+## Sisal API pressure points
+
+Honest gaps this example ran into, and the ones its sibling already resolved.
+Like [`postgres-family-hot-feed`](../postgres-family-hot-feed/README.md), the
+builder now carries the velocity feed almost end-to-end: **keyset pagination**
+(`.keyset(...)`, `src/queries.ts`), the **typed function caller** (`db.call` /
+`defineFunction`, `src/recompute.ts` + `src/activity.ts`), and — new since v0.5
+— **mutation joins + chained CTEs** (`db.with(...).update(...).from(...)`,
+`src/recompute_ctes.ts`). What stays raw, and why:
+
+1. **`CREATE FUNCTION` has no builder, and the snapshot DDL can't emit
+   functions** — API gap. The four PL/pgSQL bodies (`app.bucket_5m`,
+   `app.record_post_activity`, `app.calculate_rising_score`, `app.recompute_*`)
+   live in hand-written `migrations/0002…0004_*.sql`; `src/migrate.ts` applies
+   them via `splitSqlStatements` and `src/schema.ts:15` documents why the `.sql`
+   files stay the source of truth — `generatePostgresUpStatements` emits only
+   additive `CREATE TABLE` / `ADD COLUMN`. (The sibling hot-feed carries its two
+   functions as v0.5 `schemaObjects` so they join the typed schema; even there
+   the body is still an opaque string — there is no function-body builder.)
+2. **No arithmetic-assignment helper for `.set()`** — API gap. The optional
+   interactive recorder's `onConflictDoUpdate` bumps counters and recomputes
+   `activity_score` with raw `sql` fragments — `sql\`${b.upvotes} +
+   ${up}\``and
+   the weighted-sum expression (`src/activity.ts:167`–`177`). A scalar`sql`in`.set()`is a supported escape hatch (v0.4), but a typed`increment(col,
+   n)` / arithmetic-assignment surface would remove the raw string. (The same
+   gap the SQLite-family feed calls out.)
+3. **Scalar SQL functions and casts have no builder** — API gap (minor). The
+   otherwise builder-native CTE recompute still drops to raw `sql` for
+   `coalesce(...)` (`src/recompute_ctes.ts:55`, `:61`, `:67`), `greatest(...)`
+   (`:90`, `:92`), and the `::timestamptz` / `::uuid` casts (`:44`, `:79`). The
+   window aggregates themselves are builder-native — `filter(sum(...))` over
+   `dateSub(now, …)` bounds — so only the surrounding scalar helpers are raw.
+4. **`double precision` round-trips as a string on `@sisal/pg`** — driver/engine
+   limitation. `rising_score` / `activity_score` are `Number(...)`-coerced at
+   every read boundary (`src/queries.ts:73`, `src/recompute.ts:67`,
+   `src/activity.ts:96`); `@sisal/neon`, `@sisal/sqlite`, and `@sisal/libsql`
+   already return `number`. Tracked as v0.5 roadmap item 11.
+
+**Resolved (was the raw seam the former `neon-rising-feed-ctes` needed):**
+`UPDATE … FROM` mutation joins and chained CTEs are builder-native since v0.5,
+so `src/recompute_ctes.ts` renders the whole recompute —
+`db.with(scoreWindows, computedScore).update(posts).from(computedScore)
+.returning(...)`
+— without a database function. The nullable-column-required-on-insert quirk
+(`src/schema.ts:45`; the seed passes an explicit
+`rising_score_updated_at: null`) is documented behavior, not a gap.
+
 ## Tests
 
 ```sh

@@ -1,17 +1,23 @@
-# Neon activity vectors (Sisal example)
+# PostgreSQL-family activity vectors (Sisal example)
 
-Prove Sisal can drive an **advanced SQL analytics pipeline** on Neon/Postgres:
-take raw activity **events** and compute, set-based, a deterministic ordered
-**activity vector** per post — then find _"posts that behaved like this post."_
+> **This example uses "vectors" in the analytical feature sense, not embedding
+> vectors or pgvector.** The "vector" is a deterministic ordered projection of
+> known product statistics — **not** a pgvector column, **not** an AI embedding,
+> **not** semantic search. There is no `CREATE EXTENSION vector`, no
+> `vector(1536)`, no `<->`/`<#>`/`<=>`.
 
-This is **SQL feature vectorization**, not AI. The "vector" is an ordered
-numeric projection of known product statistics — **not** a pgvector column,
-**not** an embedding, **not** semantic search. The whole point is that **SQL is
+Prove Sisal can drive an **advanced SQL analytics pipeline** on the PostgreSQL
+family (`@sisal/pg` / `@sisal/neon`): take raw activity **events** and compute,
+set-based, a deterministic ordered **activity vector** per post — then find
+_"posts that behaved like this post."_
+
+This is **SQL feature vectorization**, not AI. The whole point is that **SQL is
 a computation engine** here (time buckets, window-function moving averages,
 rollups, batch computation over sets), not just CRUD.
 
-Same line of thought as the `neon-*-feed` examples: shared `post_activity_*`
-shapes, the explicit `p_now` discipline, the same hot/rising scores.
+Same line of thought as the `postgres-family-feed` / `postgres-family-hot-feed`
+examples: shared `post_activity_*` shapes, the explicit `p_now` discipline, the
+same hot/rising scores.
 
 It is **not** an app — no auth, no HTTP, no frontend, no job queue, no external
 services, **no AI model calls**. Just events, consolidation, vectors,
@@ -182,11 +188,10 @@ calls them.)
 ## How to run
 
 ```sh
-cp .env.example .env          # then fill in your Neon connection strings
+cp .env.example .env          # then fill in your Postgres/Neon connection strings
 deno task migrate             # tables + the SQL functions
 deno task seed                # 24 deterministic posts + raw events (8 behaviors)
-deno task generate            # fold events → buckets → compute stats
-deno task demo                # the whole chain + similar posts + retention
+deno task demo                # the whole chain: fold → stats → similar posts → retention
 deno task demo -- --reset     # drop + recreate the schema, then run the demo
 deno task test                # network-free unit tests (no database)
 ```

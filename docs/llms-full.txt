@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.10.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.11.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a single file containing the API index, package exports, and the source documentation.
 
@@ -25,7 +25,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [Benchmarks](https://gilvandovieira.github.io/sisal/benchmarks.html): Sisal benchmarks measure the work the **library** does — building SQL, rendering it, and turning driver rows into typed results — in isolation from the database and the network. A query's wall-clock time is dominated...
 - [Security](https://gilvandovieira.github.io/sisal/security.html): This is the single source of truth for Sisal's security posture: a **code-level audit**, a **living roadmap** of addressed and open concerns, and the **invariants pinned by tests** so the posture cannot silently...
 - [Analytics Readiness](https://gilvandovieira.github.io/sisal/analytics-readiness.html): **Date:** 2026-07-01 · **Status:** A1-A4 🟢 · **Scope:** investigation and type prototype only. No @sisal/analytics package, renderer, runtime, dashboard helper, public export, or generated feature-matrix claim ships...
-- [Package Architecture (long-term)](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL and...
+- [Package Architecture](https://gilvandovieira.github.io/sisal/architecture.html): Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for **relational** data access. It is not becoming an object-first ORM. As the surface grows from OLTP query building toward ETL and...
 - [@sisal/core — the compile-target contract](https://gilvandovieira.github.io/sisal/core-ir.html): The documented, versioned public surface downstream packages (@sisal/etl, @sisal/analytics) compile into — the v0.8 item-3 stamp. What this page declares public is a compatibility commitment; everything else is not.
 - [@sisal/core extraction — migration notes](https://gilvandovieira.github.io/sisal/core-migration.html): v0.8 extracted @sisal/orm's lower tier into **@sisal/core** (roadmap item 2): the schema primitives, fragment SQL IR, expression operators, the dialect capability registry, and the dialect-aware renderer. The fluent...
 - [Editor LSP Setup](https://gilvandovieira.github.io/sisal/editor-lsp.html): Sisal is a Deno workspace, so editors should attach TypeScript files to deno lsp, not to a plain Node/TypeScript language server. A generic LSP client is fine as long as the server process is Deno's language server.
@@ -54,6 +54,7 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 - [@sisal/orm](https://jsr.io/@sisal/orm): Driverless schema, typed SQL, and ORM primitives for Sisal. Exports: ., ./core, ./error, ./logger, ./schema.
 - [@sisal/migrate](https://jsr.io/@sisal/migrate): Migration planning, diffing, and running primitives for Sisal. Exports: ., ./cli, ./core, ./workflow.
 - [@sisal/etl](https://jsr.io/@sisal/etl): SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs. Exports: ..
+- [@sisal/analytics](https://jsr.io/@sisal/analytics): Typed analytical queries for Sisal: metrics × dimensions × windows over rollup tables, Postgres-first. Exports: ..
 - [@sisal/pg](https://jsr.io/@sisal/pg): PostgreSQL adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/sqlite](https://jsr.io/@sisal/sqlite): SQLite adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
 - [@sisal/libsql](https://jsr.io/@sisal/libsql): libSQL and Turso adapter boundaries for Sisal ORM and migrations. Exports: ., ./ddl, ./migrate, ./orm.
@@ -62,13 +63,13 @@ Use `llms-full.txt` when you need a single file containing the API index, packag
 
 ## Project Context
 
-- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first **ORM and query builder**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight ETL and analytics...
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight...
 - [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md): This is the canonical changelog for Sisal workspace releases.
 - [Repository](https://github.com/gilvandovieira/sisal): Source code, issues, examples, workflows, and package directories.
 
 ## Package Manifests
 
-### @sisal/core 0.10.0
+### @sisal/core 0.11.0
 
 Sisal's driverless compile target: schema primitives, fragment SQL IR, expressions, capability registry, and dialect renderer.
 
@@ -76,10 +77,10 @@ Package path: `./packages/core`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./schema` -> `./schema.ts`
-- `./unstable-internal` -> `./internal.ts`
+- `./schema` -> `./src/schema.ts`
+- `./unstable-internal` -> `./src/internal.ts`
 
-### @sisal/orm 0.10.0
+### @sisal/orm 0.11.0
 
 Driverless schema, typed SQL, and ORM primitives for Sisal.
 
@@ -87,12 +88,12 @@ Package path: `./packages/orm`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./core` -> `./core/mod.ts`
-- `./error` -> `./error.ts`
-- `./logger` -> `./logger.ts`
-- `./schema` -> `./schema.ts`
+- `./core` -> `./src/core/mod.ts`
+- `./error` -> `./src/error.ts`
+- `./logger` -> `./src/logger.ts`
+- `./schema` -> `./src/schema.ts`
 
-### @sisal/migrate 0.10.0
+### @sisal/migrate 0.11.0
 
 Migration planning, diffing, and running primitives for Sisal.
 
@@ -100,11 +101,11 @@ Package path: `./packages/migrate`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./cli` -> `./cli.ts`
-- `./core` -> `./core/mod.ts`
-- `./workflow` -> `./core/workflow.ts`
+- `./cli` -> `./src/cli.ts`
+- `./core` -> `./src/core/mod.ts`
+- `./workflow` -> `./src/core/workflow.ts`
 
-### @sisal/etl 0.10.0
+### @sisal/etl 0.11.0
 
 SQL-pushdown ETL for Sisal: typed rollup jobs, checkpointed single-window runs.
 
@@ -113,7 +114,16 @@ Package path: `./packages/etl`
 Exports:
 - `.` -> `./mod.ts`
 
-### @sisal/pg 0.10.0
+### @sisal/analytics 0.11.0
+
+Typed analytical queries for Sisal: metrics × dimensions × windows over rollup tables, Postgres-first.
+
+Package path: `./packages/analytics`
+
+Exports:
+- `.` -> `./mod.ts`
+
+### @sisal/pg 0.11.0
 
 PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -121,11 +131,11 @@ Package path: `./packages/pg`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/sqlite 0.10.0
+### @sisal/sqlite 0.11.0
 
 SQLite adapter boundaries for Sisal ORM and migrations.
 
@@ -133,11 +143,11 @@ Package path: `./packages/sqlite`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/libsql 0.10.0
+### @sisal/libsql 0.11.0
 
 libSQL and Turso adapter boundaries for Sisal ORM and migrations.
 
@@ -145,11 +155,11 @@ Package path: `./packages/libsql`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/mysql 0.10.0
+### @sisal/mysql 0.11.0
 
 MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.
 
@@ -157,11 +167,11 @@ Package path: `./packages/mysql`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/neon 0.10.0
+### @sisal/neon 0.11.0
 
 Neon serverless PostgreSQL adapter boundaries for Sisal ORM and migrations.
 
@@ -169,9 +179,9 @@ Package path: `./packages/neon`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
 ## Public API Symbol Index
 
@@ -212,6 +222,9 @@ Exports:
 - `ColumnValueMode` (typeAlias): Runtime value mode for date/time-ish columns.
 - `compareServerVersions` (function): Compares two server version strings by their leading dotted numeric prefixes ("11.8.8-MariaDB-ubu2404" → 11.8.8; missing segments are 0). Returns a negative number, zero, or a positive number as a is lower than,...
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
+- `ConsoleLike` (interface): A console-like target accepted by {@link consoleLogger}.
+- `consoleLogger` (function): A zero-dependency {@link Logger} that prints structured events to console.
+- `ConsoleLoggerOptions` (interface): Options for {@link consoleLogger}.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
 - `countDistinct` (function): count(distinct column) aggregate expression.
 - `createColumn` (function): Creates a named column definition from metadata.
@@ -237,6 +250,7 @@ Exports:
 - `denseRank` (function): dense_rank() — window-only ranking without gaps. Wrap in {@link over}.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
 - `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `developmentLogging` (function): A verbose preset for local development: debug everywhere, bind parameters as **raw values** so a query can be copied and replayed, and per-row result events on. Combine with any sink, e.g. createDatabase({ ...,...
 - `DIALECT_CAPABILITIES` (variable): The core capability registry: every render-guarded construct's (engine, variant, version-range) truth in one place. The builder/operator guard call sites derive their render guards from these entries via {@link...
 - `DialectCapability` (interface): One named dialect capability: a construct label (used verbatim in the typed ORM_DIALECT_UNSUPPORTED error) plus the declarative unsupported-targets/exceptions data evaluated by both the renderer and {@link...
 - `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
@@ -255,6 +269,7 @@ Exports:
 - `expr` (function): Types a fragment as a {@link SqlExpression} of T — the name-once handle for computed/metric expressions (v0.8 item 7). Assign it once and reuse it across a projection, groupBy, having, orderBy, and other expressions;...
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `FrameBound` (typeAlias): One edge of a {@link WindowFrame}: the frame keywords, or an offset of n rows/values before or after the current row (a validated non-negative integer — engines do not accept bound parameters in frame clauses, so the...
+- `fromStdLog` (function): Bridges an @std/log logger to Sisal's {@link Logger}.
 - `getDefaultColumnNaming` (function): Returns the global default column-naming strategy applied by {@link defineTable} when a table does not pass its own naming option. Defaults to "snake_case".
 - `getTableColumns` (function): Returns table columns.
 - `getTableName` (function): Returns the normalized table name.
@@ -291,8 +306,7 @@ Exports:
 - `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
 - `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
-- `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Public API.
+- `Logger` (interface): The sink Sisal writes to — the single, most-extensible logging contract.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
 - `max` (function): max(column) aggregate expression.
@@ -321,6 +335,7 @@ Exports:
 - `placeholder` (function): Creates a named placeholder fragment for a prepared statement.
 - `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
+- `productionLogging` (function): A quiet preset for production: warn and error only, with bind parameters redacted. Failing queries still log their SQL text (an orm.query error event) so you can locate them; raise the level or switch to {@link...
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
 - `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
@@ -331,6 +346,7 @@ Exports:
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
 - `ReferentialOptions` (interface): Options accepted by {@link ColumnBuilder.references}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `renderSqlParametersForLog` (function): Renders SQL bind parameters for a log record according to the parameter mode.
 - `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
 - `schemaObjectDropStatements` (function): The down drop statements for a snapshot's dialect schema objects, in reverse declared order (so dependents drop before their dependencies).
@@ -357,9 +373,10 @@ Exports:
 - `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
 - `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
 - `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
-- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLogEvent` (interface): A structured Sisal log event handed to a {@link Logger}.
 - `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
 - `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogLevelActive` (typeAlias): A log level that actually emits an event (every level except silent).
 - `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
@@ -368,6 +385,7 @@ Exports:
 - `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
 - `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
 - `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
+- `SisalSqlParameterMode` (typeAlias): How SQL bind parameters are rendered into logs.
 - `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
 - `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
 - `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
@@ -384,6 +402,7 @@ Exports:
 - `SqlInput` (typeAlias): Any SQL input accepted by database execution methods.
 - `SqlParameter` (typeAlias): Parameter value shape accepted by rendered SQL queries.
 - `SqlQuery` (interface): Driver-ready SQL text and parameter array.
+- `StdLogLike` (interface): An @std/log-style logger: level methods that take (message, ...args).
 - `SubquerySource` (interface): A select/compound builder usable as a subquery (derived table or scalar).
 - `sum` (function): sum(column) aggregate expression.
 - `TableColumn` (typeAlias): Materialized column belonging to a table definition.
@@ -404,7 +423,7 @@ Exports:
 - `WindowSpec` (interface): The window specification over() renders: partition keys, ordering terms (asc()/desc() or bare columns/expressions), and an optional frame.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 
-### @sisal/core ./schema (packages/core/schema.ts)
+### @sisal/core ./schema (packages/core/src/schema.ts)
 
 Public entrypoint for @sisal/orm.
 
@@ -441,7 +460,7 @@ Public entrypoint for @sisal/orm.
 - `SisalUniqueConstraintSnapshot` (interface): Serializable unique-constraint descriptor.
 - `validateSchemaSnapshot` (function): Returns validation issues for a schema snapshot without mutating it.
 
-### @sisal/core ./unstable-internal (packages/core/internal.ts)
+### @sisal/core ./unstable-internal (packages/core/src/internal.ts)
 
 Unstable plumbing consumed by @sisal/orm's query-builder tier — **not** part of the documented @sisal/core compile target and not covered by its stability commitment. Downstream packages must import from the package...
 
@@ -515,6 +534,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `compareServerVersions` (function): Compares two server version strings by their leading dotted numeric prefixes ("11.8.8-MariaDB-ubu2404" → 11.8.8; missing segments are 0). Returns a negative number, zero, or a positive number as a is lower than,...
 - `CompoundSelectBuilder` (interface): A combined query produced by a set operation. Trailing orderBy/limit/ offset apply to the whole compound, and further set operations may be chained.
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
+- `ConsoleLike` (interface): A console-like target accepted by {@link consoleLogger}.
+- `consoleLogger` (function): A zero-dependency {@link Logger} that prints structured events to console.
+- `ConsoleLoggerOptions` (interface): Options for {@link consoleLogger}.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
 - `countDistinct` (function): count(distinct column) aggregate expression.
 - `createColumn` (function): Creates a named column definition from metadata.
@@ -553,6 +575,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `denseRank` (function): dense_rank() — window-only ranking without gaps. Wrap in {@link over}.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
 - `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `developmentLogging` (function): A verbose preset for local development: debug everywhere, bind parameters as **raw values** so a query can be copied and replayed, and per-row result events on. Combine with any sink, e.g. createDatabase({ ...,...
 - `DIALECT_CAPABILITIES` (variable): The core capability registry: every render-guarded construct's (engine, variant, version-range) truth in one place. The builder/operator guard call sites derive their render guards from these entries via {@link...
 - `DialectCapability` (interface): One named dialect capability: a construct label (used verbatim in the typed ORM_DIALECT_UNSUPPORTED error) plus the declarative unsupported-targets/exceptions data evaluated by both the renderer and {@link...
 - `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
@@ -573,6 +596,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
 - `FrameBound` (typeAlias): One edge of a {@link WindowFrame}: the frame keywords, or an offset of n rows/values before or after the current row (a validated non-negative integer — engines do not accept bound parameters in frame clauses, so the...
+- `fromStdLog` (function): Bridges an @std/log logger to Sisal's {@link Logger}.
 - `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
 - `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
 - `FunctionCall` (interface): The result of {@link Database.call}: a renderable, runnable function call.
@@ -620,8 +644,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
 - `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
-- `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Public API.
+- `Logger` (interface): The sink Sisal writes to — the single, most-extensible logging contract.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
 - `MappableQueryResult` (interface): The awaitable result of a raw db.query(...) call: a normal query-result promise that also exposes .as(...), which decodes the raw driver rows — physical→JS column naming plus the same opt-in Temporal decoding the...
@@ -658,6 +681,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
 - `PreparedQuery` (interface): A query rendered once that is executed many times with different {@link placeholder} values bound in.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
+- `productionLogging` (function): A quiet preset for production: warn and error only, with bind parameters redacted. Failing queries still log their SQL text (an orm.query error event) so you can locate them; raise the level or switch to {@link...
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
 - `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
@@ -681,6 +705,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `relations` (function): Defines named relations for a table, Drizzle-style.
 - `RelationsList` (typeAlias): Relational metadata list accepted by {@link createDatabase}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `renderSqlParametersForLog` (function): Renders SQL bind parameters for a log record according to the parameter mode.
 - `ReplayGuardOptions` (interface): Options for {@link Checkpoint.assertReplayable}.
 - `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
@@ -710,9 +735,10 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
 - `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
 - `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
-- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLogEvent` (interface): A structured Sisal log event handed to a {@link Logger}.
 - `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
 - `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogLevelActive` (typeAlias): A log level that actually emits an event (every level except silent).
 - `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
@@ -721,6 +747,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
 - `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
 - `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
+- `SisalSqlParameterMode` (typeAlias): How SQL bind parameters are rendered into logs.
 - `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
 - `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
 - `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
@@ -736,6 +763,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SqlInput` (typeAlias): Any SQL input accepted by database execution methods.
 - `SqlParameter` (typeAlias): Parameter value shape accepted by rendered SQL queries.
 - `SqlQuery` (interface): Driver-ready SQL text and parameter array.
+- `StdLogLike` (interface): An @std/log-style logger: level methods that take (message, ...args).
 - `Subquery` (typeAlias): A query aliased as a derived table via {@link SelectBuilder.as}. Its keys are the inner query's projected columns, each usable as a reference once the subquery is passed to .from(...).
 - `SubquerySource` (interface): A select/compound builder usable as a subquery (derived table or scalar).
 - `sum` (function): sum(column) aggregate expression.
@@ -763,7 +791,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 - `WriteOutcome` (interface): The outcome of a conflict-guarded insert — did it write a new row?
 
-### @sisal/orm ./core (packages/orm/core/mod.ts)
+### @sisal/orm ./core (packages/orm/src/core/mod.ts)
 
 Typed SQL builders and ORM driver contracts for @sisal/orm.
 
@@ -1003,7 +1031,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 - `WriteOutcome` (interface): The outcome of a conflict-guarded insert — did it write a new row?
 
-### @sisal/orm ./error (packages/orm/error.ts)
+### @sisal/orm ./error (packages/orm/src/error.ts)
 
 Structured error primitives shared by Sisal packages — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
@@ -1013,32 +1041,41 @@ Structured error primitives shared by Sisal packages — compatibility re-export
 - `SisalErrorOptions` (interface): Options accepted by {@link SisalError}.
 - `SisalErrorSeverity` (typeAlias): Severity attached to structured Sisal errors.
 
-### @sisal/orm ./logger (packages/orm/logger.ts)
+### @sisal/orm ./logger (packages/orm/src/logger.ts)
 
-Minimal logging contract accepted by Sisal facades — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
+Logging contracts accepted by Sisal facades — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
+- `ConsoleLike` (interface): A console-like target accepted by {@link consoleLogger}.
+- `consoleLogger` (function): A zero-dependency {@link Logger} that prints structured events to console.
+- `ConsoleLoggerOptions` (interface): Options for {@link consoleLogger}.
 - `createSisalLogEmitter` (function): Creates a level/category-aware logger wrapper for Sisal internals.
 - `CreateSisalLogEmitterOptions` (interface): Options for {@link createSisalLogEmitter}.
+- `developmentLogging` (function): A verbose preset for local development: debug everywhere, bind parameters as **raw values** so a query can be copied and replayed, and per-row result events on. Combine with any sink, e.g. createDatabase({ ...,...
 - `emitSisalLogEvent` (function): Emits one structured event, swallowing logger failures.
+- `fromStdLog` (function): Bridges an @std/log logger to Sisal's {@link Logger}.
 - `isSisalLogCategory` (function): Returns true when a value is one of Sisal's supported log categories.
 - `isSisalLogLevel` (function): Returns true when a value is one of Sisal's supported log levels.
 - `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
-- `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Public API.
+- `Logger` (interface): The sink Sisal writes to — the single, most-extensible logging contract.
 - `NormalizedSisalLogging` (interface): Normalized logging controls used by Sisal internals.
 - `normalizeSisalLogSettings` (function): Normalizes logging settings with conservative defaults.
+- `productionLogging` (function): A quiet preset for production: warn and error only, with bind parameters redacted. Failing queries still log their SQL text (an orm.query error event) so you can locate them; raise the level or switch to {@link...
 - `redactSqlParameter` (function): Builds a safe, non-raw summary for one SQL bind parameter.
 - `redactSqlParameters` (function): Builds safe, non-raw summaries for SQL bind parameters.
+- `renderSqlParametersForLog` (function): Renders SQL bind parameters for a log record according to the parameter mode.
 - `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
 - `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
 - `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
-- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLogEvent` (interface): A structured Sisal log event handed to a {@link Logger}.
 - `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
 - `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogLevelActive` (typeAlias): A log level that actually emits an event (every level except silent).
 - `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
+- `SisalSqlParameterMode` (typeAlias): How SQL bind parameters are rendered into logs.
+- `StdLogLike` (interface): An @std/log-style logger: level methods that take (message, ...args).
 
-### @sisal/orm ./schema (packages/orm/schema.ts)
+### @sisal/orm ./schema (packages/orm/src/schema.ts)
 
 The serializable schema-snapshot contract — compatibility re-export: the module lives at @sisal/core/schema since the v0.8 extraction. New code should import from @sisal/core (or @sisal/core/schema) directly.
 
@@ -1151,7 +1188,7 @@ Migration planning and execution primitives for Sisal database tooling.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
 - `writeMigrationFile` (function): Writes a generated migration's .sql and .snapshot.json files.
 
-### @sisal/migrate ./cli (packages/migrate/cli.ts)
+### @sisal/migrate ./cli (packages/migrate/src/cli.ts)
 
 sisal migration CLI.
 
@@ -1163,7 +1200,7 @@ sisal migration CLI.
 - `SisalCliMigrator` (interface): Minimal migrator facade used by the CLI.
 - `SisalCliOptions` (interface): Test/runtime injection points for the CLI runner.
 
-### @sisal/migrate ./core (packages/migrate/core/mod.ts)
+### @sisal/migrate ./core (packages/migrate/src/core/mod.ts)
 
 Migration definitions, planning, history stores, and runner contracts.
 
@@ -1239,7 +1276,7 @@ Migration definitions, planning, history stores, and runner contracts.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
 - `writeMigrationFile` (function): Writes a generated migration's .sql and .snapshot.json files.
 
-### @sisal/migrate ./workflow (packages/migrate/core/workflow.ts)
+### @sisal/migrate ./workflow (packages/migrate/src/core/workflow.ts)
 
 SQL-first migration workflow: an injectable filesystem, generated-migration file writing/reading, config, and drift checking.
 
@@ -1298,6 +1335,52 @@ Define a rollup job in TypeScript and execute **one** safe, idempotent window pe
 - `windowAt` (function): The one-grain window starting at the **grain-aligned** instant from — [from, from + grain). The shape replay re-runs. Throws ETL_INVALID_WINDOW for an unparsable or unaligned from.
 - `windowsInRange` (function): Enumerates the successive one-grain windows covering the half-open range [range.from, range.until) — the deterministic backfill walk, with no dependence on wall-clock now. Both bounds must be grain-aligned and from <...
 
+### @sisal/analytics . (packages/analytics/mod.ts)
+
+A Postgres-first OLAP layer over the @sisal/core IR: define **metrics × dimensions × windows** as typed descriptor maps, get back one correct SQL statement and a result-row type inferred from the definition. It...
+
+- `AnalyticsExecutor` (interface): The executor an analytics query runs against — structurally satisfied by every adapter's Database (the query never imports one): a detected dialect identity plus execute.
+- `AnalyticsOrderTerm` (interface): An explicit ordering term produced by {@link ascending} / {@link descending} — a key or expression plus a direction.
+- `AnalyticsQuery` (class): A typed, immutable analytical query — see the module doc for the model. Build with {@link from}; every method returns a new query.
+- `AnalyticsQuerySupport` (typeAlias): The verdict returned by {@link supportsQuery}.
+- `AnalyticsRow` (typeAlias): The exact result-row type of an analytics query: dimension and metric entries via the core projection inference, windowed metrics via {@link WindowedMetricValue}. This is the v0.7 InferAnalyticsRow prototype, shipped.
+- `AnalyticsSource` (typeAlias): An analytics source: a table/rollup definition or a subquery fragment.
+- `AnyWindowedMetric` (typeAlias): Any windowed-metric descriptor referencing at most the keys TKey.
+- `ascending` (function): Orders by a dimension/metric/window key or expression, ascending — orderBy(ascending("bucket")).
+- `assertQuerySupported` (function): The throwing form of {@link supportsQuery}: refuses an unsupported query shape with the typed ANALYTICS_UNSUPPORTED_QUERY error (status 400, details carrying the identity and reason) — call it pre-flight when a raw...
+- `avg` (function): avg(column) aggregate expression.
+- `bucket` (function): A time-bucket dimension: bucket("hour", stats.columns.bucket) floors to a calendar grain, bucket({ minutes: 5 }, …) to a fixed-width interval. Use it as a dimension value; it groups, projects, and orders like any...
+- `CompareToPreviousWindowOptions` (interface): Options for {@link AnalyticsQuery.compareToPreviousWindow}.
+- `count` (function): count(*) (no argument) or count(column) aggregate expression.
+- `countDistinct` (function): count(distinct column) aggregate expression.
+- `delta` (function): The difference between the metric's current and previous window rows — metric - lag(metric) over (…). Nullable: the first row of every partition has no previous row.
+- `DeltaMetric` (interface): A period-over-period delta — metric - lag(metric) over (…), the difference between the current and previous window row.
+- `denseRank` (function): Ranking without gaps — dense_rank() over (…).
+- `descending` (function): Orders by a dimension/metric/window key or expression, descending — rank({ orderBy: [descending("engagementScore")] }).
+- `from` (function): Starts a typed analytical query over a source — a table/rollup definition or a subquery fragment:
+- `isAnalyticsOrderTerm` (function): Returns true when a value is an {@link AnalyticsOrderTerm}.
+- `isTimeBucket` (function): Returns true when a dimension value was produced by {@link bucket}.
+- `lag` (function): The metric's value offset window rows before the current row — lag("votes", { partitionBy: ["postId"], orderBy: ["bucket"] }). The result row infers the referenced metric's value type, nullable.
+- `lead` (function): The metric's value offset window rows after the current row.
+- `max` (function): max(column) aggregate expression.
+- `min` (function): min(column) aggregate expression.
+- `movingAvg` (function): A trailing moving average of a metric over the last rows window rows (current row included) — the /rising feed's velocity score: movingAvg("votes", { partitionBy: ["postId"], orderBy: ["bucket"], rows: 6 })....
+- `MovingAvgMetric` (interface): A trailing moving average over a metric — compiles to avg(metric) over (partition by … order by … rows between N-1 preceding and current row).
+- `OffsetMetric` (interface): A lag()/lead() windowed metric. TRef keeps the referenced metric key's literal type so the result row infers the referenced metric's value type (nullable — the offset row may fall outside the partition).
+- `percentileCont` (function): Continuous percentile — percentile_cont(fraction) within group (order by source), interpolating between adjacent values: percentileCont(0.5, stats.columns.score) is the median. PostgreSQL-only (capability-gated);...
+- `percentileDisc` (function): Discrete percentile — percentile_disc(fraction) within group (order by source), returning an actual input value (no interpolation), so the result carries the source column's value type. PostgreSQL-only...
+- `PreviousWindowMetrics` (typeAlias): The two comparison columns {@link compareToPreviousWindow} adds for a metric key K: ` ${K}Previous (the previous window's value) and ${K}Delta ` (current minus previous).
+- `rank` (function): Ranking with gaps over the window order — rank() over (…): rank({ partitionBy: ["bucket"], orderBy: [descending("engagement")] }).
+- `RankingMetric` (interface): A ranking windowed metric — rank()/dense_rank()/row_number().
+- `rowNumber` (function): Sequential row numbering — row_number() over (…).
+- `sum` (function): sum(column) aggregate expression.
+- `supportsQuery` (function): Decides whether query renders on the engine identity (a bare dialect or the full db.dialectIdentity), without executing anything. Returns { supported: false, reason } when the query contains a construct the...
+- `WindowedMetricMap` (typeAlias): Map of result key → windowed-metric descriptor.
+- `WindowedMetricSpec` (interface): The partition/order options shared by every windowed-metric descriptor. Keys reference the query's dimensions and metrics; the window itself evaluates after grouping, so a referenced metric inlines its aggregate...
+- `WindowedMetricValue` (typeAlias): The value a windowed metric contributes to the result row, resolved against the row the query's dimensions and metrics project: rankings are number; moving averages and deltas are number | null; lag/lead carry the...
+- `WindowOperand` (typeAlias): A value a windowed metric may reference: the string key of a dimension or metric declared on the same query, a column reference, or a SQL expression.
+- `WindowOrderOperand` (typeAlias): An ordering entry inside a window specification or the query-level orderBy(...): a bare operand (ascending) or an explicit {@link ascending}/{@link descending} term.
+
 ### @sisal/pg . (packages/pg/mod.ts)
 
 PostgreSQL adapter package for Sisal.
@@ -1342,7 +1425,7 @@ PostgreSQL adapter package for Sisal.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 - `resolvePgDriverKind` (function): Resolves which {@link PgDriverKind} a URL connection will use — the explicit options.driver when given, otherwise {@link DEFAULT_PG_DRIVER}.
 
-### @sisal/pg ./ddl (packages/pg/migrate/ddl.ts)
+### @sisal/pg ./ddl (packages/pg/src/migrate/ddl.ts)
 
 Pure PostgreSQL DDL generation from @sisal/orm snapshots.
 
@@ -1357,7 +1440,7 @@ Pure PostgreSQL DDL generation from @sisal/orm snapshots.
 - `PostgresUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 
-### @sisal/pg ./migrate (packages/pg/migrate/mod.ts)
+### @sisal/pg ./migrate (packages/pg/src/migrate/mod.ts)
 
 PostgreSQL adapter for @sisal/migrate.
 
@@ -1390,7 +1473,7 @@ PostgreSQL adapter for @sisal/migrate.
 - `SqlExecutor` (interface): Minimal SQL executor used by the PostgreSQL migration adapter.
 - `SqlExecutorSession` (interface): Pinned PostgreSQL execution session held across multiple executor calls.
 
-### @sisal/pg ./orm (packages/pg/orm/mod.ts)
+### @sisal/pg ./orm (packages/pg/src/orm/mod.ts)
 
 PostgreSQL adapter for @sisal/orm.
 
@@ -1456,7 +1539,7 @@ SQLite adapter package for Sisal.
 - `SqliteUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `statementReturnsRows` (function): Returns true when a statement yields rows (SELECT/WITH/PRAGMA/EXPLAIN, or any statement with a RETURNING clause), so the executor knows whether to read rows or report a change count.
 
-### @sisal/sqlite ./ddl (packages/sqlite/migrate/ddl.ts)
+### @sisal/sqlite ./ddl (packages/sqlite/src/migrate/ddl.ts)
 
 Pure SQLite DDL generation from @sisal/orm snapshots.
 
@@ -1469,7 +1552,7 @@ Pure SQLite DDL generation from @sisal/orm snapshots.
 - `quoteSqliteIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 - `SqliteUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 
-### @sisal/sqlite ./migrate (packages/sqlite/migrate/mod.ts)
+### @sisal/sqlite ./migrate (packages/sqlite/src/migrate/mod.ts)
 
 SQLite adapter for @sisal/migrate.
 
@@ -1504,7 +1587,7 @@ SQLite adapter for @sisal/migrate.
 - `SqliteUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `statementReturnsRows` (function): Returns true when a statement yields rows (SELECT/WITH/PRAGMA/EXPLAIN, or any statement with a RETURNING clause).
 
-### @sisal/sqlite ./orm (packages/sqlite/orm/mod.ts)
+### @sisal/sqlite ./orm (packages/sqlite/src/orm/mod.ts)
 
 SQLite adapter for @sisal/orm.
 
@@ -1577,7 +1660,7 @@ libSQL/Turso adapter package for Sisal.
 - `openLibsqlClient` (function): Opens a libSQL/Turso client for ORM use.
 - `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 
-### @sisal/libsql ./ddl (packages/libsql/migrate/ddl.ts)
+### @sisal/libsql ./ddl (packages/libsql/src/migrate/ddl.ts)
 
 Pure libSQL/Turso DDL generation.
 
@@ -1589,7 +1672,7 @@ Pure libSQL/Turso DDL generation.
 - `LibsqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 
-### @sisal/libsql ./migrate (packages/libsql/migrate/mod.ts)
+### @sisal/libsql ./migrate (packages/libsql/src/migrate/mod.ts)
 
 libSQL/Turso adapter for @sisal/migrate.
 
@@ -1634,7 +1717,7 @@ libSQL/Turso adapter for @sisal/migrate.
 - `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 - `SqlExecutor` (interface): Minimal SQL executor used by the libSQL migration adapter.
 
-### @sisal/libsql ./orm (packages/libsql/orm/mod.ts)
+### @sisal/libsql ./orm (packages/libsql/src/orm/mod.ts)
 
 libSQL/Turso adapter for @sisal/orm.
 
@@ -1720,7 +1803,7 @@ MySQL/MariaDB adapter package for Sisal.
 - `SqlExecutor` (interface): Minimal SQL executor used by the MySQL migration adapter.
 - `SqlExecutorSession` (interface): Pinned MySQL execution session held across multiple executor calls.
 
-### @sisal/mysql ./ddl (packages/mysql/migrate/ddl.ts)
+### @sisal/mysql ./ddl (packages/mysql/src/migrate/ddl.ts)
 
 Pure MySQL/MariaDB DDL generation from @sisal/orm snapshots.
 
@@ -1735,7 +1818,7 @@ Pure MySQL/MariaDB DDL generation from @sisal/orm snapshots.
 - `MysqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quoteMysqlIdent` (function): Quotes a MySQL identifier with backticks, escaping embedded backticks.
 
-### @sisal/mysql ./migrate (packages/mysql/migrate/mod.ts)
+### @sisal/mysql ./migrate (packages/mysql/src/migrate/mod.ts)
 
 MySQL/MariaDB adapter for @sisal/migrate.
 
@@ -1767,7 +1850,7 @@ MySQL/MariaDB adapter for @sisal/migrate.
 - `SqlExecutor` (interface): Minimal SQL executor used by the MySQL migration adapter.
 - `SqlExecutorSession` (interface): Pinned MySQL execution session held across multiple executor calls.
 
-### @sisal/mysql ./orm (packages/mysql/orm/mod.ts)
+### @sisal/mysql ./orm (packages/mysql/src/orm/mod.ts)
 
 MySQL/MariaDB adapter for @sisal/orm.
 
@@ -1845,7 +1928,7 @@ Neon serverless adapter package for Sisal.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 - `resolveNeonConnectionString` (function): Resolves url or connectionString into a non-empty connection string.
 
-### @sisal/neon ./ddl (packages/neon/ddl.ts)
+### @sisal/neon ./ddl (packages/neon/src/ddl.ts)
 
 PostgreSQL DDL helpers for Neon serverless workflows.
 
@@ -1858,7 +1941,7 @@ PostgreSQL DDL helpers for Neon serverless workflows.
 - `PostgresUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 
-### @sisal/neon ./migrate (packages/neon/migrate/mod.ts)
+### @sisal/neon ./migrate (packages/neon/src/migrate/mod.ts)
 
 Neon serverless adapter for @sisal/migrate.
 
@@ -1894,7 +1977,7 @@ Neon serverless adapter for @sisal/migrate.
 - `normalizeNeonResult` (function): Normalizes a Neon query result into Sisal's affected-row shape.
 - `resolveNeonConnectionString` (function): Resolves url or connectionString into a non-empty connection string.
 
-### @sisal/neon ./orm (packages/neon/orm/mod.ts)
+### @sisal/neon ./orm (packages/neon/src/orm/mod.ts)
 
 Neon serverless adapter for @sisal/orm.
 
@@ -1942,14 +2025,16 @@ URL: https://github.com/gilvandovieira/sisal/blob/main/README.md
 Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
 
 > [!WARNING]
-> Sisal is still experimental. APIs, schema snapshot formats, generated DDL,
-> migration workflows, and adapter behavior may change before 1.0. Review
-> generated SQL and test migrations before using Sisal in production.
+> Sisal is a collection of preview packages. We think the core APIs, migration
+> workflow, and adapters are stable enough for serious investigation,
+> prototypes, and non-production trials, but we do not recommend production
+> deployments yet. APIs, schema snapshot formats, generated DDL, migration
+> workflows, and adapter behavior may still change before 1.0.
 
-Sisal is a Deno-first **ORM and query builder**, published to JSR — typed
-schemas, safe SQL builders, schema snapshots, migration planning, and explicit
-database adapters — with **lightweight ETL and analytics capabilities** growing
-on the same driverless core.
+Sisal is a Deno-first collection of **ORM and query-builder packages**,
+published to JSR — typed schemas, safe SQL builders, schema snapshots, migration
+planning, and explicit database adapters — with **lightweight ETL and analytics
+capabilities** growing on the same driverless core.
 
 The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
 adapter-neutral. PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB
@@ -1967,26 +2052,29 @@ including Drizzle's fluent SQL-builder style, but it is not a compatibility
 layer and keeps its own driverless core, snapshot workflow, and adapter split.
 
 > [!NOTE]
-> **Scope — a toe in the water, not a replacement.** Sisal is first an ORM and
-> query builder. Its ETL and analytics layers ([v0.10](docs/v0.10.0-roadmap.md)
-> and [v0.11](docs/v0.11.0-roadmap.md), in progress) are deliberately small: a
-> typed rollup job with a single-run runner, and a typed query API over the
-> shapes it produces — all pushed down into your existing database, no extra
-> engine. The goal is to let a project already using Sisal for OLTP do
-> lightweight in-database rollups and analytical reads **without standing up a
-> separate stack on day one**. When a project outgrows that — real
-> orchestration, streaming, a warehouse, a BI platform — Sisal is meant to hand
-> off cleanly to a specialized tool, not to become one. It will not grow into a
-> scheduler, a worker queue, or an object-first ORM.
+> **Scope — advanced queries first, ETL and analytics as an entry point.** Sisal
+> is first an ORM and serious SQL query builder: it is meant to cover typed
+> application queries as well as more advanced SQL shapes such as CTEs,
+> subqueries, window functions, aggregates, set operations, keyset pagination,
+> and safe raw fragments. Its ETL and analytics layers are more deliberately
+> modest: a typed rollup job with a single-run runner, and a typed query API
+> over the shapes it produces — all pushed down into your existing database, no
+> extra engine. They are meant to let a project already using Sisal test the
+> waters of in-database rollups and analytical reads, and to initiate the
+> software into those realms without standing up a separate stack on day one.
+> They are not intended to be the de facto solution for serious ETL
+> transformations, deep analytics, orchestration, streaming, warehouses, or BI
+> platforms. When a project reaches that point, Sisal should hand off cleanly to
+> specialized tools.
 
 ## Installing
 
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.10.0 \
-  jsr:@sisal/migrate@0.10.0 \
-  jsr:@sisal/pg@0.10.0
+deno add jsr:@sisal/orm@0.11.0 \
+  jsr:@sisal/migrate@0.11.0 \
+  jsr:@sisal/pg@0.11.0
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -1994,145 +2082,104 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target        | Install                                                                             |
 | ------------- | ----------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/pg@0.10.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/neon@0.10.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/sqlite@0.10.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/libsql@0.10.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.10.0 jsr:@sisal/migrate@0.10.0 jsr:@sisal/mysql@0.10.0`  |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/pg@0.11.0`     |
+| Neon          | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/neon@0.11.0`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/sqlite@0.11.0` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/libsql@0.11.0` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/mysql@0.11.0`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
 
-## PostgreSQL Walkthrough
+For the preview ETL and analytics layers, add the companion packages when you
+need them:
 
-This example defines a small feed schema, generates additive PostgreSQL DDL,
-connects through the PostgreSQL adapter with `await using` for automatic
-cleanup, writes with a batched transaction, updates with a SQL expression, and
-reads a keyset-paginated page.
+```sh
+deno add jsr:@sisal/etl@0.11.0 jsr:@sisal/analytics@0.11.0
+```
+
+## A Sisal Story
+
+Imagine a product feed that starts as normal application tables, grows a ranked
+timeline, and later needs hourly rollups for dashboards. Sisal keeps that path
+boring in the best way: one set of typed table definitions feeds the query
+builder, migration snapshots, ETL jobs, and analytical reads.
+
+### 1. Define the model once
+
+Start with the product model: users write posts, events record activity, and a
+rollup table stores one row per post per hour. The table definitions are regular
+TypeScript values, so they can be imported by application code, migration
+config, ETL declarations, tests, and docs.
 
 ```ts
 import {
   columns,
-  createSchemaSnapshot,
   defineTable,
   desc,
-  eq,
   index,
   type InferInsert,
   type InferSelect,
+  primaryKey,
   sql,
 } from "@sisal/orm";
-import { connect, generatePostgresUpStatements } from "@sisal/pg";
 
-const users = defineTable("users", {
+export const users = defineTable("users", {
   id: columns.uuid().primaryKey(),
   email: columns.text().notNull().unique(),
   displayName: columns.text().notNull(),
-  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+  createdAt: columns.timestamp({ withTimezone: true, mode: "date" })
+    .notNull(),
 });
 
-const posts = defineTable("posts", {
+export const posts = defineTable("posts", {
   id: columns.uuid().primaryKey(),
   authorId: columns.uuid().notNull().references("users", "id"),
   title: columns.text().notNull(),
   status: columns.text().notNull(),
   score: columns.integer().notNull().default(0),
-  upvotes: columns.integer().notNull().default(0),
-  downvotes: columns.integer().notNull().default(0),
-  createdAt: columns.timestamp({ withTimezone: true }).notNull(),
+  createdAt: columns.timestamp({ withTimezone: true, mode: "date" })
+    .notNull(),
 }, (t) => [
   index("posts_feed_idx")
     .where(sql`${t.status} = 'published'`)
     .on(desc(t.score), desc(t.createdAt), desc(t.id)),
 ]);
 
-type Post = InferSelect<typeof posts>;
-type NewPost = InferInsert<typeof posts>;
-
-const snapshot = createSchemaSnapshot({
-  dialect: "postgres",
-  tables: [users, posts],
+export const postEvents = defineTable("post_events", {
+  id: columns.bigserial().primaryKey(),
+  postId: columns.uuid().notNull().references("posts", "id"),
+  kind: columns.text().notNull(),
+  occurredAt: columns.timestamp({ withTimezone: true, mode: "date" })
+    .notNull(),
 });
 
-// `await using` closes the connection pool when the scope exits — including on
-// an early throw — so no try/finally is needed. (Call `await db.close()`
-// manually if you need to release it sooner.)
-await using db = await connect({
-  url: Deno.env.get("DATABASE_URL"),
-});
+export const postHourlyStats = defineTable("post_hourly_stats", {
+  postId: columns.uuid().notNull().references("posts", "id"),
+  bucket: columns.timestamp({ withTimezone: true, mode: "date" }).notNull(),
+  views: columns.integer().notNull(),
+  votes: columns.integer().notNull(),
+  comments: columns.integer().notNull(),
+  engagementScore: columns.doublePrecision().notNull(),
+}, (t) => [primaryKey({ columns: [t.postId, t.bucket] })]);
 
-const { statements, destructive } = generatePostgresUpStatements(snapshot);
-
-if (destructive.length > 0) {
-  throw new Error("Refusing to apply destructive generated changes.");
-}
-
-for (const statement of statements) {
-  await db.execute(statement);
-}
-
-const userId = crypto.randomUUID();
-const postId = crypto.randomUUID();
-
-await db.batch([
-  db.insert(users).values({
-    id: userId,
-    email: "ada@example.com",
-    displayName: "Ada",
-    createdAt: Temporal.Now.instant(),
-  }),
-  db.insert(posts).values({
-    id: postId,
-    authorId: userId,
-    title: "Portable database tooling",
-    status: "published",
-    score: 0,
-    upvotes: 3,
-    downvotes: 1,
-    createdAt: Temporal.Now.instant(),
-  }),
-]);
-
-await db.update(posts).set({
-  score: sql`${posts.columns.upvotes} - ${posts.columns.downvotes}`,
-}).where(eq(posts.columns.id, postId)).execute();
-
-const page = await db.select({
-  id: posts.columns.id,
-  title: posts.columns.title,
-  author: users.columns.displayName,
-  score: posts.columns.score,
-  createdAt: posts.columns.createdAt,
-}).from(posts)
-  .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
-  .where(eq(posts.columns.status, "published"))
-  .keyset({
-    orderBy: [
-      desc(posts.columns.score),
-      desc(posts.columns.createdAt),
-      desc(posts.columns.id),
-    ],
-  })
-  .limit(20)
-  .execute();
-
-console.log(page.rows, page.nextCursor);
+export type Post = InferSelect<typeof posts>;
+export type NewPost = InferInsert<typeof posts>;
 ```
 
-`generatePostgresUpStatements` is intentionally additive: destructive changes
-are reported separately instead of silently emitted as ordinary migration SQL.
-For long-lived projects, use the CLI workflow below to write migration files and
-track snapshots.
+The value here is leverage. The model is not just runtime metadata and not just
+types: it is the common contract for inserts, selects, joins, generated DDL,
+rollups, and result-row inference.
 
-## CLI Task Setup
+### 2. Generate migrations with the CLI
 
-Wire the migration CLI into your application's `deno.json` so the same commands
-work locally and in CI:
+Wire the migration CLI into your application's `deno.json`, then point
+`sisal.migrate.ts` at the same tables your app imports.
 
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.10.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.11.0/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
@@ -2143,20 +2190,19 @@ work locally and in CI:
 ```
 
 Use `--target mysql` for MySQL/MariaDB. SQLite and libSQL/Turso tasks also need
-`--allow-ffi`. `sisal init` creates `sisal.migrate.ts`; edit that config so
-`snapshot` is built from the same table definitions your application uses.
+`--allow-ffi`. `sisal init` creates `sisal.migrate.ts`:
 
 ```ts
 import { createSchemaSnapshot } from "@sisal/orm";
 import { defineConfig } from "@sisal/migrate/workflow";
-import { posts, users } from "./src/db/schema.ts";
+import { postEvents, postHourlyStats, posts, users } from "./src/db/schema.ts";
 
 export default defineConfig({
   dir: "migrations",
   dialect: "postgres",
   snapshot: createSchemaSnapshot({
     dialect: "postgres",
-    tables: [users, posts],
+    tables: [users, posts, postEvents, postHourlyStats],
   }),
   databaseUrl: Deno.env.get("DATABASE_URL"),
   historyTable: "sisal_migrations",
@@ -2177,6 +2223,187 @@ deno task db:drift
 against `config.snapshot`, then writes paired SQL and snapshot files. `drift`
 exits with code `1` when the current schema snapshot, migration files, or
 database plan do not match.
+
+The value is reviewability. Generated SQL is checked into source control beside
+the snapshot that produced it, and destructive changes are separated instead of
+being smuggled into an ordinary migration.
+
+### 3. Query the product surface
+
+When the app needs a feed, use the same tables to build typed queries. This page
+joins authors, filters published posts, and keyset-paginates by the index order.
+
+```ts
+import { desc, eq } from "@sisal/orm";
+import type { PgDatabase } from "@sisal/pg";
+import { posts, users } from "./schema.ts";
+
+export async function getFeed(db: PgDatabase, after?: {
+  score: number;
+  createdAt: Date;
+  id: string;
+}) {
+  return await db.select({
+    id: posts.columns.id,
+    title: posts.columns.title,
+    author: users.columns.displayName,
+    score: posts.columns.score,
+    createdAt: posts.columns.createdAt,
+  }).from(posts)
+    .innerJoin(users, eq(users.columns.id, posts.columns.authorId))
+    .where(eq(posts.columns.status, "published"))
+    .keyset({
+      orderBy: [
+        desc(posts.columns.score),
+        desc(posts.columns.createdAt),
+        desc(posts.columns.id),
+      ],
+      after,
+    })
+    .limit(20)
+    .execute();
+}
+```
+
+The value is that query shape and result shape stay together. The selected
+columns infer the row type, the cursor shape follows the keyset order, and SQL
+fragments are rendered with parameters instead of string-concatenated values.
+
+### 4. Keep advanced SQL close to the model
+
+As the feed grows, you can still reach for analytical SQL patterns without
+leaving the builder. This query ranks each post's strongest hourly buckets and
+keeps the top three windows per post.
+
+```ts
+import { desc, gte, lte, over, rowNumber } from "@sisal/orm";
+import type { PgDatabase } from "@sisal/pg";
+import { postHourlyStats } from "./schema.ts";
+
+export async function getBestHourlyWindows(db: PgDatabase, since: Date) {
+  const h = postHourlyStats.columns;
+  const ranked = db.select({
+    postId: h.postId,
+    bucket: h.bucket,
+    engagementScore: h.engagementScore,
+    rn: over(rowNumber(), {
+      partitionBy: [h.postId],
+      orderBy: [desc(h.engagementScore), desc(h.bucket)],
+    }),
+  }).from(postHourlyStats)
+    .where(gte(h.bucket, since))
+    .as("ranked");
+
+  return await db.select({
+    postId: ranked.postId,
+    bucket: ranked.bucket,
+    engagementScore: ranked.engagementScore,
+  }).from(ranked)
+    .where(lte(ranked.rn, 3))
+    .execute();
+}
+```
+
+The value is escape-hatch discipline. Sisal supports CTEs, subqueries, window
+functions, aggregates, set operations, and raw `sql` fragments, but keeps them
+inside the same typed SQL IR and adapter renderer.
+
+### 5. Turn events into rollups with ETL
+
+When raw events get too expensive to query repeatedly, define a job that folds
+one closed time window per run. An external scheduler chooses when to wake up;
+Sisal owns the checkpoint, advisory lock, generated `INSERT ... SELECT`, and
+idempotent upsert for the window.
+
+```ts
+import { count, eq, filter, sql } from "@sisal/orm";
+import { defineJob, run } from "@sisal/etl";
+import type { PgDatabase } from "@sisal/pg";
+import { postEvents, postHourlyStats } from "./schema.ts";
+
+const e = postEvents.columns;
+
+export const postHourlyStatsJob = defineJob({
+  name: "post-hourly-stats",
+  source: postEvents,
+  target: postHourlyStats,
+  window: e.occurredAt,
+  grain: "hour",
+  bucket: "bucket",
+  groupBy: { postId: e.postId },
+  aggregates: {
+    views: filter(count(), eq(e.kind, "view")),
+    votes: filter(count(), eq(e.kind, "vote")),
+    comments: filter(count(), eq(e.kind, "comment")),
+    engagementScore: sql`${filter(count(), eq(e.kind, "vote"))} * 2.0 + ${
+      filter(count(), eq(e.kind, "comment"))
+    } * 3.0`,
+  },
+  start: "2026-01-01T00:00:00.000Z",
+});
+
+export async function foldOneWindow(db: PgDatabase) {
+  return await run(db, postHourlyStatsJob);
+}
+```
+
+The value is a small ETL contract, not a new platform. `run()` folds one
+half-open window, advances the watermark atomically with the write, and exits
+cleanly if another runner already holds the job lock. See
+[`examples/postgres-family-etl-cron`](examples/postgres-family-etl-cron/mod.ts)
+for a runnable `Deno.cron` variant.
+
+### 6. Read the rollups with analytics
+
+The analytics preview sits on top of prepared tables like `post_hourly_stats`.
+It describes dimensions, metrics, and windowed metrics, then renders or executes
+one parameterized query.
+
+```ts
+import {
+  bucket,
+  descending,
+  from,
+  movingAvg,
+  rank,
+  sum,
+} from "@sisal/analytics";
+import type { PgDatabase } from "@sisal/pg";
+import { postHourlyStats } from "./schema.ts";
+
+export async function getRisingPosts(db: PgDatabase) {
+  const rising = from(postHourlyStats)
+    .dimensions({
+      postId: postHourlyStats.columns.postId,
+      bucket: bucket("hour", postHourlyStats.columns.bucket),
+    })
+    .metrics({
+      votes: sum(postHourlyStats.columns.votes),
+      comments: sum(postHourlyStats.columns.comments),
+      engagement: sum(postHourlyStats.columns.engagementScore),
+    })
+    .windows({
+      engagementMa6h: movingAvg("engagement", {
+        partitionBy: ["postId"],
+        orderBy: ["bucket"],
+        rows: 6,
+      }),
+      hourlyRank: rank({
+        partitionBy: ["bucket"],
+        orderBy: [descending("engagement")],
+      }),
+    })
+    .compareToPreviousWindow("engagement")
+    .orderBy(descending("engagementMa6h"))
+    .limit(50);
+
+  return await rising.execute(db);
+}
+```
+
+The value is a clean handoff from OLTP to lightweight OLAP. Your app keeps the
+same database and adapter boundary, while dashboards and ranked feeds query
+prepared rollups instead of rescanning raw event streams on every request.
 
 ## What You Get Today
 
@@ -2209,28 +2436,34 @@ database plan do not match.
 - Structured `SisalError`, `OrmError`, and `MigrationError` classes plus
   configurable logger contracts.
 
-The v0.9 release also landed the substrate the ETL layer builds on — a portable
+Sisal also includes the substrate the ETL layer builds on: a portable
 advisory-lock/claim abstraction, an atomic load-and-advance checkpoint, and a
 replay-vs-retention guard. The `@sisal/etl` preview (a typed rollup job + a
-single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are the
-[v0.10](docs/v0.10.0-roadmap.md) and [v0.11](docs/v0.11.0-roadmap.md) roadmap
-milestones — lightweight by design, per the scope note above.
+single-run, SQL-pushdown runner) and the `@sisal/analytics` preview are
+lightweight by design, per the scope note above.
 
 ## Packages
 
 Core packages:
 
-| Package          | Purpose                                                                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@sisal/core`    | The public driverless base (extracted in v0.8): schema primitives, the SQL IR, expression operators, the capability registry, and the dialect renderer. |
-| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging.                                       |
-| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.                                        |
+| Package          | Purpose                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `@sisal/core`    | The public driverless base: schema primitives, the SQL IR, expression operators, the capability registry, and the dialect renderer. |
+| `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging.                   |
+| `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.                    |
 
 `@sisal/core` is a public JSR package, but `@sisal/orm` re-exports its entire
 surface — most projects install `@sisal/orm` + `@sisal/migrate` + one adapter
 and never import `@sisal/core` directly. Depend on it directly only when you
 want the schema/SQL-IR layer without the query builders (as `@sisal/migrate`
 does).
+
+Preview packages:
+
+| Package            | Purpose                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `@sisal/etl`       | SQL-pushdown rollup jobs, checkpointed single-window runs, replay/backfill helpers, and dry-run explain.      |
+| `@sisal/analytics` | Typed dimensions, metrics, windowed metrics, period-over-period helpers, and adapter-neutral query execution. |
 
 Adapter packages:
 
@@ -2289,6 +2522,8 @@ SISAL_MARIADB_IT=1 MARIADB_URL=mysql://... deno test -A integration/mariadb_feat
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
   integration/pg_migrate_apply_test.ts
 DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
+  integration/analytics_features_test.ts
+DATABASE_URL=postgres://... deno test --allow-net --allow-env --allow-read \
   --allow-ffi integration/cross_adapter_parity_test.ts
 ```
 
@@ -2318,10 +2553,117 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
-## Unreleased
+## 0.11.0 - 2026-07-04
 
 ### Added
 
+- **Bundled logger bridges and presets** in `@sisal/core` (re-exported from
+  `@sisal/orm`): `consoleLogger()` (zero-setup `console` sink),
+  `fromStdLog(logger)` (adapts an `@std/log` logger), and the
+  `developmentLogging(logger)` / `productionLogging(logger)` verbosity presets.
+  The `examples/logging` Pino bridge shows the `isEnabled` fast-path forwarding
+  `pino.isLevelEnabled`.
+- **Raw SQL bind-parameter logging.** `sql: { parameters: "values" }` (and
+  `developmentLogging`) logs the actual bind values so a failing query can be
+  replayed while debugging — opt-in, alongside the existing `"redacted"`
+  (default) and `"off"` modes. Connection strings, DSNs, and tokens remain
+  always-redacted regardless. New `renderSqlParametersForLog(params, mode)` and
+  `SisalSqlParameterMode` / `SisalLogLevelActive` exports.
+- Logging-cost benchmark coverage for the new `"values"` mode in the
+  `orm logging` bench groups (`benchmarks/scenarios/logging.ts`).
+- Reworked the root README's advanced Sisal example into a staged product-feed
+  story: model definitions, CLI migration generation, typed feed queries,
+  advanced SQL, ETL rollups, and analytics reads, with short value notes for
+  each step. The README now frames Sisal as a collection of preview packages
+  suitable for serious investigation and non-production trials, while still not
+  recommended for production deployments, and clarifies that advanced query
+  building is a core strength while ETL/analytics are entry points rather than
+  deep data-platform replacements.
+- **Full `examples/` review for the v0.11 capstone.** The examples directory is
+  now a coherent learning path (basic → showcase → feed → advanced SQL → ETL +
+  analytics → logging), documented in a rewritten
+  [`examples/README.md`](examples/README.md) with a per-example capability
+  matrix and explicit dry-run / live-DB / permission / Postgres-only notes.
+  - New runnable
+    [`examples/postgres-family-analytics`](examples/postgres-family-analytics/)
+    — the first first-class `@sisal/analytics` example (dimensions, `bucket`,
+    `movingAvg`, `rank`, `compareToPreviousWindow`, `supportsQuery`), reading
+    the **same `post_hourly_stats` rollup** that `postgres-family-etl-cron`
+    writes. Added to the workspace and the network-free `deno task test`
+    (`analytics_test.ts`).
+  - `postgres-family-etl-cron` now folds `community_id` and a weighted
+    `engagement_score` so ETL and analytics share one vocabulary; both examples
+    cross-link (ETL builds the rollups, analytics reads them).
+  - `basic` examples now show a full insert → select → update → delete cycle;
+    the `logging` example demonstrates parameter/DSN/token redaction and both
+    redaction modes; every example family gained a normalized README, and the
+    `feed`/showcase examples gained consistent `run` tasks (dry-run or a clear
+    "set env var" message).
+  - Triaged all twelve `advanced-sql-contracts` against today's surface (a new
+    v0.11 status table mapping each to `builder-native` / `analytics-native` /
+    `etl-native` / raw / obsolete), and refreshed the advanced-SQL example
+    READMEs that still described builder-native shapes as raw SQL.
+  - Fixed stale `neon-hot-feed` naming/paths, clarified `activity-vectors` is
+    feature vectors (not pgvector), and moved the network-free feed/hot-feed/
+    vector unit tests into the root `deno task test`.
+- **`@sisal/analytics` (v0.11 preview) — the typed analytical query spine,
+  Postgres-first percentiles, and capability-gated execution** (roadmap T1–T12).
+  New workspace package `packages/analytics` with a single `.` export:
+  - `from(source)` — an immutable analytical query builder over a table, rollup,
+    or subquery fragment. `dimensions`, `metrics`, `windows`, `where`,
+    `orderBy`, and `limit` compile to `@sisal/core` `assembleSelect()` output
+    without importing `@sisal/orm`, adapters, drivers, migrate, or ETL runtime
+    code.
+  - `bucket(width, source)` — a typed time-dimension helper over core
+    `dateTrunc`/`dateBin`, marking the comparison axis for period-over-period
+    queries.
+  - windowed metrics: `movingAvg`, `rank`, `denseRank`, `rowNumber`, `lag`,
+    `lead`, and `delta`, all lowering to the v0.8 core window primitives while
+    preserving result-row inference.
+  - `compareToPreviousWindow(metric)` — adds typed previous-window and delta
+    fields, defaulting to the query's single `bucket()` dimension and failing
+    typed on missing/ambiguous axes.
+  - experimental Postgres-first `percentileCont` / `percentileDisc` helpers,
+    backed by the new core `percentileAggregates` capability and failing closed
+    off Postgres.
+  - `render(identity)`, `execute(db)`, `supportsQuery`, and
+    `assertQuerySupported` — dry-run and execution surfaces over a structural
+    adapter executor. Unsupported analytical shapes are refused before execution
+    with `ANALYTICS_UNSUPPORTED_QUERY`, not raw engine errors.
+  - Boundary, golden-SQL, type-inference, validation, capability, and dry-run
+    example tests now pin the package spine:
+    `packages/analytics/boundary_test.ts`, `query_test.ts`,
+    `capability_test.ts`, and `examples_test.ts`. The five v0.11 examples render
+    through the public analytics API, including the `/rising` velocity feed
+    (`movingAvg` + `rank` + `compareToPreviousWindow`) with no raw SQL in the
+    analytics package.
+- **Live PostgreSQL analytics proof.** Added
+  `integration/analytics_features_test.ts`, which creates a rollup-like
+  `post_hourly_stats` table, seeds multiple posts and buckets, renders a
+  parameterized analytics query, and executes dimensions, `bucket`, aggregate
+  metrics, `movingAvg`, `rank`, `compareToPreviousWindow`, ordering, and limit
+  through the real PostgreSQL adapter. `scripts/pg-matrix.sh` now runs this
+  proof beside the PostgreSQL feature suite.
+- **PostgreSQL-family analytics example.** Added
+  `examples/postgres-family-analytics`, a dry-run/live example reading the same
+  `post_hourly_stats` rollup produced by `examples/postgres-family-etl-cron`.
+  The ETL cron example now writes `community_id` and `engagement_score` so the
+  analytics example can demonstrate velocity and per-community ranking over
+  prepared rollups.
+- **Workspace boundary pin.** Added `tools/lint/package_boundary_test.ts`,
+  covering the full layered graph: `@sisal/core` stays driverless, ORM/migrate
+  stay below preview layers, analytics stays core-only, ETL keeps its documented
+  runtime ORM edge, adapters only reuse documented adapter boundaries, and
+  examples import public package surfaces.
+- **Example and package documentation hardening.** Added/expanded README files
+  for logging, basic/showcase examples, package adapter checklists, and the
+  examples index so release readers can see drivers, permissions, migrations,
+  transactions/batch, ETL/analytics compatibility, and security caveats.
+- **v0.11 roadmap tasklist from the v0.5→v0.10 review.**
+  `docs/v0.11.0-roadmap.md` now records the prerequisite trail from v0.5 dialect
+  honesty through v0.10 ETL, and tracks concrete analytics tasks T1–T18 instead
+  of a broad feature brief. `docs/architecture.md` now reflects the current ETL
+  package and the v0.11 analytics preview boundary.
 - **`@sisal/etl` (v0.10 preview) — the typed job model, generated rollup,
   single-window runner, the backfill/replay/status/dry-run API, and
   capability-gating** (roadmap T11–T21). New workspace package `packages/etl`
@@ -2415,7 +2757,60 @@ Sisal-specific history after that baseline through `1f05448`.
   cyclic fixture on PostgreSQL 16/17/18; new `docs/feature-matrix.md` row backed
   by the `recursive search/cycle` scenario.
 
+### Changed
+
+- Moved workspace package internals into `packages/<name>/src/` and
+  package-local tests into `packages/<name>/tests/`, with public subpackages
+  mirrored under `src/<subpackage>/`. Root package `mod.ts` entrypoints,
+  `deno.json`, and README files remain at package root while export maps and
+  publish include lists point at the new source layout.
+- **Breaking: the `Logger` contract is now a single structured sink.** A logger
+  implements one `log(event)` method (receiving
+  `{ level, category, message,
+  record }`) plus an optional
+  `isEnabled(level, category)` fast-path, replacing the five per-level methods
+  and the overloaded `LoggerMethod` (removed). This is the most extensible shape
+  — the sink sees the whole event and decides routing, formatting, and filtering
+  — and it makes bridges cast-free. Migrate a custom logger by collapsing the
+  per-level methods into one `log(event)` that switches on `event.level`.
+- ORM query logging is now **zero-cost when off**: the query hot path (`#run`,
+  plus transactions and batches) builds no event records, takes no
+  `performance.now()` timing, and renders no parameters unless a sink actually
+  wants the event (guarded by `isEnabled`/level/category). With no logger
+  attached, Sisal is fully silent — a failing query still throws a redacted
+  `SisalError`.
+- Bumped workspace package, example, and benchmark manifest versions to
+  `0.11.0`, refreshed README install pins, and updated the migration CLI's
+  default adapter version prompts to `^0.11.0`.
+- The SQLite adapter now opens `@db/sqlite` with `int64` support so stored
+  INTEGER values above 32-bit range (for example `4200000000`) no longer decode
+  through a signed 32-bit wraparound in live SQLite integration.
+- `bucket()` now returns text consistently across supported SQL families. The
+  PostgreSQL rendering wraps `date_trunc`/`date_bin` output with `to_char(...)`
+  so the runtime value matches the public `SqlExpression<string>` contract and
+  analytics result-row type.
+- CI/root release gates now run the workspace test suite, dependency audit,
+  image pinning check, docs checks, feature-matrix check, type check, and
+  publish dry-run. The root `deno task test` also includes network-free
+  feed/hot/activity-vector/analytics example tests.
+- `docs/feature-matrix.md` now includes a generated analytics preview support
+  table that distinguishes live PostgreSQL proof, golden SQL/render-proven
+  support, capability-gated unsupported percentiles, and deferred non-PostgreSQL
+  live execution.
+- `docs/v0.11.0-roadmap.md` now reflects release truth: analytics is the final
+  roadmap milestone, the package remains intentionally flat for this release,
+  advanced-SQL contracts are triaged, rollup-first guidance is documented, and
+  deferred analytics ambitions are recorded as non-goals/future work.
+
 ### Security
+
+The v0.11 security refresh updates `SECURITY.md` and `docs/security.md` for the
+entire workspace, including `@sisal/core`, `@sisal/orm`, `@sisal/migrate`,
+`@sisal/etl`, `@sisal/analytics`, every adapter, tools, examples, integration
+suites, CI workflows, manifests, and `deno.lock`. The docs now distinguish live
+integration-proven support from render/golden-SQL support and call out raw SQL,
+trusted migration config, Deno permissions, TLS/DSN handling, logging/error
+redaction, checkpoint/lock safety, and supply-chain gates.
 
 Resolves every open finding from the 0.9.0 security audit (SEC-008 through
 SEC-016; see [`docs/security.md`](docs/security.md)). Each fix is pinned by a
@@ -4481,37 +4876,40 @@ source layout. Sisal is a Deno-first database toolkit, published to JSR, with a
 driverless core, a driverless ORM facade, adapter-neutral migration tooling, and
 explicit database adapters.
 
-| Package          | Import root      | Responsibility                                     |
-| ---------------- | ---------------- | -------------------------------------------------- |
-| `@sisal/core`    | `@sisal/core`    | Schema primitives, SQL IR, operators, capabilities |
-| `@sisal/orm`     | `@sisal/orm`     | Database facade, fluent builders, relations, calls |
-| `@sisal/migrate` | `@sisal/migrate` | Migration definitions, planning, workflow, CLI     |
-| `@sisal/etl`     | `@sisal/etl`     | Rollup jobs, window math, runner APIs, status      |
-| `@sisal/pg`      | `@sisal/pg`      | PostgreSQL ORM, migration adapter, DDL             |
-| `@sisal/neon`    | `@sisal/neon`    | Neon serverless PostgreSQL ORM/migrations          |
-| `@sisal/sqlite`  | `@sisal/sqlite`  | SQLite ORM, migration adapter, DDL                 |
-| `@sisal/libsql`  | `@sisal/libsql`  | libSQL/Turso ORM, migration adapter, SQLite DDL    |
-| `@sisal/mysql`   | `@sisal/mysql`   | MySQL/MariaDB ORM, migration adapter, DDL          |
+| Package            | Import root        | Responsibility                                     |
+| ------------------ | ------------------ | -------------------------------------------------- |
+| `@sisal/core`      | `@sisal/core`      | Schema primitives, SQL IR, operators, capabilities |
+| `@sisal/orm`       | `@sisal/orm`       | Database facade, fluent builders, relations, calls |
+| `@sisal/migrate`   | `@sisal/migrate`   | Migration definitions, planning, workflow, CLI     |
+| `@sisal/etl`       | `@sisal/etl`       | Rollup jobs, window math, runner APIs, status      |
+| `@sisal/analytics` | `@sisal/analytics` | Analytical dimensions, metrics, windows, execution |
+| `@sisal/pg`        | `@sisal/pg`        | PostgreSQL ORM, migration adapter, DDL             |
+| `@sisal/neon`      | `@sisal/neon`      | Neon serverless PostgreSQL ORM/migrations          |
+| `@sisal/sqlite`    | `@sisal/sqlite`    | SQLite ORM, migration adapter, DDL                 |
+| `@sisal/libsql`    | `@sisal/libsql`    | libSQL/Turso ORM, migration adapter, SQLite DDL    |
+| `@sisal/mysql`     | `@sisal/mysql`     | MySQL/MariaDB ORM, migration adapter, DDL          |
 
-The manifests in this workspace are currently `0.10.0`; this page reflects the
-current tree, including the v0.10 ETL package and v0.9 API additions such as
-structured logging controls and `await using` disposal aliases.
+The manifests in this workspace are currently `0.11.0`; this page reflects the
+current tree, including the ETL and analytics preview packages plus API
+additions such as structured logging controls and `await using` disposal
+aliases.
 
 ## Subpath Exports
 
 Each package exposes smaller import boundaries:
 
-| Package          | Subpaths                                         |
-| ---------------- | ------------------------------------------------ |
-| `@sisal/core`    | `.`, `./schema`, `./unstable-internal`           |
-| `@sisal/orm`     | `.`, `./core`, `./schema`, `./error`, `./logger` |
-| `@sisal/migrate` | `.`, `./core`, `./workflow`, `./cli`             |
-| `@sisal/etl`     | `.`                                              |
-| `@sisal/pg`      | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/neon`    | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/sqlite`  | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/libsql`  | `.`, `./orm`, `./migrate`, `./ddl`               |
-| `@sisal/mysql`   | `.`, `./orm`, `./migrate`, `./ddl`               |
+| Package            | Subpaths                                         |
+| ------------------ | ------------------------------------------------ |
+| `@sisal/core`      | `.`, `./schema`, `./unstable-internal`           |
+| `@sisal/orm`       | `.`, `./core`, `./schema`, `./error`, `./logger` |
+| `@sisal/migrate`   | `.`, `./core`, `./workflow`, `./cli`             |
+| `@sisal/etl`       | `.`                                              |
+| `@sisal/analytics` | `.`                                              |
+| `@sisal/pg`        | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/neon`      | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/sqlite`    | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/libsql`    | `.`, `./orm`, `./migrate`, `./ddl`               |
+| `@sisal/mysql`     | `.`, `./orm`, `./migrate`, `./ddl`               |
 
 `@sisal/core/unstable-internal` is exported for Sisal packages. Application code
 should treat it as internal plumbing.
@@ -5007,6 +5405,84 @@ outside the package boundary.
 - `backfill(db, job, range, options?)` replays a deterministic historical range.
 - `replay(db, job, window, options?)` re-runs one idempotent window.
 - `status(db, job, options?)` reports checkpoint state and the next run window.
+
+---
+
+# `@sisal/analytics`
+
+`@sisal/analytics` is the typed analytical query descriptor layer. It is
+Postgres-first and rollup-first: ETL or application code prepares tables such as
+hourly stats, then analytics describes dimensions, aggregate metrics, windowed
+metrics, period-over-period comparisons, ordering, and limits over those
+prepared shapes.
+
+The package depends on `@sisal/core` only. `execute(db)` uses a structural
+executor boundary: the object must provide `dialectIdentity` and `execute(Sql)`.
+That keeps analytics free of ORM, adapter, driver, migrate, and ETL runtime
+imports while still letting adapter `Database` instances execute rendered
+queries.
+
+## Query Builder
+
+| Symbol           | Purpose                                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| `from(source)`   | Start an immutable analytical query over a table, rollup, or source                                      |
+| `AnalyticsQuery` | Query type with `dimensions`, `metrics`, `windows`, `where`, `orderBy`, `limit`, `render`, and `execute` |
+
+`render(identity)` returns `{ text, params }` without executing. `execute(db)`
+first applies the capability gate with `db.dialectIdentity`, then sends one
+parameterized SQL statement to the structural executor.
+
+## Dimensions And Metrics
+
+| Symbol                  | Purpose                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| `bucket(width, source)` | Time-bucket dimension helper over `dateTrunc`/`dateBin` |
+| `count`                 | Count aggregate, re-exported from `@sisal/core`         |
+| `sum`                   | Sum aggregate                                           |
+| `avg`                   | Average aggregate                                       |
+| `min`                   | Minimum aggregate                                       |
+| `max`                   | Maximum aggregate                                       |
+| `countDistinct`         | Distinct-count aggregate                                |
+| `percentileCont`        | PostgreSQL ordered-set continuous percentile            |
+| `percentileDisc`        | PostgreSQL ordered-set discrete percentile              |
+
+The basic aggregate helpers render across the SQL families supported by the core
+renderer. `percentileCont` and `percentileDisc` are experimental Postgres-first
+helpers and fail closed elsewhere through `ANALYTICS_UNSUPPORTED_QUERY`.
+`bucket()` projects text on every supported SQL family; on PostgreSQL it wraps
+the core timestamp bucket in `to_char(...)` so the runtime row value matches the
+typed `string` result.
+
+## Windowed Metrics And Ordering
+
+| Symbol       | Purpose                                      |
+| ------------ | -------------------------------------------- |
+| `movingAvg`  | Moving average over an existing metric       |
+| `rank`       | SQL `rank()` window metric                   |
+| `denseRank`  | SQL `dense_rank()` window metric             |
+| `rowNumber`  | SQL `row_number()` window metric             |
+| `lag`        | Previous-row value for a dimension or metric |
+| `lead`       | Next-row value for a dimension or metric     |
+| `delta`      | Difference between current and offset value  |
+| `ascending`  | Analytics order term by descriptor key       |
+| `descending` | Descending analytics order term by key       |
+
+`compareToPreviousWindow(metricKey)` adds typed previous-window and delta fields
+along the query's single `bucket()` dimension. Missing or ambiguous bucket axes
+are rejected at declaration time.
+
+## Capability Gates
+
+| Symbol                                  | Purpose                                                                |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| `supportsQuery(query, identity)`        | Dry-run support report for a dialect identity                          |
+| `assertQuerySupported(query, identity)` | Throws `ANALYTICS_UNSUPPORTED_QUERY` before execution when unsupported |
+
+Current analytics support is intentionally honest: PostgreSQL is the primary
+target, portable render support is unit/golden-SQL proven for the non-percentile
+subset, and live integration coverage is called out separately in the feature
+matrix once present.
 
 ---
 
@@ -6386,17 +6862,75 @@ private disclosure, see
 > **Headline:** the 0.3.0 audit confirmed **no Critical or High-severity
 > issues**, and every finding it raised is **resolved** ([SEC-001](#sec-001)
 > through [SEC-007](#sec-007)). The **0.9.0 refresh** (2026-07-02) re-audited
-> the surface added since — the `@sisal/core` extraction, the MySQL/MariaDB
-> adapter, the opt-in postgres.js driver, and the v0.9 ETL substrate — and found
-> **no injection path**: the ORM query path remains the strongest control
-> surface (values are bound parameters, identifiers are validated before
-> quoting, prepared plans never inline values). The refresh raised **one High**
-> ([SEC-008](#sec-008): the MySQL family's `CLIENT_FOUND_ROWS` default breaks
-> `tryInsert` and advisory-lock mutual exclusion), **two Medium**
-> ([SEC-009](#sec-009) MySQL-family TLS, [SEC-010](#sec-010) bind values in
-> driver error properties), and six Low findings. **All nine are now resolved**
-> (the v0.10 hardening pass, tests pinning each) — every finding this document
-> has ever raised is closed.
+> the surface added since and found **no injection path**; the findings it did
+> raise ([SEC-008](#sec-008) through [SEC-016](#sec-016)) are all resolved and
+> test-pinned. The **v0.11.0 release refresh** (2026-07-04) expands the reviewed
+> posture to the full capstone workspace, including `@sisal/etl` and
+> `@sisal/analytics`. No new security finding is recorded in this document as
+> open, but v0.11 compatibility claims are deliberately scoped: analytics is
+> Postgres-first and currently unit/golden-SQL proven except where live
+> integration coverage is explicitly named.
+
+## v0.11.0 security refresh addendum
+
+The v0.11.0 refresh treats Sisal as a full workspace release, not only an
+analytics package release. The review scope is:
+
+- `packages/core`
+- `packages/orm`
+- `packages/migrate`
+- `packages/etl`
+- `packages/analytics`
+- `packages/pg`
+- `packages/neon`
+- `packages/sqlite`
+- `packages/libsql`
+- `packages/mysql`
+- `tools`
+- `examples`
+- `integration`
+- `.github/workflows`
+- root/package manifests
+- `deno.lock`
+
+Package-by-package security posture:
+
+| Area                       | Primary concerns                                                                                      | Current posture for v0.11.0                                                                                                                                                                                                                                                                                          |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@sisal/core`              | SQL injection, identifier validation, raw SQL escape hatches, dialect capability registry             | Values render as bound parameters; identifiers are validated/quoted; `raw()` and DDL expressions remain trusted-code escape hatches; capability registry tests pin dialect/render consistency, including percentile support.                                                                                         |
+| `@sisal/orm`               | Destructive update/delete safety, mass assignment, raw query escape hatches, logging/error redaction  | Where-less `update`/`delete` throw unless explicitly unsafe; unknown insert/update keys are rejected; `db.execute`/`db.query` accept trusted SQL only; logs/errors redact values, DSNs, tokens, and driver error causes.                                                                                             |
+| `@sisal/migrate`           | Trusted config boundary, migration SQL parsing/execution, Deno permissions, checksums/history         | `sisal.migrate.ts` is trusted local code; migration files are developer-authored SQL; splitter tests cover strings/comments/dollar quotes; docs recommend narrowing CLI permissions; checksums/history/drift are unit-tested.                                                                                        |
+| `@sisal/etl`               | Checkpoint integrity, advisory locks, replay/prune safety, idempotence                                | Runner uses advisory-lock + checkpoint substrate; rollups are generated insert-from-select/upsert statements; replay/backfill refuse pruned windows unless explicitly overridden; unit and PostgreSQL integration tests cover lock/checkpoint/failure behavior.                                                      |
+| `@sisal/analytics`         | Generated aggregate/window SQL, capability-gated dialect behavior, structural executor trust boundary | Query descriptors compile through `@sisal/core`; unsupported percentile/window shapes fail closed before execution; `execute(db)` trusts a structural executor with `dialectIdentity` and `execute(Sql)`; current support is Postgres-first, with live PostgreSQL proof in `integration/analytics_features_test.ts`. |
+| PostgreSQL / Neon adapters | TLS/DSN handling, driver errors, transactions/batch semantics, dialect identity                       | PostgreSQL family keeps execution in adapter packages; Temporal params are normalized; transaction executors are isolated; dialect identity is exposed for ETL/analytics gates. Live PostgreSQL coverage exists for ORM/migrate/ETL surfaces and the analytics feature path.                                         |
+| SQLite / libSQL adapters   | FFI/native permissions, remote token handling, transaction/batch semantics, dialect identity          | SQLite requires `--allow-ffi`; libSQL/Turso requires URL/token env handling; transaction executors are tested; dialect identity is exposed. Compatibility claims distinguish render/unit support from live integration scenarios.                                                                                    |
+| MySQL / MariaDB adapter    | TLS, DSN handling, driver error redaction, affected-row semantics, transaction/batch semantics        | TLS options are explicit and TLS URL params are rejected rather than ignored; bundled pools disable found-rows ambiguity; migration locks are namespaced; MariaDB/MySQL dialect identity drives capability gates.                                                                                                    |
+| CI / release               | Pinned actions/images, vulnerable/outdated components, publish provenance, release drift              | Actions and service images are pinned; CI runs docs, matrix, image pinning, audit, tests, type checks, and publish dry-run; `deno task audit` checks npm packages through OSV, with JSR advisory coverage noted as an OSV limitation.                                                                                |
+
+OWASP-aligned release controls:
+
+| Concern                                     | Sisal control                                                                                                                |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Injection                                   | Values are parameterized; identifiers are validated/quoted; raw SQL APIs are explicit trusted-code boundaries.               |
+| Security misconfiguration                   | Adapter docs and CLI guidance call out permissions, TLS, DSNs, driver choices, and preview-layer limits.                     |
+| Vulnerable/outdated components              | `deno.lock` is audited through OSV for npm packages; JSR advisory coverage is not claimed where OSV lacks ecosystem support. |
+| Sensitive data exposure through logs/errors | SQL parameters, connection strings, tokens, credential-like fields, and driver causes are redacted.                          |
+| Least privilege                             | Security docs recommend separate migration/application roles and narrowed Deno permissions for CLI use.                      |
+| Supply-chain risk                           | GitHub Actions/images are pinned, generated docs/matrix are checked, and publish dry-runs run in CI/release gates.           |
+
+Coverage honesty for v0.11.0:
+
+- Live integration-proven: existing PostgreSQL, Neon, SQLite, libSQL, MySQL, and
+  MariaDB adapter feature suites where named in `integration/`; ETL PostgreSQL
+  feature/limits suites when `DATABASE_URL` is provided; and analytics
+  PostgreSQL execution in `integration/analytics_features_test.ts`.
+- Unit/golden-SQL proven: core SQL rendering, ORM builders, DDL generation, ETL
+  SQL compilation across supported render dialects, and analytics query
+  rendering/capability gates.
+- Render-proven but not yet live-proven: `@sisal/analytics` execution on
+  non-PostgreSQL adapters unless a dialect-specific integration suite is named.
+- Capability-gated unsupported: percentile helpers outside PostgreSQL and any
+  dialect identity that cannot support the exact generated construct.
 
 ## Audit basis & methodology
 
@@ -6414,10 +6948,19 @@ private disclosure, see
   these findings: it corroborated the High and both Medium findings, and its
   remaining items are folded into [SEC-014](#sec-014) or resolved by this
   document refresh.
-- **Scope:** `packages/{orm,migrate,pg,sqlite,libsql,neon}`, `tools`, `scripts`,
-  `.github/workflows`, `docker`, `integration`, `examples`, `benchmarks`,
-  `docs`, and the root/package manifests + `deno.lock`. Binary assets were
-  reviewed for packaging exposure only.
+- **v0.11.0 release refresh:** 2026-07-04, branch `features/v0.11.0`.
+  Workspace-wide review of the capstone release scope listed above, including
+  the new `@sisal/analytics` package, the `@sisal/etl` preview package, all
+  adapters, examples, integration tests, docs, CI/release workflows, manifests,
+  and `deno.lock`. The refresh focuses on release integrity, layering,
+  injection/escape-hatch boundaries, capability-gated SQL generation,
+  least-privilege guidance, and support-claim honesty. It does not claim that
+  analytics has live integration coverage until the dedicated integration test
+  lands.
+- **0.9.0 scope:** `packages/{orm,migrate,pg,sqlite,libsql,neon}`, `tools`,
+  `scripts`, `.github/workflows`, `docker`, `integration`, `examples`,
+  `benchmarks`, `docs`, and the root/package manifests + `deno.lock`. Binary
+  assets were reviewed for packaging exposure only.
 - **Method:** ran the quality/type/test/docs/publish gates; parsed `deno.lock`
   for the dependency inventory; queried OSV for npm advisories; and manually
   reviewed SQL construction, DDL generation, migration parsing/execution,
@@ -6458,6 +7001,18 @@ redaction ([SEC-010](#sec-010), [SEC-011](#sec-011)), and checkpoint pruning,
 lock namespacing, CI pinning, release provenance, and two internal DDL
 boundaries each have a Low-severity gap
 ([SEC-012](#sec-012)–[SEC-016](#sec-016)).
+
+### Validation during v0.11.0 release prep
+
+| Command                                | Result                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `deno task fmt:check`                  | Pass (467 files)                                                                                             |
+| `deno task test`                       | Pass (557 tests, 61 steps)                                                                                   |
+| `deno task audit`                      | Pass — 61 npm packages checked through OSV, **0 known npm advisories**                                       |
+| `deno publish --dry-run`               | Pass for the workspace; expected dynamic-import warnings remain for trusted CLI config/adapter loading paths |
+| OSV `JSR`/`Deno` ecosystem             | Limitation — JSR remains unindexed by OSV                                                                    |
+| Live `@sisal/analytics` integration    | Pass on PostgreSQL 18 via `integration/analytics_features_test.ts` during v0.11 release prep                 |
+| Final release gate (`deno lint`, docs) | Pending final verification pass                                                                              |
 
 ### Validation after the v0.10 hardening pass (fixes for SEC-008–SEC-016)
 
@@ -6542,11 +7097,11 @@ practice — each with Sisal's current status.
 ## Findings & roadmap
 
 Every audit finding (`SEC-NNN`), its severity, and current status. **Addressed**
-items are done and, where relevant, pinned by a test; **partial**/**open** items
-are the roadmap. Every open finding is scheduled for the next release:
-[SEC-008](#sec-008)–[SEC-016](#sec-016) map to
-[v0.10 roadmap](v0.10.0-roadmap.md) tasks **T1–T9**, and the [SEC-007](#sec-007)
-residual to **T10**.
+items are done and, where relevant, pinned by a test. This document currently
+has no open `SEC-` finding. The v0.10 roadmap links below are remediation
+history for [SEC-008](#sec-008) through [SEC-016](#sec-016), not current release
+blockers; any newly discovered v0.11 issue should receive a new `SEC-` id and
+package-specific scope.
 
 | ID                  | Concern                                                | Severity | Status       |
 | ------------------- | ------------------------------------------------------ | -------- | ------------ |
@@ -7426,20 +7981,19 @@ URL: https://gilvandovieira.github.io/sisal/architecture.html
 
 ```md
 ---
-title: Package Architecture (long-term)
+title: Package Architecture
 ---
 
-# Sisal package architecture — the long-term split
+# Sisal package architecture
 
 Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for
 **relational** data access. It is not becoming an object-first ORM. As the
 surface grows from OLTP query building toward ETL and analytics, the packages
 stay strictly layered so the OLTP core never pays for the analytical ambitions.
 
-This document describes the **target** package graph and the one rule that keeps
-it honest. It is aspirational: most of these packages do not exist yet. The
-release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See the
-[roadmap overview](roadmap.md) for sequencing.
+This document describes the package graph and the one rule that keeps it honest.
+The release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See
+the [roadmap overview](roadmap.md) for sequencing.
 
 ## Workload model, not a compliance protocol
 
@@ -7452,18 +8006,18 @@ primitives.
 
 ## The packages
 
-| Package                           | Responsibility                                                                                                                                                                                              | Depends on                     |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| **`@sisal/core`**                 | Schema primitives, the serializable snapshot, the SQL IR (`Sql`/`SqlChunk` fragments), expressions/operators, and the dialect interface + renderer. The shared substrate every other package compiles into. | —                              |
-| **`@sisal/orm`**                  | The OLTP query builder: CRUD, `where`/`order`/`limit`, joins, set ops, CTEs, transactions, prepared queries, `db.batch`.                                                                                    | core                           |
-| **`@sisal/migrate`**              | Snapshot diffing, migration planning/running, the `sisal` CLI.                                                                                                                                              | core (+ orm)                   |
-| **`@sisal/pg`**                   | PostgreSQL adapter (dialect + executor + driver).                                                                                                                                                           | core, orm, migrate             |
-| **`@sisal/neon`**                 | Neon serverless-aware PostgreSQL adapter (WebSocket Pool).                                                                                                                                                  | core, orm, migrate             |
-| **`@sisal/sqlite`**               | SQLite adapter (embedded).                                                                                                                                                                                  | core, orm, migrate             |
-| **`@sisal/libsql`**               | libSQL / Turso adapter (local + remote).                                                                                                                                                                    | core, orm, migrate             |
-| **`@sisal/mysql`** _(v0.7)_       | MySQL / MariaDB adapter. The `"mysql"` dialect is latent in the renderer today (backtick quoting, `?` placeholders); the adapter ships in [v0.7](v0.7.0-roadmap.md).                                        | core, orm, migrate             |
-| **`@sisal/etl`** _(future)_       | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ an adapter to execute) |
-| **`@sisal/analytics`** _(future)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter)            |
+| Package                                  | Responsibility                                                                                                                                                                                              | Depends on                     |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **`@sisal/core`**                        | Schema primitives, the serializable snapshot, the SQL IR (`Sql`/`SqlChunk` fragments), expressions/operators, and the dialect interface + renderer. The shared substrate every other package compiles into. | —                              |
+| **`@sisal/orm`**                         | The OLTP query builder: CRUD, `where`/`order`/`limit`, joins, set ops, CTEs, transactions, prepared queries, `db.batch`.                                                                                    | core                           |
+| **`@sisal/migrate`**                     | Snapshot diffing, migration planning/running, the `sisal` CLI.                                                                                                                                              | core                           |
+| **`@sisal/pg`**                          | PostgreSQL adapter (dialect + executor + driver).                                                                                                                                                           | core, orm, migrate             |
+| **`@sisal/neon`**                        | Neon serverless-aware PostgreSQL adapter (WebSocket Pool).                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/sqlite`**                      | SQLite adapter (embedded).                                                                                                                                                                                  | core, orm, migrate             |
+| **`@sisal/libsql`**                      | libSQL / Turso adapter (local + remote).                                                                                                                                                                    | core, orm, migrate             |
+| **`@sisal/mysql`**                       | MySQL / MariaDB adapter.                                                                                                                                                                                    | core, orm, migrate             |
+| **`@sisal/etl`**                         | Job definitions, rollups, checkpoints, backfill/replay, SQL-pushdown execution.                                                                                                                             | core (+ orm runner substrate)  |
+| **`@sisal/analytics`** _(v0.11 preview)_ | Typed OLAP query layer: metrics, dimensions, buckets, windows, rankings, period comparison.                                                                                                                 | core (+ an adapter to execute) |
 
 ## The one rule: dependency direction
 
@@ -7475,7 +8029,7 @@ primitives.
      │               │                            │
 ┌────▼────┐    ┌─────▼──────┐   ┌────────┐   ┌─────▼───────┐
 │   orm   │    │  migrate   │   │  etl   │   │  analytics  │
-│ (OLTP)  │    │            │   │(future)│   │  (future)   │
+│ (OLTP)  │    │            │   │        │   │             │
 └────┬────┘    └─────┬──────┘   └───┬────┘   └──────┬──────┘
      └───────┬───────┘              │               │
      ┌───────▼────────┐             │  (etl/analytics may use an
@@ -7485,8 +8039,12 @@ primitives.
      └────────────────┘
 ```
 
-- **ETL and Analytics depend on `@sisal/core`** (and, to execute, on an
-  adapter). They may consume ORM _types_.
+- **Analytics depends on `@sisal/core`** and executes through a structurally
+  injected adapter database. It must not import `@sisal/orm`, adapters, drivers,
+  migrate, or ETL runtime code.
+- **ETL's job model and SQL compilation depend on `@sisal/core`;** its runner
+  consumes the v0.9 checkpoint/advisory-lock substrate from `@sisal/orm` and
+  executes through an injected adapter database.
 - **`@sisal/orm` must never depend on ETL or Analytics.** The OLTP core stays
   clean; an app that only does CRUD pulls in none of the analytical surface.
 - **Adapters never import each other** and expose their **dialect capabilities**
@@ -7512,8 +8070,11 @@ reconcile.
 
 ## Where we are today (the honest baseline)
 
-As of v0.8, **`@sisal/core` exists** as the extracted lower tier. It owns the
-schema primitives/snapshots, SQL fragment IR, expression operators, capability
+As of v0.11 development, **`@sisal/core` exists** as the extracted lower tier
+and `@sisal/etl` exists as the first downstream package that compiles into it.
+`@sisal/analytics` is being built as the second: a typed semantic layer over
+core expressions/windows and the core statement assembler. Core owns the schema
+primitives/snapshots, SQL fragment IR, expression operators, capability
 registry, renderer, structured errors, and logger contracts. The fluent
 builders, `Database` facade, relations, and typed function caller remain in
 `@sisal/orm`, which re-exports the full core surface so existing imports keep
@@ -8260,6 +8821,25 @@ genuine dialect limit · — not applicable.
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
 identically across the six columns.
+
+## Analytics preview support
+
+This table uses release-support labels rather than the ✅/⚠️ integration-matrix
+legend above. Analytics is Postgres-first and rollup-first; non-PostgreSQL
+claims are render/golden-SQL claims unless a dialect-specific live integration
+suite is named.
+
+| Capability | Postgres | Neon | SQLite | libSQL | MySQL | MariaDB |
+| --- | --- | --- | --- | --- | --- | --- |
+| Dimensions + aggregate metrics grouping | Live integration-proven (`integration/analytics_features_test.ts`) | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| `bucket` / time dimensions over `dateTrunc`/`dateBin` | Live integration-proven; buckets read as text | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| `movingAvg` and ranking windows (`rank`, `denseRank`, `rowNumber`) | Live integration-proven for `movingAvg` + `rank`; other ranking helpers are golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| Offset/delta windows (`lag`, `lead`, `delta`) | Golden SQL/render-proven; previous-window lag/delta path is live-proven through `compareToPreviousWindow` | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| `compareToPreviousWindow` | Live integration-proven on PostgreSQL | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| Percentiles (`percentileCont`, `percentileDisc`) | Golden SQL/render-proven | Golden SQL/render-proven through PostgreSQL rendering; no Neon-specific live suite | Capability-gated unsupported | Capability-gated unsupported | Capability-gated unsupported | Capability-gated unsupported |
+| `render(...)` | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| `execute(db)` | Live integration-proven | Deferred until a Neon analytics integration suite is named | Deferred until a SQLite analytics integration suite is named | Deferred until a libSQL analytics integration suite is named | Deferred until a MySQL analytics integration suite is named | Deferred until a MariaDB analytics integration suite is named |
+
 
 ## Round-trip differences
 
@@ -10156,34 +10736,186 @@ the `@sisal/core` IR, infers result-row types from the metric/dimension set, and
 renders correct SQL — Postgres-first, with other dialects exposing only the
 subset they support correctly.
 
+## What v0.5 → v0.10 already delivered
+
+v0.11 should **consume** the previous roadmap substrate, not redesign it:
+
+- **v0.5** made the OLTP builder dialect-honest: typed dialect guards, the
+  generated feature matrix, `filter()` aggregates, `dateTrunc()`/`dateBin()`,
+  date math, data-modifying CTEs, typed raw-query mapping, and numeric fixes
+  that analytics math depends on.
+- **v0.6** proved the ETL rollup spine and handed off the genuine analytics
+  gaps: window functions, arrays/set-returning shapes, period comparisons, and
+  rollup-query ergonomics.
+- **v0.7** designed analytics without shipping it: the analytical IR sketch,
+  metric/dimension → row inference prototype, and the decision that core owns
+  grammar-level windows while `@sisal/analytics` owns the semantic API.
+- **v0.8** shipped the compile target analytics needs: `@sisal/core`,
+  `SQL_IR_VERSION`, `expr()`, `assembleSelect()`, `assembleInsertFromSelect()`,
+  `over()`, frames, `rank`/`rowNumber`/`lag`/`lead`, `dateDiff()`, and the
+  capability registry.
+- **v0.9** made dialect truth authoritative: `(engine, variant, version)`
+  identities, matrix cells backed by `capabilitySupported(...)`, numeric/date
+  round-trip truth, and real per-engine verification for the IR shapes analytics
+  will wrap.
+- **v0.10** shipped `@sisal/etl`: typed rollup jobs, generated pushdown SQL,
+  checkpoints, `run`/`backfill`/`replay`, dry-run, scheduler docs, and the
+  `post_events → post_hourly_stats` example. Analytics queries those rollups; it
+  does not own ETL runtime behavior.
+
 ## Package boundary
 
 `@sisal/analytics` depends on `@sisal/core` (and an adapter to execute).
 **`@sisal/orm` must not depend on `@sisal/analytics`.**
 
-## Scope — initial features
+The package may accept an adapter `Database` structurally at execution time, but
+it must not import adapters, database drivers, `@sisal/orm`, `@sisal/migrate`,
+or ETL runtime code. Core changes are allowed only when they are shared
+compile-target additions (for example, a new capability descriptor entry);
+window grammar already lives in core from v0.8.
+
+## Priority summary — v0.11 tasks
+
+| ID  | Task                                                                                    | Source / dependency                | Priority | Effort | Status |
+| --- | --------------------------------------------------------------------------------------- | ---------------------------------- | -------- | ------ | ------ |
+| T1  | `@sisal/analytics` package scaffold, exports, README, workspace metadata, boundary test | v0.7 A3 · v0.8 core extraction     | P1       | M      | 🟢     |
+| T2  | Descriptor model + exact result-row inference (`dimensions × metrics × windows`)        | v0.7 A2 prototype                  | P1       | M      | 🟢     |
+| T3  | Immutable `from()` query builder over table/rollup/subquery sources                     | v0.7 IR sketch · v0.8 assembler    | P1       | L      | 🟢     |
+| T4  | Dimension helpers, including `bucket()` over `dateTrunc`/`dateBin`                      | v0.5 item 9 · v0.6 buckets         | P1       | S      | 🟢     |
+| T5  | Aggregate metric surface (`count`/`sum`/`avg`/`min`/`max`/`countDistinct`)              | v0.5 aggregates · v0.8 `expr()`    | P1       | S      | 🟢     |
+| T6  | Windowed metric surface (`movingAvg`, ranking, `lag`/`lead`, `delta`)                   | v0.8 item 10                       | P1       | L      | 🟢     |
+| T7  | `compareToPreviousWindow()` period-over-period helper                                   | v0.7 IR sketch · contracts 05/06   | P1       | M      | 🟢     |
+| T8  | Percentile investigation + Postgres-first helpers/capability entry                      | v0.7 A4 portability classification | P2       | M      | 🟢     |
+| T9  | `render()` / dry-run API and `execute()` through a structural adapter executor          | v0.8 core IR · v0.10 `explain()`   | P1       | M      | 🟢     |
+| T10 | Analytics capability gate (`supportsQuery`/`assertQuerySupported`)                      | v0.9 capability descriptor         | P1       | M      | 🟢     |
+| T11 | Unit + golden SQL tests for Postgres SQL and type-level inference                       | v0.8 golden-SQL discipline         | P1       | M      | 🟢     |
+| T12 | Per-dialect capability tests: supported subset vs typed unsupported errors              | v0.9 matrix truth                  | P1       | M      | 🟢     |
+| T13 | Five runnable Postgres-first examples / gated integration scenarios                     | v0.11 examples list · v0.10 ETL    | P1       | L      | 🟢     |
+| T14 | `/rising` feed velocity expressed through analytics or explicitly documented gap        | v0.5/v0.6 rising-feed pressure     | P1       | M      | 🟢     |
+| T15 | Advanced-SQL contract graduation/triage for contracts 02–06                             | v0.7 analytics contracts           | P2       | M      | 🟢     |
+| T16 | Feature matrix + compatibility docs for shipped analytics rows                          | v0.5/v0.9 matrix discipline        | P1       | M      | 🟢     |
+| T17 | Rollup-first performance docs and ETL handoff guidance                                  | v0.10 ETL                          | P2       | S      | 🟢     |
+| T18 | Release hygiene: docs coverage, llms docs, changelog, publish dry-run                   | workspace release discipline       | P1       | M      | 🟢     |
+
+**Release result.** T1 → T18 are complete for the v0.11 capstone scope. The
+package API, compile path, capability gate, unit/golden proof, live PostgreSQL
+proof, example story, support matrix, and release hygiene are in place.
+Sessionization/cohort/funnel-specific analytics descriptors remain future
+product helpers rather than v0.11 blockers.
+
+## Task detail
+
+- **T1 — Package scaffold. ✅ Done.** New `packages/analytics` with a small
+  `mod.ts`, public docs, JSR metadata, root workspace wiring, and a boundary
+  test proving `@sisal/core`/`@sisal/orm`/`@sisal/migrate` never import
+  analytics and analytics never imports adapters, drivers, ORM, migrate, or ETL
+  runtime code.
+- **T2 — Descriptor model + result inference. ✅ Done.** Graduate the v0.7
+  `analytics_result_inference_test.ts` prototype into the real package. The row
+  type must be inferred from dimension, metric, and window maps, preserving
+  aggregate nullability and offset-window nullability.
+- **T3 — Query builder. ✅ Done.** `from(source)` accepts a table, rollup table,
+  or subquery fragment; `where`, `dimensions`, `metrics`, `windows`, `orderBy`,
+  and `limit` are immutable; duplicate keys and unknown references fail with
+  typed `OrmError`s.
+- **T4 — Dimensions and buckets. ✅ Done.** `bucket(width, source)` wraps core
+  `dateTrunc`/`dateBin`, marks the time axis for period comparison, and returns
+  text on every supported SQL family. PostgreSQL rendering formats the truncated
+  timestamp with `to_char(...)` so runtime values match the TypeScript
+  `SqlExpression<string>` contract.
+- **T5 — Aggregate metrics. ✅ Done.** Re-export core aggregate helpers for the
+  common metric surface and allow any typed `SqlExpression<T>` as a metric
+  value. Metric references inside windows inline the aggregate expression,
+  because SQL window evaluation happens after grouping.
+- **T6 — Windowed metrics. ✅ Done.** Wrap core `over()` primitives into
+  analytics descriptors: trailing `movingAvg`, `rank`, `denseRank`, `rowNumber`,
+  `lag`, `lead`, and `delta`. Validate required ordering and frame sizes at
+  definition time.
+- **T7 — Period comparison. ✅ Done.** `compareToPreviousWindow(metric)` finds
+  the single `bucket()` dimension by default, partitions by non-time dimensions,
+  and adds previous/delta fields. Ambiguous or missing time axes fail typed.
+- **T8 — Percentiles. ✅ Done.** `percentileCont`/`percentileDisc` ship as
+  experimental public helpers with a single core capability entry for
+  ordered-set aggregates. They fail closed off Postgres until
+  MySQL/MariaDB/SQLite variants are probed.
+- **T9 — Render and execute. ✅ Done.** `toSql()` compiles to core
+  `assembleSelect()`; `render(identity)` is the dry-run surface; `execute(db)`
+  accepts a structural executor with `dialectIdentity` and returns typed rows
+  without importing an adapter.
+- **T10 — Capability gate. ✅ Done.** `supportsQuery` and `assertQuerySupported`
+  must render-probe the exact query against the exact identity before execution.
+  Unsupported shapes throw `ANALYTICS_UNSUPPORTED_QUERY`, not raw engine errors.
+- **T11 — Unit/golden tests. ✅ Done.** Pin Postgres SQL for a query containing
+  dimensions, metrics, a windowed metric, comparison fields, `orderBy`, and
+  `limit`; add type-level tests for exact row inference and runtime validation
+  tests for duplicate/unknown keys.
+- **T12 — Dialect capability tests. ✅ Done.** Exercise the supported window
+  subset on SQLite/libSQL/MySQL when renderable, and assert typed failures for
+  percentiles, unsupported frame units, and any future analytics-only construct.
+- **T13 — Runnable examples / integration scenarios. ✅ Done.** The five roadmap
+  examples are pinned as Postgres dry-run tests in
+  `packages/analytics/examples_test.ts`: post engagement over time, active users
+  by day, top posts by engagement, `/rising` velocity, and presentation-ready
+  chart rows from rollups. `examples/postgres-family-analytics` turns the rollup
+  story into a runnable example, and `integration/analytics_features_test.ts`
+  proves the bucket/window/comparison path live on PostgreSQL.
+- **T14 — `/rising` proof. ✅ Done.** The recent-velocity query is expressed
+  through analytics descriptors (`movingAvg`, `rank`, and
+  `compareToPreviousWindow`) without raw SQL in the analytics package.
+- **T15 — Advanced-SQL contract graduation. ✅ Done.**
+  `examples/advanced-sql-contracts/README.md` now triages contracts 02–06 (and
+  the surrounding contract set) as builder-native, analytics-native, ETL-native,
+  still raw, obsolete, or deferred. The advanced-SQL example READMEs point to
+  that triage and keep hand-built forms only where they remain useful comparison
+  material.
+- **T16 — Matrix and compatibility docs. ✅ Done.** The generated feature matrix
+  now includes an analytics preview support table that uses explicit release
+  labels: Live integration-proven, Golden SQL/render-proven, Capability-gated
+  unsupported, and Deferred. Non-PostgreSQL analytics execution is not claimed
+  live without a named integration suite.
+- **T17 — Rollup-first guidance. ✅ Done.** Root README, package READMEs,
+  `examples/README.md`, `examples/postgres-family-etl-cron`, and
+  `examples/postgres-family-analytics` now tell the ETL/analytics story as a
+  rollup handoff. ETL and analytics are preview entry points for testing the
+  waters, not full ETL/BI replacements.
+- **T18 — Release hygiene. ✅ Done.** `CHANGELOG.md`, package README/module
+  docs, generated LLM docs, API docs, feature matrix, package versions, CI
+  gates, boundary tests, publish config, and dry-run/lint/test/audit commands
+  are part of the final verification path.
+
+## Code-structure decision
+
+`packages/analytics` remains flat for v0.11:
+
+```text
+packages/analytics/
+  mod.ts
+  query.ts
+  model.ts
+  bucket.ts
+  percentile.ts
+  capability.ts
+```
+
+The package is still small enough that a `src/` split would be cosmetic churn.
+The release instead pins maintainability with boundary tests, focused module
+files, and README/API docs. A future split is appropriate only if descriptor or
+compiler complexity grows enough to reduce cognitive load.
+
+## Initial public surface
 
 - **typed analytical `from()`** — a source (table / rollup / subquery).
-- **dimensions** — typed group keys (incl. `bucket()` time dimensions).
-- **metrics** — typed aggregate/window expressions: `count()`, `sum()`, `avg()`,
-  `min()`, `max()`, `countDistinct()`.
-- **windowed metrics** — `movingAvg()`, `rank()`, `lag()`, `lead()`.
-- **`bucket()`** — time bucketing (built on the v0.6/v0.8 bucket abstraction).
-- **percentile investigation** — `percentile_cont`/`disc` as a
-  prototype/Postgres-first feature (may stay experimental).
-- **`compareToPreviousWindow()`** — period-over-period comparison.
-- **result typing for computed metrics** — `{dimensions, metrics}` → typed row.
-
-## Examples to include
-
-- **post engagement over time** (time series from `post_hourly_stats`).
-- **active users by day** (countDistinct over a day bucket).
-- **top posts by engagement** (rank/order over a rollup).
-- **`/rising` feed using recent velocity** — the moving-window score the
-  `*-rising-feed` examples hand-write today, now expressed via the analytics
-  API.
-- **presentation-ready time series** from rollup tables (typed rows an app can
-  hand directly to a chart renderer).
+- **dimensions** — typed group keys, including `bucket()` time dimensions.
+- **metrics** — typed aggregate expressions: `count()`, `sum()`, `avg()`,
+  `min()`, `max()`, `countDistinct()`, and typed custom expressions.
+- **windowed metrics** — `movingAvg()`, `rank()`, `denseRank()`, `rowNumber()`,
+  `lag()`, `lead()`, and `delta()`.
+- **`compareToPreviousWindow()`** — period-over-period comparison over a time
+  bucket axis.
+- **percentiles** — experimental Postgres-first `percentile_cont`/`disc` helpers
+  with typed capability failures elsewhere.
+- **result typing** — `{ dimensions, metrics, windows }` infers a typed result
+  row.
 
 ## Non-goals
 
@@ -10212,33 +10944,54 @@ time-series DB, is a _possible_ later direction but is **not** planned.)
   grammar-level window expressions (`over()`, frames, `rank`/`row_number`/
   `lag`/`lead`) are core primitives; analytics wraps them in the semantic layer
   (named windows, moving averages, period comparisons).
-- Percentiles: ship Postgres-first now, or keep experimental?
-- How much of the API can SQLite/libSQL honestly support (modern SQLite has
-  window functions; PARTITION/frame/percentile coverage varies)?
+- ~~**Percentiles:** ship Postgres-first helpers now, or keep them explicitly
+  experimental?~~ **Answered by T8:** ship public experimental
+  `percentileCont`/`percentileDisc`, backed by a core ordered-set-aggregate
+  capability and fail-closed elsewhere.
+- ~~**SQLite/libSQL/MySQL support level:** which windowed analytics are truly
+  supported at Sisal's version floors, and which stay typed capability gaps?~~
+  **Answered by T12/T16:** portable analytics render support is golden-SQL
+  proven for the supported subset; live non-PostgreSQL analytics execution is
+  deferred until dialect-specific integration suites are named. Percentiles are
+  capability-gated unsupported off PostgreSQL.
+- ~~**Contract helpers:** do sessionization, cohort retention, and funnel
+  analysis need first-event helpers (`firstValue`/`minBy`/dedicated funnel
+  descriptors), or should v0.11 stop at the five preview examples?~~ **Answered
+  by T15:** v0.11 stops at the preview descriptor set. Dedicated
+  sessionization/cohort/funnel descriptors are future product helpers, not
+  release blockers.
 
 ## Acceptance criteria
 
 - A typed analytical query (dimensions + metrics + a windowed metric) compiles
   to correct PostgreSQL and returns a **typed** result row inferred from its
-  definition.
-- `compareToPreviousWindow()` produces correct period-over-period results.
+  definition. — **T2/T3/T6/T11**
+- `compareToPreviousWindow()` produces correct period-over-period results. —
+  **T7/T11/T13**
 - The `/rising` velocity feed is expressible through the API (or the doc states
-  precisely which sub-feature still needs raw SQL).
+  precisely which sub-feature still needs raw SQL). — **T14**
 - Unsupported analytics on SQLite/libSQL fail with a typed capability error, not
-  a raw engine error.
-- `@sisal/orm` has **no** dependency on `@sisal/analytics`.
+  a raw engine error. — **T10/T12/T16**
+- The five preview examples are runnable Postgres-first, gated integration
+  scenarios or documented dry-run examples where no database is needed. —
+  **T13**
+- `@sisal/orm` has **no** dependency on `@sisal/analytics`. — **T1**
 
 ## Affected packages
 
-New `@sisal/analytics`; depends on `@sisal/core` + an adapter. Possibly minimal
-window primitives added to `@sisal/core` (shared). No `@sisal/orm` change.
+New `@sisal/analytics`; depends on `@sisal/core` and accepts an adapter executor
+structurally. `@sisal/core` may receive analytics-relevant capability registry
+entries, but not analytics-domain builders. No `@sisal/orm` dependency or
+analytics import is allowed.
 
 ## Required examples / tests
 
-- The five examples above as runnable, Postgres-first, gated integration tests.
-- Type-level tests pinning metric→row inference.
-- Per-dialect capability tests (supported / typed-error) for
-  windows/percentiles.
+- Unit/golden tests for T2–T11, including type-level row inference.
+- Per-dialect capability tests for T12.
+- The five preview examples from T13 as runnable, Postgres-first, gated
+  integration tests or dry-run examples with exact SQL.
+- Contract triage updates for advanced-SQL contracts 02–06.
+- Boundary/import tests proving dependency direction.
 
 ## Dialect compatibility notes
 
@@ -10246,6 +10999,19 @@ window primitives added to `@sisal/core` (shared). No `@sisal/orm` change.
 (serverless caveats from v0.9). SQLite/libSQL expose only the window/aggregate
 subset they support correctly; everything else is a typed capability gap, not a
 silent degradation.
+
+The feature matrix now separates the scenario-backed adapter matrix from the
+analytics preview support table. PostgreSQL analytics execution is live-proven;
+Neon/SQLite/libSQL/MySQL/MariaDB analytics execution remains deferred until
+named integration suites exist. Render/golden-SQL support and capability-gated
+unsupported paths are documented explicitly.
+
+## Tracking
+
+When a task lands, update the tests/docs named above, flip it to 🟢, and record
+the user-visible change under `Unreleased` in [CHANGELOG.md](../CHANGELOG.md).
+v0.11 is complete only when T1–T18 are either 🟢 or explicitly deferred with the
+reason and non-goal recorded here.
 ```
 
 ### docs/v0.4.0-roadmap.md

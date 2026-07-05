@@ -39,7 +39,7 @@ export {
   type EtlGrain,
   type EtlJob,
   type EtlJobConfig,
-} from "./job.ts";
+} from "./src/job.ts";
 export {
   addGrain,
   type EtlRange,
@@ -49,14 +49,14 @@ export {
   truncateToGrain,
   windowAt,
   windowsInRange,
-} from "./window.ts";
-export { type EtlExplainOptions, explain, rollup } from "./rollup.ts";
+} from "./src/window.ts";
+export { type EtlExplainOptions, explain, rollup } from "./src/rollup.ts";
 export {
   assertJobSupported,
   ETL_DIALECTS,
   type EtlJobSupport,
   supportsJob,
-} from "./capability.ts";
+} from "./src/capability.ts";
 export {
   backfill,
   type EtlBackfillOutcome,
@@ -69,4 +69,4 @@ export {
   replay,
   run,
   status,
-} from "./runner.ts";
+} from "./src/runner.ts";

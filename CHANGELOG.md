@@ -7,10 +7,117 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
-## Unreleased
+## 0.11.0 - 2026-07-04
 
 ### Added
 
+- **Bundled logger bridges and presets** in `@sisal/core` (re-exported from
+  `@sisal/orm`): `consoleLogger()` (zero-setup `console` sink),
+  `fromStdLog(logger)` (adapts an `@std/log` logger), and the
+  `developmentLogging(logger)` / `productionLogging(logger)` verbosity presets.
+  The `examples/logging` Pino bridge shows the `isEnabled` fast-path forwarding
+  `pino.isLevelEnabled`.
+- **Raw SQL bind-parameter logging.** `sql: { parameters: "values" }` (and
+  `developmentLogging`) logs the actual bind values so a failing query can be
+  replayed while debugging — opt-in, alongside the existing `"redacted"`
+  (default) and `"off"` modes. Connection strings, DSNs, and tokens remain
+  always-redacted regardless. New `renderSqlParametersForLog(params, mode)` and
+  `SisalSqlParameterMode` / `SisalLogLevelActive` exports.
+- Logging-cost benchmark coverage for the new `"values"` mode in the
+  `orm logging` bench groups (`benchmarks/scenarios/logging.ts`).
+- Reworked the root README's advanced Sisal example into a staged product-feed
+  story: model definitions, CLI migration generation, typed feed queries,
+  advanced SQL, ETL rollups, and analytics reads, with short value notes for
+  each step. The README now frames Sisal as a collection of preview packages
+  suitable for serious investigation and non-production trials, while still not
+  recommended for production deployments, and clarifies that advanced query
+  building is a core strength while ETL/analytics are entry points rather than
+  deep data-platform replacements.
+- **Full `examples/` review for the v0.11 capstone.** The examples directory is
+  now a coherent learning path (basic → showcase → feed → advanced SQL → ETL +
+  analytics → logging), documented in a rewritten
+  [`examples/README.md`](examples/README.md) with a per-example capability
+  matrix and explicit dry-run / live-DB / permission / Postgres-only notes.
+  - New runnable
+    [`examples/postgres-family-analytics`](examples/postgres-family-analytics/)
+    — the first first-class `@sisal/analytics` example (dimensions, `bucket`,
+    `movingAvg`, `rank`, `compareToPreviousWindow`, `supportsQuery`), reading
+    the **same `post_hourly_stats` rollup** that `postgres-family-etl-cron`
+    writes. Added to the workspace and the network-free `deno task test`
+    (`analytics_test.ts`).
+  - `postgres-family-etl-cron` now folds `community_id` and a weighted
+    `engagement_score` so ETL and analytics share one vocabulary; both examples
+    cross-link (ETL builds the rollups, analytics reads them).
+  - `basic` examples now show a full insert → select → update → delete cycle;
+    the `logging` example demonstrates parameter/DSN/token redaction and both
+    redaction modes; every example family gained a normalized README, and the
+    `feed`/showcase examples gained consistent `run` tasks (dry-run or a clear
+    "set env var" message).
+  - Triaged all twelve `advanced-sql-contracts` against today's surface (a new
+    v0.11 status table mapping each to `builder-native` / `analytics-native` /
+    `etl-native` / raw / obsolete), and refreshed the advanced-SQL example
+    READMEs that still described builder-native shapes as raw SQL.
+  - Fixed stale `neon-hot-feed` naming/paths, clarified `activity-vectors` is
+    feature vectors (not pgvector), and moved the network-free feed/hot-feed/
+    vector unit tests into the root `deno task test`.
+- **`@sisal/analytics` (v0.11 preview) — the typed analytical query spine,
+  Postgres-first percentiles, and capability-gated execution** (roadmap T1–T12).
+  New workspace package `packages/analytics` with a single `.` export:
+  - `from(source)` — an immutable analytical query builder over a table, rollup,
+    or subquery fragment. `dimensions`, `metrics`, `windows`, `where`,
+    `orderBy`, and `limit` compile to `@sisal/core` `assembleSelect()` output
+    without importing `@sisal/orm`, adapters, drivers, migrate, or ETL runtime
+    code.
+  - `bucket(width, source)` — a typed time-dimension helper over core
+    `dateTrunc`/`dateBin`, marking the comparison axis for period-over-period
+    queries.
+  - windowed metrics: `movingAvg`, `rank`, `denseRank`, `rowNumber`, `lag`,
+    `lead`, and `delta`, all lowering to the v0.8 core window primitives while
+    preserving result-row inference.
+  - `compareToPreviousWindow(metric)` — adds typed previous-window and delta
+    fields, defaulting to the query's single `bucket()` dimension and failing
+    typed on missing/ambiguous axes.
+  - experimental Postgres-first `percentileCont` / `percentileDisc` helpers,
+    backed by the new core `percentileAggregates` capability and failing closed
+    off Postgres.
+  - `render(identity)`, `execute(db)`, `supportsQuery`, and
+    `assertQuerySupported` — dry-run and execution surfaces over a structural
+    adapter executor. Unsupported analytical shapes are refused before execution
+    with `ANALYTICS_UNSUPPORTED_QUERY`, not raw engine errors.
+  - Boundary, golden-SQL, type-inference, validation, capability, and dry-run
+    example tests now pin the package spine:
+    `packages/analytics/boundary_test.ts`, `query_test.ts`,
+    `capability_test.ts`, and `examples_test.ts`. The five v0.11 examples render
+    through the public analytics API, including the `/rising` velocity feed
+    (`movingAvg` + `rank` + `compareToPreviousWindow`) with no raw SQL in the
+    analytics package.
+- **Live PostgreSQL analytics proof.** Added
+  `integration/analytics_features_test.ts`, which creates a rollup-like
+  `post_hourly_stats` table, seeds multiple posts and buckets, renders a
+  parameterized analytics query, and executes dimensions, `bucket`, aggregate
+  metrics, `movingAvg`, `rank`, `compareToPreviousWindow`, ordering, and limit
+  through the real PostgreSQL adapter. `scripts/pg-matrix.sh` now runs this
+  proof beside the PostgreSQL feature suite.
+- **PostgreSQL-family analytics example.** Added
+  `examples/postgres-family-analytics`, a dry-run/live example reading the same
+  `post_hourly_stats` rollup produced by `examples/postgres-family-etl-cron`.
+  The ETL cron example now writes `community_id` and `engagement_score` so the
+  analytics example can demonstrate velocity and per-community ranking over
+  prepared rollups.
+- **Workspace boundary pin.** Added `tools/lint/package_boundary_test.ts`,
+  covering the full layered graph: `@sisal/core` stays driverless, ORM/migrate
+  stay below preview layers, analytics stays core-only, ETL keeps its documented
+  runtime ORM edge, adapters only reuse documented adapter boundaries, and
+  examples import public package surfaces.
+- **Example and package documentation hardening.** Added/expanded README files
+  for logging, basic/showcase examples, package adapter checklists, and the
+  examples index so release readers can see drivers, permissions, migrations,
+  transactions/batch, ETL/analytics compatibility, and security caveats.
+- **v0.11 roadmap tasklist from the v0.5→v0.10 review.**
+  `docs/v0.11.0-roadmap.md` now records the prerequisite trail from v0.5 dialect
+  honesty through v0.10 ETL, and tracks concrete analytics tasks T1–T18 instead
+  of a broad feature brief. `docs/architecture.md` now reflects the current ETL
+  package and the v0.11 analytics preview boundary.
 - **`@sisal/etl` (v0.10 preview) — the typed job model, generated rollup,
   single-window runner, the backfill/replay/status/dry-run API, and
   capability-gating** (roadmap T11–T21). New workspace package `packages/etl`
@@ -104,7 +211,60 @@ Sisal-specific history after that baseline through `1f05448`.
   cyclic fixture on PostgreSQL 16/17/18; new `docs/feature-matrix.md` row backed
   by the `recursive search/cycle` scenario.
 
+### Changed
+
+- Moved workspace package internals into `packages/<name>/src/` and
+  package-local tests into `packages/<name>/tests/`, with public subpackages
+  mirrored under `src/<subpackage>/`. Root package `mod.ts` entrypoints,
+  `deno.json`, and README files remain at package root while export maps and
+  publish include lists point at the new source layout.
+- **Breaking: the `Logger` contract is now a single structured sink.** A logger
+  implements one `log(event)` method (receiving
+  `{ level, category, message,
+  record }`) plus an optional
+  `isEnabled(level, category)` fast-path, replacing the five per-level methods
+  and the overloaded `LoggerMethod` (removed). This is the most extensible shape
+  — the sink sees the whole event and decides routing, formatting, and filtering
+  — and it makes bridges cast-free. Migrate a custom logger by collapsing the
+  per-level methods into one `log(event)` that switches on `event.level`.
+- ORM query logging is now **zero-cost when off**: the query hot path (`#run`,
+  plus transactions and batches) builds no event records, takes no
+  `performance.now()` timing, and renders no parameters unless a sink actually
+  wants the event (guarded by `isEnabled`/level/category). With no logger
+  attached, Sisal is fully silent — a failing query still throws a redacted
+  `SisalError`.
+- Bumped workspace package, example, and benchmark manifest versions to
+  `0.11.0`, refreshed README install pins, and updated the migration CLI's
+  default adapter version prompts to `^0.11.0`.
+- The SQLite adapter now opens `@db/sqlite` with `int64` support so stored
+  INTEGER values above 32-bit range (for example `4200000000`) no longer decode
+  through a signed 32-bit wraparound in live SQLite integration.
+- `bucket()` now returns text consistently across supported SQL families. The
+  PostgreSQL rendering wraps `date_trunc`/`date_bin` output with `to_char(...)`
+  so the runtime value matches the public `SqlExpression<string>` contract and
+  analytics result-row type.
+- CI/root release gates now run the workspace test suite, dependency audit,
+  image pinning check, docs checks, feature-matrix check, type check, and
+  publish dry-run. The root `deno task test` also includes network-free
+  feed/hot/activity-vector/analytics example tests.
+- `docs/feature-matrix.md` now includes a generated analytics preview support
+  table that distinguishes live PostgreSQL proof, golden SQL/render-proven
+  support, capability-gated unsupported percentiles, and deferred non-PostgreSQL
+  live execution.
+- `docs/v0.11.0-roadmap.md` now reflects release truth: analytics is the final
+  roadmap milestone, the package remains intentionally flat for this release,
+  advanced-SQL contracts are triaged, rollup-first guidance is documented, and
+  deferred analytics ambitions are recorded as non-goals/future work.
+
 ### Security
+
+The v0.11 security refresh updates `SECURITY.md` and `docs/security.md` for the
+entire workspace, including `@sisal/core`, `@sisal/orm`, `@sisal/migrate`,
+`@sisal/etl`, `@sisal/analytics`, every adapter, tools, examples, integration
+suites, CI workflows, manifests, and `deno.lock`. The docs now distinguish live
+integration-proven support from render/golden-SQL support and call out raw SQL,
+trusted migration config, Deno permissions, TLS/DSN handling, logging/error
+redaction, checkpoint/lock safety, and supply-chain gates.
 
 Resolves every open finding from the 0.9.0 security audit (SEC-008 through
 SEC-016; see [`docs/security.md`](docs/security.md)). Each fix is pinned by a

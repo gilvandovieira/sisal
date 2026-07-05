@@ -5,6 +5,7 @@
     "jsr:@db/sqlite@0.12": "0.12.0",
     "jsr:@denosaurs/plug@1": "1.1.0",
     "jsr:@neon/serverless@1": "1.0.1",
+    "jsr:@neon/serverless@^1.0.1": "1.0.1",
     "jsr:@std/assert@0.217": "0.217.0",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/assert@^1.0.19": "1.0.19",
@@ -28,7 +29,7 @@
     "jsr:@std/path@1": "1.1.5",
     "jsr:@std/path@^1.0.8": "1.1.5",
     "jsr:@std/path@^1.1.5": "1.1.5",
-    "jsr:@std/testing@1": "1.0.19",
+    "jsr:@std/testing@^1.0.19": "1.0.19",
     "jsr:@std/yaml@*": "1.1.1",
     "npm:@libsql/client@~0.17.4": "0.17.4",
     "npm:@types/node@^22.15.30": "22.20.0",
@@ -461,9 +462,9 @@
   "workspace": {
     "dependencies": [
       "jsr:@db/postgres@~0.19.5",
-      "jsr:@neon/serverless@1",
-      "jsr:@std/assert@1",
-      "jsr:@std/testing@1"
+      "jsr:@neon/serverless@^1.0.1",
+      "jsr:@std/assert@^1.0.19",
+      "jsr:@std/testing@^1.0.19"
     ],
     "members": {
       "examples/logging": {
@@ -489,6 +490,11 @@
         ]
       },
       "examples/postgres-family-advanced-sql": {
+        "dependencies": [
+          "jsr:@std/assert@1"
+        ]
+      },
+      "examples/postgres-family-analytics": {
         "dependencies": [
           "jsr:@std/assert@1"
         ]

@@ -20,7 +20,7 @@ export {
   normalizeNeonResult,
   POSTGRES_DIALECT,
   resolveNeonConnectionString,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 export type {
   CreateNeonDbOptions,
   NeonClient,
@@ -38,12 +38,12 @@ export type {
   NeonQueryResultRow,
   NeonSqlExecutor,
   NeonSqlResult,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 
 export {
   createNeonMigrator,
   DEFAULT_NEON_MIGRATION_TABLE,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 export type {
   CreateNeonMigratorOptions,
   NeonMigrateOptions,
@@ -52,7 +52,7 @@ export type {
   NeonMigrationPlanOptions,
   NeonMigrator,
   NeonRollbackOptions,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 
 export {
   generatePostgresAddColumn,
@@ -62,5 +62,5 @@ export {
   generatePostgresUpStatements,
   pgQualifiedName,
   quotePgIdent,
-} from "./ddl.ts";
-export type { PostgresUpStatements } from "./ddl.ts";
+} from "./src/ddl.ts";
+export type { PostgresUpStatements } from "./src/ddl.ts";

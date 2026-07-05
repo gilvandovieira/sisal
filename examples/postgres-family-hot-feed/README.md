@@ -1,8 +1,18 @@
-# Neon hot feed (Sisal example)
+# PostgreSQL-family hot feed (Sisal example)
 
-A focused database/feed example: a Reddit-style **hot feed** on **Neon /
-PostgreSQL** using [Sisal](../../README.md), built to respect **Deno Deploy /
-Neon serverless** constraints.
+A focused database/feed example: a Reddit-style **hot feed** on the PostgreSQL
+family (`@sisal/pg` / `@sisal/neon`) using [Sisal](../../README.md), built to
+respect **Deno Deploy / Neon serverless** constraints.
+
+**How this differs from
+[`postgres-family-feed`](../postgres-family-feed/README.md):** that example is
+the `/rising` **velocity** feed — a time-dependent score recomputed from moving
+windows on a schedule. This one is the `/hot` feed — a score that is **stable in
+`(score, created_at)`** (never reads `now()`), so it is stored, indexed, and
+recomputed **only inside the vote**, and the vote itself is **one atomic
+database call** with no interactive transaction (the serverless angle). For the
+declarative analytics take on velocity, see
+[`postgres-family-analytics`](../postgres-family-analytics/README.md).
 
 It is **not** a Reddit clone — no auth, no HTTP server, no comments, no
 communities, no moderation, no frontend. Just: posts, votes, a `/new` timeline,
@@ -120,8 +130,8 @@ atomic `begin; …; commit` otherwise._
 Prerequisites: [Deno](https://deno.com/) 2.x and a Neon project (any tier).
 
 ```sh
-cd examples/neon-hot-feed
-cp .env.example .env          # then edit .env with your Neon URLs
+cd examples/postgres-family-hot-feed
+cp .env.example .env          # then edit .env with your Postgres/Neon URLs
 
 deno task migrate             # create tables, indexes, and functions
 deno task seed                # insert ~24 posts + votes
@@ -250,7 +260,7 @@ SISAL_NEON_HOT_FEED_IT=1 \
 ## Files
 
 ```
-examples/neon-hot-feed/
+examples/postgres-family-hot-feed/
   README.md
   deno.json                 tasks + JSR imports
   .env.example              DATABASE_URL + DATABASE_DIRECT_URL

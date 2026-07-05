@@ -32,7 +32,21 @@ export { MIGRATION_FILES, resetSchema, runMigrations } from "./src/migrate.ts";
 export { main } from "./src/main.ts";
 
 import { main } from "./src/main.ts";
+import { readEnv } from "./src/db.ts";
 
 if (import.meta.main) {
-  await main();
+  const url = readEnv("MYSQL_URL") ?? readEnv("MARIADB_URL") ??
+    readEnv("DATABASE_URL");
+  if (url === undefined) {
+    console.log(
+      "This example runs a live MySQL/MariaDB /rising-feed demo. To try it:\n" +
+        "  1. docker compose up -d     # local MySQL 8.4 + MariaDB 11\n" +
+        "  2. cp .env.example .env     # sets MYSQL_URL / MARIADB_URL\n" +
+        "  3. deno task demo           # migrate + seed + run the feed\n\n" +
+        "Required env: MYSQL_URL, MARIADB_URL, or DATABASE_URL (see " +
+        ".env.example). SISAL_ADAPTER picks mysql2 | mariadb.",
+    );
+  } else {
+    await main();
+  }
 }

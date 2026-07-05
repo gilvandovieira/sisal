@@ -32,7 +32,7 @@ deno task sisal <cmd>  # migration CLI (init|generate|migrate|status|drift)
 Run a single test file or filter by test name:
 
 ```sh
-deno test --allow-read packages/orm/mod_test.ts
+deno test --allow-read packages/orm/tests/mod_test.ts
 deno test --allow-read packages/orm --filter "operators"
 ```
 
@@ -163,8 +163,8 @@ connector. MySQL has no `RETURNING`, so `insertReturning` uses a fetch-by-key
 fallback; MariaDB lights `INSERT`/`DELETE ... RETURNING` through detected
 identity. MySQL JSON reads back parsed; MariaDB JSON reads back as text.
 
-**The CLI** (`packages/migrate/cli.ts`) wraps the snapshot workflow as `sisal`
-(`init`, `generate`, `migrate`, `status`, `drift`). The runner is fully
+**The CLI** (`packages/migrate/src/cli.ts`) wraps the snapshot workflow as
+`sisal` (`init`, `generate`, `migrate`, `status`, `drift`). The runner is fully
 injectable (config/fs/adapters) for tests; the executable path lazily loads the
 dialect adapter resolved from the config's `dialect`. `sisal init` targets are a
 single `INIT_TARGETS` registry: adding a new database target is one registry
@@ -172,14 +172,15 @@ entry (id, aliases, dialect, connection hints).
 
 **Drizzle parity and the feature matrix are the evolution discipline.**
 `docs/drizzle-parity.md` is a living ✅/🟡/🔷/❌ matrix paired with
-`packages/orm/drizzle_parity/*_test.ts` and
-`packages/{pg,sqlite}/drizzle_parity_test.ts`. Some tests assert that _unbuilt_
-Drizzle features are still absent, so adding one fails a test that points back
-at the doc. **Implement a feature, move its matrix row, and update the parity
-test together.** Cross-adapter behavior is tracked in `docs/feature-matrix.md`,
-generated from `tools/feature_matrix.ts`; every ✅/⚠️ must be backed by a named
-integration scenario and pass `deno task docs:matrix:check`. Per-engine behavior
-is pinned by `docs/{pg,neon,sqlite,libsql,mysql}-compatibility.md` and
+`packages/orm/tests/drizzle_parity/*_test.ts` and
+`packages/{pg,sqlite}/tests/drizzle_parity_test.ts`. Some tests assert that
+_unbuilt_ Drizzle features are still absent, so adding one fails a test that
+points back at the doc. **Implement a feature, move its matrix row, and update
+the parity test together.** Cross-adapter behavior is tracked in
+`docs/feature-matrix.md`, generated from `tools/feature_matrix.ts`; every ✅/⚠️
+must be backed by a named integration scenario and pass
+`deno task docs:matrix:check`. Per-engine behavior is pinned by
+`docs/{pg,neon,sqlite,libsql,mysql}-compatibility.md` and
 `integration/<adapter>_features_test.ts`; the homepage `docs/index.html`
 `#compat` section aggregates them.
 

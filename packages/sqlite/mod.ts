@@ -17,7 +17,7 @@ export {
   SQLITE_DIALECT,
   sqliteColumnAffinity,
   statementReturnsRows,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 export type {
   CreateSqliteDbOptions,
   SqliteConnectionOptions,
@@ -28,14 +28,14 @@ export type {
   SqliteQueryResult,
   SqliteSqlExecutor,
   SqliteStatement,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 
 export {
   createSqliteMigrationDriver,
   createSqliteMigrationHistoryStore,
   createSqliteMigrator,
   DEFAULT_SQLITE_MIGRATION_TABLE,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 export type {
   CreateSqliteMigratorOptions,
   SqliteMigrateOptions,
@@ -46,7 +46,7 @@ export type {
   SqliteMigrationPlanOptions,
   SqliteMigrator,
   SqliteRollbackOptions,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 
 export {
   generateSqliteAddColumn,
@@ -55,5 +55,5 @@ export {
   generateSqliteCreateTable,
   generateSqliteUpStatements,
   quoteSqliteIdent,
-} from "./migrate/ddl.ts";
-export type { SqliteUpStatements } from "./migrate/ddl.ts";
+} from "./src/migrate/ddl.ts";
+export type { SqliteUpStatements } from "./src/migrate/ddl.ts";

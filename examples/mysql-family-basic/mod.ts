@@ -3,7 +3,7 @@
  *
  * Generates the schema DDL with zero setup (prints it), then — if `MYSQL_URL`,
  * `MARIADB_URL`, or `DATABASE_URL` is set — connects over the selected
- * MySQL-family driver and runs a tiny CRUD (create table, insert, count). The
+ * MySQL-family driver and runs a tiny CRUD (create, read, update, delete). The
  * dialect + builder are shared by MySQL and MariaDB; pick a driver with
  * `SISAL_ADAPTER`:
  *
@@ -21,7 +21,13 @@
  * @module
  */
 
-import { columns, createSchemaSnapshot, defineTable, sql } from "@sisal/orm";
+import {
+  columns,
+  createSchemaSnapshot,
+  defineTable,
+  eq,
+  sql,
+} from "@sisal/orm";
 import {
   connect,
   generateMysqlUpStatements,
@@ -47,14 +53,36 @@ if (url !== undefined) {
   const db = await openDb(url, adapter);
   try {
     for (const statement of statements) await db.execute(statement);
+
+    // CREATE — values bind as parameters (`?` placeholders on MySQL).
     await db.insert(users).values({
       email: "ada@example.com",
       name: "Ada Lovelace",
     }).execute();
+
+    // READ — MySQL proper has no `INSERT ... RETURNING`, so we read the
+    // serial id back with a typed select on the unique email.
+    const found = await db.select({
+      id: users.columns.id,
+      name: users.columns.name,
+    }).from(users).where(eq(users.columns.email, "ada@example.com")).execute();
+    console.log(`\nselected: #${found[0]?.id} ${found[0]?.name}`);
+
+    // UPDATE — no RETURNING on base MySQL either, so read back after.
+    await db.update(users).set({ name: "Ada, Countess" })
+      .where(eq(users.columns.email, "ada@example.com")).execute();
+
+    // DELETE — a where is required. `update`/`delete` with no `where` throw
+    // unless you first call `.unsafeAllowAllRows()` (the mass-mutation rail).
+    await db.delete(users).where(eq(users.columns.email, "ada@example.com"))
+      .execute();
+
     const result = await db.query<{ count: number }>(
       sql`select count(*) as count from sisal_basic_users`,
     );
-    console.log(`\nusers: ${Number(result.rows[0].count)} (via ${adapter})`);
+    console.log(
+      `users after delete: ${Number(result.rows[0].count)} (via ${adapter})`,
+    );
   } finally {
     await db.close();
   }

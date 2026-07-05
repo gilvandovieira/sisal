@@ -1,11 +1,11 @@
 {
   "name": "@sisal/neon",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "exports": {
     ".": "./mod.ts",
-    "./orm": "./orm/mod.ts",
-    "./migrate": "./migrate/mod.ts",
-    "./ddl": "./ddl.ts"
+    "./orm": "./src/orm/mod.ts",
+    "./migrate": "./src/migrate/mod.ts",
+    "./ddl": "./src/ddl.ts"
   },
   "imports": {
     "@neon/serverless": "jsr:@neon/serverless@^1.0.0"
@@ -26,11 +26,7 @@
     "include": [
       "README.md",
       "mod.ts",
-      "client.ts",
-      "executor.ts",
-      "orm/**/*.ts",
-      "migrate/**/*.ts",
-      "ddl.ts",
+      "src/**/*.ts",
       "deno.json"
     ],
     "exclude": [

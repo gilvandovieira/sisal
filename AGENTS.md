@@ -81,9 +81,14 @@ workspace package.
   dialect-neutral contracts in `packages/orm` or `packages/migrate`.
 - Feature-matrix claims marked ✅/⚠️ must be backed by named integration
   scenarios.
-- Tests live next to package code as `*_test.ts`. Add or update focused tests
-  when changing schema validation, DDL generation, migration planning, executor
-  behavior, feature-matrix claims, or public exports.
+- Package source lives under `packages/<name>/src/`, with public subpackages
+  mirrored as `src/<subpackage>/` (for example `src/orm`, `src/migrate`, or
+  `src/core`). Package root `mod.ts` files, README files, and `deno.json` stay
+  at the package root.
+- Package tests live under `packages/<name>/tests/`, mirroring subpackages when
+  needed (for example `tests/orm` and `tests/migrate`). Add or update focused
+  tests when changing schema validation, DDL generation, migration planning,
+  executor behavior, feature-matrix claims, or public exports.
 
 ## Package Metadata
 

@@ -18,7 +18,7 @@ export {
   LIBSQL_DIALECT,
   libsqlConfigFromOptions,
   openLibsqlClient,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 export type {
   CreateLibsqlDbOptions,
   LibsqlArgs,
@@ -37,14 +37,14 @@ export type {
   LibsqlTransaction,
   LibsqlTransactionMode,
   LibsqlValue,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 
 export {
   createLibsqlMigrationDriver,
   createLibsqlMigrationHistoryStore,
   createLibsqlMigrator,
   DEFAULT_LIBSQL_MIGRATION_TABLE,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 export type {
   CreateLibsqlMigratorOptions,
   LibsqlMigrateOptions,
@@ -55,7 +55,7 @@ export type {
   LibsqlMigrationPlanOptions,
   LibsqlMigrator,
   LibsqlRollbackOptions,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 
 export {
   generateLibsqlAddColumn,
@@ -64,5 +64,5 @@ export {
   generateLibsqlCreateTable,
   generateLibsqlUpStatements,
   quoteLibsqlIdent,
-} from "./migrate/ddl.ts";
-export type { LibsqlUpStatements } from "./migrate/ddl.ts";
+} from "./src/migrate/ddl.ts";
+export type { LibsqlUpStatements } from "./src/migrate/ddl.ts";

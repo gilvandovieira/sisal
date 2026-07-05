@@ -1,0 +1,14 @@
+{
+  "name": "@sisal/example-postgres-family-analytics",
+  "version": "0.11.0",
+  "exports": "./mod.ts",
+  "publish": false,
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1"
+  },
+  "tasks": {
+    "render": "deno run --allow-read mod.ts",
+    "run": "deno run --allow-env --allow-net --allow-read mod.ts",
+    "test": "deno test --allow-read analytics_test.ts"
+  }
+}

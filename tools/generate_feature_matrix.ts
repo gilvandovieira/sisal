@@ -109,6 +109,27 @@ function reasonBullets(status: CellStatus): string {
   return bullets.join("\n");
 }
 
+function renderAnalyticsSupport(): string {
+  return `## Analytics preview support
+
+This table uses release-support labels rather than the ✅/⚠️ integration-matrix
+legend above. Analytics is Postgres-first and rollup-first; non-PostgreSQL
+claims are render/golden-SQL claims unless a dialect-specific live integration
+suite is named.
+
+| Capability | Postgres | Neon | SQLite | libSQL | MySQL | MariaDB |
+| --- | --- | --- | --- | --- | --- | --- |
+| Dimensions + aggregate metrics grouping | Live integration-proven (\`integration/analytics_features_test.ts\`) | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| \`bucket\` / time dimensions over \`dateTrunc\`/\`dateBin\` | Live integration-proven; buckets read as text | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| \`movingAvg\` and ranking windows (\`rank\`, \`denseRank\`, \`rowNumber\`) | Live integration-proven for \`movingAvg\` + \`rank\`; other ranking helpers are golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| Offset/delta windows (\`lag\`, \`lead\`, \`delta\`) | Golden SQL/render-proven; previous-window lag/delta path is live-proven through \`compareToPreviousWindow\` | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| \`compareToPreviousWindow\` | Live integration-proven on PostgreSQL | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| Percentiles (\`percentileCont\`, \`percentileDisc\`) | Golden SQL/render-proven | Golden SQL/render-proven through PostgreSQL rendering; no Neon-specific live suite | Capability-gated unsupported | Capability-gated unsupported | Capability-gated unsupported | Capability-gated unsupported |
+| \`render(...)\` | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven | Golden SQL/render-proven |
+| \`execute(db)\` | Live integration-proven | Deferred until a Neon analytics integration suite is named | Deferred until a SQLite analytics integration suite is named | Deferred until a libSQL analytics integration suite is named | Deferred until a MySQL analytics integration suite is named | Deferred until a MariaDB analytics integration suite is named |
+`;
+}
+
 function render(): string {
   return `---
 title: Feature matrix
@@ -138,6 +159,8 @@ ${renderTable()}
 The ⚠️ and ❌ cells link to the one-paragraph reason for each, below. They are
 the only principled, permanent divergences — everything else behaves
 identically across the six columns.
+
+${renderAnalyticsSupport()}
 
 ## Round-trip differences
 
