@@ -113,6 +113,9 @@ jobs:
             exit 1
           fi
 
+      # Idempotent: skip if this version is already on JSR, so a re-run that
+      # recovers a half-published release (e.g. JSR done, npm failed on auth)
+      # doesn't error on `deno publish`. Mirrors tools/npm_publish.ts.
       - name: Publish workspace (JSR)
         if: >-
           ${{
@@ -123,7 +126,12 @@ jobs:
               github.ref == 'refs/heads/main'
             )
           }}
-        run: deno publish
+        run: |
+          if deno run --allow-read --allow-net=jsr.io tools/jsr_published.ts; then
+            echo "::notice::JSR version already published — skipping deno publish."
+          else
+            deno publish
+          fi
 
       # Paired npm publish at the identical version, in dependency order, with
       # provenance. Idempotent: versions already on the registry are skipped, so
