@@ -23,6 +23,8 @@ Sisal-specific history after that baseline through `1f05448`.
   logging helpers, `src/` package layout, and public adapter export lists.
 - Bumped workspace package manifests to `0.11.1` and updated the migration CLI
   scaffolded adapter defaults to `^0.11.1`.
+- Updated root README install and CLI examples to pin Sisal packages at
+  `0.11.1`.
 
 ## 0.11.0 - 2026-07-04
 

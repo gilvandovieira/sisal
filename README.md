@@ -54,9 +54,9 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. For PostgreSQL:
 
 ```sh
-deno add jsr:@sisal/orm@0.11.0 \
-  jsr:@sisal/migrate@0.11.0 \
-  jsr:@sisal/pg@0.11.0
+deno add jsr:@sisal/orm@0.11.1 \
+  jsr:@sisal/migrate@0.11.1 \
+  jsr:@sisal/pg@0.11.1
 ```
 
 Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
@@ -64,11 +64,11 @@ and one adapter package. Swap only the adapter for the database runtime you use.
 
 | Target        | Install                                                                             |
 | ------------- | ----------------------------------------------------------------------------------- |
-| PostgreSQL    | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/pg@0.11.0`     |
-| Neon          | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/neon@0.11.0`   |
-| SQLite        | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/sqlite@0.11.0` |
-| libSQL/Turso  | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/libsql@0.11.0` |
-| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.11.0 jsr:@sisal/migrate@0.11.0 jsr:@sisal/mysql@0.11.0`  |
+| PostgreSQL    | `deno add jsr:@sisal/orm@0.11.1 jsr:@sisal/migrate@0.11.1 jsr:@sisal/pg@0.11.1`     |
+| Neon          | `deno add jsr:@sisal/orm@0.11.1 jsr:@sisal/migrate@0.11.1 jsr:@sisal/neon@0.11.1`   |
+| SQLite        | `deno add jsr:@sisal/orm@0.11.1 jsr:@sisal/migrate@0.11.1 jsr:@sisal/sqlite@0.11.1` |
+| libSQL/Turso  | `deno add jsr:@sisal/orm@0.11.1 jsr:@sisal/migrate@0.11.1 jsr:@sisal/libsql@0.11.1` |
+| MySQL/MariaDB | `deno add jsr:@sisal/orm@0.11.1 jsr:@sisal/migrate@0.11.1 jsr:@sisal/mysql@0.11.1`  |
 
 `deno add` writes bare package aliases to `deno.json`, so application code can
 import from `@sisal/orm`, `@sisal/migrate`, and the chosen adapter.
@@ -77,7 +77,7 @@ For the preview ETL and analytics layers, add the companion packages when you
 need them:
 
 ```sh
-deno add jsr:@sisal/etl@0.11.0 jsr:@sisal/analytics@0.11.0
+deno add jsr:@sisal/etl@0.11.1 jsr:@sisal/analytics@0.11.1
 ```
 
 ## A Sisal Story
@@ -161,7 +161,7 @@ Wire the migration CLI into your application's `deno.json`, then point
 ```json
 {
   "tasks": {
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.11.0/cli",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net jsr:@sisal/migrate@0.11.1/cli",
     "db:init": "deno task sisal init --target postgres",
     "db:generate": "deno task sisal generate",
     "db:migrate": "deno task sisal migrate",
