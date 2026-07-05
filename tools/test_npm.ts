@@ -52,7 +52,17 @@ async function testPackage(pkg: PackageDescriptor): Promise<void> {
     importMap: "deno.json",
     // "dev": the Deno shim (Deno.test, fs, etc.) is a devDependency used by the
     // transformed tests only; shipped code keeps its real globalThis.Deno guards.
-    shims: { deno: "dev" },
+    // The custom Temporal shim gives the Node test run a `Temporal` global (via
+    // the spec polyfill) — Sisal is Temporal-native, and Node < 25 has no native
+    // Temporal. Shipped code still guards `typeof Temporal` so it degrades
+    // gracefully where the global is absent; this only affects the test build.
+    shims: {
+      deno: "dev",
+      custom: [{
+        package: { name: "@js-temporal/polyfill", version: "^0.5.1" },
+        globalNames: [{ name: "Temporal", exportName: "Temporal" }],
+      }],
+    },
     test: true,
     // Discover only this package's tests — dnt defaults to globbing the whole
     // CWD, which would drag in the network/FFI-gated integration/ suites.

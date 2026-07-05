@@ -95,6 +95,15 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Fixed
 
+- **Core no longer requires a `Temporal` global to build SQL.**
+  `isTemporalInstantValue` (called by the `sql` tag on every interpolated value)
+  and the MySQL datetime-literal path referenced `Temporal` unguarded, so a
+  runtime without a native `Temporal` global (Node < 25, Bun) threw
+  `ReferenceError: Temporal is not defined` on **every** parameterized query.
+  Both now guard `typeof Temporal`, so non-temporal usage works everywhere;
+  Temporal values still need the global (native on Node 25+, or a polyfill — see
+  [`docs/node.md`](docs/node.md)). The Node test build shims Temporal via the
+  spec polyfill so the full suite runs on any Node.
 - **`@sisal/migrate` CLI carried a Deno shebang that broke the transpiled npm
   build.** `packages/migrate/src/cli.ts` began with
   `#!/usr/bin/env -S deno run …`; dnt injects runtime shims above it, leaving

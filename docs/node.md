@@ -9,9 +9,16 @@ Sisal is Deno-first, but the same packages are published to **npm** under the
 packages — only the install and the scope differ (`@sisal/*` on JSR →
 `@sisaljs/*` on npm).
 
-> Requirements: **Node 24+**. Node 24 runs ESM natively, ships the built-in
-> `node:sqlite` driver, and exposes `Temporal` as a native global — all of which
-> Sisal uses. The npm build is **ESM-only**.
+> Requirements: **Node 24+**. Node 24 runs ESM natively and ships the built-in
+> `node:sqlite` driver. The npm build is **ESM-only**.
+>
+> **Temporal:** Sisal is Temporal-native. A native `Temporal` global arrives in
+> **Node 25+**; on Node 24 it is available behind `node --harmony-temporal`, or
+> install
+> [`@js-temporal/polyfill`](https://www.npmjs.com/package/@js-temporal/polyfill)
+> and set `globalThis.Temporal` before importing Sisal. **Without a `Temporal`
+> global, Sisal still runs** — non-temporal columns and queries work normally;
+> only date/time (`Temporal`) values need the global.
 
 ## Install
 

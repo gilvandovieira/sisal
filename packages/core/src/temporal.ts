@@ -50,6 +50,11 @@ export function isTemporalSqlValue(value: unknown): value is TemporalSqlValue {
 
 /** True for the Temporal values whose serialization carries a `Z` suffix. */
 export function isTemporalInstantValue(value: unknown): boolean {
+  // Guard the global: `sql()` calls this on every interpolated value, so it must
+  // not throw on runtimes without a `Temporal` global (e.g. Node < 25, Bun).
+  if (typeof Temporal === "undefined") {
+    return false;
+  }
   return value instanceof Temporal.Instant ||
     value instanceof Temporal.ZonedDateTime;
 }
