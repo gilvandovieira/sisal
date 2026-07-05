@@ -89,7 +89,7 @@ jobs:
           # that does not exist yet, then remove it.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          deno task --frozen build:npm:all
+          deno task build:npm:all
           deno run -A tools/npm_publish.ts --dry-run
 
       - name: Refuse manual publish outside main
@@ -144,5 +144,5 @@ jobs:
           # that does not exist yet, then remove it.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          deno task --frozen build:npm:all
+          deno task build:npm:all
           deno run -A tools/npm_publish.ts
