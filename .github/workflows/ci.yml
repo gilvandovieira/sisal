@@ -78,10 +78,10 @@ jobs:
       - name: npm manifest drift gate
         run: deno task --frozen npm:check
 
-      # No --frozen: dnt resolves each package's driver graph itself, including
-      # `@deno/dnt`'s `@ts-morph/common` whose conditional (empty) `crypto`
-      # module has no lockfile manifest checksum — strict frozen verification
-      # fails on it. The build/tests still run against the committed sources.
+      # The build:npm / test:node tasks run with `--no-lock` (see deno.json):
+      # dnt pulls `@deno/dnt`'s `@ts-morph/common`, whose conditional (empty)
+      # `crypto` module has no lockfile manifest checksum, so any lockfile
+      # consultation fails integrity on a cold cache. dnt manages its own deps.
       - name: Build npm packages
         run: deno task build:npm:all
 
