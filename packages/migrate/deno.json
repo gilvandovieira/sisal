@@ -3,9 +3,9 @@
   "version": "0.11.0",
   "exports": {
     ".": "./mod.ts",
-    "./cli": "./cli.ts",
-    "./core": "./core/mod.ts",
-    "./workflow": "./core/workflow.ts"
+    "./cli": "./src/cli.ts",
+    "./core": "./src/core/mod.ts",
+    "./workflow": "./src/core/workflow.ts"
   },
   "license": "MIT",
   "description": "Migration planning, diffing, and running primitives for Sisal.",
@@ -20,9 +20,8 @@
   "publish": {
     "include": [
       "README.md",
-      "cli.ts",
       "mod.ts",
-      "core/**/*.ts",
+      "src/**/*.ts",
       "deno.json"
     ],
     "exclude": [

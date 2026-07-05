@@ -3,9 +3,9 @@
   "version": "0.11.0",
   "exports": {
     ".": "./mod.ts",
-    "./orm": "./orm/mod.ts",
-    "./migrate": "./migrate/mod.ts",
-    "./ddl": "./migrate/ddl.ts"
+    "./orm": "./src/orm/mod.ts",
+    "./migrate": "./src/migrate/mod.ts",
+    "./ddl": "./src/migrate/ddl.ts"
   },
   "license": "MIT",
   "description": "PostgreSQL adapter boundaries for Sisal ORM and migrations.",
@@ -21,8 +21,7 @@
     "include": [
       "README.md",
       "mod.ts",
-      "orm/**/*.ts",
-      "migrate/**/*.ts",
+      "src/**/*.ts",
       "deno.json"
     ],
     "exclude": [

@@ -18,23 +18,7 @@
 import { runPinoExample } from "./pino.ts";
 import { runStdLogExample } from "./std_log.ts";
 import { runSisalLoggingDemo } from "./shared.ts";
-import type { Logger, LoggerMethod } from "@sisal/orm";
-
-/** Builds a `LoggerMethod` that prints its message (records are structured). */
-function consoleMethod(level: string): LoggerMethod {
-  return ((first: string | Record<string, unknown>, second?: string) => {
-    console.log(level, second ?? first);
-  }) as LoggerMethod;
-}
-
-/** A trivial console `Logger` used to contrast redaction modes. */
-const consoleLogger: Logger = {
-  trace: consoleMethod("trace"),
-  debug: consoleMethod("debug"),
-  info: consoleMethod("info"),
-  warn: consoleMethod("warn"),
-  error: consoleMethod("error"),
-};
+import { consoleLogger } from "@sisal/orm";
 
 if (import.meta.main) {
   console.log("\n--- @std/log (parameters: redacted) ---");
@@ -43,6 +27,7 @@ if (import.meta.main) {
   console.log("\n--- pino (parameters: redacted) ---");
   await runPinoExample();
 
-  console.log("\n--- parameters: 'off' (no bind summaries at all) ---");
-  await runSisalLoggingDemo(consoleLogger, { parameters: "off" });
+  // The bundled zero-setup sink, with bind summaries switched fully off.
+  console.log("\n--- consoleLogger(), parameters: 'off' ---");
+  await runSisalLoggingDemo(consoleLogger(), { parameters: "off" });
 }

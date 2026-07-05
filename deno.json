@@ -41,7 +41,7 @@
     "lint": "deno lint",
     "hooks:install": "git config core.hooksPath .githooks",
     "check": "deno check $(deno run --allow-read tools/workspace_packages.ts check-entrypoints)",
-    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi packages/migrate/cli.ts",
+    "sisal": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi packages/migrate/src/cli.ts",
     "bench": "deno bench benchmarks/mod.ts",
     "perf:pg": "deno run --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency.ts",
     "perf:pg:guard": "deno test --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency_test.ts",

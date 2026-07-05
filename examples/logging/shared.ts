@@ -19,11 +19,12 @@ const users = defineTable("users", {
  * receives Sisal's structured SQL/result events. `memoryOrmDriver()` stands in
  * for a real adapter, so this needs no database and no network.
  *
- * The point is the **safe posture**: Sisal logs SQL text and result shapes, but
- * bind parameters are only ever emitted as redacted summaries — never raw
- * string, binary, date, or object values. A value that looks like a secret is
- * flagged, not printed. Pass `parameters: "off"` to omit even the safe
- * summaries when a workload must not leak parameter cardinality at all.
+ * The default posture is **safe**: Sisal logs SQL text and result shapes, and
+ * bind parameters as redacted summaries — a value that looks like a secret is
+ * flagged, not printed. Pass `parameters: "off"` to omit even the summaries, or
+ * `parameters: "values"` to log the raw values on purpose while debugging
+ * (see the README's parameter nuance). Connection strings and tokens are always
+ * redacted regardless.
  */
 export async function runSisalLoggingDemo(
   logger: Logger,

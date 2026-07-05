@@ -17,7 +17,8 @@
   "publish": {
     "include": [
       "README.md",
-      "*.ts",
+      "mod.ts",
+      "src/**/*.ts",
       "deno.json"
     ],
     "exclude": [

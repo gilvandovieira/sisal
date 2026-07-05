@@ -7,14 +7,24 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
-## Unreleased
-
-_No unreleased changes._
-
 ## 0.11.0 - 2026-07-04
 
 ### Added
 
+- **Bundled logger bridges and presets** in `@sisal/core` (re-exported from
+  `@sisal/orm`): `consoleLogger()` (zero-setup `console` sink),
+  `fromStdLog(logger)` (adapts an `@std/log` logger), and the
+  `developmentLogging(logger)` / `productionLogging(logger)` verbosity presets.
+  The `examples/logging` Pino bridge shows the `isEnabled` fast-path forwarding
+  `pino.isLevelEnabled`.
+- **Raw SQL bind-parameter logging.** `sql: { parameters: "values" }` (and
+  `developmentLogging`) logs the actual bind values so a failing query can be
+  replayed while debugging — opt-in, alongside the existing `"redacted"`
+  (default) and `"off"` modes. Connection strings, DSNs, and tokens remain
+  always-redacted regardless. New `renderSqlParametersForLog(params, mode)` and
+  `SisalSqlParameterMode` / `SisalLogLevelActive` exports.
+- Logging-cost benchmark coverage for the new `"values"` mode in the
+  `orm logging` bench groups (`benchmarks/scenarios/logging.ts`).
 - Reworked the root README's advanced Sisal example into a staged product-feed
   story: model definitions, CLI migration generation, typed feed queries,
   advanced SQL, ETL rollups, and analytics reads, with short value notes for
@@ -203,9 +213,29 @@ _No unreleased changes._
 
 ### Changed
 
-- Bumped workspace package and example manifest versions to `0.11.0`, refreshed
-  README install pins, and updated the migration CLI's default adapter version
-  prompts to `^0.11.0`.
+- Moved workspace package internals into `packages/<name>/src/` and
+  package-local tests into `packages/<name>/tests/`, with public subpackages
+  mirrored under `src/<subpackage>/`. Root package `mod.ts` entrypoints,
+  `deno.json`, and README files remain at package root while export maps and
+  publish include lists point at the new source layout.
+- **Breaking: the `Logger` contract is now a single structured sink.** A logger
+  implements one `log(event)` method (receiving
+  `{ level, category, message,
+  record }`) plus an optional
+  `isEnabled(level, category)` fast-path, replacing the five per-level methods
+  and the overloaded `LoggerMethod` (removed). This is the most extensible shape
+  — the sink sees the whole event and decides routing, formatting, and filtering
+  — and it makes bridges cast-free. Migrate a custom logger by collapsing the
+  per-level methods into one `log(event)` that switches on `event.level`.
+- ORM query logging is now **zero-cost when off**: the query hot path (`#run`,
+  plus transactions and batches) builds no event records, takes no
+  `performance.now()` timing, and renders no parameters unless a sink actually
+  wants the event (guarded by `isEnabled`/level/category). With no logger
+  attached, Sisal is fully silent — a failing query still throws a redacted
+  `SisalError`.
+- Bumped workspace package, example, and benchmark manifest versions to
+  `0.11.0`, refreshed README install pins, and updated the migration CLI's
+  default adapter version prompts to `^0.11.0`.
 - The SQLite adapter now opens `@db/sqlite` with `int64` support so stored
   INTEGER values above 32-bit range (for example `4200000000`) no longer decode
   through a signed 32-bit wraparound in live SQLite integration.

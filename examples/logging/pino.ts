@@ -29,11 +29,17 @@ function createPinoLogger(): Logger {
   ).child({ component: "sisal" });
 
   return {
-    trace: logger.trace.bind(logger),
-    debug: logger.debug.bind(logger),
-    info: logger.info.bind(logger),
-    warn: logger.warn.bind(logger),
-    error: logger.error.bind(logger),
+    isEnabled(level) {
+      return logger.isLevelEnabled(level);
+    },
+    log(event) {
+      const method = logger[event.level].bind(logger);
+      if (event.record === undefined) {
+        method(event.message);
+      } else {
+        method(event.record, event.message);
+      }
+    },
   };
 }
 

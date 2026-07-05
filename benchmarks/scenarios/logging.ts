@@ -39,11 +39,7 @@ import type { BenchmarkScenario } from "../harness.ts";
 
 const noop = () => {};
 const noopLogger: Logger = {
-  trace: noop,
-  debug: noop,
-  info: noop,
-  warn: noop,
-  error: noop,
+  log: noop,
 };
 
 const users = defineTable("users", {
@@ -102,10 +98,16 @@ const dbTraceNoParams = makeDb({
   level: "trace",
   sql: { parameters: "off" },
 });
+const dbTraceValues = makeDb({
+  logger: noopLogger,
+  level: "trace",
+  sql: { parameters: "values" },
+});
 
 const dbWideOff = dbOff;
 const dbWideTrace = dbTrace;
 const dbWideTraceNoParams = dbTraceNoParams;
+const dbWideTraceValues = dbTraceValues;
 
 export const loggingScenarios: readonly BenchmarkScenario[] = [
   {
@@ -151,6 +153,13 @@ export const loggingScenarios: readonly BenchmarkScenario[] = [
       await dbTraceNoParams.query(typicalQuery);
     },
   },
+  {
+    group: "orm logging verbosity",
+    name: "trace, params values (raw)",
+    async fn() {
+      await dbTraceValues.query(typicalQuery);
+    },
+  },
 
   {
     group: "orm logging redaction cost (64 params)",
@@ -172,6 +181,13 @@ export const loggingScenarios: readonly BenchmarkScenario[] = [
     name: "trace, params off",
     async fn() {
       await dbWideTraceNoParams.query(wideQuery);
+    },
+  },
+  {
+    group: "orm logging redaction cost (64 params)",
+    name: "trace, params values (raw)",
+    async fn() {
+      await dbWideTraceValues.query(wideQuery);
     },
   },
 ];

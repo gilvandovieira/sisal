@@ -7,7 +7,7 @@
  * @module
  */
 
-export * from "./error.ts";
-export * from "./logger.ts";
-export * from "./schema.ts";
-export * from "./core/mod.ts";
+export * from "./src/error.ts";
+export * from "./src/logger.ts";
+export * from "./src/schema.ts";
+export * from "./src/core/mod.ts";

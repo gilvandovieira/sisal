@@ -3,10 +3,10 @@
   "version": "0.11.0",
   "exports": {
     ".": "./mod.ts",
-    "./core": "./core/mod.ts",
-    "./error": "./error.ts",
-    "./logger": "./logger.ts",
-    "./schema": "./schema.ts"
+    "./core": "./src/core/mod.ts",
+    "./error": "./src/error.ts",
+    "./logger": "./src/logger.ts",
+    "./schema": "./src/schema.ts"
   },
   "license": "MIT",
   "description": "Driverless schema, typed SQL, and ORM primitives for Sisal.",
@@ -22,10 +22,7 @@
     "include": [
       "README.md",
       "mod.ts",
-      "core/**/*.ts",
-      "schema.ts",
-      "error.ts",
-      "logger.ts",
+      "src/**/*.ts",
       "deno.json"
     ],
     "exclude": [

@@ -39,11 +39,11 @@ for (const member of root.workspace ?? []) {
 
 const expectedAdapterVersion =
   `const DEFAULT_ADAPTER_VERSION = "^${expectedVersion}";`;
-const migrateCli = await Deno.readTextFile("packages/migrate/cli.ts");
+const migrateCli = await Deno.readTextFile("packages/migrate/src/cli.ts");
 
 if (!migrateCli.includes(expectedAdapterVersion)) {
   console.error(
-    "packages/migrate/cli.ts DEFAULT_ADAPTER_VERSION must match " +
+    "packages/migrate/src/cli.ts DEFAULT_ADAPTER_VERSION must match " +
       `^${expectedVersion}`,
   );
   failed = true;

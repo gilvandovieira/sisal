@@ -77,8 +77,8 @@ Package path: `./packages/core`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./schema` -> `./schema.ts`
-- `./unstable-internal` -> `./internal.ts`
+- `./schema` -> `./src/schema.ts`
+- `./unstable-internal` -> `./src/internal.ts`
 
 ### @sisal/orm 0.11.0
 
@@ -88,10 +88,10 @@ Package path: `./packages/orm`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./core` -> `./core/mod.ts`
-- `./error` -> `./error.ts`
-- `./logger` -> `./logger.ts`
-- `./schema` -> `./schema.ts`
+- `./core` -> `./src/core/mod.ts`
+- `./error` -> `./src/error.ts`
+- `./logger` -> `./src/logger.ts`
+- `./schema` -> `./src/schema.ts`
 
 ### @sisal/migrate 0.11.0
 
@@ -101,9 +101,9 @@ Package path: `./packages/migrate`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./cli` -> `./cli.ts`
-- `./core` -> `./core/mod.ts`
-- `./workflow` -> `./core/workflow.ts`
+- `./cli` -> `./src/cli.ts`
+- `./core` -> `./src/core/mod.ts`
+- `./workflow` -> `./src/core/workflow.ts`
 
 ### @sisal/etl 0.11.0
 
@@ -131,9 +131,9 @@ Package path: `./packages/pg`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
 ### @sisal/sqlite 0.11.0
 
@@ -143,9 +143,9 @@ Package path: `./packages/sqlite`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
 ### @sisal/libsql 0.11.0
 
@@ -155,9 +155,9 @@ Package path: `./packages/libsql`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
 ### @sisal/mysql 0.11.0
 
@@ -167,9 +167,9 @@ Package path: `./packages/mysql`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./migrate/ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/migrate/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
 ### @sisal/neon 0.11.0
 
@@ -179,9 +179,9 @@ Package path: `./packages/neon`
 
 Exports:
 - `.` -> `./mod.ts`
-- `./ddl` -> `./ddl.ts`
-- `./migrate` -> `./migrate/mod.ts`
-- `./orm` -> `./orm/mod.ts`
+- `./ddl` -> `./src/ddl.ts`
+- `./migrate` -> `./src/migrate/mod.ts`
+- `./orm` -> `./src/orm/mod.ts`
 
 ## Public API Symbol Index
 
@@ -222,6 +222,9 @@ Exports:
 - `ColumnValueMode` (typeAlias): Runtime value mode for date/time-ish columns.
 - `compareServerVersions` (function): Compares two server version strings by their leading dotted numeric prefixes ("11.8.8-MariaDB-ubu2404" → 11.8.8; missing segments are 0). Returns a negative number, zero, or a positive number as a is lower than,...
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
+- `ConsoleLike` (interface): A console-like target accepted by {@link consoleLogger}.
+- `consoleLogger` (function): A zero-dependency {@link Logger} that prints structured events to console.
+- `ConsoleLoggerOptions` (interface): Options for {@link consoleLogger}.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
 - `countDistinct` (function): count(distinct column) aggregate expression.
 - `createColumn` (function): Creates a named column definition from metadata.
@@ -247,6 +250,7 @@ Exports:
 - `denseRank` (function): dense_rank() — window-only ranking without gaps. Wrap in {@link over}.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
 - `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `developmentLogging` (function): A verbose preset for local development: debug everywhere, bind parameters as **raw values** so a query can be copied and replayed, and per-row result events on. Combine with any sink, e.g. createDatabase({ ...,...
 - `DIALECT_CAPABILITIES` (variable): The core capability registry: every render-guarded construct's (engine, variant, version-range) truth in one place. The builder/operator guard call sites derive their render guards from these entries via {@link...
 - `DialectCapability` (interface): One named dialect capability: a construct label (used verbatim in the typed ORM_DIALECT_UNSUPPORTED error) plus the declarative unsupported-targets/exceptions data evaluated by both the renderer and {@link...
 - `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
@@ -265,6 +269,7 @@ Exports:
 - `expr` (function): Types a fragment as a {@link SqlExpression} of T — the name-once handle for computed/metric expressions (v0.8 item 7). Assign it once and reuse it across a projection, groupBy, having, orderBy, and other expressions;...
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `FrameBound` (typeAlias): One edge of a {@link WindowFrame}: the frame keywords, or an offset of n rows/values before or after the current row (a validated non-negative integer — engines do not accept bound parameters in frame clauses, so the...
+- `fromStdLog` (function): Bridges an @std/log logger to Sisal's {@link Logger}.
 - `getDefaultColumnNaming` (function): Returns the global default column-naming strategy applied by {@link defineTable} when a table does not pass its own naming option. Defaults to "snake_case".
 - `getTableColumns` (function): Returns table columns.
 - `getTableName` (function): Returns the normalized table name.
@@ -301,8 +306,7 @@ Exports:
 - `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
 - `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
-- `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Public API.
+- `Logger` (interface): The sink Sisal writes to — the single, most-extensible logging contract.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
 - `max` (function): max(column) aggregate expression.
@@ -331,6 +335,7 @@ Exports:
 - `placeholder` (function): Creates a named placeholder fragment for a prepared statement.
 - `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
+- `productionLogging` (function): A quiet preset for production: warn and error only, with bind parameters redacted. Failing queries still log their SQL text (an orm.query error event) so you can locate them; raise the level or switch to {@link...
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
 - `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
@@ -341,6 +346,7 @@ Exports:
 - `ReferentialAction` (typeAlias): A foreign-key referential action for ON DELETE / ON UPDATE.
 - `ReferentialOptions` (interface): Options accepted by {@link ColumnBuilder.references}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `renderSqlParametersForLog` (function): Renders SQL bind parameters for a log record according to the parameter mode.
 - `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
 - `schemaObjectDropStatements` (function): The down drop statements for a snapshot's dialect schema objects, in reverse declared order (so dependents drop before their dependencies).
@@ -367,9 +373,10 @@ Exports:
 - `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
 - `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
 - `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
-- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLogEvent` (interface): A structured Sisal log event handed to a {@link Logger}.
 - `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
 - `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogLevelActive` (typeAlias): A log level that actually emits an event (every level except silent).
 - `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
@@ -378,6 +385,7 @@ Exports:
 - `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
 - `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
 - `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
+- `SisalSqlParameterMode` (typeAlias): How SQL bind parameters are rendered into logs.
 - `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
 - `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
 - `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
@@ -394,6 +402,7 @@ Exports:
 - `SqlInput` (typeAlias): Any SQL input accepted by database execution methods.
 - `SqlParameter` (typeAlias): Parameter value shape accepted by rendered SQL queries.
 - `SqlQuery` (interface): Driver-ready SQL text and parameter array.
+- `StdLogLike` (interface): An @std/log-style logger: level methods that take (message, ...args).
 - `SubquerySource` (interface): A select/compound builder usable as a subquery (derived table or scalar).
 - `sum` (function): sum(column) aggregate expression.
 - `TableColumn` (typeAlias): Materialized column belonging to a table definition.
@@ -414,7 +423,7 @@ Exports:
 - `WindowSpec` (interface): The window specification over() renders: partition keys, ordering terms (asc()/desc() or bare columns/expressions), and an optional frame.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 
-### @sisal/core ./schema (packages/core/schema.ts)
+### @sisal/core ./schema (packages/core/src/schema.ts)
 
 Public entrypoint for @sisal/orm.
 
@@ -451,7 +460,7 @@ Public entrypoint for @sisal/orm.
 - `SisalUniqueConstraintSnapshot` (interface): Serializable unique-constraint descriptor.
 - `validateSchemaSnapshot` (function): Returns validation issues for a schema snapshot without mutating it.
 
-### @sisal/core ./unstable-internal (packages/core/internal.ts)
+### @sisal/core ./unstable-internal (packages/core/src/internal.ts)
 
 Unstable plumbing consumed by @sisal/orm's query-builder tier — **not** part of the documented @sisal/core compile target and not covered by its stability commitment. Downstream packages must import from the package...
 
@@ -525,6 +534,9 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `compareServerVersions` (function): Compares two server version strings by their leading dotted numeric prefixes ("11.8.8-MariaDB-ubu2404" → 11.8.8; missing segments are 0). Returns a negative number, zero, or a positive number as a is lower than,...
 - `CompoundSelectBuilder` (interface): A combined query produced by a set operation. Trailing orderBy/limit/ offset apply to the whole compound, and further set operations may be chained.
 - `Condition` (interface): Boolean SQL condition wrapper used by query builders.
+- `ConsoleLike` (interface): A console-like target accepted by {@link consoleLogger}.
+- `consoleLogger` (function): A zero-dependency {@link Logger} that prints structured events to console.
+- `ConsoleLoggerOptions` (interface): Options for {@link consoleLogger}.
 - `count` (function): count(*) (no argument) or count(column) aggregate expression.
 - `countDistinct` (function): count(distinct column) aggregate expression.
 - `createColumn` (function): Creates a named column definition from metadata.
@@ -563,6 +575,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `denseRank` (function): dense_rank() — window-only ranking without gaps. Wrap in {@link over}.
 - `desc` (function): Descending order term for orderBy, e.g. orderBy(desc(users.columns.id)).
 - `deserializeSchemaSnapshot` (function): Parses canonical JSON produced by {@link serializeSchemaSnapshot}, then normalizes and validates it. Throws when the JSON is malformed or the resulting snapshot is invalid, so a successful call always returns a...
+- `developmentLogging` (function): A verbose preset for local development: debug everywhere, bind parameters as **raw values** so a query can be copied and replayed, and per-row result events on. Combine with any sink, e.g. createDatabase({ ...,...
 - `DIALECT_CAPABILITIES` (variable): The core capability registry: every render-guarded construct's (engine, variant, version-range) truth in one place. The builder/operator guard call sites derive their render guards from these entries via {@link...
 - `DialectCapability` (interface): One named dialect capability: a construct label (used verbatim in the typed ORM_DIALECT_UNSUPPORTED error) plus the declarative unsupported-targets/exceptions data evaluated by both the renderer and {@link...
 - `dialectGuard` (function): A zero-width SQL marker that makes rendering throw an OrmError when the query is rendered for any dialect in unsupported. Used to fail fast on constructs a dialect cannot express (distinctOn, row locking, array...
@@ -583,6 +596,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `filter` (function): Conditional aggregate: appends a FILTER (WHERE …) clause to an aggregate so it only sees rows matching condition — filter(sum(score), gte(bucket, cutoff)) renders sum("score") filter (where "bucket" >= $1). Supported...
 - `ForLockOptions` (interface): Options for {@link SelectBuilder.for} row-level locking.
 - `FrameBound` (typeAlias): One edge of a {@link WindowFrame}: the frame keywords, or an offset of n rows/values before or after the current row (a validated non-negative integer — engines do not accept bound parameters in frame clauses, so the...
+- `fromStdLog` (function): Bridges an @std/log logger to Sisal's {@link Logger}.
 - `FunctionArgsConfig` (typeAlias): Column-builder map describing a function's positional arguments.
 - `FunctionArgsInput` (typeAlias): The positional-argument input object inferred from a function's args.
 - `FunctionCall` (interface): The result of {@link Database.call}: a renderable, runnable function call.
@@ -630,8 +644,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `least` (function): least(a, b, …) — the smallest operand (SQLite renders the scalar min(a, b, …)). The same per-engine NULL divergence as {@link greatest} applies.
 - `like` (function): column LIKE value SQL condition.
 - `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
-- `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Public API.
+- `Logger` (interface): The sink Sisal writes to — the single, most-extensible logging contract.
 - `lt` (function): column < value SQL condition.
 - `lte` (function): column <= value SQL condition.
 - `MappableQueryResult` (interface): The awaitable result of a raw db.query(...) call: a normal query-result promise that also exposes .as(...), which decodes the raw driver rows — physical→JS column naming plus the same opt-in Temporal decoding the...
@@ -668,6 +681,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `PlaceholderValues` (typeAlias): Placeholder name → bound value map supplied when running a prepared query.
 - `PreparedQuery` (interface): A query rendered once that is executed many times with different {@link placeholder} values bound in.
 - `primaryKey` (function): A composite/table-level primary key over the given columns.
+- `productionLogging` (function): A quiet preset for production: warn and error only, with bind parameters redacted. Failing queries still log their SQL text (an orm.query error event) so you can locate them; raise the level or switch to {@link...
 - `quoteIdentifier` (function): Quotes and validates a SQL identifier for a dialect.
 - `rank` (function): rank() — window-only ranking with gaps. Must be wrapped in {@link over}; engines reject it without an OVER clause.
 - `raw` (function): Creates an unsafe raw SQL fragment.
@@ -691,6 +705,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `relations` (function): Defines named relations for a table, Drizzle-style.
 - `RelationsList` (typeAlias): Relational metadata list accepted by {@link createDatabase}.
 - `renderSql` (function): Renders a SQL fragment into driver text and parameter array.
+- `renderSqlParametersForLog` (function): Renders SQL bind parameters for a log record according to the parameter mode.
 - `ReplayGuardOptions` (interface): Options for {@link Checkpoint.assertReplayable}.
 - `rowNumber` (function): row_number() — window-only row numbering. Wrap in {@link over}.
 - `SCHEMA_SNAPSHOT_VERSION` (variable): Public entrypoint for @sisal/orm.
@@ -720,9 +735,10 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
 - `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
 - `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
-- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLogEvent` (interface): A structured Sisal log event handed to a {@link Logger}.
 - `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
 - `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogLevelActive` (typeAlias): A log level that actually emits an event (every level except silent).
 - `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalPrimaryKeySnapshot` (interface): Serializable primary-key constraint descriptor.
 - `SisalSchemaIssue` (interface): One validation issue found in a schema snapshot.
@@ -731,6 +747,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SisalSchemaSnapshot` (interface): Serializable database schema snapshot shared by Sisal data packages.
 - `SisalSchemaSnapshotDiff` (interface): Structural difference between two schema snapshots (from → to).
 - `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
+- `SisalSqlParameterMode` (typeAlias): How SQL bind parameters are rendered into logs.
 - `SisalTableColumnsDiff` (interface): Column-level changes between two versions of one table.
 - `SisalTableDiff` (interface): A table present in both snapshots whose definition changed.
 - `SisalTableSnapshot` (interface): Serializable table definition inside a schema snapshot.
@@ -746,6 +763,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `SqlInput` (typeAlias): Any SQL input accepted by database execution methods.
 - `SqlParameter` (typeAlias): Parameter value shape accepted by rendered SQL queries.
 - `SqlQuery` (interface): Driver-ready SQL text and parameter array.
+- `StdLogLike` (interface): An @std/log-style logger: level methods that take (message, ...args).
 - `Subquery` (typeAlias): A query aliased as a derived table via {@link SelectBuilder.as}. Its keys are the inner query's projected columns, each usable as a reference once the subquery is passed to .from(...).
 - `SubquerySource` (interface): A select/compound builder usable as a subquery (derived table or scalar).
 - `sum` (function): sum(column) aggregate expression.
@@ -773,7 +791,7 @@ Small typed SQL and ORM primitives for Sisal database tooling.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 - `WriteOutcome` (interface): The outcome of a conflict-guarded insert — did it write a new row?
 
-### @sisal/orm ./core (packages/orm/core/mod.ts)
+### @sisal/orm ./core (packages/orm/src/core/mod.ts)
 
 Typed SQL builders and ORM driver contracts for @sisal/orm.
 
@@ -1013,7 +1031,7 @@ Typed SQL builders and ORM driver contracts for @sisal/orm.
 - `withSqlChunkMeta` (function): Returns a fragment whose chunks carry meta (merged over any existing annotations). Rendering is unaffected; the annotations ride along through composition — see {@link SqlChunkMeta}.
 - `WriteOutcome` (interface): The outcome of a conflict-guarded insert — did it write a new row?
 
-### @sisal/orm ./error (packages/orm/error.ts)
+### @sisal/orm ./error (packages/orm/src/error.ts)
 
 Structured error primitives shared by Sisal packages — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
@@ -1023,32 +1041,41 @@ Structured error primitives shared by Sisal packages — compatibility re-export
 - `SisalErrorOptions` (interface): Options accepted by {@link SisalError}.
 - `SisalErrorSeverity` (typeAlias): Severity attached to structured Sisal errors.
 
-### @sisal/orm ./logger (packages/orm/logger.ts)
+### @sisal/orm ./logger (packages/orm/src/logger.ts)
 
-Minimal logging contract accepted by Sisal facades — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
+Logging contracts accepted by Sisal facades — compatibility re-export: the module lives in @sisal/core since the v0.8 extraction. New code should import from @sisal/core directly.
 
+- `ConsoleLike` (interface): A console-like target accepted by {@link consoleLogger}.
+- `consoleLogger` (function): A zero-dependency {@link Logger} that prints structured events to console.
+- `ConsoleLoggerOptions` (interface): Options for {@link consoleLogger}.
 - `createSisalLogEmitter` (function): Creates a level/category-aware logger wrapper for Sisal internals.
 - `CreateSisalLogEmitterOptions` (interface): Options for {@link createSisalLogEmitter}.
+- `developmentLogging` (function): A verbose preset for local development: debug everywhere, bind parameters as **raw values** so a query can be copied and replayed, and per-row result events on. Combine with any sink, e.g. createDatabase({ ...,...
 - `emitSisalLogEvent` (function): Emits one structured event, swallowing logger failures.
+- `fromStdLog` (function): Bridges an @std/log logger to Sisal's {@link Logger}.
 - `isSisalLogCategory` (function): Returns true when a value is one of Sisal's supported log categories.
 - `isSisalLogLevel` (function): Returns true when a value is one of Sisal's supported log levels.
 - `logEnabled` (function): Returns true when an event should be emitted for normalized settings.
-- `Logger` (interface): Minimal logger contract accepted by Sisal packages.
-- `LoggerMethod` (interface): Public API.
+- `Logger` (interface): The sink Sisal writes to — the single, most-extensible logging contract.
 - `NormalizedSisalLogging` (interface): Normalized logging controls used by Sisal internals.
 - `normalizeSisalLogSettings` (function): Normalizes logging settings with conservative defaults.
+- `productionLogging` (function): A quiet preset for production: warn and error only, with bind parameters redacted. Failing queries still log their SQL text (an orm.query error event) so you can locate them; raise the level or switch to {@link...
 - `redactSqlParameter` (function): Builds a safe, non-raw summary for one SQL bind parameter.
 - `redactSqlParameters` (function): Builds safe, non-raw summaries for SQL bind parameters.
+- `renderSqlParametersForLog` (function): Renders SQL bind parameters for a log record according to the parameter mode.
 - `SisalLogCategory` (typeAlias): Hibernate-style categories Sisal can use to filter logging events.
 - `SisalLogCategorySettings` (typeAlias): Per-category level overrides accepted by {@link SisalLogSettings}.
 - `SisalLogEmitter` (interface): Event emitter returned by {@link createSisalLogEmitter}.
-- `SisalLogEvent` (interface): A structured Sisal log event after level/category resolution.
+- `SisalLogEvent` (interface): A structured Sisal log event handed to a {@link Logger}.
 - `SisalLoggingOptions` (interface): Shared logging options accepted by Sisal facades.
 - `SisalLogLevel` (typeAlias): Log levels accepted by Sisal's structured logging controls.
+- `SisalLogLevelActive` (typeAlias): A log level that actually emits an event (every level except silent).
 - `SisalLogSettings` (interface): Shared logging settings accepted by Sisal packages and the migration CLI.
 - `SisalSqlLogSettings` (interface): SQL logging controls accepted by Sisal packages.
+- `SisalSqlParameterMode` (typeAlias): How SQL bind parameters are rendered into logs.
+- `StdLogLike` (interface): An @std/log-style logger: level methods that take (message, ...args).
 
-### @sisal/orm ./schema (packages/orm/schema.ts)
+### @sisal/orm ./schema (packages/orm/src/schema.ts)
 
 The serializable schema-snapshot contract — compatibility re-export: the module lives at @sisal/core/schema since the v0.8 extraction. New code should import from @sisal/core (or @sisal/core/schema) directly.
 
@@ -1161,7 +1188,7 @@ Migration planning and execution primitives for Sisal database tooling.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
 - `writeMigrationFile` (function): Writes a generated migration's .sql and .snapshot.json files.
 
-### @sisal/migrate ./cli (packages/migrate/cli.ts)
+### @sisal/migrate ./cli (packages/migrate/src/cli.ts)
 
 sisal migration CLI.
 
@@ -1173,7 +1200,7 @@ sisal migration CLI.
 - `SisalCliMigrator` (interface): Minimal migrator facade used by the CLI.
 - `SisalCliOptions` (interface): Test/runtime injection points for the CLI runner.
 
-### @sisal/migrate ./core (packages/migrate/core/mod.ts)
+### @sisal/migrate ./core (packages/migrate/src/core/mod.ts)
 
 Migration definitions, planning, history stores, and runner contracts.
 
@@ -1249,7 +1276,7 @@ Migration definitions, planning, history stores, and runner contracts.
 - `validateMigrations` (function): Validates a migration list and rejects duplicate ids.
 - `writeMigrationFile` (function): Writes a generated migration's .sql and .snapshot.json files.
 
-### @sisal/migrate ./workflow (packages/migrate/core/workflow.ts)
+### @sisal/migrate ./workflow (packages/migrate/src/core/workflow.ts)
 
 SQL-first migration workflow: an injectable filesystem, generated-migration file writing/reading, config, and drift checking.
 
@@ -1398,7 +1425,7 @@ PostgreSQL adapter package for Sisal.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 - `resolvePgDriverKind` (function): Resolves which {@link PgDriverKind} a URL connection will use — the explicit options.driver when given, otherwise {@link DEFAULT_PG_DRIVER}.
 
-### @sisal/pg ./ddl (packages/pg/migrate/ddl.ts)
+### @sisal/pg ./ddl (packages/pg/src/migrate/ddl.ts)
 
 Pure PostgreSQL DDL generation from @sisal/orm snapshots.
 
@@ -1413,7 +1440,7 @@ Pure PostgreSQL DDL generation from @sisal/orm snapshots.
 - `PostgresUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 
-### @sisal/pg ./migrate (packages/pg/migrate/mod.ts)
+### @sisal/pg ./migrate (packages/pg/src/migrate/mod.ts)
 
 PostgreSQL adapter for @sisal/migrate.
 
@@ -1446,7 +1473,7 @@ PostgreSQL adapter for @sisal/migrate.
 - `SqlExecutor` (interface): Minimal SQL executor used by the PostgreSQL migration adapter.
 - `SqlExecutorSession` (interface): Pinned PostgreSQL execution session held across multiple executor calls.
 
-### @sisal/pg ./orm (packages/pg/orm/mod.ts)
+### @sisal/pg ./orm (packages/pg/src/orm/mod.ts)
 
 PostgreSQL adapter for @sisal/orm.
 
@@ -1512,7 +1539,7 @@ SQLite adapter package for Sisal.
 - `SqliteUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `statementReturnsRows` (function): Returns true when a statement yields rows (SELECT/WITH/PRAGMA/EXPLAIN, or any statement with a RETURNING clause), so the executor knows whether to read rows or report a change count.
 
-### @sisal/sqlite ./ddl (packages/sqlite/migrate/ddl.ts)
+### @sisal/sqlite ./ddl (packages/sqlite/src/migrate/ddl.ts)
 
 Pure SQLite DDL generation from @sisal/orm snapshots.
 
@@ -1525,7 +1552,7 @@ Pure SQLite DDL generation from @sisal/orm snapshots.
 - `quoteSqliteIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 - `SqliteUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 
-### @sisal/sqlite ./migrate (packages/sqlite/migrate/mod.ts)
+### @sisal/sqlite ./migrate (packages/sqlite/src/migrate/mod.ts)
 
 SQLite adapter for @sisal/migrate.
 
@@ -1560,7 +1587,7 @@ SQLite adapter for @sisal/migrate.
 - `SqliteUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `statementReturnsRows` (function): Returns true when a statement yields rows (SELECT/WITH/PRAGMA/EXPLAIN, or any statement with a RETURNING clause).
 
-### @sisal/sqlite ./orm (packages/sqlite/orm/mod.ts)
+### @sisal/sqlite ./orm (packages/sqlite/src/orm/mod.ts)
 
 SQLite adapter for @sisal/orm.
 
@@ -1633,7 +1660,7 @@ libSQL/Turso adapter package for Sisal.
 - `openLibsqlClient` (function): Opens a libSQL/Turso client for ORM use.
 - `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 
-### @sisal/libsql ./ddl (packages/libsql/migrate/ddl.ts)
+### @sisal/libsql ./ddl (packages/libsql/src/migrate/ddl.ts)
 
 Pure libSQL/Turso DDL generation.
 
@@ -1645,7 +1672,7 @@ Pure libSQL/Turso DDL generation.
 - `LibsqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 
-### @sisal/libsql ./migrate (packages/libsql/migrate/mod.ts)
+### @sisal/libsql ./migrate (packages/libsql/src/migrate/mod.ts)
 
 libSQL/Turso adapter for @sisal/migrate.
 
@@ -1690,7 +1717,7 @@ libSQL/Turso adapter for @sisal/migrate.
 - `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 - `SqlExecutor` (interface): Minimal SQL executor used by the libSQL migration adapter.
 
-### @sisal/libsql ./orm (packages/libsql/orm/mod.ts)
+### @sisal/libsql ./orm (packages/libsql/src/orm/mod.ts)
 
 libSQL/Turso adapter for @sisal/orm.
 
@@ -1776,7 +1803,7 @@ MySQL/MariaDB adapter package for Sisal.
 - `SqlExecutor` (interface): Minimal SQL executor used by the MySQL migration adapter.
 - `SqlExecutorSession` (interface): Pinned MySQL execution session held across multiple executor calls.
 
-### @sisal/mysql ./ddl (packages/mysql/migrate/ddl.ts)
+### @sisal/mysql ./ddl (packages/mysql/src/migrate/ddl.ts)
 
 Pure MySQL/MariaDB DDL generation from @sisal/orm snapshots.
 
@@ -1791,7 +1818,7 @@ Pure MySQL/MariaDB DDL generation from @sisal/orm snapshots.
 - `MysqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quoteMysqlIdent` (function): Quotes a MySQL identifier with backticks, escaping embedded backticks.
 
-### @sisal/mysql ./migrate (packages/mysql/migrate/mod.ts)
+### @sisal/mysql ./migrate (packages/mysql/src/migrate/mod.ts)
 
 MySQL/MariaDB adapter for @sisal/migrate.
 
@@ -1823,7 +1850,7 @@ MySQL/MariaDB adapter for @sisal/migrate.
 - `SqlExecutor` (interface): Minimal SQL executor used by the MySQL migration adapter.
 - `SqlExecutorSession` (interface): Pinned MySQL execution session held across multiple executor calls.
 
-### @sisal/mysql ./orm (packages/mysql/orm/mod.ts)
+### @sisal/mysql ./orm (packages/mysql/src/orm/mod.ts)
 
 MySQL/MariaDB adapter for @sisal/orm.
 
@@ -1901,7 +1928,7 @@ Neon serverless adapter package for Sisal.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 - `resolveNeonConnectionString` (function): Resolves url or connectionString into a non-empty connection string.
 
-### @sisal/neon ./ddl (packages/neon/ddl.ts)
+### @sisal/neon ./ddl (packages/neon/src/ddl.ts)
 
 PostgreSQL DDL helpers for Neon serverless workflows.
 
@@ -1914,7 +1941,7 @@ PostgreSQL DDL helpers for Neon serverless workflows.
 - `PostgresUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
 - `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
 
-### @sisal/neon ./migrate (packages/neon/migrate/mod.ts)
+### @sisal/neon ./migrate (packages/neon/src/migrate/mod.ts)
 
 Neon serverless adapter for @sisal/migrate.
 
@@ -1950,7 +1977,7 @@ Neon serverless adapter for @sisal/migrate.
 - `normalizeNeonResult` (function): Normalizes a Neon query result into Sisal's affected-row shape.
 - `resolveNeonConnectionString` (function): Resolves url or connectionString into a non-empty connection string.
 
-### @sisal/neon ./orm (packages/neon/orm/mod.ts)
+### @sisal/neon ./orm (packages/neon/src/orm/mod.ts)
 
 Neon serverless adapter for @sisal/orm.
 
@@ -2526,14 +2553,24 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
-## Unreleased
-
-_No unreleased changes._
-
 ## 0.11.0 - 2026-07-04
 
 ### Added
 
+- **Bundled logger bridges and presets** in `@sisal/core` (re-exported from
+  `@sisal/orm`): `consoleLogger()` (zero-setup `console` sink),
+  `fromStdLog(logger)` (adapts an `@std/log` logger), and the
+  `developmentLogging(logger)` / `productionLogging(logger)` verbosity presets.
+  The `examples/logging` Pino bridge shows the `isEnabled` fast-path forwarding
+  `pino.isLevelEnabled`.
+- **Raw SQL bind-parameter logging.** `sql: { parameters: "values" }` (and
+  `developmentLogging`) logs the actual bind values so a failing query can be
+  replayed while debugging — opt-in, alongside the existing `"redacted"`
+  (default) and `"off"` modes. Connection strings, DSNs, and tokens remain
+  always-redacted regardless. New `renderSqlParametersForLog(params, mode)` and
+  `SisalSqlParameterMode` / `SisalLogLevelActive` exports.
+- Logging-cost benchmark coverage for the new `"values"` mode in the
+  `orm logging` bench groups (`benchmarks/scenarios/logging.ts`).
 - Reworked the root README's advanced Sisal example into a staged product-feed
   story: model definitions, CLI migration generation, typed feed queries,
   advanced SQL, ETL rollups, and analytics reads, with short value notes for
@@ -2722,9 +2759,29 @@ _No unreleased changes._
 
 ### Changed
 
-- Bumped workspace package and example manifest versions to `0.11.0`, refreshed
-  README install pins, and updated the migration CLI's default adapter version
-  prompts to `^0.11.0`.
+- Moved workspace package internals into `packages/<name>/src/` and
+  package-local tests into `packages/<name>/tests/`, with public subpackages
+  mirrored under `src/<subpackage>/`. Root package `mod.ts` entrypoints,
+  `deno.json`, and README files remain at package root while export maps and
+  publish include lists point at the new source layout.
+- **Breaking: the `Logger` contract is now a single structured sink.** A logger
+  implements one `log(event)` method (receiving
+  `{ level, category, message,
+  record }`) plus an optional
+  `isEnabled(level, category)` fast-path, replacing the five per-level methods
+  and the overloaded `LoggerMethod` (removed). This is the most extensible shape
+  — the sink sees the whole event and decides routing, formatting, and filtering
+  — and it makes bridges cast-free. Migrate a custom logger by collapsing the
+  per-level methods into one `log(event)` that switches on `event.level`.
+- ORM query logging is now **zero-cost when off**: the query hot path (`#run`,
+  plus transactions and batches) builds no event records, takes no
+  `performance.now()` timing, and renders no parameters unless a sink actually
+  wants the event (guarded by `isEnabled`/level/category). With no logger
+  attached, Sisal is fully silent — a failing query still throws a redacted
+  `SisalError`.
+- Bumped workspace package, example, and benchmark manifest versions to
+  `0.11.0`, refreshed README install pins, and updated the migration CLI's
+  default adapter version prompts to `^0.11.0`.
 - The SQLite adapter now opens `@db/sqlite` with `int64` support so stored
   INTEGER values above 32-bit range (for example `4200000000`) no longer decode
   through a signed 32-bit wraparound in live SQLite integration.

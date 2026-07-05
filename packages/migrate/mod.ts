@@ -7,4 +7,4 @@
  * @module
  */
 
-export * from "./core/mod.ts";
+export * from "./src/core/mod.ts";

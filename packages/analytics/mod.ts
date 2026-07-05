@@ -33,7 +33,7 @@ export {
   type AnalyticsSource,
   type CompareToPreviousWindowOptions,
   from,
-} from "./query.ts";
+} from "./src/query.ts";
 export {
   type AnalyticsOrderTerm,
   type AnalyticsRow,
@@ -58,12 +58,12 @@ export {
   type WindowedMetricValue,
   type WindowOperand,
   type WindowOrderOperand,
-} from "./model.ts";
-export { bucket, isTimeBucket } from "./bucket.ts";
-export { percentileCont, percentileDisc } from "./percentile.ts";
+} from "./src/model.ts";
+export { bucket, isTimeBucket } from "./src/bucket.ts";
+export { percentileCont, percentileDisc } from "./src/percentile.ts";
 export {
   type AnalyticsQuerySupport,
   assertQuerySupported,
   supportsQuery,
-} from "./capability.ts";
+} from "./src/capability.ts";
 export { avg, count, countDistinct, max, min, sum } from "@sisal/core";

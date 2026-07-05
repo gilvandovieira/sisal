@@ -13,28 +13,28 @@
  * @module
  */
 
-export * from "./error.ts";
-export * from "./logger.ts";
-export * from "./schema.ts";
-export { assembleInsertFromSelect, assembleSelect } from "./assemble.ts";
+export * from "./src/error.ts";
+export * from "./src/logger.ts";
+export * from "./src/schema.ts";
+export { assembleInsertFromSelect, assembleSelect } from "./src/assemble.ts";
 export type {
   AssembleInsertFromSelectParts,
   AssembleSelectParts,
   AssembleUpsert,
-} from "./assemble.ts";
-export { OrmError } from "./errors.ts";
-export type { OrmErrorCode, OrmErrorOptions } from "./errors.ts";
+} from "./src/assemble.ts";
+export { OrmError } from "./src/errors.ts";
+export type { OrmErrorCode, OrmErrorOptions } from "./src/errors.ts";
 export {
   CAPABILITY_TARGETS,
   capabilityGuard,
   capabilitySupported,
   DIALECT_CAPABILITIES,
-} from "./capabilities.ts";
+} from "./src/capabilities.ts";
 export type {
   CapabilityTargetId,
   DialectCapability,
   SisalCapabilityId,
-} from "./capabilities.ts";
+} from "./src/capabilities.ts";
 export {
   compareServerVersions,
   dialectGuard,
@@ -62,7 +62,7 @@ export {
   sqlChunkMeta,
   toSql,
   withSqlChunkMeta,
-} from "./sql.ts";
+} from "./src/sql.ts";
 export type {
   ColumnName,
   Condition,
@@ -85,7 +85,7 @@ export type {
   SqlQuery,
   SubquerySource,
   TableName,
-} from "./sql.ts";
+} from "./src/sql.ts";
 export {
   and,
   arrayContained,
@@ -130,21 +130,21 @@ export {
   now,
   or,
   sum,
-} from "./operators.ts";
+} from "./src/operators.ts";
 export type {
   DateDiffField,
   DateDuration,
   DateTruncField,
-} from "./operators.ts";
-export { denseRank, lag, lead, over, rank, rowNumber } from "./window.ts";
-export type { FrameBound, WindowFrame, WindowSpec } from "./window.ts";
-export { arrayExpr, jsonExtract, jsonTable } from "./json.ts";
+} from "./src/operators.ts";
+export { denseRank, lag, lead, over, rank, rowNumber } from "./src/window.ts";
+export type { FrameBound, WindowFrame, WindowSpec } from "./src/window.ts";
+export { arrayExpr, jsonExtract, jsonTable } from "./src/json.ts";
 export type {
   JsonTable,
   JsonTableColumnSpec,
   JsonTableOptions,
-} from "./json.ts";
-export { columns, createColumn } from "./columns.ts";
+} from "./src/json.ts";
+export { columns, createColumn } from "./src/columns.ts";
 export type {
   ColumnArray,
   ColumnBuilder,
@@ -158,9 +158,12 @@ export type {
   ReferentialOptions,
   TimeColumnMode,
   TimestampColumnMode,
-} from "./columns.ts";
-export { normalizeTemporalSqlValue } from "./temporal.ts";
-export type { TemporalParsingOptions, TemporalSqlValue } from "./temporal.ts";
+} from "./src/columns.ts";
+export { normalizeTemporalSqlValue } from "./src/temporal.ts";
+export type {
+  TemporalParsingOptions,
+  TemporalSqlValue,
+} from "./src/temporal.ts";
 export {
   check,
   createSchemaSnapshot,
@@ -174,7 +177,7 @@ export {
   setDefaultColumnNaming,
   unique,
   uniqueIndex,
-} from "./table.ts";
+} from "./src/table.ts";
 export type {
   AnyTableDefinition,
   ColumnDefinitionFromBuilder,
@@ -191,4 +194,4 @@ export type {
   TableConstraint,
   TableDefinition,
   UniqueConstraintBuilder,
-} from "./table.ts";
+} from "./src/table.ts";

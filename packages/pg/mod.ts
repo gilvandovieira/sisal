@@ -18,7 +18,7 @@ export {
   DEFAULT_PG_DRIVER,
   POSTGRES_DIALECT,
   resolvePgDriverKind,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 export type {
   CreatePgDbOptions,
   PgClient,
@@ -30,14 +30,14 @@ export type {
   PgQueryResult,
   PgSqlExecutor,
   PostgresJsPoolOptions,
-} from "./orm/mod.ts";
+} from "./src/orm/mod.ts";
 
 export {
   createPgMigrationDriver,
   createPgMigrationHistoryStore,
   createPgMigrator,
   DEFAULT_PG_MIGRATION_TABLE,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 export type {
   PgMigrateOptions,
   PgMigrationDefinition,
@@ -47,7 +47,7 @@ export type {
   PgMigrationPlanOptions,
   PgMigrator,
   PgRollbackOptions,
-} from "./migrate/mod.ts";
+} from "./src/migrate/mod.ts";
 
 export {
   generatePostgresAddColumn,
@@ -57,5 +57,5 @@ export {
   generatePostgresUpStatements,
   pgQualifiedName,
   quotePgIdent,
-} from "./migrate/ddl.ts";
-export type { PostgresUpStatements } from "./migrate/ddl.ts";
+} from "./src/migrate/ddl.ts";
+export type { PostgresUpStatements } from "./src/migrate/ddl.ts";
