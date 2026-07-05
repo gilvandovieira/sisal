@@ -1,6 +1,6 @@
 {
   "name": "@sisal/mysql",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "exports": {
     ".": "./mod.ts",
     "./orm": "./src/orm/mod.ts",
@@ -8,7 +8,7 @@
     "./ddl": "./src/migrate/ddl.ts"
   },
   "license": "MIT",
-  "description": "MySQL and MariaDB adapter boundaries for Sisal ORM and migrations.",
+  "description": "MySQL & MariaDB adapter for Sisal: one adapter with engine-detected, typed ORM execution, SQL rendering, and migrations.",
   "keywords": [
     "deno",
     "jsr",

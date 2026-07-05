@@ -1,6 +1,6 @@
 {
   "name": "@sisal/sqlite",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "exports": {
     ".": "./mod.ts",
     "./orm": "./src/orm/mod.ts",
@@ -8,7 +8,7 @@
     "./ddl": "./src/migrate/ddl.ts"
   },
   "license": "MIT",
-  "description": "SQLite adapter boundaries for Sisal ORM and migrations.",
+  "description": "SQLite adapter for Sisal: embedded, typed ORM execution with dialect-aware SQL rendering and migrations.",
   "keywords": [
     "deno",
     "jsr",

@@ -1,6 +1,6 @@
 {
   "name": "@sisal/migrate",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "exports": {
     ".": "./mod.ts",
     "./cli": "./src/cli.ts",
@@ -8,7 +8,7 @@
     "./workflow": "./src/core/workflow.ts"
   },
   "license": "MIT",
-  "description": "Migration planning, diffing, and running primitives for Sisal.",
+  "description": "Schema migrations for Sisal: snapshot diffing, migration planning, additive DDL generation, checksums, and a driverless runner with drift detection.",
   "keywords": [
     "deno",
     "jsr",

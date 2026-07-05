@@ -1,6 +1,6 @@
 {
   "name": "@sisal/orm",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "exports": {
     ".": "./mod.ts",
     "./core": "./src/core/mod.ts",
@@ -9,7 +9,7 @@
     "./schema": "./src/schema.ts"
   },
   "license": "MIT",
-  "description": "Driverless schema, typed SQL, and ORM primitives for Sisal.",
+  "description": "Sisal's driver-neutral ORM: type-safe schemas, safe SQL expressions, immutable query builders, relations, a typed function caller, and serializable schema snapshots.",
   "keywords": [
     "deno",
     "jsr",
