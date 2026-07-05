@@ -7,7 +7,7 @@ project Sisal was rebuilt from. That commit is summarized as a baseline instead
 of expanded into a full release narrative. The entries below reconstruct the
 Sisal-specific history after that baseline through `1f05448`.
 
-## Unreleased
+## 0.12.0 - 2026-07-05
 
 ### Added
 

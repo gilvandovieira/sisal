@@ -83,6 +83,11 @@ jobs:
 
       - name: Dry run npm publish
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        env:
+          # Empty once trusted publishing is configured (auth is OIDC); set the
+          # `NPM_TOKEN` secret only to bootstrap the first publish of a package
+          # that does not exist yet, then remove it.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           deno task --frozen build:npm:all
           deno run -A tools/npm_publish.ts --dry-run
@@ -133,6 +138,11 @@ jobs:
               github.ref == 'refs/heads/main'
             )
           }}
+        env:
+          # Empty once trusted publishing is configured (auth is OIDC); set the
+          # `NPM_TOKEN` secret only to bootstrap the first publish of a package
+          # that does not exist yet, then remove it.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           deno task --frozen build:npm:all
           deno run -A tools/npm_publish.ts
