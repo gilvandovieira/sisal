@@ -21,8 +21,11 @@ import type { PgConnectionOptions } from "./pool.ts";
 
 /** PostgreSQL convenience migration definition with inferred programmatic kind. */
 export interface PgMigrationDefinition extends MigrationBase {
+  /** Forward migration SQL or callback for this pg migration definition. */
   readonly kind?: never;
+  /** Rollback SQL or callback for this pg migration definition. */
   readonly up: MigrationStep;
+  /** Rollback SQL or callback for this pg migration definition. */
   readonly down?: MigrationStep;
 }
 
@@ -31,25 +34,33 @@ export type PgMigrationInput = Migration | PgMigrationDefinition;
 
 /** Options for applying pending PostgreSQL migrations. */
 export interface PgMigrateOptions extends MigrationRunOptions {
+  /** Migration input used by this pg migrate options. */
   readonly migrations: readonly PgMigrationInput[];
 }
 
 /** Options for rolling back PostgreSQL migrations. */
 export interface PgRollbackOptions extends MigrationDownOptions {
+  /** Migration input used by this pg rollback options. */
   readonly migrations: readonly PgMigrationInput[];
 }
 
 /** Options for planning PostgreSQL migrations without executing them. */
 export interface PgMigrationPlanOptions {
+  /** Migration input used by this pg migration plan options. */
   readonly migrations: readonly PgMigrationInput[];
 }
 
 /** PostgreSQL migration facade backed by the core migrator. */
 export interface PgMigrator {
+  /** Rolls back this pg migrator. */
   migrate(options: PgMigrateOptions): Promise<MigrationResult>;
+  /** Builds a migration plan for this pg migrator. */
   rollback(options: PgRollbackOptions): Promise<MigrationResult>;
+  /** Lists applied migrations for this pg migrator. */
   plan(options: PgMigrationPlanOptions): Promise<MigrationPlan>;
+  /** Closes resources held by this pg migrator. */
   applied(): Promise<AppliedMigration[]>;
+  /** Closes resources held by this pg migrator. */
   close(): Promise<void>;
 
   /** Async-disposal alias for {@link close} — enables `await using`. */

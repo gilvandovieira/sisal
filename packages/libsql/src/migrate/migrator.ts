@@ -25,8 +25,11 @@ import { createLibsqlMigrationHistoryStore } from "./history.ts";
 
 /** libSQL convenience migration definition with inferred programmatic kind. */
 export interface LibsqlMigrationDefinition extends MigrationBase {
+  /** Forward migration SQL or callback for this libsql migration definition. */
   readonly kind?: never;
+  /** Rollback SQL or callback for this libsql migration definition. */
   readonly up: MigrationStep;
+  /** Rollback SQL or callback for this libsql migration definition. */
   readonly down?: MigrationStep;
 }
 
@@ -35,25 +38,33 @@ export type LibsqlMigrationInput = Migration | LibsqlMigrationDefinition;
 
 /** Options for applying pending libSQL migrations. */
 export interface LibsqlMigrateOptions extends MigrationRunOptions {
+  /** Migration input used by this libsql migrate options. */
   readonly migrations: readonly LibsqlMigrationInput[];
 }
 
 /** Options for rolling back libSQL migrations. */
 export interface LibsqlRollbackOptions extends MigrationDownOptions {
+  /** Migration input used by this libsql rollback options. */
   readonly migrations: readonly LibsqlMigrationInput[];
 }
 
 /** Options for planning libSQL migrations without executing them. */
 export interface LibsqlMigrationPlanOptions {
+  /** Migration input used by this libsql migration plan options. */
   readonly migrations: readonly LibsqlMigrationInput[];
 }
 
 /** libSQL migration facade backed by the core migrator. */
 export interface LibsqlMigrator {
+  /** Rolls back this libsql migrator. */
   migrate(options: LibsqlMigrateOptions): Promise<MigrationResult>;
+  /** Builds a migration plan for this libsql migrator. */
   rollback(options: LibsqlRollbackOptions): Promise<MigrationResult>;
+  /** Lists applied migrations for this libsql migrator. */
   plan(options: LibsqlMigrationPlanOptions): Promise<MigrationPlan>;
+  /** Closes resources held by this libsql migrator. */
   applied(): Promise<AppliedMigration[]>;
+  /** Closes resources held by this libsql migrator. */
   close(): Promise<void>;
 
   /** Async-disposal alias for {@link close} — enables `await using`. */
@@ -62,10 +73,15 @@ export interface LibsqlMigrator {
 
 /** Options for creating a libSQL migration facade. */
 export interface CreateLibsqlMigratorOptions extends LibsqlConnectionOptions {
+  /** Logger used by this create libsql migrator options. */
   readonly executor?: SqlExecutor;
+  /** Logging options used by this create libsql migrator options. */
   readonly logger?: Logger;
+  /** History table name used by this create libsql migrator options. */
   readonly logging?: SisalLoggingOptions;
+  /** Transaction behavior for this create libsql migrator options. */
   readonly historyTable?: string;
+  /** Transaction behavior for this create libsql migrator options. */
   readonly useTransaction?: boolean;
 }
 

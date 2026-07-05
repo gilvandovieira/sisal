@@ -11,18 +11,24 @@ import {
 
 /** Rows and affected-row count returned by a PostgreSQL executor. */
 export interface PgQueryResult<Row = Record<string, unknown>> {
+  /** Row count reported by this pg query result. */
   readonly rows: Row[];
+  /** Row count reported by this pg query result. */
   readonly rowCount: number;
 }
 
 /** Minimal SQL executor used by the PostgreSQL ORM adapter. */
 export interface PgSqlExecutor {
+  /** Executes SQL through this pg sql executor. */
   execute<Row = Record<string, unknown>>(
     sql: string,
     params?: readonly unknown[],
   ): Promise<PgQueryResult<Row>>;
+  /** Runs work inside a transaction for this pg sql executor. */
 
+  /** Closes resources held by this pg sql executor. */
   transaction?<T>(fn: (tx: PgSqlExecutor) => Promise<T>): Promise<T>;
+  /** Closes resources held by this pg sql executor. */
   close?(): Promise<void>;
 }
 

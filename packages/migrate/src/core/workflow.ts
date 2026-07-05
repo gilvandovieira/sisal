@@ -29,6 +29,7 @@ export interface MigrationFileSystem {
   readDir(path: string): Promise<readonly string[]>;
   /** Reads a UTF-8 file, returning `undefined` when it does not exist. */
   readFile(path: string): Promise<string | undefined>;
+  /** write file for this migration file system. */
   writeFile(path: string, content: string): Promise<void>;
   /** Creates a directory recursively; a no-op when it already exists. */
   mkdir(path: string): Promise<void>;
@@ -36,18 +37,27 @@ export interface MigrationFileSystem {
 
 /** A generated migration ready to be written to disk. */
 export interface GeneratedMigrationFile {
+  /** sql file name for this generated migration file. */
   readonly id: string;
+  /** snapshot file name for this generated migration file. */
   readonly sqlFileName: string;
+  /** SQL text used by this generated migration file. */
   readonly snapshotFileName: string;
+  /** snapshot for this generated migration file. */
   readonly sql: string;
+  /** snapshot for this generated migration file. */
   readonly snapshot: SisalSchemaSnapshot;
 }
 
 /** A migration discovered on disk by {@link readMigrationsDir}. */
 export interface DiscoveredMigration {
+  /** sequence for this discovered migration. */
   readonly id: string;
+  /** file name for this discovered migration. */
   readonly sequence: number;
+  /** SQL text used by this discovered migration. */
   readonly fileName: string;
+  /** SQL text used by this discovered migration. */
   readonly sql: string;
   /** The captured snapshot, when a matching `.snapshot.json` exists. */
   readonly snapshot?: SisalSchemaSnapshot;
@@ -152,7 +162,9 @@ export type MigrateProvider = "neon";
 
 /** Validated migration configuration (`sisal.migrate.ts`). */
 export interface MigrateConfig {
+  /** dialect for this migrate config. */
   readonly dir: string;
+  /** dialect for this migrate config. */
   readonly dialect?: SisalDialectName;
   /**
    * Runtime adapter override for a dialect. `"neon"` keeps the `postgres`
@@ -168,6 +180,7 @@ export interface MigrateConfig {
   readonly databaseAuthToken?: string;
   /** SQLite database file path (`:memory:` is accepted for tests/scaffolds). */
   readonly databasePath?: string;
+  /** History table name used by this migrate config. */
   readonly historyTable?: string;
   /** Default migration CLI logging settings; runtime flags may override them. */
   readonly logging?: SisalLogSettings;
@@ -327,13 +340,17 @@ export type DriftKind =
 
 /** A single drift finding from {@link checkDrift}. */
 export interface DriftFinding {
+  /** message for this drift finding. */
   readonly kind: DriftKind;
+  /** message for this drift finding. */
   readonly message: string;
 }
 
 /** Result of a drift check. */
 export interface DriftReport {
+  /** findings for this drift report. */
   readonly clean: boolean;
+  /** findings for this drift report. */
   readonly findings: readonly DriftFinding[];
 }
 

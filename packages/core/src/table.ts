@@ -143,10 +143,14 @@ export type ColumnDefinitionFromBuilder<TBuilder> = TBuilder extends
 /** Table schema definition returned by defineTable. */
 export interface TableDefinition<
   TColumns extends TableColumns = TableColumns,
-> {
+> /** Discriminator for this table definition. */ {
+  /** Name used by this table definition. */
   readonly kind: "table";
+  /** schema for this table definition. */
   readonly name: TableName;
+  /** Columns selected or configured by this table definition. */
   readonly schema?: string;
+  /** Columns selected or configured by this table definition. */
   readonly columns: {
     readonly [K in keyof TColumns]: ColumnDefinitionFromBuilder<TColumns[K]> & {
       readonly propertyName: K & string;
@@ -444,16 +448,19 @@ export type TableColumn<TTable extends TableDefinition> =
 
 /** Options applied when building a schema snapshot from ORM tables. */
 export interface CreateSchemaSnapshotOptions {
+  /** dialect for this create schema snapshot options. */
   readonly dialect?: SisalDialectName;
   /** Engine variant behind the dialect (e.g. `"mariadb"`); see the snapshot field. */
   readonly dialectVariant?: string;
   /** Minimum server version the DDL targets; see the snapshot field. */
   readonly dialectVersion?: string;
+  /** Metadata attached to this create schema snapshot options. */
   readonly metadata?: Record<string, unknown>;
 }
 
 /** Input accepted by {@link createSchemaSnapshot}. */
 export interface CreateSchemaSnapshotInput extends CreateSchemaSnapshotOptions {
+  /** tables for this create schema snapshot input. */
   readonly tables: readonly TableDefinition[] | Record<string, TableDefinition>;
   /**
    * Raw DDL fragments (functions, triggers, extensions, …) emitted after table
@@ -747,6 +754,7 @@ function columnGeneratedExpression(expression: Sql, tableName: string): string {
   return rendered.text.replaceAll(`"${tableName}".`, "");
 }
 
+/** Asserts that a value is a Sisal table definition. */
 export function assertTable(value: unknown): asserts value is TableDefinition {
   if (!isTable(value)) {
     throw new OrmError("Expected a table definition", {
@@ -755,6 +763,7 @@ export function assertTable(value: unknown): asserts value is TableDefinition {
   }
 }
 
+/** Asserts that a table exposes a column for the given key. */
 export function assertTableColumn(table: TableDefinition, key: string): void {
   if (!Object.hasOwn(table.columns, key)) {
     throw new OrmError("Unknown table column", {

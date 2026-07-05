@@ -27,8 +27,11 @@ import { createMysqlMigrationHistoryStore } from "./history.ts";
 
 /** MySQL convenience migration definition with inferred programmatic kind. */
 export interface MysqlMigrationDefinition extends MigrationBase {
+  /** Forward migration SQL or callback for this mysql migration definition. */
   readonly kind?: never;
+  /** Rollback SQL or callback for this mysql migration definition. */
   readonly up: MigrationStep;
+  /** Rollback SQL or callback for this mysql migration definition. */
   readonly down?: MigrationStep;
 }
 
@@ -37,25 +40,33 @@ export type MysqlMigrationInput = Migration | MysqlMigrationDefinition;
 
 /** Options for applying pending MySQL migrations. */
 export interface MysqlMigrateOptions extends MigrationRunOptions {
+  /** Migration input used by this mysql migrate options. */
   readonly migrations: readonly MysqlMigrationInput[];
 }
 
 /** Options for rolling back MySQL migrations. */
 export interface MysqlRollbackOptions extends MigrationDownOptions {
+  /** Migration input used by this mysql rollback options. */
   readonly migrations: readonly MysqlMigrationInput[];
 }
 
 /** Options for planning MySQL migrations without executing them. */
 export interface MysqlMigrationPlanOptions {
+  /** Migration input used by this mysql migration plan options. */
   readonly migrations: readonly MysqlMigrationInput[];
 }
 
 /** MySQL migration facade backed by the core migrator. */
 export interface MysqlMigrator {
+  /** Rolls back this mysql migrator. */
   migrate(options: MysqlMigrateOptions): Promise<MigrationResult>;
+  /** Builds a migration plan for this mysql migrator. */
   rollback(options: MysqlRollbackOptions): Promise<MigrationResult>;
+  /** Lists applied migrations for this mysql migrator. */
   plan(options: MysqlMigrationPlanOptions): Promise<MigrationPlan>;
+  /** Closes resources held by this mysql migrator. */
   applied(): Promise<AppliedMigration[]>;
+  /** Closes resources held by this mysql migrator. */
   close(): Promise<void>;
 
   /** Async-disposal alias for {@link close} — enables `await using`. */
@@ -64,9 +75,13 @@ export interface MysqlMigrator {
 
 /** Options for creating a MySQL migration facade. */
 export interface CreateMysqlMigratorOptions extends MysqlConnectionOptions {
+  /** Logger used by this create mysql migrator options. */
   readonly executor?: SqlExecutor;
+  /** Logging options used by this create mysql migrator options. */
   readonly logger?: Logger;
+  /** History table name used by this create mysql migrator options. */
   readonly logging?: SisalLoggingOptions;
+  /** History table name used by this create mysql migrator options. */
   readonly historyTable?: string;
   /**
    * Wrap each migration in a transaction. Defaults to **`false`** — unlike

@@ -44,8 +44,11 @@ export type WindowOrderOperand<TKey extends string = string> =
  * — a key or expression plus a direction.
  */
 export interface AnalyticsOrderTerm<TKey extends string = string> {
+  /** Discriminator for an explicit analytics ordering term. */
   readonly kind: "analytics-order";
+  /** Metric, dimension, or expression reference being ordered. */
   readonly ref: WindowOperand<TKey>;
+  /** Sort direction for the ordering term. */
   readonly direction: "asc" | "desc";
 }
 

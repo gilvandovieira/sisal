@@ -75,21 +75,29 @@ export interface SisalSqlLogSettings {
 
 /** Shared logging settings accepted by Sisal packages and the migration CLI. */
 export interface SisalLogSettings {
+  /** categories for this sisal log settings. */
   readonly level?: SisalLogLevel;
+  /** SQL text used by this sisal log settings. */
   readonly categories?: SisalLogCategorySettings;
+  /** SQL text used by this sisal log settings. */
   readonly sql?: SisalSqlLogSettings;
 }
 
 /** Shared logging options accepted by Sisal facades. */
 export interface SisalLoggingOptions extends SisalLogSettings {
+  /** Logger used by this sisal logging options. */
   readonly logger?: Logger;
 }
 
 /** A structured Sisal log event handed to a {@link Logger}. */
 export interface SisalLogEvent {
+  /** category for this sisal log event. */
   readonly level: SisalLogLevelActive;
+  /** message for this sisal log event. */
   readonly category: SisalLogCategory;
+  /** record for this sisal log event. */
   readonly message: string;
+  /** record for this sisal log event. */
   readonly record?: Record<string, unknown>;
 }
 
@@ -119,28 +127,41 @@ export interface Logger {
 
 /** Normalized logging controls used by Sisal internals. */
 export interface NormalizedSisalLogging {
+  /** level for this normalized sisal logging. */
   readonly logger?: Logger;
+  /** categories for this normalized sisal logging. */
   readonly level: SisalLogLevel;
+  /** SQL text used by this normalized sisal logging. */
   readonly categories: SisalLogCategorySettings;
+  /** Metadata attached to this normalized sisal logging. */
   readonly sql: Required<SisalSqlLogSettings>;
+  /** Metadata attached to this normalized sisal logging. */
   readonly metadata: boolean;
 }
 
 /** Event emitter returned by {@link createSisalLogEmitter}. */
 export interface SisalLogEmitter {
+  /** enabled for this sisal log emitter. */
   readonly settings: NormalizedSisalLogging;
+  /** enabled for this sisal log emitter. */
   enabled(
     level: SisalLogLevelActive,
     category: SisalLogCategory,
+    /** emit for this sisal log emitter. */
   ): boolean;
+  /** emit for this sisal log emitter. */
   emit(event: SisalLogEvent): void;
 }
 
 /** Options for {@link createSisalLogEmitter}. */
 export interface CreateSisalLogEmitterOptions {
+  /** Logging options used by this create sisal log emitter options. */
   readonly logger?: Logger;
+  /** default level for this create sisal log emitter options. */
   readonly logging?: SisalLoggingOptions | SisalLogSettings;
+  /** Metadata attached to this create sisal log emitter options. */
   readonly defaultLevel?: SisalLogLevel;
+  /** Metadata attached to this create sisal log emitter options. */
   readonly metadata?: boolean;
 }
 
@@ -383,9 +404,13 @@ export function redactSqlParameter(
 
 /** A `console`-like target accepted by {@link consoleLogger}. */
 export interface ConsoleLike {
+  /** warn for this console like. */
   error(...data: unknown[]): void;
+  /** info for this console like. */
   warn(...data: unknown[]): void;
+  /** debug for this console like. */
   info(...data: unknown[]): void;
+  /** debug for this console like. */
   debug(...data: unknown[]): void;
 }
 
@@ -440,9 +465,13 @@ export function consoleLogger(options: ConsoleLoggerOptions = {}): Logger {
  * `log.getLogger(...)`.
  */
 export interface StdLogLike {
+  /** Emits a debug-level log entry. */
   debug(message: string, ...args: unknown[]): unknown;
+  /** Emits an info-level log entry. */
   info(message: string, ...args: unknown[]): unknown;
+  /** Emits a warning-level log entry. */
   warn(message: string, ...args: unknown[]): unknown;
+  /** Emits an error-level log entry. */
   error(message: string, ...args: unknown[]): unknown;
 }
 

@@ -19,57 +19,84 @@ export type LibsqlArgs =
 
 /** Statement shape accepted by libSQL clients. */
 export interface LibsqlStatement {
+  /** Bound parameters used by this libsql statement. */
   readonly sql: string;
+  /** Bound parameters used by this libsql statement. */
   readonly args?: LibsqlArgs;
 }
 
 /** Result set shape returned by libSQL clients. */
 export interface LibsqlResultSet<Row = Record<string, unknown>> {
+  /** rows affected for this libsql result set. */
   readonly rows: Row[];
+  /** rows affected for this libsql result set. */
   readonly rowsAffected?: number;
 }
 
 /** Interactive transaction surface used by Sisal. */
 export interface LibsqlTransaction {
+  /** Executes SQL through this libsql transaction. */
   execute<Row = Record<string, unknown>>(
     statement: LibsqlStatement,
   ): Promise<LibsqlResultSet<Row>>;
+  /** Commits this libsql transaction. */
 
+  /** Rolls back this libsql transaction. */
   commit(): Promise<void>;
+  /** Closes resources held by this libsql transaction. */
   rollback(): Promise<void>;
+  /** Closes resources held by this libsql transaction. */
   close(): void;
 }
 
 /** Minimal libSQL/Turso client surface used by the adapter. */
 export interface LibsqlClient {
+  /** Executes SQL through this libsql client. */
   execute<Row = Record<string, unknown>>(
     statement: LibsqlStatement | string,
     args?: LibsqlArgs,
   ): Promise<LibsqlResultSet<Row>>;
+  /** Runs work inside a transaction for this libsql client. */
 
+  /** Closes resources held by this libsql client. */
   transaction?(mode?: LibsqlTransactionMode): Promise<LibsqlTransaction>;
+  /** Closes resources held by this libsql client. */
   close?(): void | Promise<void>;
 }
 
 /** Client config forwarded to `@libsql/client`. */
 export interface LibsqlClientConfig {
+  /** Authentication token used by this libsql client config. */
   readonly url: string;
+  /** encryption key used by this libsql client config. */
   readonly authToken?: string;
+  /** remote encryption key used by this libsql client config. */
   readonly encryptionKey?: string;
+  /** sync url for this libsql client config. */
   readonly remoteEncryptionKey?: string;
+  /** sync interval for this libsql client config. */
   readonly syncUrl?: string;
+  /** read your writes for this libsql client config. */
   readonly syncInterval?: number;
+  /** offline for this libsql client config. */
   readonly readYourWrites?: boolean;
+  /** tls for this libsql client config. */
   readonly offline?: boolean;
+  /** int mode for this libsql client config. */
   readonly tls?: boolean;
+  /** fetch for this libsql client config. */
   readonly intMode?: LibsqlIntMode;
+  /** concurrency for this libsql client config. */
   readonly fetch?: unknown;
+  /** timeout for this libsql client config. */
   readonly concurrency?: number;
+  /** timeout for this libsql client config. */
   readonly timeout?: number;
 }
 
 /** Connection options accepted by libSQL adapter factories. */
 export interface LibsqlConnectionOptions extends Partial<LibsqlClientConfig> {
+  /** client for this libsql connection options. */
   readonly client?: LibsqlClient;
 }
 

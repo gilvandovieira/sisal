@@ -16,7 +16,9 @@ import { toMysqlMigrationError } from "./errors.ts";
 
 /** Options for creating a MySQL-backed migration driver. */
 export interface MysqlMigrationDriverOptions extends MysqlConnectionOptions {
+  /** Migration store used by this mysql migration driver options. */
   readonly executor?: SqlExecutor;
+  /** Migration store used by this mysql migration driver options. */
   readonly transactionStoreFactory?: (executor: SqlExecutor) => MigrationStore;
 }
 

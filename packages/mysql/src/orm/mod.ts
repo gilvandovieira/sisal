@@ -55,10 +55,12 @@ export { insertReturning } from "./returning.ts";
 
 /** MySQL/MariaDB-specialized database facade. */
 export interface MysqlDatabase extends Database {
+  /** Executes SQL through this mysql database. */
   execute<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
   ): Promise<OrmQueryResult<T>>;
+  /** Runs a query through this mysql database. */
 
   query<T = unknown>(
     query: SqlInput,
@@ -68,8 +70,11 @@ export interface MysqlDatabase extends Database {
 
 /** Options for opening a MySQL/MariaDB-backed database facade. */
 export interface CreateMysqlDbOptions extends MysqlOrmDriverOptions {
+  /** Logging options used by this create mysql db options. */
   readonly logger?: Logger;
+  /** Temporal parsing options used by this create mysql db options. */
   readonly logging?: SisalLoggingOptions;
+  /** Temporal parsing options used by this create mysql db options. */
   readonly temporal?: TemporalParsingOptions;
   /**
    * Engine variant behind the connection (e.g. {@link MARIADB_VARIANT}).

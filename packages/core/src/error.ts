@@ -226,11 +226,17 @@ function redactDetails(
 
 /** Options accepted by {@link SisalError}. */
 export interface SisalErrorOptions {
+  /** HTTP-style status associated with this sisal error options. */
   readonly code?: string;
+  /** Whether this sisal error options can be shown to callers. */
   readonly status?: number;
+  /** Severity level associated with this sisal error options. */
   readonly expose?: boolean;
+  /** Structured diagnostic details for this sisal error options. */
   readonly severity?: SisalErrorSeverity;
+  /** Original cause associated with this sisal error options. */
   readonly details?: Record<string, unknown>;
+  /** Original cause associated with this sisal error options. */
   readonly cause?: unknown;
 }
 
@@ -241,11 +247,17 @@ export interface SisalErrorOptions {
  * database toolkit.
  */
 export class SisalError extends Error {
+  /** Stable Sisal error code. */
   readonly code: string;
+  /** HTTP-style status associated with the error. */
   readonly status: number;
+  /** Whether the message may be exposed to callers. */
   readonly expose: boolean;
+  /** Operational severity of the error. */
   readonly severity: SisalErrorSeverity;
+  /** Structured diagnostic details safe for logging. */
   readonly details?: Record<string, unknown>;
+  /** Creates a sisal error. */
 
   constructor(message: string, options: SisalErrorOptions = {}) {
     // Credentials must never leak through an error: redact the message and any

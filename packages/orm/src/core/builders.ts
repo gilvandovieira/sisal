@@ -98,6 +98,7 @@ export interface KeysetOptions<
 
 /** A page returned by a keyset query: the rows plus the cursor for the next page. */
 export interface KeysetPage<TRow, TCursor> {
+  /** Rows returned by this keyset page. */
   readonly rows: TRow[];
   /**
    * Cursor for the next page, or `null` when this was the last page — even
@@ -114,8 +115,11 @@ export interface KeysetSelectBuilder<TRow, TCursor> {
    * fetches `count + 1` rows — the extra probe row (never returned) is what
    * signals that a next page exists.
    */
+  /** Compiles this keyset select builder to SQL. */
   limit(count: number): KeysetSelectBuilder<TRow, TCursor>;
+  /** Executes SQL through this keyset select builder. */
   toSql(): Sql;
+  /** Executes SQL through this keyset select builder. */
   execute(): Promise<KeysetPage<TRow, TCursor>>;
 }
 
@@ -141,26 +145,31 @@ export interface SelectBuilder<TTable, TResult> {
 
   /** Postgres `SELECT DISTINCT ON (...)`: keeps the first row per expression. */
   distinctOn(...columns: unknown[]): SelectBuilder<TTable, TResult>;
+  /** Adds an inner join to this select builder. */
 
   innerJoin(
     table: TableDefinition,
     on: Condition,
   ): SelectBuilder<TTable, TResult>;
+  /** Adds a left join to this select builder. */
 
   leftJoin(
     table: TableDefinition,
     on: Condition,
   ): SelectBuilder<TTable, TResult>;
+  /** Adds a right join to this select builder. */
 
   rightJoin(
     table: TableDefinition,
     on: Condition,
   ): SelectBuilder<TTable, TResult>;
+  /** Adds a full join to this select builder. */
 
   fullJoin(
     table: TableDefinition,
     on: Condition,
   ): SelectBuilder<TTable, TResult>;
+  /** Adds a filtering predicate to this select builder. */
 
   where(condition: Condition): SelectBuilder<TTable, TResult>;
 
@@ -177,8 +186,10 @@ export interface SelectBuilder<TTable, TResult> {
   ): SelectBuilder<TTable, TResult>;
   /** Orders by one or more `asc()`/`desc()` terms or bare columns (ascending). */
   orderBy(...terms: unknown[]): SelectBuilder<TTable, TResult>;
+  /** Limits the number of rows for this select builder. */
 
   limit(count: number): SelectBuilder<TTable, TResult>;
+  /** Skips rows before returning results from this select builder. */
 
   offset(count: number): SelectBuilder<TTable, TResult>;
 
@@ -226,11 +237,13 @@ export interface SelectBuilder<TTable, TResult> {
   except(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
   /** `EXCEPT ALL` with another query (keeps duplicates). */
   exceptAll(other: SetOperand<TResult>): CompoundSelectBuilder<TResult>;
+  /** Compiles this select builder to SQL. */
 
   toSql(): Sql;
 
   /** Renders once into a {@link PreparedQuery} run later with placeholders. */
   prepare(name?: string): PreparedQuery<TResult[]>;
+  /** Executes SQL through this select builder. */
 
   execute(): Promise<TResult[]>;
 }
@@ -240,8 +253,11 @@ export interface SelectBuilder<TTable, TResult> {
  * `intersect`, `except`). Both {@link SelectBuilder} and
  * {@link CompoundSelectBuilder} satisfy this shape.
  */
+/** Compiles this set operand to SQL. */
 export type SetOperand<TResult> = {
+  /** Executes SQL through this set operand. */
   toSql(): Sql;
+  /** Executes SQL through this set operand. */
   execute(): Promise<TResult[]>;
 };
 
@@ -274,11 +290,13 @@ export interface CompoundSelectBuilder<TResult> {
   as(
     alias: string,
   ): Subquery<{ readonly [K in keyof TResult]-?: SelectColumnRef }>;
+  /** Compiles this compound select builder to SQL. */
 
   toSql(): Sql;
 
   /** Renders once into a {@link PreparedQuery} run later with placeholders. */
   prepare(name?: string): PreparedQuery<TResult[]>;
+  /** Executes SQL through this compound select builder. */
 
   execute(): Promise<TResult[]>;
 }
@@ -434,7 +452,9 @@ export interface RecursiveCteBuilder<
 
 /** Query root seeded with CTEs, returned by {@link Database.with}. */
 export interface WithQueryBuilder {
+  /** Select clause or selection produced by this with query builder. */
   select(): SelectBuilder<unknown, unknown>;
+  /** Selects a projection after the `WITH` chain. */
   select<TProjection extends SelectProjection>(
     projection: TProjection,
   ): SelectBuilder<unknown, InferProjection<TProjection>>;
@@ -476,7 +496,8 @@ export type UpdateValues<TTable extends TableDefinition> = Partial<
 export interface InsertBuilder<
   TTable extends TableDefinition,
   TReturn = InferSelect<TTable>,
-> {
+> /** Sets inserted values for this insert builder. */ {
+  /** Sets inserted values for this insert builder. */
   values(
     value: InsertValues<TTable> | InsertValues<TTable>[],
   ): InsertBuilder<TTable, TReturn>;
@@ -502,16 +523,19 @@ export interface InsertBuilder<
       readonly where?: Condition;
     },
   ): InsertBuilder<TTable, TReturn>;
-
+  /** Selects values returned by this insert builder. */
   returning(): InsertBuilder<TTable, InferSelect<TTable>>;
+  /** Selects a projected return shape for this insert builder. */
   returning<TProjection extends SelectProjection>(
     projection: TProjection,
   ): InsertBuilder<TTable, InferProjection<TProjection>>;
+  /** Compiles this insert builder to SQL. */
 
   toSql(): Sql;
 
   /** Renders once into a {@link PreparedQuery} run later with placeholders. */
   prepare(name?: string): PreparedQuery<OrmQueryResult<TReturn>>;
+  /** Executes SQL through this insert builder. */
 
   execute(): Promise<OrmQueryResult<TReturn>>;
 }
@@ -520,7 +544,8 @@ export interface InsertBuilder<
 export interface UpdateBuilder<
   TTable extends TableDefinition,
   TReturn = InferSelect<TTable>,
-> {
+> /** Sets updated values for this update builder. */ {
+  /** Sets updated values for this update builder. */
   set(
     values: UpdateValues<TTable>,
   ): UpdateBuilder<TTable, TReturn>;
@@ -532,20 +557,25 @@ export interface UpdateBuilder<
    * another CTE's `RETURNING`.
    */
   from(source: SelectFromSource): UpdateBuilder<TTable, TReturn>;
+  /** Adds a filtering predicate to this update builder. */
 
   where(condition: Condition): UpdateBuilder<TTable, TReturn>;
+  /** Allows this update builder to affect every row explicitly. */
 
   unsafeAllowAllRows(): UpdateBuilder<TTable, TReturn>;
-
+  /** Selects values returned by this update builder. */
   returning(): UpdateBuilder<TTable, InferSelect<TTable>>;
+  /** Selects a projected return shape for this update builder. */
   returning<TProjection extends SelectProjection>(
     projection: TProjection,
   ): UpdateBuilder<TTable, InferProjection<TProjection>>;
+  /** Compiles this update builder to SQL. */
 
   toSql(): Sql;
 
   /** Renders once into a {@link PreparedQuery} run later with placeholders. */
   prepare(name?: string): PreparedQuery<OrmQueryResult<TReturn>>;
+  /** Executes SQL through this update builder. */
 
   execute(): Promise<OrmQueryResult<TReturn>>;
 }
@@ -560,20 +590,25 @@ export interface DeleteBuilder<
    * can join against (the `DELETE` mirror of `UPDATE … FROM`).
    */
   using(source: SelectFromSource): DeleteBuilder<TTable, TReturn>;
+  /** Adds a filtering predicate to this delete builder. */
 
   where(condition: Condition): DeleteBuilder<TTable, TReturn>;
+  /** Allows this delete builder to affect every row explicitly. */
 
   unsafeAllowAllRows(): DeleteBuilder<TTable, TReturn>;
-
+  /** Selects values returned by this delete builder. */
   returning(): DeleteBuilder<TTable, InferSelect<TTable>>;
+  /** Selects a projected return shape for this delete builder. */
   returning<TProjection extends SelectProjection>(
     projection: TProjection,
   ): DeleteBuilder<TTable, InferProjection<TProjection>>;
+  /** Compiles this delete builder to SQL. */
 
   toSql(): Sql;
 
   /** Renders once into a {@link PreparedQuery} run later with placeholders. */
   prepare(name?: string): PreparedQuery<OrmQueryResult<TReturn>>;
+  /** Executes SQL through this delete builder. */
 
   execute(): Promise<OrmQueryResult<TReturn>>;
 }

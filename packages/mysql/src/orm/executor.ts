@@ -11,7 +11,9 @@ import {
 
 /** Rows and affected-row count returned by a MySQL executor. */
 export interface MysqlQueryResult<Row = Record<string, unknown>> {
+  /** Row count reported by this mysql query result. */
   readonly rows: Row[];
+  /** Row count reported by this mysql query result. */
   readonly rowCount: number;
   /**
    * `LAST_INSERT_ID` reported for a write statement — the first
@@ -23,12 +25,16 @@ export interface MysqlQueryResult<Row = Record<string, unknown>> {
 
 /** Minimal SQL executor used by the MySQL ORM adapter. */
 export interface MysqlSqlExecutor {
+  /** Executes SQL through this mysql sql executor. */
   execute<Row = Record<string, unknown>>(
     sql: string,
     params?: readonly unknown[],
   ): Promise<MysqlQueryResult<Row>>;
+  /** Runs work inside a transaction for this mysql sql executor. */
 
+  /** Closes resources held by this mysql sql executor. */
   transaction?<T>(fn: (tx: MysqlSqlExecutor) => Promise<T>): Promise<T>;
+  /** Closes resources held by this mysql sql executor. */
   close?(): Promise<void>;
 }
 

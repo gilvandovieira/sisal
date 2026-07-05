@@ -12,7 +12,9 @@ export const DEFAULT_SQLITE_MIGRATION_TABLE = "sisal_migrations";
 
 /** Options for creating a SQLite-backed migration history store. */
 export interface SqliteMigrationHistoryStoreOptions {
+  /** History table name used by this sqlite migration history store options. */
   readonly executor: SqlExecutor;
+  /** History table name used by this sqlite migration history store options. */
   readonly tableName?: string;
 }
 

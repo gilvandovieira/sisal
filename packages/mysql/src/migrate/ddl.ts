@@ -460,7 +460,9 @@ export function generateMysqlAddColumn(
 
 /** Safe (additive) up statements plus the destructive changes that were withheld. */
 export interface MysqlUpStatements {
+  /** Whether this mysql up statements includes destructive changes. */
   readonly statements: readonly string[];
+  /** Whether this mysql up statements includes destructive changes. */
   readonly destructive: readonly SchemaChange[];
 }
 

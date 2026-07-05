@@ -1,11 +1,11 @@
 {
   "name": "@sisal/analytics",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "exports": {
     ".": "./mod.ts"
   },
   "license": "MIT",
-  "description": "Typed analytical queries for Sisal: metrics × dimensions × windows over rollup tables, Postgres-first.",
+  "description": "Typed analytical queries for Sisal: compose metrics × dimensions × time windows over rollup tables. Postgres-first.",
   "keywords": [
     "deno",
     "jsr",

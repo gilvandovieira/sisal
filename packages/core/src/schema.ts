@@ -18,7 +18,9 @@ export type SisalDialectName =
 
 /** Serializable database schema snapshot shared by Sisal data packages. */
 export interface SisalSchemaSnapshot {
+  /** dialect for this sisal schema snapshot. */
   readonly version: typeof SCHEMA_SNAPSHOT_VERSION;
+  /** dialect for this sisal schema snapshot. */
   readonly dialect?: SisalDialectName;
   /**
    * Engine variant behind `dialect` (e.g. `"mariadb"` for `mysql`) — the
@@ -29,12 +31,15 @@ export interface SisalSchemaSnapshot {
   readonly dialectVariant?: string;
   /** Minimum server version the snapshot's DDL targets (e.g. `"8.0.16"`). */
   readonly dialectVersion?: string;
+  /** tables for this sisal schema snapshot. */
   readonly tables: readonly SisalTableSnapshot[];
   /**
    * Raw, dialect-specific DDL fragments (functions, triggers, extensions, …)
    * emitted **after** table/column/constraint/index creation, in declared order.
    */
+  /** Metadata attached to this sisal schema snapshot. */
   readonly schemaObjects?: readonly SisalSchemaObjectSnapshot[];
+  /** Metadata attached to this sisal schema snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -60,23 +65,37 @@ export interface SisalSchemaObjectSnapshot {
 
 /** Serializable table definition inside a schema snapshot. */
 export interface SisalTableSnapshot {
+  /** schema for this sisal table snapshot. */
   readonly name: string;
+  /** Columns selected or configured by this sisal table snapshot. */
   readonly schema?: string;
+  /** primary key used by this sisal table snapshot. */
   readonly columns: readonly SisalColumnSnapshot[];
+  /** indexes for this sisal table snapshot. */
   readonly primaryKey?: SisalPrimaryKeySnapshot;
+  /** unique constraints for this sisal table snapshot. */
   readonly indexes?: readonly SisalIndexSnapshot[];
+  /** foreign keys used by this sisal table snapshot. */
   readonly uniqueConstraints?: readonly SisalUniqueConstraintSnapshot[];
+  /** checks for this sisal table snapshot. */
   readonly foreignKeys?: readonly SisalForeignKeySnapshot[];
+  /** Metadata attached to this sisal table snapshot. */
   readonly checks?: readonly SisalCheckConstraintSnapshot[];
+  /** Metadata attached to this sisal table snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
 /** Serializable column definition inside a table snapshot. */
 export interface SisalColumnSnapshot {
+  /** type for this sisal column snapshot. */
   readonly name: string;
+  /** Whether this sisal column snapshot accepts null values. */
   readonly type: SisalColumnType;
+  /** default for this sisal column snapshot. */
   readonly nullable?: boolean;
+  /** generated for this sisal column snapshot. */
   readonly default?: SisalColumnDefault;
+  /** generated for this sisal column snapshot. */
   readonly generated?: boolean;
   /**
    * A generated-column expression (`GENERATED ALWAYS AS (<sql>)
@@ -89,23 +108,32 @@ export interface SisalColumnSnapshot {
   readonly generatedAs?: {
     readonly sql: string;
     readonly stored: boolean;
+    /** Referenced columns or table for this sisal column snapshot. */
   };
+  /** Referenced columns or table for this sisal column snapshot. */
   readonly references?: {
     readonly table: string;
     readonly schema?: string;
     readonly column: string;
     readonly onDelete?: string;
     readonly onUpdate?: string;
+    /** Metadata attached to this sisal column snapshot. */
   };
+  /** Metadata attached to this sisal column snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
 /** Dialect-neutral column type descriptor. */
 export interface SisalColumnType {
+  /** length for this sisal column type. */
   readonly kind: string;
+  /** precision for this sisal column type. */
   readonly length?: number;
+  /** scale for this sisal column type. */
   readonly precision?: number;
+  /** array for this sisal column type. */
   readonly scale?: number;
+  /** array for this sisal column type. */
   readonly array?: boolean;
   /**
    * Raw, dialect-specific type emitted verbatim into DDL, overriding `kind`.
@@ -135,8 +163,11 @@ export type SisalColumnDefault =
 
 /** Serializable primary-key constraint descriptor. */
 export interface SisalPrimaryKeySnapshot {
+  /** Columns selected or configured by this sisal primary key snapshot. */
   readonly name?: string;
+  /** Metadata attached to this sisal primary key snapshot. */
   readonly columns: readonly string[];
+  /** Metadata attached to this sisal primary key snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -162,8 +193,11 @@ export interface SisalIndexColumnSnapshot {
 
 /** Serializable index descriptor. */
 export interface SisalIndexSnapshot {
+  /** Columns selected or configured by this sisal index snapshot. */
   readonly name?: string;
+  /** Whether this sisal index snapshot has a unique constraint. */
   readonly columns: readonly SisalIndexColumnSnapshot[];
+  /** Whether this sisal index snapshot has a unique constraint. */
   readonly unique?: boolean;
   /**
    * Partial-index predicate, emitted verbatim as `WHERE <predicate>`.
@@ -171,35 +205,50 @@ export interface SisalIndexSnapshot {
    * **Trusted input.** Emitted into DDL unsanitized — set it only from
    * developer-authored schema code. See `docs/security.md` (SEC-006).
    */
+  /** Metadata attached to this sisal index snapshot. */
   readonly where?: string;
+  /** Metadata attached to this sisal index snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
 /** Serializable unique-constraint descriptor. */
 export interface SisalUniqueConstraintSnapshot {
+  /** Columns selected or configured by this sisal unique constraint snapshot. */
   readonly name?: string;
+  /** Metadata attached to this sisal unique constraint snapshot. */
   readonly columns: readonly string[];
+  /** Metadata attached to this sisal unique constraint snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
 /** Serializable foreign-key constraint descriptor. */
 export interface SisalForeignKeySnapshot {
+  /** Columns selected or configured by this sisal foreign key snapshot. */
   readonly name?: string;
+  /** Referenced columns or table for this sisal foreign key snapshot. */
   readonly columns: readonly string[];
+  /** Referenced columns or table for this sisal foreign key snapshot. */
   readonly references: {
     readonly table: string;
     readonly schema?: string;
     readonly columns: readonly string[];
+    /** Referential delete action for this sisal foreign key snapshot. */
   };
+  /** Referential update action for this sisal foreign key snapshot. */
   readonly onDelete?: string;
+  /** Metadata attached to this sisal foreign key snapshot. */
   readonly onUpdate?: string;
+  /** Metadata attached to this sisal foreign key snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
 /** Serializable check-constraint descriptor. */
 export interface SisalCheckConstraintSnapshot {
+  /** expression for this sisal check constraint snapshot. */
   readonly name?: string;
+  /** Metadata attached to this sisal check constraint snapshot. */
   readonly expression: string;
+  /** Metadata attached to this sisal check constraint snapshot. */
   readonly metadata?: Record<string, unknown>;
 }
 
@@ -218,8 +267,11 @@ export type SisalSchemaIssueCode =
 
 /** One validation issue found in a schema snapshot. */
 export interface SisalSchemaIssue {
+  /** path for this sisal schema issue. */
   readonly code: SisalSchemaIssueCode;
+  /** message for this sisal schema issue. */
   readonly path: string;
+  /** message for this sisal schema issue. */
   readonly message: string;
 }
 
@@ -474,31 +526,45 @@ export function equalSchemaSnapshots(
 
 /** A column present in both tables whose definition changed. */
 export interface SisalColumnDiff {
+  /** Source relation used by this sisal column diff. */
   readonly name: string;
+  /** to for this sisal column diff. */
   readonly from: SisalColumnSnapshot;
+  /** to for this sisal column diff. */
   readonly to: SisalColumnSnapshot;
 }
 
 /** Column-level changes between two versions of one table. */
 export interface SisalTableColumnsDiff {
+  /** removed for this sisal table columns diff. */
   readonly added: readonly SisalColumnSnapshot[];
+  /** changed for this sisal table columns diff. */
   readonly removed: readonly SisalColumnSnapshot[];
+  /** changed for this sisal table columns diff. */
   readonly changed: readonly SisalColumnDiff[];
 }
 
 /** A table present in both snapshots whose definition changed. */
 export interface SisalTableDiff {
+  /** schema for this sisal table diff. */
   readonly name: string;
+  /** Source relation used by this sisal table diff. */
   readonly schema?: string;
+  /** to for this sisal table diff. */
   readonly from: SisalTableSnapshot;
+  /** Columns selected or configured by this sisal table diff. */
   readonly to: SisalTableSnapshot;
+  /** Columns selected or configured by this sisal table diff. */
   readonly columns: SisalTableColumnsDiff;
 }
 
 /** Structural difference between two schema snapshots (`from` → `to`). */
 export interface SisalSchemaSnapshotDiff {
+  /** removed tables for this sisal schema snapshot diff. */
   readonly addedTables: readonly SisalTableSnapshot[];
+  /** changed tables for this sisal schema snapshot diff. */
   readonly removedTables: readonly SisalTableSnapshot[];
+  /** changed tables for this sisal schema snapshot diff. */
   readonly changedTables: readonly SisalTableDiff[];
 }
 

@@ -83,6 +83,7 @@ export function sqlStringLiteral(text: string): Sql {
 
 /** A projected column of a {@link jsonTable} — its logical type and JSONPath. */
 export interface JsonTableColumnSpec {
+  /** SQL type used to coerce the projected JSON value. */
   readonly type: "text" | "integer" | "bigint" | "double";
   /** JSONPath to the field within each array element, e.g. `$.sku`. */
   readonly path: string;
@@ -100,6 +101,7 @@ export interface JsonTableOptions {
 export interface JsonTable<
   TColumns extends Record<string, JsonTableColumnSpec>,
 > {
+  /** Columns selected or configured by this json table. */
   readonly columns: {
     readonly [K in keyof TColumns]: SqlExpression<
       TColumns[K]["type"] extends "text" ? string | null : number | null

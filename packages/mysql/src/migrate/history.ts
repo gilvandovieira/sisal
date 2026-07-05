@@ -35,7 +35,9 @@ const MYSQL_LOCK_NAME_MAX_LENGTH = 64;
 
 /** Options for creating a MySQL-backed migration history store. */
 export interface MysqlMigrationHistoryStoreOptions {
+  /** History table name used by this mysql migration history store options. */
   readonly executor: SqlExecutor;
+  /** History table name used by this mysql migration history store options. */
   readonly tableName?: string;
 }
 

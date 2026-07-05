@@ -48,13 +48,13 @@ export function isTemporalSqlValue(value: unknown): value is TemporalSqlValue {
     value instanceof Temporal.ZonedDateTime;
 }
 
-/** Serializes a Temporal value into the string shape drivers can bind safely. */
 /** True for the Temporal values whose serialization carries a `Z` suffix. */
 export function isTemporalInstantValue(value: unknown): boolean {
   return value instanceof Temporal.Instant ||
     value instanceof Temporal.ZonedDateTime;
 }
 
+/** Serializes a Temporal value into the string shape drivers can bind safely. */
 export function serializeTemporalValue(value: TemporalSqlValue): string {
   if (value instanceof Temporal.ZonedDateTime) {
     return value.toInstant().toString();

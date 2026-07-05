@@ -43,12 +43,19 @@ import {
  * parameter.
  */
 export interface AssembleSelectParts {
+  /** Projection map rendered in the `SELECT` clause. */
   readonly select: Readonly<Record<string, unknown>>;
+  /** Source table or subquery rendered in the `FROM` clause. */
   readonly from: TableDefinition | Sql;
+  /** Optional filtering predicate rendered as `WHERE`. */
   readonly where?: Condition;
+  /** Optional grouping expressions rendered as `GROUP BY`. */
   readonly groupBy?: readonly unknown[];
+  /** Optional grouped-result predicate rendered as `HAVING`. */
   readonly having?: Condition;
+  /** Optional ordering terms rendered as `ORDER BY`. */
   readonly orderBy?: readonly unknown[];
+  /** Optional row limit rendered as a bound parameter. */
   readonly limit?: number;
 }
 
@@ -69,12 +76,14 @@ export interface AssembleUpsert {
 
 /** Parts for {@link assembleInsertFromSelect}. */
 export interface AssembleInsertFromSelectParts {
+  /** Destination table receiving rows from the source query. */
   readonly into: TableDefinition;
   /**
    * The source query; its projection keys name the destination columns
    * (`insert into t ("a", "b") select … as "a", … as "b"`).
    */
   readonly select: AssembleSelectParts;
+  /** Optional dialect-mapped upsert clause for conflict handling. */
   readonly onConflictDoUpdate?: AssembleUpsert;
 }
 

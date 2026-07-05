@@ -1,6 +1,8 @@
 /** A prepared statement: `all` returns rows, `run` returns the change count. */
 export interface SqliteStatement {
+  /** Returns all rows produced by the prepared statement. */
   all(...params: readonly unknown[]): Record<string, unknown>[];
+  /** Runs this sqlite statement without returning mapped rows. */
   run(...params: readonly unknown[]): number;
 }
 
@@ -9,7 +11,9 @@ export interface SqliteStatement {
  * `@db/sqlite` `Database` satisfies it structurally, and tests inject a fake.
  */
 export interface SqliteLikeDatabase {
+  /** Prepares SQL for repeated execution. */
   prepare(sql: string): SqliteStatement;
+  /** Closes the underlying SQLite database. */
   close(): void;
 }
 

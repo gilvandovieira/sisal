@@ -57,10 +57,12 @@ export type { LibsqlOrmDriverOptions } from "./driver.ts";
 
 /** libSQL/Turso-specialized database facade. */
 export interface LibsqlDatabase extends Database {
+  /** Executes SQL through this libsql database. */
   execute<T = unknown>(
     query: SqlInput,
     params?: readonly SqlParameter[],
   ): Promise<OrmQueryResult<T>>;
+  /** Runs a query through this libsql database. */
 
   query<T = unknown>(
     query: SqlInput,
@@ -72,8 +74,11 @@ export interface LibsqlDatabase extends Database {
 export interface CreateLibsqlDbOptions extends LibsqlConnectionOptions {
   /** Use an existing libSQL SQL executor instead of opening a client. */
   readonly executor?: LibsqlSqlExecutor;
+  /** Logging options used by this create libsql db options. */
   readonly logger?: Logger;
+  /** Temporal parsing options used by this create libsql db options. */
   readonly logging?: SisalLoggingOptions;
+  /** Temporal parsing options used by this create libsql db options. */
   readonly temporal?: TemporalParsingOptions;
 }
 

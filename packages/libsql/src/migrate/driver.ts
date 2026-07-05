@@ -13,6 +13,7 @@ import { toLibsqlMigrationError } from "./errors.ts";
 
 /** Options for creating a libSQL-backed migration driver. */
 export interface LibsqlMigrationDriverOptions extends LibsqlExecutorOptions {
+  /** Migration store used by this libsql migration driver options. */
   readonly transactionStoreFactory?: (executor: SqlExecutor) => MigrationStore;
 }
 

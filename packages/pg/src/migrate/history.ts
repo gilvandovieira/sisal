@@ -21,7 +21,9 @@ const textEncoder = new TextEncoder();
 
 /** Options for creating a PostgreSQL-backed migration history store. */
 export interface PgMigrationHistoryStoreOptions {
+  /** History table name used by this pg migration history store options. */
   readonly executor: SqlExecutor;
+  /** History table name used by this pg migration history store options. */
   readonly tableName?: string;
 }
 

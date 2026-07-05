@@ -1,6 +1,6 @@
 {
   "name": "@sisal/libsql",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "exports": {
     ".": "./mod.ts",
     "./orm": "./src/orm/mod.ts",
@@ -8,7 +8,7 @@
     "./ddl": "./src/migrate/ddl.ts"
   },
   "license": "MIT",
-  "description": "libSQL and Turso adapter boundaries for Sisal ORM and migrations.",
+  "description": "libSQL & Turso adapter for Sisal: typed ORM execution over local files, remote Turso, or embedded replicas, with migrations.",
   "keywords": [
     "deno",
     "jsr",

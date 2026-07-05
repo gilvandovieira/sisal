@@ -2,10 +2,14 @@ import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const MODULE_DOC_MINIMUM = 1;
-const JSDOC_MINIMUM = 0.8;
+const JSDOC_MINIMUM = 1;
+const MISSING_PER_PACKAGE_LIMIT = Deno.args.includes("--all")
+  ? Number.POSITIVE_INFINITY
+  : 50;
 
 interface DenoConfig {
   readonly name?: string;
+  readonly publish?: false | Record<string, unknown>;
   readonly workspace?: readonly string[];
   readonly exports?: unknown;
 }
@@ -35,6 +39,35 @@ interface DocSymbol {
 
 interface DocDeclaration {
   readonly kind?: string;
+  readonly def?: DocDef;
+  readonly jsDoc?: {
+    readonly doc?: string;
+    readonly tags?: readonly unknown[];
+  };
+  readonly location?: {
+    readonly filename?: string;
+    readonly line?: number;
+    readonly col?: number;
+  };
+}
+
+interface DocDef {
+  readonly constructors?: readonly DocMember[];
+  readonly methods?: readonly DocMember[];
+  readonly properties?: readonly DocMember[];
+  readonly accessors?: readonly DocMember[];
+  readonly members?: readonly DocMember[];
+  readonly tsType?: DocType;
+}
+
+interface DocType {
+  readonly kind?: string;
+  readonly value?: unknown;
+}
+
+interface DocMember {
+  readonly name?: string;
+  readonly accessibility?: string;
   readonly jsDoc?: {
     readonly doc?: string;
     readonly tags?: readonly unknown[];
@@ -47,6 +80,7 @@ interface DocDeclaration {
 }
 
 interface JsDocEntry {
+  readonly packageName: string;
   readonly label: string;
   documented: boolean;
 }
@@ -88,15 +122,30 @@ for (const exportModule of exportModules) {
 
   for (const symbol of node.symbols ?? []) {
     const declarations = symbol.declarations ?? [];
-    const key = getSymbolKey(exportModule, symbol);
-    const label = getSymbolLabel(exportModule, symbol);
-    const documented = declarations.some(hasJsDoc);
-    const existing = jsDocEntries.get(key);
+    addJsDocEntry(
+      jsDocEntries,
+      exportModule.packageName,
+      getSymbolKey(exportModule, symbol),
+      getSymbolLabel(exportModule, symbol),
+      declarations.some(hasJsDoc),
+    );
 
-    if (existing === undefined) {
-      jsDocEntries.set(key, { label, documented });
-    } else {
-      existing.documented = existing.documented || documented;
+    for (const declaration of declarations) {
+      for (
+        const memberEntry of getDeclarationMemberEntries(
+          exportModule,
+          symbol,
+          declaration,
+        )
+      ) {
+        addJsDocEntry(
+          jsDocEntries,
+          memberEntry.packageName,
+          memberEntry.key,
+          memberEntry.label,
+          memberEntry.documented,
+        );
+      }
     }
   }
 }
@@ -124,6 +173,7 @@ console.log(
 
 const missingModuleDocs = moduleResults.filter((result) => !result.documented);
 const missingJsDocs = jsDocValues.filter((entry) => !entry.documented);
+const missingJsDocsByPackage = groupEntriesByPackage(missingJsDocs);
 
 let failed = false;
 
@@ -138,12 +188,21 @@ if (moduleCoverage < MODULE_DOC_MINIMUM) {
 if (jsDocCoverage < JSDOC_MINIMUM) {
   failed = true;
   console.error("\nMissing JSDoc entries:");
-  for (const entry of missingJsDocs.slice(0, 50)) {
-    console.error(`  - ${entry.label}`);
-  }
+  for (
+    const [packageName, entries] of [...missingJsDocsByPackage.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+  ) {
+    console.error(`\n${packageName}:`);
 
-  if (missingJsDocs.length > 50) {
-    console.error(`  - ...and ${missingJsDocs.length - 50} more`);
+    for (const entry of entries.slice(0, MISSING_PER_PACKAGE_LIMIT)) {
+      console.error(`  - ${entry.label}`);
+    }
+
+    if (entries.length > MISSING_PER_PACKAGE_LIMIT) {
+      console.error(
+        `  - ...and ${entries.length - MISSING_PER_PACKAGE_LIMIT} more`,
+      );
+    }
   }
 }
 
@@ -172,7 +231,9 @@ async function getExportModules(
 
     const packageConfig = await readJson<DenoConfig>(packageConfigPath);
 
-    if (packageConfig.exports === undefined) {
+    if (
+      packageConfig.publish === false || packageConfig.exports === undefined
+    ) {
       continue;
     }
 
@@ -268,6 +329,143 @@ function getSymbolLabel(module: ExportModule, symbol: DocSymbol): string {
   }:${location.line ?? 1})`;
 }
 
+function getDeclarationMemberEntries(
+  module: ExportModule,
+  symbol: DocSymbol,
+  declaration: DocDeclaration,
+): JsDocEntryWithKey[] {
+  const entries: JsDocEntryWithKey[] = [];
+
+  for (
+    const kind of [
+      "constructors",
+      "properties",
+      "methods",
+      "accessors",
+    ] as const
+  ) {
+    for (const member of declaration.def?.[kind] ?? []) {
+      if (!isDocumentableMember(member)) {
+        continue;
+      }
+
+      const memberName = member.name ?? kind.slice(0, -1);
+      entries.push(getMemberEntry(module, symbol, memberName, member));
+    }
+  }
+
+  for (const member of declaration.def?.members ?? []) {
+    if (!isDocumentableMember(member)) {
+      continue;
+    }
+
+    entries.push(
+      getMemberEntry(module, symbol, member.name ?? "member", member),
+    );
+  }
+
+  if (declaration.kind === "typeAlias") {
+    for (const member of getTypeLiteralMembers(declaration.def?.tsType)) {
+      if (!isDocumentableMember(member)) {
+        continue;
+      }
+
+      entries.push(
+        getMemberEntry(module, symbol, member.name ?? "member", member),
+      );
+    }
+  }
+
+  return entries;
+}
+
+interface JsDocEntryWithKey extends JsDocEntry {
+  readonly key: string;
+}
+
+function getMemberEntry(
+  module: ExportModule,
+  symbol: DocSymbol,
+  memberName: string,
+  member: DocMember,
+): JsDocEntryWithKey {
+  const memberLocationKey = member.location === undefined
+    ? ""
+    : `${member.location.filename}:${member.location.line}:${member.location.col}`;
+  const key = `${symbol.name}.${memberName}:${
+    memberLocationKey || formatModuleLabel(module)
+  }`;
+
+  return {
+    key,
+    packageName: module.packageName,
+    label: `${symbol.name}.${memberName} (${
+      formatMemberLocation(module, member)
+    })`,
+    documented: hasMemberJsDoc(member),
+  };
+}
+
+function getTypeLiteralMembers(
+  type: DocType | undefined,
+): readonly DocMember[] {
+  if (!isRecord(type) || type.kind !== "typeLiteral" || !isRecord(type.value)) {
+    return [];
+  }
+
+  const members: DocMember[] = [];
+
+  for (const key of ["properties", "methods"] as const) {
+    const value = type.value[key];
+
+    if (Array.isArray(value)) {
+      members.push(...value.filter(isRecord) as DocMember[]);
+    }
+  }
+
+  return members;
+}
+
+function isDocumentableMember(member: DocMember): boolean {
+  return member.accessibility !== "private" &&
+    member.accessibility !== "protected" &&
+    member.location?.filename !== undefined;
+}
+
+function addJsDocEntry(
+  entries: Map<string, JsDocEntry>,
+  packageName: string,
+  key: string,
+  label: string,
+  documented: boolean,
+): void {
+  const existing = entries.get(key);
+
+  if (existing === undefined) {
+    entries.set(key, { packageName, label, documented });
+  } else {
+    existing.documented = existing.documented || documented;
+  }
+}
+
+function groupEntriesByPackage(
+  entries: readonly JsDocEntry[],
+): Map<string, JsDocEntry[]> {
+  const grouped = new Map<string, JsDocEntry[]>();
+
+  for (const entry of entries) {
+    const packageEntries = grouped.get(entry.packageName);
+
+    if (packageEntries === undefined) {
+      grouped.set(entry.packageName, [entry]);
+    } else {
+      packageEntries.push(entry);
+    }
+  }
+
+  return grouped;
+}
+
 function hasJsDoc(declaration: DocDeclaration): boolean {
   const jsDoc = declaration.jsDoc;
 
@@ -277,6 +475,29 @@ function hasJsDoc(declaration: DocDeclaration): boolean {
 
   return (jsDoc.doc?.trim().length ?? 0) > 0 ||
     (jsDoc.tags?.length ?? 0) > 0;
+}
+
+function hasMemberJsDoc(member: DocMember): boolean {
+  const jsDoc = member.jsDoc;
+
+  if (jsDoc === undefined) {
+    return false;
+  }
+
+  return (jsDoc.doc?.trim().length ?? 0) > 0 ||
+    (jsDoc.tags?.length ?? 0) > 0;
+}
+
+function formatMemberLocation(module: ExportModule, member: DocMember): string {
+  const location = member.location;
+
+  if (location?.filename === undefined) {
+    return formatModuleLabel(module);
+  }
+
+  return `${relative(rootDir, fileUrlToPath(location.filename))}:${
+    location.line ?? 1
+  }`;
 }
 
 function formatModuleLabel(module: ExportModule): string {
