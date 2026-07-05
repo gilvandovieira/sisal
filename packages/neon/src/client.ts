@@ -99,14 +99,35 @@ export interface NeonClientConnectionOptions extends NeonClientConfig {
   readonly url?: string;
 }
 
-/** Creates a Neon `Pool` using `jsr:@neon/serverless`, imported lazily. */
+/**
+ * Loads the Neon serverless driver for the current runtime, imported lazily
+ * through a **computed** specifier so the npm build (dnt) never hard-links it.
+ * Deno resolves the JSR driver (`@neon/serverless`) via the workspace import
+ * map; Node — which rejects that alias's scheme — resolves the npm build of the
+ * same driver (`@neondatabase/serverless`) from the optional peer dependency.
+ */
+async function loadNeonDriver(): Promise<{
+  Pool: new (config: unknown) => unknown;
+  Client: new (config: unknown) => unknown;
+}> {
+  const deno = (globalThis as { Deno?: unknown }).Deno;
+  const specifier = deno === undefined
+    ? "@neondatabase/serverless"
+    : "@neon/serverless";
+  return await import(specifier) as unknown as {
+    Pool: new (config: unknown) => unknown;
+    Client: new (config: unknown) => unknown;
+  };
+}
+
+/** Creates a Neon `Pool` using the runtime-native Neon driver, imported lazily. */
 export async function createNeonPool(
   options: NeonPoolConnectionOptions,
 ): Promise<NeonPool> {
   const config = neonPoolConfigFromOptions(options);
 
   try {
-    const mod = await import("@neon/serverless");
+    const mod = await loadNeonDriver();
     return new mod.Pool(config) as NeonPool;
   } catch (error) {
     throw new NeonError("Neon pool creation failed", {
@@ -123,7 +144,7 @@ export async function createNeonClient(
   const config = neonClientConfigFromOptions(options);
 
   try {
-    const mod = await import("@neon/serverless");
+    const mod = await loadNeonDriver();
     const client = new mod.Client(config) as NeonClient & {
       connect(): Promise<void>;
     };

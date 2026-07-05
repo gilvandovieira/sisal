@@ -1,9 +1,14 @@
-#!/usr/bin/env -S deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi
 /**
  * `sisal` migration CLI.
  *
  * The command runner is injectable for tests. The executable path lazily loads
  * dialect adapters only after a command resolves its configured dialect.
+ *
+ * Invoke via `deno task sisal <cmd>` (Deno) or, once published, the
+ * `@sisaljs/migrate` `bin` shim (Node). No source shebang: it is Deno-specific
+ * (`deno run …`), and dnt would emit it mid-file — after the injected runtime
+ * shims — where Node parses it as a broken regex. The Node `bin` entry gets its
+ * own `#!/usr/bin/env node` shebang at publish time (NPM-18).
  *
  * @module
  */
@@ -20,10 +25,10 @@ import {
 import {
   buildMigrationFile,
   checkDrift,
+  defaultMigrationFileSystem,
   defineConfig,
   defineMigration,
   defineSqlMigration,
-  denoMigrationFileSystem,
   type DiscoveredMigration,
   type DriftReport,
   type MigrateConfig,
@@ -268,8 +273,8 @@ interface MysqlMigrateModule {
 }
 
 const DEFAULT_CONFIG_FILE = "sisal.migrate.ts";
-const DEFAULT_ADAPTER_VERSION = "^0.11.1";
-const DEFAULT_MYSQL_ADAPTER_VERSION = "^0.11.1";
+const DEFAULT_ADAPTER_VERSION = "^0.12.0";
+const DEFAULT_MYSQL_ADAPTER_VERSION = "^0.12.0";
 const DEFAULT_ADAPTER_IMPORTS = {
   pgDdl: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/ddl`,
   pgMigrate: `jsr:@sisal/pg@${DEFAULT_ADAPTER_VERSION}/migrate`,
@@ -393,7 +398,7 @@ async function commandInit(
   const rawOut = options.stdout ?? ((line) => console.log(line));
   const out = cliQuiet(parsed) ? (() => {}) : rawOut;
   const err = options.stderr ?? ((line) => console.error(line));
-  const fs = options.fs ?? denoMigrationFileSystem();
+  const fs = options.fs ?? defaultMigrationFileSystem();
   const configPath = stringFlag(parsed.flags, "config") ?? DEFAULT_CONFIG_FILE;
   const dir = stringFlag(parsed.flags, "dir") ?? "migrations";
   // `--target` is preferred; `--dialect` is kept as a back-compat alias.
@@ -425,16 +430,35 @@ async function commandInit(
   return 0;
 }
 
+/** Rewrites a `Deno.env.get("X")` env hint to Node's `process.env.X`. */
+function toNodeEnvHint(line: string): string {
+  return line.replace(/Deno\.env\.get\("([A-Z_]+)"\)/g, "process.env.$1");
+}
+
 function renderConfigTemplate(target: InitTarget, dir: string): string {
+  // Scaffold for the runtime running `sisal init`: the npm scope + `process.env`
+  // on Node, the JSR scope + `Deno.env.get` on Deno.
+  const isNode = (globalThis as { readonly Deno?: unknown }).Deno === undefined;
+  const workflowSpecifier = isNode
+    ? "@sisaljs/migrate/workflow"
+    : "@sisal/migrate/workflow";
+  const envHint = isNode ? "process.env" : "Deno.env.get";
+  const runtimeNote = isNode
+    ? "the Node process's privileges"
+    : "whatever Deno permissions the command was granted (read/write/env/net/FFI)";
+  const connection =
+    (isNode ? target.connection.map(toNodeEnvHint) : target.connection).join(
+      "\n",
+    );
+
   return `// sisal.migrate.ts — migration config for the \`sisal\` CLI.
 //
 // SECURITY: this is TRUSTED, executable code. The CLI imports and runs it with
-// whatever Deno permissions the command was granted (read/write/env/net/FFI), so
-// it can read environment variables, write files, and reach the network. Keep it
-// in version control, review changes like any source file, and read secrets from
-// the environment (Deno.env.get) rather than hard-coding them.
+// ${runtimeNote}, so it can read environment variables, write files, and reach
+// the network. Keep it in version control, review changes like any source file,
+// and read secrets from the environment (${envHint}) rather than hard-coding them.
 
-import { defineConfig } from "@sisal/migrate/workflow";
+import { defineConfig } from "${workflowSpecifier}";
 
 export default defineConfig({
   dir: ${JSON.stringify(dir)},
@@ -446,7 +470,7 @@ ${
   }  // snapshot: createSchemaSnapshot({ dialect: ${
     JSON.stringify(target.dialect)
   }, tables: [/* ... */] }),
-${target.connection.join("\n")}
+${connection}
 });
 `;
 }
@@ -630,7 +654,7 @@ async function createContext(
     dialect,
     adapter,
     adapterInjected: injected !== undefined,
-    fs: options.fs ?? denoMigrationFileSystem(),
+    fs: options.fs ?? defaultMigrationFileSystem(),
     ...(logging === undefined ? {} : { logging }),
     out,
     err,
@@ -1292,7 +1316,22 @@ function getEnv(name: string): string | undefined {
   }).Deno;
 
   try {
-    return deno?.env?.get(name);
+    if (deno?.env?.get !== undefined) {
+      return deno.env.get(name);
+    }
+  } catch {
+    // Deno present but `--allow-env` denied — mirror the historical behavior and
+    // report the variable as unset (don't fall through to the process shim,
+    // which proxies Deno.env and would rethrow the same permission error).
+    return undefined;
+  }
+
+  // Node (and other runtimes without Deno.env): read from `process.env`.
+  try {
+    const proc = (globalThis as {
+      readonly process?: { readonly env?: Record<string, string | undefined> };
+    }).process;
+    return proc?.env?.[name];
   } catch {
     return undefined;
   }

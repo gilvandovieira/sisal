@@ -1,6 +1,3 @@
-// deno-lint-ignore no-import-prefix
-import { Pool } from "jsr:@db/postgres@^0.19.5";
-
 import { OrmError } from "@sisal/orm";
 
 import { createPostgresJsPool } from "./postgres_js_pool.ts";
@@ -110,13 +107,78 @@ export interface PgConnectionSource {
   readonly ownsClient: boolean;
 }
 
-/** Creates a PostgreSQL pool using the bundled `@db/postgres` driver. */
+/** Constructor shape of the `@db/postgres` `Pool`, resolved lazily. */
+type DbPostgresPoolCtor = new (
+  url: string,
+  size: number,
+  lazy: boolean,
+) => PgPool;
+
+/**
+ * Throws a clear error if the `db-postgres` driver is selected on a runtime
+ * without Deno's TCP API (`Deno.connect`) — the pure-JSR `@db/postgres` driver
+ * is Deno-only. On Node use the default `postgres-js` driver (`npm:postgres`)
+ * or inject a pool. Without this, a mis-selection surfaces as an opaque
+ * module-resolution failure at import time.
+ */
+function assertDbPostgresRuntime(): void {
+  const deno = (globalThis as { Deno?: { connect?: unknown } }).Deno;
+  if (typeof deno?.connect !== "function") {
+    throw new OrmError(
+      'The "db-postgres" driver requires Deno; on other runtimes use the ' +
+        'default "postgres-js" driver (npm:postgres) or inject a pool via ' +
+        "connect({ pool }).",
+      { code: "ORM_DRIVER_MISSING", status: 400 },
+    );
+  }
+}
+
+/**
+ * Creates a PostgreSQL pool backed by the pure-JSR `@db/postgres` driver,
+ * imported **lazily** on first connect (same discipline as the postgres.js
+ * pool). Deferring the import keeps the `jsr:@db/postgres` specifier off the
+ * module's static graph, so the module loads under runtimes that reject the
+ * `jsr:` scheme; the driver is only fetched when a `db-postgres` URL source is
+ * actually connected.
+ */
 export function createPgPool(options: {
   readonly url: string;
   readonly poolSize?: number;
   readonly lazy?: boolean;
 }): PgPool {
-  return new Pool(options.url, options.poolSize ?? 5, options.lazy ?? true);
+  let opening: Promise<PgPool> | undefined;
+
+  const open = (): Promise<PgPool> => {
+    return opening ??= (async () => {
+      assertDbPostgresRuntime();
+      // Computed specifier: keeps this Deno-only driver off the static module
+      // graph so the npm build (dnt) never pulls it into the Node bundle. The
+      // guard above ensures we only reach here on Deno, where the import map
+      // resolves `@db/postgres` at runtime.
+      const specifier = ["@db", "postgres"].join("/");
+      const mod = await import(specifier) as unknown as {
+        Pool: DbPostgresPoolCtor;
+      };
+      return new mod.Pool(
+        options.url,
+        options.poolSize ?? 5,
+        options.lazy ?? true,
+      );
+    })();
+  };
+
+  return {
+    async connect(): Promise<PgClient> {
+      return (await open()).connect();
+    },
+
+    async end(): Promise<void> {
+      if (opening === undefined) {
+        return;
+      }
+      await (await opening).end?.();
+    },
+  };
 }
 
 /** Resolves a PostgreSQL pool, client, or URL into a connection source. */

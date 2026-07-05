@@ -1288,7 +1288,7 @@ export function mysqlFamilyScenarios(): IntegrationScenario[] {
       error = await assertRejects(async () => {
         await applyTables(db, [expression]);
       });
-      assertTypedGuard(error, "functional indexes");
+      assertTypedGuard(error, "functional (expression) index");
     },
   );
 

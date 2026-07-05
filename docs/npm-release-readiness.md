@@ -16,8 +16,10 @@ real Node-user demand. It deliberately ships **no npm package**.
 > v0.13 slot; see the
 > [roadmap cross-cutting tracks](roadmap.md#cross-cutting-tracks-not-on-the-version-line)).
 > So this is the safest item to defer. It is **enabled** by the v0.8
-> `@sisal/core` extraction (the one clean `.ts`→`.js` build boundary) and
-> **gated** on the naming decision below.
+> `@sisal/core` extraction (the one clean `.ts`→`.js` build boundary). The
+> naming decision that previously gated it is now **resolved** (scope
+> `@sisaljs`, see below), and execution is broken into phased tasks in
+> [npm-distribution-plan.md](npm-distribution-plan.md).
 
 ## The honest baseline — the repo is already close
 
@@ -38,21 +40,29 @@ Probes run under real Node:
 | Import bare `@sisal/orm` with no `package.json`                          | ❌ `ERR_MODULE_NOT_FOUND` (pure resolution) |
 | `import.meta.main`, `node:sqlite` (`DatabaseSync`), `node:test`          | ✅ all present                              |
 
-## The blocker that makes this a "decide first" item — the npm name
+## The "decide first" blocker — resolved: the npm name is `@sisaljs`
 
-The `@sisal` scope is owned on **JSR** but is **unavailable on npm**.
+The `@sisal` scope is owned on **JSR** but was **unavailable on npm**. That
+naming decision — the one-way door this report flagged as a prerequisite — has
+now been made.
 
-> Publishing `@<name>/orm` to npm is a **one-way door**: once consumers `npm i`
+> **Decision (2026-07-05): the npm scope is `@sisaljs`.** The org is created and
+> owned (`gilvandolucasvieira`, owner), which reserves every `@sisaljs/*` name —
+> no squatting is possible and no stub reservation is needed. Deno/JSR keeps
+> `@sisal/*`; the two runtimes are independent and `dnt` remaps the scope per
+> package at build time.
+
+> Publishing `@sisaljs/orm` to npm is a **one-way door**: once consumers `npm i`
 > it, the scope/name is a public contract — renaming later breaks every
-> installer. So **the chosen npm name is a prerequisite, not a footnote.**
+> installer. The name is now fixed precisely so no publish commits an undecided
+> choice — the exact failure pattern the
+> [sequencing audit](roadmap-sequencing-audit.md) warns about.
 
-Until the name is decided, _no npm publish should happen_. Shipping under a
-placeholder would be exactly the failure pattern the
-[sequencing audit](roadmap-sequencing-audit.md) warns about: committing an
-undecided structural choice to a public surface. Candidate shapes: an alternate
-scope (`@sisal-db/*`), unscoped packages (`sisal-*`), or a private scope. Pick
-one **before** any publish; until then this report uses `@<scope>/*` purely as a
-stand-in.
+The alternatives that were weighed and rejected: unscoped packages (`sisal-*` —
+`sisal` itself is already taken by an unrelated package) and an alternate scope
+(`@sisal-db/*`). The full JSR→npm name map, driver mapping, and the phased task
+breakdown now live in the execution plan,
+[npm-distribution-plan.md](npm-distribution-plan.md).
 
 ## What would have to change (the work, when it happens)
 
@@ -103,9 +113,9 @@ So deferring costs nothing later:
 
 ## Trigger / definition of done (if pursued)
 
-- **Trigger:** real Node-user demand **and** a chosen npm name.
+- **Trigger:** real Node-user demand. _(The npm name — the other half of the old
+  trigger — is now decided: `@sisaljs`.)_
 - **Enabler:** the v0.8 `@sisal/core` extraction is in place.
-- **Done:** `npm i @<chosen-name>/*` runs on Node 24+; the unit suite is green
-  under Deno **and** Node; a release publishes paired JSR + npm artifacts at
-  identical versions in one gated run; one Node example per engine runs
-  end-to-end.
+- **Done:** `npm i @sisaljs/*` runs on Node 24+; the unit suite is green under
+  Deno **and** Node; a release publishes paired JSR + npm artifacts at identical
+  versions in one gated run; one Node example per engine runs end-to-end.

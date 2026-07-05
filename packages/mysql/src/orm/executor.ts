@@ -259,7 +259,12 @@ function normalizeParams(params: readonly unknown[]): unknown[] {
 // MySQL rejects as a datetime literal — re-render them as naive UTC. Plain
 // (naive) forms pass through; MySQL accepts the `T` delimiter.
 function mysqlTemporalLiteral(value: string): string {
-  if (/(?:[zZ]|[+-]\d{2}:?\d{2})$/u.test(value)) {
+  // Only Sisal-serialized Temporal values reach here with a `Z`/offset suffix,
+  // so a missing `Temporal` global means there is nothing to re-render.
+  if (
+    typeof Temporal !== "undefined" &&
+    /(?:[zZ]|[+-]\d{2}:?\d{2})$/u.test(value)
+  ) {
     return utcNaiveLiteral(
       Temporal.Instant.from(value).toString({ fractionalSecondDigits: 6 }),
     );

@@ -20,16 +20,21 @@ Deno.test("pg driver: postgres.js is the URL default since v0.10", () => {
   assertEquals(resolvePgDriverKind({ driver: "postgres-js" }), "postgres-js");
 });
 
-Deno.test("pg driver: a URL source defaults to the postgres.js pool", () => {
-  // The postgres.js pool is a plain lazy wrapper; @db/postgres is a class
-  // instance. Nothing connects here — construction is import-free.
+Deno.test("pg driver: URL sources resolve to lazy, import-free pools", () => {
+  // Since NPM-4 both drivers defer their import to the first connect, so neither
+  // eagerly constructs the `@db/postgres` `Pool` — resolving a source touches no
+  // driver and the module stays loadable under runtimes that reject `jsr:`.
+  // Driver *selection* is pinned by `resolvePgDriverKind` above.
   const defaulted = resolvePgConnectionSource({ url: URL });
   assert(defaulted.ownsPool);
+  assert(typeof defaulted.pool?.connect === "function");
   assertEquals(defaulted.pool instanceof DbPostgresPool, false);
 
   const optedOut = resolvePgConnectionSource({
     url: URL,
     driver: "db-postgres",
   });
-  assertEquals(optedOut.pool instanceof DbPostgresPool, true);
+  assert(optedOut.ownsPool);
+  assert(typeof optedOut.pool?.connect === "function");
+  assertEquals(optedOut.pool instanceof DbPostgresPool, false);
 });

@@ -32,9 +32,19 @@ interface PostgresJsResult extends ArrayLike<Record<string, unknown>> {
   readonly columns?: ReadonlyArray<PostgresJsColumn>;
 }
 
+/** Per-query options passed to postgres.js `unsafe()`. */
+interface PostgresJsQueryOptions {
+  /** Run as a named prepared statement (parse+plan once, then reuse). */
+  readonly prepare?: boolean;
+}
+
 /** A reserved (pinned) postgres.js connection. */
 interface PostgresJsReserved {
-  unsafe(query: string, args?: readonly unknown[]): Promise<PostgresJsResult>;
+  unsafe(
+    query: string,
+    args?: readonly unknown[],
+    options?: PostgresJsQueryOptions,
+  ): Promise<PostgresJsResult>;
   release(): void;
 }
 
@@ -114,9 +124,26 @@ async function openSql(options: PostgresJsPoolOptions): Promise<PostgresJsSql> {
  * to the same socket — the lifecycle `@sisal/pg`'s executor drives per
  * `execute()`/`transaction()`.
  */
-export function createPostgresJsPool(options: PostgresJsPoolOptions): PgPool {
+export function createPostgresJsPool(
+  options: PostgresJsPoolOptions,
+  // Test/advanced seam: a pre-built postgres.js handle, injected to skip the
+  // lazy `npm:postgres` import. Production callers omit it and go through
+  // `connect({ pool })` for pool injection; unit tests pass a fake handle.
+  injectedSql?: PostgresJsSql,
+): PgPool {
   let sqlPromise: Promise<PostgresJsSql> | undefined;
-  const getSql = () => (sqlPromise ??= openSql(options));
+  const getSql =
+    () => (sqlPromise ??= injectedSql
+      ? Promise.resolve(injectedSql)
+      : openSql(options));
+
+  // Prepare Sisal's `unsafe(text, params)` queries by default so Postgres
+  // parses+plans each query shape once and reuses it — Sisal renders stable
+  // parameterized text ($1,$2,…), so the prepared cache hits. Without this,
+  // every query re-parses server-side (~35µs each; see
+  // perf/ORM_EXECUTE_PROFILE.md). Mirrors the pool's tagged-template `prepare`
+  // default and honors `prepare: false` for PgBouncer/Neon transaction pooling.
+  const prepare = options.prepare ?? true;
 
   return {
     async connect(): Promise<PgClient> {
@@ -127,7 +154,7 @@ export function createPostgresJsPool(options: PostgresJsPoolOptions): PgPool {
           query: string,
           args: unknown[] = [],
         ) {
-          const result = await reserved.unsafe(query, args);
+          const result = await reserved.unsafe(query, args, { prepare });
           const columns = result.columns;
           return {
             rows: Array.from(result) as Row[],

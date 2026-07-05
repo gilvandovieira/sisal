@@ -20,7 +20,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.9.0
+          deno-version: v2.9.1
 
       - name: Install dependencies
         run: deno install --frozen
@@ -55,6 +55,39 @@ jobs:
       - name: Validate workspace publish
         run: deno publish --dry-run
 
+  npm-node:
+    name: npm / Node
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.9.1
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: deno install --frozen
+
+      - name: npm manifest drift gate
+        run: deno task --frozen npm:check
+
+      # The build:npm / test:node tasks run with `--no-lock` (see deno.json):
+      # dnt pulls `@deno/dnt`'s `@ts-morph/common`, whose conditional (empty)
+      # `crypto` module has no lockfile manifest checksum, so any lockfile
+      # consultation fails integrity on a cold cache. dnt manages its own deps.
+      - name: Build npm packages
+        run: deno task build:npm:all
+
+      - name: Node unit suite
+        run: deno task test:node
+
   discover-packages:
     name: Discover packages
     runs-on: ubuntu-latest
@@ -67,7 +100,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.9.0
+          deno-version: v2.9.1
 
       - name: Build package matrix
         id: packages
@@ -88,7 +121,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
-          deno-version: v2.9.0
+          deno-version: v2.9.1
 
       - name: Install dependencies
         run: deno install --frozen

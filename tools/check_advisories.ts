@@ -9,12 +9,43 @@
  * for the record but cannot be advisory-checked here — that limitation is noted
  * in `docs/security.md` (SEC-002 family).
  *
+ * The **npm distribution's driver peer deps** (`postgres`, `mysql2`,
+ * `@libsql/client`, `@neondatabase/serverless`, `mariadb`) are folded in from the
+ * package descriptors so the check covers what a Node consumer installs — not
+ * just what Deno resolves into `deno.lock` (Node-only peers like
+ * `@neondatabase/serverless` never appear there). NPM-23.
+ *
  *   deno task audit            # or: deno run --allow-read --allow-net=api.osv.dev tools/check_advisories.ts
  *
  * @module
  */
 
+import { PACKAGES } from "./npm_manifest.ts";
+
 const OSV_QUERYBATCH = "https://api.osv.dev/v1/querybatch";
+
+/** Lowest version a `^`/`~`/`>=` range admits — what OSV checks against. */
+function minVersion(range: string): string {
+  return range.replace(/^[\^~>=\s]+/, "").split(/[\s,|]/)[0];
+}
+
+/** npm peer deps a Node consumer installs, from the package descriptors. */
+function npmPeerDeps(): NpmPackage[] {
+  const peers: NpmPackage[] = [];
+  for (const pkg of PACKAGES) {
+    for (const driver of pkg.drivers ?? []) {
+      peers.push({
+        key: `peer:${driver.name}`,
+        name: driver.name,
+        version: minVersion(driver.version),
+      });
+    }
+    for (const [name, range] of Object.entries(pkg.extraPeers ?? {})) {
+      peers.push({ key: `peer:${name}`, name, version: minVersion(range) });
+    }
+  }
+  return peers;
+}
 
 interface LockFile {
   readonly jsr?: Record<string, unknown>;
@@ -45,9 +76,14 @@ function dedupe(packages: readonly NpmPackage[]): NpmPackage[] {
 async function main(): Promise<number> {
   const lock = JSON.parse(await Deno.readTextFile("deno.lock")) as LockFile;
   const jsr = Object.keys(lock.jsr ?? {}).sort();
-  const npm = dedupe(Object.keys(lock.npm ?? {}).map(parseNpmKey));
+  const npm = dedupe([
+    ...Object.keys(lock.npm ?? {}).map(parseNpmKey),
+    ...npmPeerDeps(),
+  ]);
 
-  console.log(`# SBOM (deno.lock)\nJSR packages: ${jsr.length}`);
+  console.log(
+    `# SBOM (deno.lock + npm peer deps)\nJSR packages: ${jsr.length}`,
+  );
   for (const id of jsr) console.log(`  jsr  ${id}`);
   console.log(`npm packages: ${npm.length}`);
   for (const pkg of npm) console.log(`  npm  ${pkg.name}@${pkg.version}`);

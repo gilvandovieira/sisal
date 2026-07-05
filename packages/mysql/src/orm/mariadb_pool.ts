@@ -107,8 +107,14 @@ export function createMariadbPool(options: {
   const open = (): Promise<MysqlPool> => {
     return opening ??= (async () => {
       // Runtime-computed specifier: opaque to static analysis, so the LGPL
-      // connector is a soft dependency resolved only when actually used.
-      const specifier = ["npm:", "mariadb@^3.5.3"].join("");
+      // connector is a soft dependency resolved only when actually used. On
+      // Deno it resolves through the `npm:` scheme; on Node (which rejects
+      // `npm:`) it resolves the bare `mariadb` package from the optional peer
+      // dependency.
+      const deno = (globalThis as { Deno?: unknown }).Deno;
+      const specifier = deno === undefined
+        ? "mariadb"
+        : ["npm:", "mariadb@^3.5.3"].join("");
       const mod = await import(specifier) as unknown as {
         default: { createPool(config: Record<string, unknown>): MariadbPool };
       };

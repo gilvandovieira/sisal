@@ -30,7 +30,9 @@
     "./benchmarks"
   ],
   "imports": {
+    "@deno/dnt": "jsr:@deno/dnt@^0.42.3",
     "@db/postgres": "jsr:@db/postgres@^0.19.5",
+    "@db/sqlite": "jsr:@db/sqlite@^0.12",
     "@neon/serverless": "jsr:@neon/serverless@^1.0.1",
     "@std/assert": "jsr:@std/assert@^1.0.19",
     "@std/testing": "jsr:@std/testing@^1.0.19"
@@ -42,7 +44,15 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "check": "deno check $(deno run --allow-read tools/workspace_packages.ts check-entrypoints)",
     "sisal": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi packages/migrate/src/cli.ts",
+    "build:npm": "deno run -A --no-lock tools/build_npm.ts",
+    "build:npm:all": "deno run -A --no-lock tools/build_npm.ts all",
+    "npm:manifests": "deno run --allow-read --allow-write tools/generate_npm_manifests.ts",
+    "npm:check": "deno run --allow-read tools/generate_npm_manifests.ts --check",
+    "npm:publish": "deno run -A tools/npm_publish.ts",
+    "npm:publish:dry": "deno run -A tools/npm_publish.ts --dry-run",
+    "test:node": "deno run -A --no-lock tools/test_npm.ts all",
     "bench": "deno bench benchmarks/mod.ts",
+    "bench:regression": "deno run -A benchmarks/regression.ts",
     "perf:pg": "deno run --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency.ts",
     "perf:pg:guard": "deno test --allow-net --allow-env --allow-read --allow-ffi perf/pg_driver_latency_test.ts",
     "perf:pg:matview": "deno run --allow-net --allow-env --allow-read perf/pg_matview_probe.ts",
@@ -59,6 +69,12 @@
     "publish:dry-run": "deno publish --dry-run",
     "test": "deno test --allow-read packages/core packages/orm packages/migrate packages/etl packages/analytics packages/pg packages/neon packages/sqlite packages/libsql packages/mysql tools/lint examples/postgres-family-advanced-sql/advanced_sql_test.ts examples/mysql-family-advanced-sql/advanced_sql_test.ts examples/sqlite-family-advanced-sql/advanced_sql_test.ts examples/postgres-family-analytics/analytics_test.ts examples/postgres-family-feed/rising_test.ts examples/sqlite-family-feed/rising_test.ts examples/mysql-family-feed/rising_test.ts examples/postgres-family-hot-feed/hot_test.ts examples/postgres-family-activity-vectors/vector_test.ts"
   },
+  "exclude": [
+    "npm/",
+    "tools/npm_e2e/",
+    "benchmarks/cross_runtime/",
+    "examples/node/"
+  ],
   "fmt": {
     "lineWidth": 80,
     "semiColons": true,

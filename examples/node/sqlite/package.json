@@ -1,0 +1,11 @@
+{
+  "name": "sisal-node-sqlite-example",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "start": "node main.mjs" },
+  "dependencies": {
+    "@sisaljs/orm": "^0.12.0",
+    "@sisaljs/sqlite": "^0.12.0"
+  }
+}

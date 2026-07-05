@@ -460,6 +460,83 @@ interface DenoFsApi {
   readonly errors: { readonly NotFound: new (...args: never[]) => Error };
 }
 
+/** The subset of `node:fs/promises` the Node filesystem uses. */
+interface NodeFsApi {
+  readdir(
+    path: string,
+    options: { withFileTypes: true },
+  ): Promise<ReadonlyArray<{ name: string; isFile(): boolean }>>;
+  readFile(path: string, encoding: "utf8"): Promise<string>;
+  writeFile(path: string, data: string, encoding: "utf8"): Promise<void>;
+  mkdir(path: string, options: { recursive: boolean }): Promise<unknown>;
+}
+
+/** True when `error` is a Node "no such file or directory" error. */
+function isNodeNotFound(error: unknown): boolean {
+  return typeof error === "object" && error !== null &&
+    (error as { code?: unknown }).code === "ENOENT";
+}
+
+/**
+ * {@link MigrationFileSystem} backed by `node:fs/promises`, for running the
+ * `sisal` CLI (and the migration workflow) on Node. `node:fs/promises` is
+ * imported lazily on first use so the module loads under Deno untouched;
+ * {@link defaultMigrationFileSystem} selects it automatically off Deno.
+ */
+export function nodeMigrationFileSystem(): MigrationFileSystem {
+  let fsPromise: Promise<NodeFsApi> | undefined;
+  const getFs =
+    () => (fsPromise ??= import("node:fs/promises") as unknown as Promise<
+      NodeFsApi
+    >);
+
+  return {
+    async readDir(path: string): Promise<readonly string[]> {
+      const fs = await getFs();
+      try {
+        const entries = await fs.readdir(path, { withFileTypes: true });
+        return entries.filter((entry) => entry.isFile()).map((e) => e.name);
+      } catch (cause) {
+        if (isNodeNotFound(cause)) return [];
+        throw cause;
+      }
+    },
+
+    async readFile(path: string): Promise<string | undefined> {
+      const fs = await getFs();
+      try {
+        return await fs.readFile(path, "utf8");
+      } catch (cause) {
+        if (isNodeNotFound(cause)) return undefined;
+        throw cause;
+      }
+    },
+
+    async writeFile(path: string, content: string): Promise<void> {
+      const fs = await getFs();
+      await fs.writeFile(path, content, "utf8");
+    },
+
+    async mkdir(path: string): Promise<void> {
+      const fs = await getFs();
+      await fs.mkdir(path, { recursive: true });
+    },
+  };
+}
+
+/**
+ * The {@link MigrationFileSystem} for the host runtime: Deno file APIs under
+ * Deno ({@link denoMigrationFileSystem}), `node:fs/promises` otherwise
+ * ({@link nodeMigrationFileSystem}). The `sisal` CLI uses this so it runs on
+ * both runtimes without the caller choosing.
+ */
+export function defaultMigrationFileSystem(): MigrationFileSystem {
+  const deno = (globalThis as { readonly Deno?: unknown }).Deno;
+  return deno === undefined
+    ? nodeMigrationFileSystem()
+    : denoMigrationFileSystem();
+}
+
 function joinPath(dir: string, name: string): string {
   return dir.endsWith("/") ? `${dir}${name}` : `${dir}/${name}`;
 }

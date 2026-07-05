@@ -8,7 +8,7 @@
 
 > Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.
 
-Workspace package version: 0.11.1. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
+Workspace package version: 0.12.0. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.
 
 Use `llms-full.txt` when you need a focused single-file package/API reference with links into the canonical documentation.
 
@@ -35,7 +35,10 @@ Use `llms-full.txt` when you need a focused single-file package/API reference wi
 - [MySQL / MariaDB compatibility](https://gilvandovieira.github.io/sisal/mysql-compatibility.html): Sisal's MySQL adapter (@sisal/mysql) is verified end-to-end against real servers — **both** MySQL proper and MariaDB, which share one adapter but are distinct capability profiles. Each suite opens a pool with the...
 - [MySQL type & DDL mapping](https://gilvandovieira.github.io/sisal/mysql-ddl-mapping.html): **Date:** 2026-07-01 · **Probe:** perf/mysql_ddl_probe.ts (deno task perf:mysql:ddl) · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), decoded through the C6-chosen driver (npm:mysql2 with the...
 - [MySQL readiness](https://gilvandovieira.github.io/sisal/mysql-readiness.html): **Date:** 2026-07-01 · **Status:** all six C tasks 🟢 · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), Deno 2.9.0 (+ Node 26 dual-runtime check)
+- [Use Sisal from Node](https://gilvandovieira.github.io/sisal/node.html): Sisal is Deno-first, but the same packages are published to **npm** under the **@sisaljs** scope for **Node.js 24+**. The API is identical to the JSR packages — only the install and the scope differ (@sisal/* on JSR...
+- [npm Distribution Plan](https://gilvandovieira.github.io/sisal/npm-distribution-plan.html): This is the **actionable execution plan** for publishing Sisal to **npm** under the @sisaljs scope, running on **Node.js 24+**, alongside the existing JSR distribution. It is the "how / tasks" companion to...
 - [npm Release Readiness](https://gilvandovieira.github.io/sisal/npm-release-readiness.html): This is a **standing readiness report**, not a scheduled deliverable. It records what must change for Sisal to publish to **npm** alongside JSR and run on **Node.js 24+**, so the work can be picked up cheaply **if...
+- [npm Release Runbook](https://gilvandovieira.github.io/sisal/npm-release-runbook.html): How a paired **JSR + npm** release of Sisal is cut. The Publish workflow (.github/workflows/publish.yml) does the work; this is the operator checklist. Companion to npm-distribution-plan.md (Phase 7).
 - [Portability policies](https://gilvandovieira.github.io/sisal/portability-policies.html): The cross-family value and lifecycle policies Sisal's examples, adapters, and tests follow (v0.8 item 17). Per-engine details live in the docs/*-compatibility.md pages; this page states the policies once.
 - [Roadmap Sequencing Audit (v0.6 → v0.11)](https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html): This is a **second-pass sequencing audit** of the forward plan (docs/roadmap.md, docs/architecture.md, docs/v0.6.0-roadmap.md → docs/v0.11.0-roadmap.md, and the twelve examples/advanced-sql-contracts/). It...
 - [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, libSQL, and MySQL/MariaDB. It will not become an object-first ORM. This page is the...
@@ -69,7 +72,7 @@ Use `llms-full.txt` when you need a focused single-file package/API reference wi
 
 ## Package Manifests
 
-### @sisal/core 0.11.1
+### @sisal/core 0.12.0
 
 The driverless foundation of Sisal: schema primitives, a fragment SQL IR, expression operators, the capability registry, and the dialect-aware renderer every other package builds on.
 
@@ -80,7 +83,7 @@ Exports:
 - `./schema` -> `./src/schema.ts`
 - `./unstable-internal` -> `./src/internal.ts`
 
-### @sisal/orm 0.11.1
+### @sisal/orm 0.12.0
 
 Sisal's driver-neutral ORM: type-safe schemas, safe SQL expressions, immutable query builders, relations, a typed function caller, and serializable schema snapshots.
 
@@ -93,7 +96,7 @@ Exports:
 - `./logger` -> `./src/logger.ts`
 - `./schema` -> `./src/schema.ts`
 
-### @sisal/migrate 0.11.1
+### @sisal/migrate 0.12.0
 
 Schema migrations for Sisal: snapshot diffing, migration planning, additive DDL generation, checksums, and a driverless runner with drift detection.
 
@@ -105,7 +108,7 @@ Exports:
 - `./core` -> `./src/core/mod.ts`
 - `./workflow` -> `./src/core/workflow.ts`
 
-### @sisal/etl 0.11.1
+### @sisal/etl 0.12.0
 
 SQL-pushdown ETL for Sisal: typed, checkpointed rollup jobs that aggregate straight in the database, one window at a time.
 
@@ -114,7 +117,7 @@ Package path: `./packages/etl`
 Exports:
 - `.` -> `./mod.ts`
 
-### @sisal/analytics 0.11.1
+### @sisal/analytics 0.12.0
 
 Typed analytical queries for Sisal: compose metrics × dimensions × time windows over rollup tables. Postgres-first.
 
@@ -123,7 +126,7 @@ Package path: `./packages/analytics`
 Exports:
 - `.` -> `./mod.ts`
 
-### @sisal/pg 0.11.1
+### @sisal/pg 0.12.0
 
 PostgreSQL adapter for Sisal: typed ORM execution, dialect-aware SQL rendering, connection pooling, and migrations.
 
@@ -135,7 +138,7 @@ Exports:
 - `./migrate` -> `./src/migrate/mod.ts`
 - `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/sqlite 0.11.1
+### @sisal/sqlite 0.12.0
 
 SQLite adapter for Sisal: embedded, typed ORM execution with dialect-aware SQL rendering and migrations.
 
@@ -147,7 +150,7 @@ Exports:
 - `./migrate` -> `./src/migrate/mod.ts`
 - `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/libsql 0.11.1
+### @sisal/libsql 0.12.0
 
 libSQL & Turso adapter for Sisal: typed ORM execution over local files, remote Turso, or embedded replicas, with migrations.
 
@@ -159,7 +162,7 @@ Exports:
 - `./migrate` -> `./src/migrate/mod.ts`
 - `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/mysql 0.11.1
+### @sisal/mysql 0.12.0
 
 MySQL & MariaDB adapter for Sisal: one adapter with engine-detected, typed ORM execution, SQL rendering, and migrations.
 
@@ -171,7 +174,7 @@ Exports:
 - `./migrate` -> `./src/migrate/mod.ts`
 - `./orm` -> `./src/orm/mod.ts`
 
-### @sisal/neon 0.11.1
+### @sisal/neon 0.12.0
 
 Neon serverless PostgreSQL adapter for Sisal: typed ORM execution over a WebSocket pool, plus SQL rendering and migrations.
 
@@ -1124,6 +1127,7 @@ Migration planning and execution primitives for Sisal database tooling.
 - `createAppliedMigration` (function): Creates an applied migration history record.
 - `createMigrationPlan` (function): Creates a plan from known migrations and applied history.
 - `createMigrator` (function): Creates a migrator with memory store and noop driver defaults.
+- `defaultMigrationFileSystem` (function): The {@link MigrationFileSystem} for the host runtime: Deno file APIs under Deno ({@link denoMigrationFileSystem}), node:fs/promises otherwise ({@link nodeMigrationFileSystem}). The sisal CLI uses this so it runs on...
 - `defineConfig` (function): Validates and normalizes a migration config (pure).
 - `defineMigration` (function): Defines a programmatic migration and validates its public shape.
 - `defineSchemaMigrationPlan` (function): Accepts validated schema snapshots as metadata for future diffing.
@@ -1168,6 +1172,7 @@ Migration planning and execution primitives for Sisal database tooling.
 - `Migrator` (interface): Public migration runner.
 - `MigratorOptions` (interface): Options for creating a core {@link Migrator}.
 - `nextMigrationSequence` (function): Returns the next sequence number after the highest discovered migration.
+- `nodeMigrationFileSystem` (function): {@link MigrationFileSystem} backed by node:fs/promises, for running the sisal CLI (and the migration workflow) on Node. node:fs/promises is imported lazily on first use so the module loads under Deno untouched;...
 - `noopMigrationDriver` (function): Creates a noop driver.
 - `noopMigrator` (function): Creates a migrator that reports no migrations and executes nothing.
 - `parseMigrationSequence` (function): Extracts the leading numeric sequence from a migration id (0002_x → 2).
@@ -1212,6 +1217,7 @@ Migration definitions, planning, history stores, and runner contracts.
 - `createAppliedMigration` (function): Creates an applied migration history record.
 - `createMigrationPlan` (function): Creates a plan from known migrations and applied history.
 - `createMigrator` (function): Creates a migrator with memory store and noop driver defaults.
+- `defaultMigrationFileSystem` (function): The {@link MigrationFileSystem} for the host runtime: Deno file APIs under Deno ({@link denoMigrationFileSystem}), node:fs/promises otherwise ({@link nodeMigrationFileSystem}). The sisal CLI uses this so it runs on...
 - `defineConfig` (function): Validates and normalizes a migration config (pure).
 - `defineMigration` (function): Defines a programmatic migration and validates its public shape.
 - `defineSchemaMigrationPlan` (function): Accepts validated schema snapshots as metadata for future diffing.
@@ -1256,6 +1262,7 @@ Migration definitions, planning, history stores, and runner contracts.
 - `Migrator` (interface): Public migration runner.
 - `MigratorOptions` (interface): Options for creating a core {@link Migrator}.
 - `nextMigrationSequence` (function): Returns the next sequence number after the highest discovered migration.
+- `nodeMigrationFileSystem` (function): {@link MigrationFileSystem} backed by node:fs/promises, for running the sisal CLI (and the migration workflow) on Node. node:fs/promises is imported lazily on first use so the module loads under Deno untouched;...
 - `noopMigrationDriver` (function): Creates a noop driver.
 - `noopMigrator` (function): Creates a migrator that reports no migrations and executes nothing.
 - `parseMigrationSequence` (function): Extracts the leading numeric sequence from a migration id (0002_x → 2).
@@ -1282,6 +1289,7 @@ SQL-first migration workflow: an injectable filesystem, generated-migration file
 
 - `buildMigrationFile` (function): Builds the filenames and contents for a generated migration (pure).
 - `checkDrift` (function): Decides whether migration state is consistent (pure). Reports when the live schema has drifted from the newest captured snapshot (a migration needs to be generated), when migrations are pending, and when a .sql file...
+- `defaultMigrationFileSystem` (function): The {@link MigrationFileSystem} for the host runtime: Deno file APIs under Deno ({@link denoMigrationFileSystem}), node:fs/promises otherwise ({@link nodeMigrationFileSystem}). The sisal CLI uses this so it runs on...
 - `defineConfig` (function): Validates and normalizes a migration config (pure).
 - `denoMigrationFileSystem` (function): Default {@link MigrationFileSystem} backed by Deno file APIs.
 - `DiscoveredMigration` (interface): A migration discovered on disk by {@link readMigrationsDir}.
@@ -1294,6 +1302,7 @@ SQL-first migration workflow: an injectable filesystem, generated-migration file
 - `MigrateProvider` (typeAlias): A migration runtime provider that refines a dialect's default adapter.
 - `MigrationFileSystem` (interface): Minimal filesystem surface used by the migration workflow.
 - `nextMigrationSequence` (function): Returns the next sequence number after the highest discovered migration.
+- `nodeMigrationFileSystem` (function): {@link MigrationFileSystem} backed by node:fs/promises, for running the sisal CLI (and the migration workflow) on Node. node:fs/promises is imported lazily on first use so the module loads under Deno untouched;...
 - `parseMigrationSequence` (function): Extracts the leading numeric sequence from a migration id (0002_x → 2).
 - `readMigrationsDir` (function): Reads and orders the .sql migrations in a directory (with their snapshots).
 - `writeMigrationFile` (function): Writes a generated migration's .sql and .snapshot.json files.
@@ -1393,7 +1402,7 @@ PostgreSQL adapter package for Sisal.
 - `createPgMigrationHistoryStore` (function): Creates a migration history store persisted in a PostgreSQL table.
 - `createPgMigrator` (function): Creates a PostgreSQL migration facade with a database-backed history store.
 - `createPgOrmDriver` (function): Creates an ORM driver backed by a PostgreSQL executor, pool, client, or URL.
-- `createPgPool` (function): Creates a PostgreSQL pool using the bundled @db/postgres driver.
+- `createPgPool` (function): Creates a PostgreSQL pool backed by the pure-JSR @db/postgres driver, imported **lazily** on first connect (same discipline as the postgres.js pool). Deferring the import keeps the jsr:@db/postgres specifier off the...
 - `createPostgresJsPool` (function): Creates a {@link PgPool} backed by postgres.js (npm:postgres), imported lazily on first connect. Each connect() reserves one physical connection (sql.reserve()) so an interactive transaction's begin…commit stay...
 - `DEFAULT_PG_DRIVER` (variable): The driver a URL connection uses when options.driver is not set.
 - `DEFAULT_PG_MIGRATION_TABLE` (variable): Default PostgreSQL table used to store applied migration history.
@@ -1448,7 +1457,7 @@ PostgreSQL adapter for @sisal/migrate.
 - `createPgMigrationDriver` (function): Creates a core migration driver backed by PostgreSQL SQL execution.
 - `createPgMigrationHistoryStore` (function): Creates a migration history store persisted in a PostgreSQL table.
 - `createPgMigrator` (function): Creates a PostgreSQL migration facade with a database-backed history store.
-- `createPgPool` (function): Creates a PostgreSQL pool using the bundled @db/postgres driver.
+- `createPgPool` (function): Creates a PostgreSQL pool backed by the pure-JSR @db/postgres driver, imported **lazily** on first connect. Deferring the import keeps the driver off the module's static graph, so the migration adapter loads under...
 - `DEFAULT_PG_MIGRATION_TABLE` (variable): Default PostgreSQL table used to store applied migration history.
 - `generatePostgresAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
 - `generatePostgresColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
@@ -1482,7 +1491,7 @@ PostgreSQL adapter for @sisal/orm.
 - `CreatePgDbOptions` (interface): Options for opening a PostgreSQL-backed database facade.
 - `createPgExecutor` (function): Creates a PostgreSQL SQL executor from an existing executor, pool, client, or URL.
 - `createPgOrmDriver` (function): Creates an ORM driver backed by a PostgreSQL executor, pool, client, or URL.
-- `createPgPool` (function): Creates a PostgreSQL pool using the bundled @db/postgres driver.
+- `createPgPool` (function): Creates a PostgreSQL pool backed by the pure-JSR @db/postgres driver, imported **lazily** on first connect (same discipline as the postgres.js pool). Deferring the import keeps the jsr:@db/postgres specifier off the...
 - `createPostgresJsPool` (function): Creates a {@link PgPool} backed by postgres.js (npm:postgres), imported lazily on first connect. Each connect() reserves one physical connection (sql.reserve()) so an interactive transaction's begin…commit stay...
 - `DEFAULT_PG_DRIVER` (variable): The driver a URL connection uses when options.driver is not set.
 - `PgClient` (interface): Minimal PostgreSQL client surface used by the ORM adapter.
@@ -1516,7 +1525,7 @@ SQLite adapter package for Sisal.
 - `generateSqliteColumnType` (function): Maps a snapshot column type to a SQLite type/affinity. SQLite is dynamically typed with five affinities (TEXT/INTEGER/REAL/NUMERIC/BLOB); higher level types map onto the closest one (dates/JSON/UUIDs → TEXT, booleans...
 - `generateSqliteCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table.
 - `generateSqliteUpStatements` (function): Generates the **non-destructive** SQLite up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns. Destructive changes (drop table/column, column type changes) are...
-- `openSqliteDatabase` (function): Opens a SQLite database with the bundled @db/sqlite driver. The driver is imported lazily (a dynamic import), so merely importing @sisal/orm/sqlite — and running the package's fake-backed tests — needs no...
+- `openSqliteDatabase` (function): Opens a SQLite database with the runtime-native driver, imported lazily (a dynamic import): Deno uses the FFI-backed @db/sqlite, Node the built-in node:sqlite (see {@link hasDenoFfi}). Merely importing...
 - `quoteSqliteIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 - `SQLITE_DIALECT` (variable): SQL dialect name used by the SQLite ORM adapter.
 - `sqliteColumnAffinity` (function): SQLite storage-class affinity for a Sisal {@link ColumnDataType}.
@@ -1567,7 +1576,7 @@ SQLite adapter for @sisal/migrate.
 - `generateSqliteColumnType` (function): Maps a snapshot column type to a SQLite type/affinity. SQLite is dynamically typed with five affinities (TEXT/INTEGER/REAL/NUMERIC/BLOB); higher level types map onto the closest one (dates/JSON/UUIDs → TEXT, booleans...
 - `generateSqliteCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table.
 - `generateSqliteUpStatements` (function): Generates the **non-destructive** SQLite up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns. Destructive changes (drop table/column, column type changes) are...
-- `openSqliteDatabase` (function): Opens a SQLite database with the bundled @db/sqlite driver. The driver is imported lazily, so importing @sisal/migrate/sqlite — and running its fake-backed tests — needs no permissions; only a real open needs...
+- `openSqliteDatabase` (function): Opens a SQLite database with the runtime-native driver, imported lazily: Deno uses the FFI-backed @db/sqlite, Node the built-in node:sqlite (see {@link hasDenoFfi}). Importing @sisal/migrate/sqlite — and running its...
 - `QueryResult` (interface): Rows and affected-row count returned by a SQLite migration executor.
 - `quoteSqliteIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
 - `SqlExecutor` (interface): Minimal SQL executor used by the SQLite migration adapter.
@@ -1596,7 +1605,7 @@ SQLite adapter for @sisal/orm.
 - `CreateSqliteDbOptions` (interface): Options for opening a SQLite-backed database facade.
 - `createSqliteExecutor` (function): Creates a SQLite SQL executor from an existing executor or open database.
 - `createSqliteOrmDriver` (function): Creates an ORM driver backed by a SQLite executor or open database.
-- `openSqliteDatabase` (function): Opens a SQLite database with the bundled @db/sqlite driver. The driver is imported lazily (a dynamic import), so merely importing @sisal/orm/sqlite — and running the package's fake-backed tests — needs no...
+- `openSqliteDatabase` (function): Opens a SQLite database with the runtime-native driver, imported lazily (a dynamic import): Deno uses the FFI-backed @db/sqlite, Node the built-in node:sqlite (see {@link hasDenoFfi}). Merely importing...
 - `SQLITE_DIALECT` (variable): SQL dialect name used by the SQLite ORM adapter.
 - `sqliteColumnAffinity` (function): SQLite storage-class affinity for a Sisal {@link ColumnDataType}.
 - `SqliteConnectionOptions` (interface): Options for opening a SQLite database.
@@ -1890,7 +1899,7 @@ Neon serverless adapter package for Sisal.
 - `createNeonExecutor` (function): Creates a Neon SQL executor from an existing executor, pool, client, or URL.
 - `createNeonMigrator` (function): Creates a Neon migration facade with a database-backed history store.
 - `CreateNeonMigratorOptions` (interface): Options for creating a Neon migration facade.
-- `createNeonPool` (function): Creates a Neon Pool using jsr:@neon/serverless, imported lazily.
+- `createNeonPool` (function): Creates a Neon Pool using the runtime-native Neon driver, imported lazily.
 - `DEFAULT_NEON_MIGRATION_TABLE` (variable): Default Neon/PostgreSQL table used to store applied migration history.
 - `generatePostgresAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
 - `generatePostgresColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
@@ -1949,7 +1958,7 @@ Neon serverless adapter for @sisal/migrate.
 - `createNeonExecutor` (function): Creates a Neon SQL executor from an existing executor, pool, client, or URL.
 - `createNeonMigrator` (function): Creates a Neon migration facade with a database-backed history store.
 - `CreateNeonMigratorOptions` (interface): Options for creating a Neon migration facade.
-- `createNeonPool` (function): Creates a Neon Pool using jsr:@neon/serverless, imported lazily.
+- `createNeonPool` (function): Creates a Neon Pool using the runtime-native Neon driver, imported lazily.
 - `DEFAULT_NEON_MIGRATION_TABLE` (variable): Default Neon/PostgreSQL table used to store applied migration history.
 - `NeonClient` (interface): Minimal Neon client surface used by transactions.
 - `NeonClientConfig` (typeAlias): Neon serverless single-client configuration (the driver's ClientConfig).
@@ -1986,7 +1995,7 @@ Neon serverless adapter for @sisal/orm.
 - `createNeonDb` (function): Opens a Neon-backed PostgreSQL database facade.
 - `CreateNeonDbOptions` (interface): Options for opening a Neon-backed database facade.
 - `createNeonExecutor` (function): Creates a Neon SQL executor from an existing executor, pool, client, or URL.
-- `createNeonPool` (function): Creates a Neon Pool using jsr:@neon/serverless, imported lazily.
+- `createNeonPool` (function): Creates a Neon Pool using the runtime-native Neon driver, imported lazily.
 - `NeonClient` (interface): Minimal Neon client surface used by transactions.
 - `NeonClientConfig` (typeAlias): Neon serverless single-client configuration (the driver's ClientConfig).
 - `neonClientConfigFromOptions` (function): Extracts a Neon ClientConfig from package connection options.
@@ -2035,7 +2044,10 @@ Canonical documentation is linked instead of embedded verbatim so this file stay
 - [MySQL / MariaDB compatibility](https://gilvandovieira.github.io/sisal/mysql-compatibility.html) (`docs/mysql-compatibility.md`): Sisal's MySQL adapter (@sisal/mysql) is verified end-to-end against real servers — **both** MySQL proper and MariaDB, which share one adapter but are distinct capability profiles. Each suite opens a pool with the...
 - [MySQL type & DDL mapping](https://gilvandovieira.github.io/sisal/mysql-ddl-mapping.html) (`docs/mysql-ddl-mapping.md`): **Date:** 2026-07-01 · **Probe:** perf/mysql_ddl_probe.ts (deno task perf:mysql:ddl) · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), decoded through the C6-chosen driver (npm:mysql2 with the...
 - [MySQL readiness](https://gilvandovieira.github.io/sisal/mysql-readiness.html) (`docs/mysql-readiness.md`): **Date:** 2026-07-01 · **Status:** all six C tasks 🟢 · **Verified against:** MySQL **8.4.10** and MariaDB **11.8.8** (Docker), Deno 2.9.0 (+ Node 26 dual-runtime check)
+- [Use Sisal from Node](https://gilvandovieira.github.io/sisal/node.html) (`docs/node.md`): Sisal is Deno-first, but the same packages are published to **npm** under the **@sisaljs** scope for **Node.js 24+**. The API is identical to the JSR packages — only the install and the scope differ (@sisal/* on JSR...
+- [npm Distribution Plan](https://gilvandovieira.github.io/sisal/npm-distribution-plan.html) (`docs/npm-distribution-plan.md`): This is the **actionable execution plan** for publishing Sisal to **npm** under the @sisaljs scope, running on **Node.js 24+**, alongside the existing JSR distribution. It is the "how / tasks" companion to...
 - [npm Release Readiness](https://gilvandovieira.github.io/sisal/npm-release-readiness.html) (`docs/npm-release-readiness.md`): This is a **standing readiness report**, not a scheduled deliverable. It records what must change for Sisal to publish to **npm** alongside JSR and run on **Node.js 24+**, so the work can be picked up cheaply **if...
+- [npm Release Runbook](https://gilvandovieira.github.io/sisal/npm-release-runbook.html) (`docs/npm-release-runbook.md`): How a paired **JSR + npm** release of Sisal is cut. The Publish workflow (.github/workflows/publish.yml) does the work; this is the operator checklist. Companion to npm-distribution-plan.md (Phase 7).
 - [Portability policies](https://gilvandovieira.github.io/sisal/portability-policies.html) (`docs/portability-policies.md`): The cross-family value and lifecycle policies Sisal's examples, adapters, and tests follow (v0.8 item 17). Per-engine details live in the docs/*-compatibility.md pages; this page states the policies once.
 - [Roadmap Sequencing Audit (v0.6 → v0.11)](https://gilvandovieira.github.io/sisal/roadmap-sequencing-audit.html) (`docs/roadmap-sequencing-audit.md`): This is a **second-pass sequencing audit** of the forward plan (docs/roadmap.md, docs/architecture.md, docs/v0.6.0-roadmap.md → docs/v0.11.0-roadmap.md, and the twelve examples/advanced-sql-contracts/). It...
 - [Roadmap Overview](https://gilvandovieira.github.io/sisal/roadmap.html) (`docs/roadmap.md`): Sisal is a **Deno-first, SQL-first, type-safe** ORM and database toolkit for **relational** data across PostgreSQL, Neon, SQLite, libSQL, and MySQL/MariaDB. It will not become an object-first ORM. This page is the...
