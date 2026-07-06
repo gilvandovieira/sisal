@@ -6,11 +6,15 @@ Neon serverless PostgreSQL adapter boundary for Sisal.
 `@neondatabase/serverless` on npm) and reuses the Postgres SQL dialect, ORM
 driver, migrator, and DDL helpers from `@sisal/pg`.
 
-> **Install** — JSR (Deno): `deno add jsr:@sisal/neon` · npm (Node 24+):
-> `npm i @sisaljs/neon @neondatabase/serverless`. Same package on both
-> registries under different scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on
-> npm**); examples use the JSR import, on npm import from `@sisaljs/neon`. The
-> serverless driver is a peer dependency you install yourself.
+> **Install** — same package, registry-specific scopes:
+>
+> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/neon`
+> - npm / Node 24+ (`@sisaljs/*`):
+>   `npm i @sisaljs/neon @neondatabase/serverless`
+>
+> Examples use the JSR import (`@sisal/neon`); on npm import from
+> `@sisaljs/neon`. The serverless driver is a peer dependency you install
+> yourself.
 
 ```ts
 import { connect } from "@sisal/neon";

@@ -66,7 +66,7 @@ Use `llms-full.txt` when you need a focused single-file package/API reference wi
 
 ## Project Context
 
-- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight...
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to both JSR and npm as of v0.12 — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database...
 - [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md): This is the canonical changelog for Sisal workspace releases.
 - [Repository](https://github.com/gilvandovieira/sisal): Source code, issues, examples, workflows, and package directories.
 
@@ -2022,7 +2022,7 @@ Neon serverless adapter for @sisal/orm.
 
 Canonical documentation is linked instead of embedded verbatim so this file stays focused on package boundaries and public API discovery.
 
-- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md) (`README.md`): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight...
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md) (`README.md`): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to both JSR and npm as of v0.12 — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database...
 - [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md) (`CHANGELOG.md`): This is the canonical changelog for Sisal workspace releases.
 - [API Reference](https://gilvandovieira.github.io/sisal/api.html) (`docs/api.md`): This reference is verified against the current workspace package exports and source layout. Sisal is a Deno-first database toolkit, published to JSR, with a driverless core, a driverless ORM facade, adapter-neutral...
 - [Migration Notes](https://gilvandovieira.github.io/sisal/migration-notes.html) (`docs/migration-notes.md`): Sisal replaces the earlier ORM and migration package direction with a focused database toolkit.

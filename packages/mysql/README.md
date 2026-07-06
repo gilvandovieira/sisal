@@ -2,12 +2,14 @@
 
 MySQL and MariaDB adapter boundaries for [Sisal](https://jsr.io/@sisal/orm).
 
-> **Install** — JSR (Deno): `deno add jsr:@sisal/mysql` · npm (Node 24+):
-> `npm i @sisaljs/mysql mysql2` (add `mariadb` for the MariaDB connector). Same
-> package on both registries under different scopes (**`@sisal/*` on JSR**,
-> **`@sisaljs/*` on npm**); examples use the JSR import, on npm import from
+> **Install** — same package, registry-specific scopes:
+>
+> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/mysql`
+> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/mysql mysql2`
+>
+> Examples use the JSR import (`@sisal/mysql`); on npm import from
 > `@sisaljs/mysql`. The `mysql2` driver is a peer dependency you install
-> yourself.
+> yourself; add `mariadb` when using the MariaDB connector.
 
 **One adapter, both engines:** MySQL ≥ 8.0.16 is the baseline; MariaDB ≥ 10.10
 runs on the same adapter. Variant-gated capabilities (e.g. MariaDB

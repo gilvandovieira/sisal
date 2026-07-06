@@ -7,11 +7,14 @@ for pure SQLite DDL generation. It provides libSQL/Turso query execution,
 migration history storage, migrators, and SQLite-compatible additive DDL
 aliases.
 
-> **Install** — JSR (Deno): `deno add jsr:@sisal/libsql` · npm (Node 24+):
-> `npm i @sisaljs/libsql @libsql/client`. Same package on both registries under
-> different scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples
-> use the JSR import, on npm import from `@sisaljs/libsql`. The `@libsql/client`
-> driver is a peer dependency you install yourself.
+> **Install** — same package, registry-specific scopes:
+>
+> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/libsql`
+> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/libsql @libsql/client`
+>
+> Examples use the JSR import (`@sisal/libsql`); on npm import from
+> `@sisaljs/libsql`. The `@libsql/client` driver is a peer dependency you
+> install yourself.
 
 ```ts
 import { createLibsqlDb } from "@sisal/libsql";

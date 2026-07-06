@@ -6,11 +6,13 @@ PostgreSQL adapter boundary for Sisal.
 depends on `@sisal/pg`. It provides PostgreSQL database execution, connection
 pooling, migration history storage, migrators, and additive DDL generation.
 
-> **Install** — JSR (Deno): `deno add jsr:@sisal/pg` · npm (Node 24+):
-> `npm i @sisaljs/pg postgres`. Same package on both registries under different
-> scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR
-> import, on npm import from `@sisaljs/pg`. The `postgres` (postgres.js) driver
-> is a peer dependency you install yourself.
+> **Install** — same package, registry-specific scopes:
+>
+> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/pg`
+> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/pg postgres`
+>
+> Examples use the JSR import (`@sisal/pg`); on npm import from `@sisaljs/pg`.
+> The `postgres` (postgres.js) driver is a peer dependency you install yourself.
 
 ```ts
 import { createPgDb } from "@sisal/pg";

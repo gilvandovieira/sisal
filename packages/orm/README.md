@@ -7,10 +7,12 @@ legacy package. It can define tables, infer insert/select shapes, render
 parameterized SQL, and produce serializable schema snapshots consumed by
 `@sisal/migrate` and adapter packages.
 
-> **Install** — JSR (Deno): `deno add jsr:@sisal/orm` · npm (Node 24+):
-> `npm i @sisaljs/orm`. Same package on both registries under different scopes
-> (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR import,
-> on npm import from `@sisaljs/orm`.
+> **Install** — same package, registry-specific scopes:
+>
+> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/orm`
+> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/orm`
+>
+> Examples use the JSR import (`@sisal/orm`); on npm import from `@sisaljs/orm`.
 
 ```ts
 import { columns, defineTable, eq, renderSql, sql } from "@sisal/orm";

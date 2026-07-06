@@ -60,6 +60,6 @@ Use `llms-full.txt` when you need a focused single-file package/API reference wi
 
 ## Project Context
 
-- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to JSR — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database adapters — with **lightweight...
+- [Sisal](https://github.com/gilvandovieira/sisal/blob/main/README.md): Sisal is a Deno-first collection of **ORM and query-builder packages**, published to both JSR and npm as of v0.12 — typed schemas, safe SQL builders, schema snapshots, migration planning, and explicit database...
 - [Changelog](https://github.com/gilvandovieira/sisal/blob/main/CHANGELOG.md): This is the canonical changelog for Sisal workspace releases.
 - [Repository](https://github.com/gilvandovieira/sisal): Source code, issues, examples, workflows, and package directories.

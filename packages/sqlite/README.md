@@ -6,11 +6,14 @@ SQLite adapter boundary for Sisal.
 depends on `@sisal/sqlite`. It provides SQLite database execution, migration
 history storage, migrators, and additive DDL generation.
 
-> **Install** — JSR (Deno): `deno add jsr:@sisal/sqlite` · npm (Node 24+):
-> `npm i @sisaljs/sqlite`. Same package on both registries under different
-> scopes (**`@sisal/*` on JSR**, **`@sisaljs/*` on npm**); examples use the JSR
-> import, on npm import from `@sisaljs/sqlite`. No driver to install: it uses
-> Deno's `@db/sqlite` (FFI) on Deno and the built-in `node:sqlite` on Node.
+> **Install** — same package, registry-specific scopes:
+>
+> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/sqlite`
+> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/sqlite`
+>
+> Examples use the JSR import (`@sisal/sqlite`); on npm import from
+> `@sisaljs/sqlite`. No driver to install: it uses Deno's `@db/sqlite` (FFI) on
+> Deno and the built-in `node:sqlite` on Node.
 
 ```ts
 import { createSqliteDb } from "@sisal/sqlite";
