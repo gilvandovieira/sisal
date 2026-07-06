@@ -66,4 +66,4 @@ export {
   assertQuerySupported,
   supportsQuery,
 } from "./src/capability.ts";
-export { avg, count, countDistinct, max, min, sum } from "@sisal/core";
+export { avg, count, countDistinct, max, min, sum } from "./src/aggregates.ts";

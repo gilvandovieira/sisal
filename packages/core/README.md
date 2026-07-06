@@ -21,6 +21,34 @@ on the OLTP ORM. The fluent query builders, `Database` facade, relations, and
 typed function caller remain in [`@sisal/orm`](https://jsr.io/@sisal/orm), which
 re-exports this package.
 
+```ts
+import {
+  assembleSelect,
+  columns,
+  defineTable,
+  eq,
+  renderSql,
+} from "@sisal/core";
+
+const users = defineTable("users", {
+  id: columns.uuid().primaryKey(),
+  email: columns.text().notNull(),
+});
+
+const query = assembleSelect({
+  select: {
+    id: users.columns.id,
+    email: users.columns.email,
+  },
+  from: users,
+  where: eq(users.columns.email, "ada@example.test"),
+  limit: 1,
+});
+
+const rendered = renderSql(query, { dialect: "postgres" });
+// { text: 'select "users"."id" as "id", ... limit $2', params: [...] }
+```
+
 - `@sisal/core` — the documented public surface.
 - `@sisal/core/schema` — the serializable schema-snapshot contract.
 - `@sisal/core/unstable-internal` — builder plumbing for `@sisal/orm`; not a

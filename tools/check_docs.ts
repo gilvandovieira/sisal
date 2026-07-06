@@ -3,19 +3,31 @@ import { pathToFileURL } from "node:url";
 
 const MODULE_DOC_MINIMUM = 1;
 const JSDOC_MINIMUM = 1;
+const PACKAGE_DOC_OWNER_EXCEPTIONS: Record<string, readonly string[]> = {
+  "@sisal/orm": ["/packages/core/"],
+};
 const MISSING_PER_PACKAGE_LIMIT = Deno.args.includes("--all")
   ? Number.POSITIVE_INFINITY
   : 50;
 
 interface DenoConfig {
   readonly name?: string;
+  readonly description?: string;
   readonly publish?: false | Record<string, unknown>;
   readonly workspace?: readonly string[];
   readonly exports?: unknown;
 }
 
+interface PackageDocsInfo {
+  readonly packageName: string;
+  readonly packageDir: string;
+  readonly config: DenoConfig;
+  readonly exports: readonly [exportName: string, exportTarget: string][];
+}
+
 interface ExportModule {
   readonly packageName: string;
+  readonly packageDir: string;
   readonly exportName: string;
   readonly path: string;
 }
@@ -89,18 +101,30 @@ const textDecoder = new TextDecoder();
 
 const rootDir = Deno.cwd();
 const rootConfig = await readJson<DenoConfig>(join(rootDir, "deno.json"));
-const exportModules = await getExportModules(rootConfig);
+const packages = await getPackageDocsInfo(rootConfig);
+const exportModules = packages.flatMap((packageInfo) =>
+  packageInfo.exports
+    .filter(([, exportTarget]) => exportTarget.endsWith(".ts"))
+    .map(([exportName, exportTarget]) => ({
+      packageName: packageInfo.packageName,
+      packageDir: packageInfo.packageDir,
+      exportName,
+      path: resolve(packageInfo.packageDir, exportTarget),
+    }))
+);
 
 if (exportModules.length === 0) {
   console.error("No package export modules found.");
   Deno.exit(1);
 }
 
+const packageResults = await checkPackageDocs(packages);
 const moduleResults: {
   readonly module: ExportModule;
   readonly documented: boolean;
 }[] = [];
 const jsDocEntries = new Map<string, JsDocEntry>();
+const externalDocEntries: string[] = [];
 
 for (const exportModule of exportModules) {
   const docJson = await denoDocJson(exportModule.path);
@@ -122,6 +146,17 @@ for (const exportModule of exportModules) {
 
   for (const symbol of node.symbols ?? []) {
     const declarations = symbol.declarations ?? [];
+    if (
+      !declarations.some((declaration) =>
+        ownsDocDeclaration(
+          declaration,
+          exportModule,
+        )
+      )
+    ) {
+      externalDocEntries.push(getSymbolLabel(exportModule, symbol));
+    }
+
     addJsDocEntry(
       jsDocEntries,
       exportModule.packageName,
@@ -161,6 +196,11 @@ const jsDocCoverage = jsDocValues.length === 0
   : documentedJsDoc / jsDocValues.length;
 
 console.log(
+  `Package docs: ${
+    packageResults.filter((result) => result.passed).length
+  }/${packageResults.length}`,
+);
+console.log(
   `Module docs: ${documentedModules}/${moduleResults.length} (${
     formatPercent(moduleCoverage)
   })`,
@@ -174,8 +214,25 @@ console.log(
 const missingModuleDocs = moduleResults.filter((result) => !result.documented);
 const missingJsDocs = jsDocValues.filter((entry) => !entry.documented);
 const missingJsDocsByPackage = groupEntriesByPackage(missingJsDocs);
+const failedPackageDocs = packageResults.filter((result) => !result.passed);
 
 let failed = false;
+
+if (failedPackageDocs.length > 0) {
+  failed = true;
+  console.error("\nPackage documentation prerequisites failed:");
+  for (const result of failedPackageDocs) {
+    console.error(`  - ${result.label}`);
+  }
+}
+
+if (externalDocEntries.length > 0) {
+  failed = true;
+  console.error("\nPackage-local docs required:");
+  for (const entry of externalDocEntries) {
+    console.error(`  - ${entry}`);
+  }
+}
 
 if (moduleCoverage < MODULE_DOC_MINIMUM) {
   failed = true;
@@ -210,10 +267,10 @@ if (failed) {
   Deno.exit(1);
 }
 
-async function getExportModules(
+async function getPackageDocsInfo(
   config: DenoConfig,
-): Promise<ExportModule[]> {
-  const modules: ExportModule[] = [];
+): Promise<PackageDocsInfo[]> {
+  const packages: PackageDocsInfo[] = [];
 
   for (const workspaceMember of config.workspace ?? []) {
     const packageDir = resolve(rootDir, workspaceMember);
@@ -237,24 +294,67 @@ async function getExportModules(
       continue;
     }
 
-    for (
-      const [exportName, exportTarget] of normalizeExports(
-        packageConfig.exports,
-      )
-    ) {
-      if (!exportTarget.endsWith(".ts")) {
-        continue;
-      }
-
-      modules.push({
-        packageName: packageConfig.name ?? workspaceMember,
-        exportName,
-        path: resolve(packageDir, exportTarget),
-      });
-    }
+    packages.push({
+      packageName: packageConfig.name ?? workspaceMember,
+      packageDir,
+      config: packageConfig,
+      exports: normalizeExports(packageConfig.exports),
+    });
   }
 
-  return modules;
+  return packages;
+}
+
+interface PackageDocResult {
+  readonly label: string;
+  readonly passed: boolean;
+}
+
+async function checkPackageDocs(
+  packages: readonly PackageDocsInfo[],
+): Promise<PackageDocResult[]> {
+  const results: PackageDocResult[] = [];
+
+  for (const packageInfo of packages) {
+    const packageLabel = `${packageInfo.packageName} (${
+      relative(rootDir, packageInfo.packageDir)
+    })`;
+    const description = packageInfo.config.description?.trim() ?? "";
+    const readmePath = join(packageInfo.packageDir, "README.md");
+    const readmeText = await readTextFileIfExists(readmePath);
+    const defaultExport = packageInfo.exports.find(([name]) => name === ".");
+
+    results.push({
+      label: `${packageLabel}: deno.json must include a non-empty description`,
+      passed: description.length > 0,
+    });
+    results.push({
+      label:
+        `${packageLabel}: description must fit JSR's 250-character package setting`,
+      passed: description.length > 0 && description.length <= 250,
+    });
+    results.push({
+      label: `${packageLabel}: README.md must exist and be non-empty`,
+      passed: (readmeText?.trim().length ?? 0) > 0,
+    });
+    results.push({
+      label:
+        `${packageLabel}: README.md must be included in the JSR publish artifact`,
+      passed: publishIncludesReadme(packageInfo.config.publish),
+    });
+    results.push({
+      label:
+        `${packageLabel}: README.md must contain a fenced TypeScript usage example`,
+      passed: readmeText !== undefined && hasTypeScriptCodeFence(readmeText),
+    });
+    results.push({
+      label:
+        `${packageLabel}: deno.json exports must include the default '.' entrypoint`,
+      passed: defaultExport !== undefined && defaultExport[1].endsWith(".ts"),
+    });
+  }
+
+  return results;
 }
 
 function normalizeExports(
@@ -327,6 +427,36 @@ function getSymbolLabel(module: ExportModule, symbol: DocSymbol): string {
   return `${symbol.name} (${
     relative(rootDir, fileUrlToPath(location.filename))
   }:${location.line ?? 1})`;
+}
+
+function ownsDocDeclaration(
+  declaration: DocDeclaration,
+  module: ExportModule,
+): boolean {
+  const location = declaration.location?.filename;
+
+  if (location === undefined) {
+    return false;
+  }
+
+  return isLocationInPackage(location, module) ||
+    isAllowedExternalDocLocation(location, module);
+}
+
+function isLocationInPackage(location: string, module: ExportModule): boolean {
+  const path = fileUrlToPath(location);
+  return path === module.packageDir || path.startsWith(`${module.packageDir}/`);
+}
+
+function isAllowedExternalDocLocation(
+  location: string,
+  module: ExportModule,
+): boolean {
+  const allowedPrefixes = PACKAGE_DOC_OWNER_EXCEPTIONS[module.packageName] ??
+    [];
+  const path = fileUrlToPath(location);
+
+  return allowedPrefixes.some((prefix) => path.includes(prefix));
 }
 
 function getDeclarationMemberEntries(
@@ -529,6 +659,45 @@ async function denoDocJson(path: string): Promise<DocJson> {
 
 async function readJson<T>(path: string): Promise<T> {
   return JSON.parse(await Deno.readTextFile(path)) as T;
+}
+
+async function readTextFileIfExists(path: string): Promise<string | undefined> {
+  try {
+    return await Deno.readTextFile(path);
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return undefined;
+    }
+
+    throw error;
+  }
+}
+
+function publishIncludesReadme(
+  publish: false | Record<string, unknown> | undefined,
+): boolean {
+  if (publish === false) {
+    return false;
+  }
+
+  if (publish === undefined) {
+    return true;
+  }
+
+  const include = publish.include;
+
+  if (!Array.isArray(include)) {
+    return true;
+  }
+
+  return include.includes("README.md") ||
+    include.includes("./README.md") ||
+    include.includes("**/*") ||
+    include.includes("*");
+}
+
+function hasTypeScriptCodeFence(text: string): boolean {
+  return /^```(?:ts|typescript)\b[\s\S]*?^```/m.test(text);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

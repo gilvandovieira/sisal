@@ -1357,11 +1357,11 @@ A Postgres-first OLAP layer over the @sisal/core IR: define **metrics × dimensi
 - `AnyWindowedMetric` (typeAlias): Any windowed-metric descriptor referencing at most the keys TKey.
 - `ascending` (function): Orders by a dimension/metric/window key or expression, ascending — orderBy(ascending("bucket")).
 - `assertQuerySupported` (function): The throwing form of {@link supportsQuery}: refuses an unsupported query shape with the typed ANALYTICS_UNSUPPORTED_QUERY error (status 400, details carrying the identity and reason) — call it pre-flight when a raw...
-- `avg` (function): avg(column) aggregate expression.
+- `avg` (function): avg(column) aggregate expression for analytics metrics.
 - `bucket` (function): A time-bucket dimension: bucket("hour", stats.columns.bucket) floors to a calendar grain, bucket({ minutes: 5 }, …) to a fixed-width interval. Use it as a dimension value; it groups, projects, and orders like any...
 - `CompareToPreviousWindowOptions` (interface): Options for {@link AnalyticsQuery.compareToPreviousWindow}.
-- `count` (function): count(*) (no argument) or count(column) aggregate expression.
-- `countDistinct` (function): count(distinct column) aggregate expression.
+- `count` (function): count(*) or count(column) aggregate expression for analytics metrics.
+- `countDistinct` (function): count(distinct column) aggregate expression for analytics metrics.
 - `delta` (function): The difference between the metric's current and previous window rows — metric - lag(metric) over (…). Nullable: the first row of every partition has no previous row.
 - `DeltaMetric` (interface): A period-over-period delta — metric - lag(metric) over (…), the difference between the current and previous window row.
 - `denseRank` (function): Ranking without gaps — dense_rank() over (…).
@@ -1371,8 +1371,8 @@ A Postgres-first OLAP layer over the @sisal/core IR: define **metrics × dimensi
 - `isTimeBucket` (function): Returns true when a dimension value was produced by {@link bucket}.
 - `lag` (function): The metric's value offset window rows before the current row — lag("votes", { partitionBy: ["postId"], orderBy: ["bucket"] }). The result row infers the referenced metric's value type, nullable.
 - `lead` (function): The metric's value offset window rows after the current row.
-- `max` (function): max(column) aggregate expression.
-- `min` (function): min(column) aggregate expression.
+- `max` (function): max(column) aggregate expression for analytics metrics.
+- `min` (function): min(column) aggregate expression for analytics metrics.
 - `movingAvg` (function): A trailing moving average of a metric over the last rows window rows (current row included) — the /rising feed's velocity score: movingAvg("votes", { partitionBy: ["postId"], orderBy: ["bucket"], rows: 6 })....
 - `MovingAvgMetric` (interface): A trailing moving average over a metric — compiles to avg(metric) over (partition by … order by … rows between N-1 preceding and current row).
 - `OffsetMetric` (interface): A lag()/lead() windowed metric. TRef keeps the referenced metric key's literal type so the result row infers the referenced metric's value type (nullable — the offset row may fall outside the partition).
@@ -1382,7 +1382,7 @@ A Postgres-first OLAP layer over the @sisal/core IR: define **metrics × dimensi
 - `rank` (function): Ranking with gaps over the window order — rank() over (…): rank({ partitionBy: ["bucket"], orderBy: [descending("engagement")] }).
 - `RankingMetric` (interface): A ranking windowed metric — rank()/dense_rank()/row_number().
 - `rowNumber` (function): Sequential row numbering — row_number() over (…).
-- `sum` (function): sum(column) aggregate expression.
+- `sum` (function): sum(column) aggregate expression for analytics metrics.
 - `supportsQuery` (function): Decides whether query renders on the engine identity (a bare dialect or the full db.dialectIdentity), without executing anything. Returns { supported: false, reason } when the query contains a construct the...
 - `WindowedMetricMap` (typeAlias): Map of result key → windowed-metric descriptor.
 - `WindowedMetricSpec` (interface): The partition/order options shared by every windowed-metric descriptor. Keys reference the query's dimensions and metrics; the window itself evaluates after grouping, so a referenced metric inlines its aggregate...
@@ -1633,11 +1633,11 @@ libSQL/Turso adapter package for Sisal.
 - `CreateLibsqlMigratorOptions` (interface): Options for creating a libSQL migration facade.
 - `createLibsqlOrmDriver` (function): Creates an ORM driver backed by a libSQL executor or open client.
 - `DEFAULT_LIBSQL_MIGRATION_TABLE` (variable): Default libSQL table used to store applied migration history.
-- `generateLibsqlAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
-- `generateLibsqlColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
-- `generateLibsqlColumnType` (function): Maps a snapshot column type to a SQLite type/affinity. SQLite is dynamically typed with five affinities (TEXT/INTEGER/REAL/NUMERIC/BLOB); higher level types map onto the closest one (dates/JSON/UUIDs → TEXT, booleans...
-- `generateLibsqlCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table.
-- `generateLibsqlUpStatements` (function): Generates the **non-destructive** SQLite up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns. Destructive changes (drop table/column, column type changes) are...
+- `generateLibsqlAddColumn` (function): Generates a libSQL/SQLite ALTER TABLE ... ADD COLUMN statement.
+- `generateLibsqlColumnDefinition` (function): Renders one libSQL/SQLite column definition.
+- `generateLibsqlColumnType` (function): Maps a Sisal snapshot column type to the SQLite affinity libSQL accepts.
+- `generateLibsqlCreateTable` (function): Generates a libSQL/SQLite CREATE TABLE statement from one table snapshot.
+- `generateLibsqlUpStatements` (function): Generates non-destructive libSQL/SQLite migration statements from schema snapshots, returning destructive changes separately.
 - `isLibsqlUrl` (function): Returns true when a URL should use the libSQL client transport.
 - `LIBSQL_DIALECT` (variable): SQL dialect name used by the libSQL/Turso ORM adapter.
 - `LibsqlArgs` (typeAlias): Positional or named libSQL statement arguments.
@@ -1664,22 +1664,22 @@ libSQL/Turso adapter package for Sisal.
 - `LibsqlStatement` (interface): Statement shape accepted by libSQL clients.
 - `LibsqlTransaction` (interface): Interactive transaction surface used by Sisal.
 - `LibsqlTransactionMode` (typeAlias): Transaction mode accepted by @libsql/client.
-- `LibsqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
+- `LibsqlUpStatements` (typeAlias): Safe libSQL/SQLite up statements plus destructive changes withheld.
 - `LibsqlValue` (typeAlias): Scalar value shape returned by libSQL rows.
 - `openLibsqlClient` (function): Opens a libSQL/Turso client for ORM use.
-- `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
+- `quoteLibsqlIdent` (function): Quotes a libSQL/SQLite identifier, escaping embedded double quotes.
 
 ### @sisal/libsql ./ddl (packages/libsql/src/migrate/ddl.ts)
 
 Pure libSQL/Turso DDL generation.
 
-- `generateLibsqlAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
-- `generateLibsqlColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
-- `generateLibsqlColumnType` (function): Maps a snapshot column type to a SQLite type/affinity. SQLite is dynamically typed with five affinities (TEXT/INTEGER/REAL/NUMERIC/BLOB); higher level types map onto the closest one (dates/JSON/UUIDs → TEXT, booleans...
-- `generateLibsqlCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table.
-- `generateLibsqlUpStatements` (function): Generates the **non-destructive** SQLite up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns. Destructive changes (drop table/column, column type changes) are...
-- `LibsqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
-- `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
+- `generateLibsqlAddColumn` (function): Generates a libSQL/SQLite ALTER TABLE ... ADD COLUMN statement.
+- `generateLibsqlColumnDefinition` (function): Renders one libSQL/SQLite column definition.
+- `generateLibsqlColumnType` (function): Maps a Sisal snapshot column type to the SQLite affinity libSQL accepts.
+- `generateLibsqlCreateTable` (function): Generates a libSQL/SQLite CREATE TABLE statement from one table snapshot.
+- `generateLibsqlUpStatements` (function): Generates non-destructive libSQL/SQLite migration statements from schema snapshots, returning destructive changes separately.
+- `LibsqlUpStatements` (typeAlias): Safe libSQL/SQLite up statements plus destructive changes withheld.
+- `quoteLibsqlIdent` (function): Quotes a libSQL/SQLite identifier, escaping embedded double quotes.
 
 ### @sisal/libsql ./migrate (packages/libsql/src/migrate/mod.ts)
 
@@ -1692,11 +1692,11 @@ libSQL/Turso adapter for @sisal/migrate.
 - `createLibsqlMigrator` (function): Creates a libSQL migration facade with a database-backed history store.
 - `CreateLibsqlMigratorOptions` (interface): Options for creating a libSQL migration facade.
 - `DEFAULT_LIBSQL_MIGRATION_TABLE` (variable): Default libSQL table used to store applied migration history.
-- `generateLibsqlAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
-- `generateLibsqlColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
-- `generateLibsqlColumnType` (function): Maps a snapshot column type to a SQLite type/affinity. SQLite is dynamically typed with five affinities (TEXT/INTEGER/REAL/NUMERIC/BLOB); higher level types map onto the closest one (dates/JSON/UUIDs → TEXT, booleans...
-- `generateLibsqlCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table.
-- `generateLibsqlUpStatements` (function): Generates the **non-destructive** SQLite up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns. Destructive changes (drop table/column, column type changes) are...
+- `generateLibsqlAddColumn` (function): Generates a libSQL/SQLite ALTER TABLE ... ADD COLUMN statement.
+- `generateLibsqlColumnDefinition` (function): Renders one libSQL/SQLite column definition.
+- `generateLibsqlColumnType` (function): Maps a Sisal snapshot column type to the SQLite affinity libSQL accepts.
+- `generateLibsqlCreateTable` (function): Generates a libSQL/SQLite CREATE TABLE statement from one table snapshot.
+- `generateLibsqlUpStatements` (function): Generates non-destructive libSQL/SQLite migration statements from schema snapshots, returning destructive changes separately.
 - `isLibsqlUrl` (function): Returns true when a URL should use the libSQL client transport.
 - `LIBSQL_DIALECT` (variable): Dialect name used by the libSQL/Turso migration adapter.
 - `LibsqlArgs` (typeAlias): Positional or named libSQL statement arguments.
@@ -1719,11 +1719,11 @@ libSQL/Turso adapter for @sisal/migrate.
 - `LibsqlStatement` (interface): Statement shape accepted by libSQL clients.
 - `LibsqlTransaction` (interface): Interactive transaction surface used by Sisal.
 - `LibsqlTransactionMode` (typeAlias): Transaction mode accepted by @libsql/client.
-- `LibsqlUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
+- `LibsqlUpStatements` (typeAlias): Safe libSQL/SQLite up statements plus destructive changes withheld.
 - `LibsqlValue` (typeAlias): Scalar value shape returned by libSQL rows.
 - `openLibsqlClient` (function): Opens a libSQL/Turso client for migration use.
 - `QueryResult` (interface): Rows and affected-row count returned by a libSQL migration executor.
-- `quoteLibsqlIdent` (function): Quotes a SQLite identifier, escaping embedded double quotes.
+- `quoteLibsqlIdent` (function): Quotes a libSQL/SQLite identifier, escaping embedded double quotes.
 - `SqlExecutor` (interface): Minimal SQL executor used by the libSQL migration adapter.
 
 ### @sisal/libsql ./orm (packages/libsql/src/orm/mod.ts)
@@ -1901,11 +1901,11 @@ Neon serverless adapter package for Sisal.
 - `CreateNeonMigratorOptions` (interface): Options for creating a Neon migration facade.
 - `createNeonPool` (function): Creates a Neon Pool using the runtime-native Neon driver, imported lazily.
 - `DEFAULT_NEON_MIGRATION_TABLE` (variable): Default Neon/PostgreSQL table used to store applied migration history.
-- `generatePostgresAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
-- `generatePostgresColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
-- `generatePostgresColumnType` (function): Maps a snapshot column type to a PostgreSQL type expression.
-- `generatePostgresCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table.
-- `generatePostgresUpStatements` (function): Generates the **non-destructive** PostgreSQL up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns. Destructive changes (drop table/column, column type changes)...
+- `generatePostgresAddColumn` (function): Generates a Neon/PostgreSQL ALTER TABLE ... ADD COLUMN statement.
+- `generatePostgresColumnDefinition` (function): Renders one Neon/PostgreSQL column definition.
+- `generatePostgresColumnType` (function): Maps a Sisal snapshot column type to the PostgreSQL type Neon accepts.
+- `generatePostgresCreateTable` (function): Generates a Neon/PostgreSQL CREATE TABLE statement from one table snapshot.
+- `generatePostgresUpStatements` (function): Generates non-destructive Neon/PostgreSQL migration statements from schema snapshots, returning destructive changes separately.
 - `NeonClient` (interface): Minimal Neon client surface used by transactions.
 - `NeonClientConfig` (typeAlias): Neon serverless single-client configuration (the driver's ClientConfig).
 - `neonClientConfigFromOptions` (function): Extracts a Neon ClientConfig from package connection options.
@@ -1931,24 +1931,24 @@ Neon serverless adapter package for Sisal.
 - `NeonSqlExecutor` (interface): Minimal SQL executor used by Sisal's Neon compatibility package.
 - `NeonSqlResult` (interface): Rows and affected-row count returned by a Neon executor.
 - `normalizeNeonResult` (function): Normalizes a Neon query result into Sisal's affected-row shape.
-- `pgQualifiedName` (function): Renders the qualified, quoted "schema"."table" name.
-- `POSTGRES_DIALECT` (variable): SQL dialect name used by the PostgreSQL ORM adapter.
-- `PostgresUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
-- `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
+- `pgQualifiedName` (function): Renders a qualified PostgreSQL table name for Neon DDL.
+- `POSTGRES_DIALECT` (variable): SQL dialect name used by the Neon adapter's PostgreSQL-compatible renderer.
+- `PostgresUpStatements` (typeAlias): Safe Neon/PostgreSQL up statements plus destructive changes withheld.
+- `quotePgIdent` (function): Quotes a PostgreSQL identifier for Neon DDL.
 - `resolveNeonConnectionString` (function): Resolves url or connectionString into a non-empty connection string.
 
 ### @sisal/neon ./ddl (packages/neon/src/ddl.ts)
 
 PostgreSQL DDL helpers for Neon serverless workflows.
 
-- `generatePostgresAddColumn` (function): Generates an ALTER TABLE ... ADD COLUMN statement.
-- `generatePostgresColumnDefinition` (function): Renders a single column definition for CREATE TABLE / ADD COLUMN.
-- `generatePostgresColumnType` (function): Maps a snapshot column type to a PostgreSQL type expression.
-- `generatePostgresCreateTable` (function): Generates a CREATE TABLE statement for one snapshot table.
-- `generatePostgresUpStatements` (function): Generates the **non-destructive** PostgreSQL up statements for migrating from → to: CREATE TABLE for new tables and ALTER TABLE ADD COLUMN for new columns. Destructive changes (drop table/column, column type changes)...
-- `pgQualifiedName` (function): Renders the qualified, quoted "schema"."table" name.
-- `PostgresUpStatements` (interface): Safe (additive) up statements plus the destructive changes that were withheld.
-- `quotePgIdent` (function): Quotes a PostgreSQL identifier, escaping embedded double quotes.
+- `generatePostgresAddColumn` (function): Generates a Neon/PostgreSQL ALTER TABLE ... ADD COLUMN statement.
+- `generatePostgresColumnDefinition` (function): Renders one Neon/PostgreSQL column definition.
+- `generatePostgresColumnType` (function): Maps a Sisal snapshot column type to the PostgreSQL type Neon accepts.
+- `generatePostgresCreateTable` (function): Generates a Neon/PostgreSQL CREATE TABLE statement from one table snapshot.
+- `generatePostgresUpStatements` (function): Generates non-destructive Neon/PostgreSQL migration statements from schema snapshots, returning destructive changes separately.
+- `pgQualifiedName` (function): Renders a qualified PostgreSQL table name for Neon DDL.
+- `PostgresUpStatements` (typeAlias): Safe Neon/PostgreSQL up statements plus destructive changes withheld.
+- `quotePgIdent` (function): Quotes a PostgreSQL identifier for Neon DDL.
 
 ### @sisal/neon ./migrate (packages/neon/src/migrate/mod.ts)
 
@@ -2015,7 +2015,7 @@ Neon serverless adapter for @sisal/orm.
 - `NeonSqlExecutor` (interface): Minimal SQL executor used by Sisal's Neon compatibility package.
 - `NeonSqlResult` (interface): Rows and affected-row count returned by a Neon executor.
 - `normalizeNeonResult` (function): Normalizes a Neon query result into Sisal's affected-row shape.
-- `POSTGRES_DIALECT` (variable): SQL dialect name used by the PostgreSQL ORM adapter.
+- `POSTGRES_DIALECT` (variable): SQL dialect name used by the Neon adapter's PostgreSQL-compatible renderer.
 - `resolveNeonConnectionString` (function): Resolves url or connectionString into a non-empty connection string.
 
 ## Documentation Map

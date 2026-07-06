@@ -19,10 +19,11 @@ import {
   type Database,
   type MappableQueryResult,
   type OrmQueryResult,
+  type SqlDialect,
   type SqlInput,
   type SqlParameter,
 } from "@sisal/orm";
-import { createPgOrmDriver, POSTGRES_DIALECT } from "@sisal/pg/orm";
+import { createPgOrmDriver } from "@sisal/pg/orm";
 
 import {
   createNeonExecutor,
@@ -58,7 +59,9 @@ export type {
   NeonSqlExecutor,
   NeonSqlResult,
 } from "../executor.ts";
-export { POSTGRES_DIALECT } from "@sisal/pg/orm";
+
+/** SQL dialect name used by the Neon adapter's PostgreSQL-compatible renderer. */
+export const POSTGRES_DIALECT: SqlDialect = "postgres";
 
 /** Neon-specialized database facade. */
 export interface NeonDatabase extends Database {

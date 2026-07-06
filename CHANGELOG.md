@@ -19,6 +19,18 @@ Sisal-specific history after that baseline through `1f05448`.
   Deno-only permission flags relabeled as such. Package READMEs ship to npm on
   the next release (build copies each `packages/<id>/README.md` into the npm
   artifact).
+- **The documentation gate now checks JSR score prerequisites.** `docs:check`
+  verifies each published package has a non-empty JSR-sized description, a
+  shipped README, a fenced TypeScript usage example, a default entrypoint,
+  module docs for every entrypoint, and full public-symbol JSDoc coverage.
+  `@sisal/core` now includes a README usage example so the package docs satisfy
+  the stricter gate.
+- **Published packages now own their public symbol docs.** `@sisal/neon`,
+  `@sisal/libsql`, and `@sisal/analytics` now expose local documented wrapper
+  declarations for delegated PostgreSQL, SQLite/libSQL, and aggregate helpers
+  instead of relying on another package's declarations. `docs:check` now rejects
+  non-local public symbol docs for every package, with an explicit exception for
+  `@sisal/orm`'s documented `@sisal/core` compatibility re-export surface.
 
 ## 0.12.0 - 2026-07-05
 
