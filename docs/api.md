@@ -5,9 +5,9 @@ title: API Reference
 # Sisal API Reference
 
 This reference is verified against the current workspace package exports and
-source layout. Sisal is a Deno-first database toolkit, published to JSR, with a
-driverless core, a driverless ORM facade, adapter-neutral migration tooling, and
-explicit database adapters.
+source layout. Sisal is a JSR-first, Deno-native database toolkit that is also
+published to npm for Node.js 24+. It has a driverless core, a driverless ORM
+facade, adapter-neutral migration tooling, and explicit database adapters.
 
 | Package            | Import root        | Responsibility                                      |
 | ------------------ | ------------------ | --------------------------------------------------- |
@@ -21,6 +21,11 @@ explicit database adapters.
 | `@sisal/sqlite`    | `@sisal/sqlite`    | Embedded SQLite execution, migrations, DDL          |
 | `@sisal/libsql`    | `@sisal/libsql`    | libSQL/Turso execution, client helpers, migrations  |
 | `@sisal/mysql`     | `@sisal/mysql`     | MySQL/MariaDB execution, SQL rendering, migrations  |
+
+On JSR/Deno these packages use the `@sisal/*` scope. On npm/Node they are
+published at the same version under `@sisaljs/*` with the same subpath shape.
+Examples in this reference use the JSR import names; npm consumers should swap
+the scope to `@sisaljs/*`.
 
 The manifests in this workspace are currently `0.12.0`; this page reflects the
 current tree, including the ETL and analytics preview packages, structured

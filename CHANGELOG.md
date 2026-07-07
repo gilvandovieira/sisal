@@ -11,6 +11,11 @@ Sisal-specific history after that baseline through `1f05448`.
 
 ### Changed
 
+- **Documentation now presents Sisal as JSR-first with npm support.** The docs
+  homepage, API/architecture/roadmap pages, Node guide, npm distribution notes,
+  package READMEs, and generated LLM context now use consistent messaging:
+  Deno/JSR remains the primary path, while matching `@sisaljs/*` npm packages
+  support Node.js 24+ at the same versions.
 - **README installation docs are now registry-neutral.** The root README and
   package READMEs document both distributions — dual install commands
   (`deno add jsr:@sisal/<pkg>` / `npm i @sisaljs/<pkg>`), a note that the scope

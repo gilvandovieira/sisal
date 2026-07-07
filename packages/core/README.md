@@ -7,10 +7,10 @@ registry** (`DIALECT_CAPABILITIES`, `capabilitySupported`), and the
 dialect-aware renderer (`renderSql`) with typed `ORM_DIALECT_UNSUPPORTED`
 guards.
 
-> **Install** — same package, registry-specific scopes:
+> **Install** — JSR first, npm supported with registry-specific scopes:
 >
-> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/core`
-> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/core`
+> - Deno / JSR (`@sisal/*`): `deno add jsr:@sisal/core`
+> - Node 24+ / npm (`@sisaljs/*`): `npm i @sisaljs/core`
 >
 > Examples use the JSR import (`@sisal/core`); on npm import from
 > `@sisaljs/core`.

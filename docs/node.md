@@ -2,12 +2,13 @@
 title: Use Sisal from Node
 ---
 
-# Use Sisal from Node
+# Use Sisal from Node/npm
 
-Sisal is Deno-first, but the same packages are published to **npm** under the
-**`@sisaljs`** scope for **Node.js 24+**. The API is identical to the JSR
-packages — only the install and the scope differ (`@sisal/*` on JSR →
-`@sisaljs/*` on npm).
+Sisal is JSR-first and Deno-native, and the same package set is published to
+**npm** under the **`@sisaljs`** scope for **Node.js 24+**. The API is identical
+to the JSR packages; the install command, import scope, and adapter driver peer
+dependencies are the parts that differ (`@sisal/*` on JSR → `@sisaljs/*` on
+npm).
 
 > Requirements: **Node 24+**. Node 24 runs ESM natively and ships the built-in
 > `node:sqlite` driver. The npm build is **ESM-only**.

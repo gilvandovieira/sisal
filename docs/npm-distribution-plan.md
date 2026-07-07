@@ -2,17 +2,17 @@
 title: npm Distribution Plan
 ---
 
-# Sisal on npm — execution plan
+# Sisal on npm — execution plan and maintenance notes
 
-This is the **actionable execution plan** for publishing Sisal to **npm** under
-the `@sisaljs` scope, running on **Node.js 24+**, alongside the existing JSR
-distribution. It is the "how / tasks" companion to
+This is the **actionable execution plan and maintenance record** for publishing
+Sisal to **npm** under the `@sisaljs` scope, running on **Node.js 24+**,
+alongside the JSR distribution. It is the "how / tasks" companion to
 [npm-release-readiness.md](npm-release-readiness.md) (the "why / feasibility").
 
 **Deno/JSR stays the source of truth.** Everything here is additive: the Deno
 workflow, `deno.json` files, and `@sisal/*` JSR names are unchanged. npm
 artifacts are _generated_ from the Deno sources by a build step and published in
-lockstep at identical versions.
+lockstep at identical versions under `@sisaljs/*`.
 
 ---
 
@@ -24,7 +24,7 @@ lockstep at identical versions.
 | Package shape                          | **10 packages, mirroring JSR**                                                     | Lets each adapter declare only its own driver as an optional peer dep; a Postgres user never installs `mysql2`.                                           |
 | Build tool                             | **[`dnt`](https://github.com/denoland/dnt)** (Deno-to-Node Transform), per package | Rewrites `.ts` specifiers + `jsr:`/`npm:` schemes, resolves JSR deps, remaps scope, emits ESM/CJS + `.d.ts`, and type-checks + runs the suite under Node. |
 | Node baseline                          | **Node 24+**                                                                       | `node:sqlite` (`DatabaseSync`) is stable, native ESM, `import.meta`, `node:test`.                                                                         |
-| Module type                            | **ESM primary**, CJS emitted by dnt                                                | Matches Deno; CJS kept for reach. Revisit dropping CJS if it costs maintenance.                                                                           |
+| Module type                            | **ESM-only**                                                                       | Matches Deno and avoids maintaining a second module surface; the migration CLI uses top-level await.                                                      |
 | Source of truth for versions & exports | **`deno.json`**                                                                    | `package.json` is generated; a freshness gate prevents drift.                                                                                             |
 | Auth / release                         | **OIDC Trusted Publishing + `--provenance`**                                       | No long-lived `NPM_TOKEN`; signed provenance badge.                                                                                                       |
 | Publish trigger                        | **Same version gate as `deno publish`**                                            | JSR and npm never diverge.                                                                                                                                |

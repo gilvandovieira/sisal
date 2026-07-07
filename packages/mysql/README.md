@@ -2,10 +2,10 @@
 
 MySQL and MariaDB adapter boundaries for [Sisal](https://jsr.io/@sisal/orm).
 
-> **Install** — same package, registry-specific scopes:
+> **Install** — JSR first, npm supported with registry-specific scopes:
 >
-> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/mysql`
-> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/mysql mysql2`
+> - Deno / JSR (`@sisal/*`): `deno add jsr:@sisal/mysql`
+> - Node 24+ / npm (`@sisaljs/*`): `npm i @sisaljs/mysql mysql2`
 >
 > Examples use the JSR import (`@sisal/mysql`); on npm import from
 > `@sisaljs/mysql`. The `mysql2` driver is a peer dependency you install

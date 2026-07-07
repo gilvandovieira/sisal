@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/brand/og-image.png" alt="Sisal — a Deno-first database toolkit" width="900">
+  <img src="./assets/brand/og-image.png" alt="Sisal — a JSR-first database toolkit with npm support" width="900">
 </p>
 
 # Sisal
@@ -13,23 +13,25 @@ Pronunciation: **Sisal** is read in Brazilian Portuguese as /siˈzaw/.
 > deployments yet. APIs, schema snapshot formats, generated DDL, migration
 > workflows, and adapter behavior may still change before 1.0.
 
-Sisal is a Deno-first collection of **ORM and query-builder packages**,
-published to both JSR and npm as of v0.12 — typed schemas, safe SQL builders,
-schema snapshots, migration planning, and explicit database adapters — with
-**lightweight ETL and analytics capabilities** growing on the same driverless
-core.
+Sisal is a JSR-first, Deno-native collection of **ORM and query-builder
+packages**, also published to npm for Node.js 24+ as of v0.12 — typed schemas,
+safe SQL builders, schema snapshots, migration planning, and explicit database
+adapters — with **lightweight ETL and analytics capabilities** growing on the
+same driverless core.
 
 The core stays portable: `@sisal/orm` is driverless and `@sisal/migrate` is
 adapter-neutral. PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB
 behavior lives in adapter packages, where database drivers and runtime-specific
 dependency edges belong.
 
-Every Sisal package is published with a registry-specific scope: JSR uses
-`@sisal/*`, while npm uses `@sisaljs/*`. For example, the ORM package is
-`jsr:@sisal/orm` on JSR and `@sisaljs/orm` on npm. The core packages stay
-driverless on both targets. Adapter packages own runtime-specific driver edges:
-`@sisal/pg` / `@sisaljs/pg` can use `postgres` or `jsr:@db/postgres`; SQLite
-uses `jsr:@db/sqlite` on Deno and `node:sqlite` on Node; libSQL/Turso uses
+Every Sisal package is published at the same version to both registries with a
+registry-specific scope: JSR uses `@sisal/*`, while npm uses `@sisaljs/*`. For
+example, the ORM package is `jsr:@sisal/orm` on JSR and `@sisaljs/orm` on npm.
+The API is shared; the install command, import scope, and adapter driver peer
+dependencies are the runtime-specific parts. The core packages stay driverless
+on both targets. Adapter packages own runtime-specific driver edges: `@sisal/pg`
+/ `@sisaljs/pg` can use `postgres` or `jsr:@db/postgres`; SQLite uses
+`jsr:@db/sqlite` on Deno and `node:sqlite` on Node; libSQL/Turso uses
 `@libsql/client`; Neon uses `@neondatabase/serverless` on npm; MySQL/MariaDB
 uses `mysql2` by default with a lazy MariaDB connector opt-in.
 
@@ -58,8 +60,8 @@ layer and keeps its own driverless core, snapshot workflow, and adapter split.
 Install the core packages plus one adapter. The package scope tells you which
 registry you are using:
 
-- JSR / Deno: `jsr:@sisal/<package>`
-- npm / Node: `@sisaljs/<package>`
+- Deno / JSR (primary): `jsr:@sisal/<package>`
+- Node / npm: `@sisaljs/<package>`
 
 The npm packages target Node.js 24+ as ESM-only packages.
 
@@ -84,7 +86,7 @@ Most projects need exactly three Sisal packages: `@sisal/orm`, `@sisal/migrate`,
 and one adapter package. On npm, install the adapter's database driver peer
 dependency when it has one.
 
-| Target        | JSR / Deno (`@sisal/*`)                                                             | npm / Node (`@sisaljs/*`)                                                                         |
+| Target        | Deno / JSR (`@sisal/*`)                                                             | Node / npm (`@sisaljs/*`)                                                                         |
 | ------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | PostgreSQL    | `deno add jsr:@sisal/orm@0.12.0 jsr:@sisal/migrate@0.12.0 jsr:@sisal/pg@0.12.0`     | `npm i @sisaljs/orm@0.12.0 @sisaljs/migrate@0.12.0 @sisaljs/pg@0.12.0 postgres`                   |
 | Neon          | `deno add jsr:@sisal/orm@0.12.0 jsr:@sisal/migrate@0.12.0 jsr:@sisal/neon@0.12.0`   | `npm i @sisaljs/orm@0.12.0 @sisaljs/migrate@0.12.0 @sisaljs/neon@0.12.0 @neondatabase/serverless` |
@@ -459,11 +461,11 @@ Core packages:
 | `@sisal/orm`     | Driverless schema definitions, typed SQL, query builders, snapshots, structured errors, and configurable logging.                   |
 | `@sisal/migrate` | Adapter-neutral migrations, checksums, planning, drift checks, workflow helpers, generic runner, and CLI config.                    |
 
-`@sisal/core` is a public JSR package, but `@sisal/orm` re-exports its entire
-surface — most projects install `@sisal/orm` + `@sisal/migrate` + one adapter
-and never import `@sisal/core` directly. Depend on it directly only when you
-want the schema/SQL-IR layer without the query builders (as `@sisal/migrate`
-does).
+`@sisal/core` is a public package on both JSR and npm, but `@sisal/orm`
+re-exports its entire surface — most projects install `@sisal/orm` +
+`@sisal/migrate` + one adapter and never import `@sisal/core` directly. Depend
+on it directly only when you want the schema/SQL-IR layer without the query
+builders (as `@sisal/migrate` does).
 
 Preview packages:
 

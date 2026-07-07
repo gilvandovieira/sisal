@@ -4,10 +4,10 @@ Typed analytical queries for [Sisal](https://jsr.io/@sisal) preview packages:
 describe dimensions, aggregate metrics, and windowed metrics over rollup tables,
 then render one parameterized SQL statement through `@sisal/core`.
 
-> **Install** — same package, registry-specific scopes:
+> **Install** — JSR first, npm supported with registry-specific scopes:
 >
-> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/analytics`
-> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/analytics`
+> - Deno / JSR (`@sisal/*`): `deno add jsr:@sisal/analytics`
+> - Node 24+ / npm (`@sisaljs/*`): `npm i @sisaljs/analytics`
 >
 > Examples use the JSR import (`@sisal/analytics`); on npm import from
 > `@sisaljs/analytics`.

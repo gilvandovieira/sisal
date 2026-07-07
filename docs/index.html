@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sisal — Deno-first database tooling with explicit adapters</title>
+    <title>Sisal — JSR-first database tooling with npm support</title>
     <meta
       name="description"
-      content="Sisal is a Deno-first database toolkit published to JSR: a driverless ORM and migration core, typed SQL, planned migrations, and explicit Postgres, Neon, SQLite, and libSQL/Turso adapters."
+      content="Sisal is a JSR-first, Deno-native database toolkit also published to npm for Node.js: a driverless ORM and migration core, typed SQL, planned migrations, and explicit database adapters."
     >
     <link rel="canonical" href="https://gilvandovieira.github.io/sisal/">
 
@@ -42,11 +42,11 @@
     <meta property="og:type" content="website">
     <meta
       property="og:title"
-      content="Sisal — Deno-first database tooling with explicit adapters"
+      content="Sisal — JSR-first database tooling with npm support"
     >
     <meta
       property="og:description"
-      content="Driverless core packages, planned migrations, and explicit Postgres, Neon, SQLite, and libSQL/Turso adapters with runtime dependencies kept at adapter boundaries."
+      content="Driverless core packages, planned migrations, and explicit adapters published to JSR as @sisal/* and to npm as @sisaljs/*, with runtime dependencies kept at adapter boundaries."
     >
     <meta property="og:url" content="https://gilvandovieira.github.io/sisal/">
     <meta
@@ -56,7 +56,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta
       name="twitter:title"
-      content="Sisal — Deno-first database tooling with explicit adapters"
+      content="Sisal — JSR-first database tooling with npm support"
     >
     <meta
       name="twitter:image"
@@ -1051,7 +1051,7 @@
         <div class="wrap hero__inner">
           <div class="hero__copy">
             <p class="eyebrow reveal">
-              Deno-first · JSR packages · explicit adapters
+              JSR-first · npm-supported · explicit adapters
             </p>
             <h1 class="reveal d1">
               Database tooling,<br>
@@ -1060,9 +1060,9 @@
             </h1>
             <p class="lede reveal d2">
               Sisal pairs driverless schemas, typed SQL builders, and planned
-              migrations with explicit Postgres, Neon, SQLite, and libSQL/Turso
-              adapter boundaries. The core stays portable; adapters handle
-              database drivers and runtime details.
+              migrations with explicit database adapter boundaries. Deno and
+              JSR are the primary path; matching npm packages support Node.js
+              with runtime driver details kept at the adapter edge.
             </p>
             <div class="cta-row reveal d3">
               <a class="btn btn-primary" href="api.html">Read the docs</a>
@@ -1073,7 +1073,9 @@
                 View on GitHub
               </a>
               <a class="jsr-link" href="https://jsr.io/@sisal"
-              >Browse on JSR&nbsp;→</a>
+              >Browse JSR packages&nbsp;→</a>
+              <a class="jsr-link" href="https://www.npmjs.com/org/sisaljs"
+              >Browse npm packages&nbsp;→</a>
             </div>
           </div>
 
@@ -1239,16 +1241,17 @@
           <div class="package-note">
             <h3>Distribution boundary</h3>
             <p>
-              Every Sisal package is published to JSR. The core packages,
-              <code>@sisal/orm</code> and <code>@sisal/migrate</code>, are pure
-              JSR; adapter packages may cross runtime dependency boundaries
-              when a database driver requires it.
+              Every Sisal package is published to JSR as
+              <code>@sisal/*</code> and mirrored to npm as
+              <code>@sisaljs/*</code> at the same version. Deno/JSR is the
+              primary development path; npm artifacts are generated from that
+              source for Node.js 24+.
             </p>
             <p>
-              The libSQL/Turso adapter imports
-              <code>npm:@libsql/client</code>; Neon uses
-              <code>jsr:@neon/serverless</code> and inherits its transitive
-              dependency shape. Neither is runtime code for Sisal's core.
+              The public API and subpaths match across registries. Application
+              code imports <code>@sisal/orm</code> on JSR/Deno and
+              <code>@sisaljs/orm</code> on npm/Node; adapter driver peers are
+              the runtime-specific part.
             </p>
             <p>
               Core packages stay driverless or adapter-neutral. Adapter
@@ -1482,14 +1485,15 @@
               height="388"
             >
             <p>
-              A focused, Deno-first database toolkit. Useful database pieces,
-              none of the broader framework shape.
+              A focused, JSR-first database toolkit with npm support. Useful
+              database pieces, none of the broader framework shape.
             </p>
           </div>
           <div class="footer__cols">
             <div class="footer__col">
               <h4>Docs</h4>
               <a href="api.html">API reference</a>
+              <a href="node.html">Use from Node/npm</a>
               <a href="editor-lsp.html">Editor LSP setup</a>
               <a href="pg-compatibility.html">Postgres compatibility</a>
               <a href="sqlite-compatibility.html">SQLite compatibility</a>
@@ -1507,6 +1511,7 @@
               <h4>Project</h4>
               <a href="https://github.com/gilvandovieira/sisal">GitHub</a>
               <a href="https://jsr.io/@sisal">JSR scope</a>
+              <a href="https://www.npmjs.com/org/sisaljs">npm scope</a>
               <a href="https://github.com/gilvandovieira/sisal/issues"
               >Issues</a>
             </div>
@@ -1519,7 +1524,7 @@
           alongside the code.
         </p>
         <div class="footer__bottom">
-          <small>© 2026 Sisal · Built for Deno &amp; JSR</small>
+          <small>© 2026 Sisal · JSR-first, npm-supported</small>
           <div class="swatches" aria-hidden="true">
             <span style="background: #0e0e0f" title="Ink #0E0E0F"></span>
             <span style="background: #5f6b49" title="Olive #5F6B49"></span>

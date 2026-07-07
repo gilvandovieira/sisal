@@ -6,10 +6,10 @@ per invocation. The database does the heavy lifting — the runner sends a singl
 generated `INSERT ... SELECT ... ON CONFLICT DO UPDATE` statement; no row ever
 round-trips through the process.
 
-> **Install** — same package, registry-specific scopes:
+> **Install** — JSR first, npm supported with registry-specific scopes:
 >
-> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/etl`
-> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/etl`
+> - Deno / JSR (`@sisal/*`): `deno add jsr:@sisal/etl`
+> - Node 24+ / npm (`@sisaljs/*`): `npm i @sisaljs/etl`
 >
 > Examples use the JSR import (`@sisal/etl`); on npm import from `@sisaljs/etl`.
 

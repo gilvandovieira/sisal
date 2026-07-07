@@ -7,10 +7,10 @@ storage, file workflow helpers, schema diff classification, and a generic
 migrator. It depends on `@sisal/core` for schema snapshot types and helpers, but
 it does not depend on PostgreSQL or SQLite drivers.
 
-> **Install** — same package, registry-specific scopes:
+> **Install** — JSR first, npm supported with registry-specific scopes:
 >
-> - JSR / Deno (`@sisal/*`): `deno add jsr:@sisal/migrate`
-> - npm / Node 24+ (`@sisaljs/*`): `npm i @sisaljs/migrate`
+> - Deno / JSR (`@sisal/*`): `deno add jsr:@sisal/migrate`
+> - Node 24+ / npm (`@sisaljs/*`): `npm i @sisaljs/migrate`
 >
 > Examples use the JSR import (`@sisal/migrate`); on npm import from
 > `@sisaljs/migrate`. On npm the package ships a `sisal` bin — run it with

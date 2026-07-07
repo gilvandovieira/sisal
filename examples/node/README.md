@@ -1,7 +1,7 @@
 # Sisal on Node — examples
 
-One minimal, runnable example per engine family, using the published
-`@sisaljs/*` npm packages on **Node 24+**. See
+One minimal, runnable example per engine family, using the Node/npm
+`@sisaljs/*` package scope on **Node 24+**. See
 [`docs/node.md`](../../docs/node.md) for the full guide.
 
 | Example | Driver | Needs a database? |
@@ -33,6 +33,6 @@ npm install
 MYSQL_URL=mysql://root:root@localhost:33306/sisal npm start
 ```
 
-> These examples pin `@sisaljs/*@^0.12.0`. Before the packages are published,
-> run them against a local build by linking `npm/<pkg>` with
-> `npm install --install-links` (see `tools/npm_e2e/run.sh`).
+> These examples pin `@sisaljs/*@^0.12.0`. During local development, run them
+> against a local build by linking `npm/<pkg>` with `npm install --install-links`
+> (see `tools/npm_e2e/run.sh`).

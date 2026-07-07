@@ -188,7 +188,7 @@ function buildLlmsTxt(
   const lines: string[] = [
     "# Sisal",
     "",
-    "> Sisal is a Deno-first, JSR-native database toolkit for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.",
+    "> Sisal is a JSR-first, Deno-native database toolkit with npm support for typed schemas, safe SQL, query builders, migration planning, and small adapter packages.",
     "",
     `Workspace package version: ${version}. The core ORM is driverless; adapters for PostgreSQL, Neon, SQLite, libSQL/Turso, and MySQL/MariaDB live at explicit package boundaries.`,
     "",

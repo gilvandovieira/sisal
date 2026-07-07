@@ -4,10 +4,15 @@ title: Package Architecture
 
 # Sisal package architecture
 
-Sisal is, and will remain, a **Deno-first, SQL-first, type-safe** toolkit for
-**relational** data access. It is not becoming an object-first ORM. As the
-surface grows from OLTP query building toward ETL and analytics, the packages
-stay strictly layered so the OLTP core never pays for the analytical ambitions.
+Sisal is, and will remain, a **JSR-first, Deno-native, SQL-first, type-safe**
+toolkit for **relational** data access, with matching npm packages for Node.js
+24+. It is not becoming an object-first ORM. As the surface grows from OLTP
+query building toward ETL and analytics, the packages stay strictly layered so
+the OLTP core never pays for the analytical ambitions.
+
+The package graph is registry-neutral: JSR publishes `@sisal/*`, npm publishes
+the same package set and versions as `@sisaljs/*`, and the dependency-direction
+rules below apply to both distributions.
 
 This document describes the package graph and the one rule that keeps it honest.
 The release roadmaps (`v0.6` → `v0.11`) stage the work that gets us here. See
